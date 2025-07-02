@@ -1,0 +1,19 @@
+#import "Basic/Print";
+
+testRedefineFunction :: (){
+	printl("* Function testFunction():");
+	testFunction();
+
+	printl("* redefining...");
+	testFunction = otherFunction;
+	
+	printl("* Function testFunction():");
+}
+
+testFunction :: (){
+	printl("First test function");
+}
+
+otherFunction :: (){
+	printl("This is another function's output!");
+}
