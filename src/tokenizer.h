@@ -10,8 +10,9 @@ enum TokenType {
 	// Null type
 	Nothing,
 
-	// Line end
+	// Line and file end
 	EndOfLine,
+	EndOfFile,
 
 	// Comment
 	Comment,
@@ -71,7 +72,8 @@ enum TokenType {
 const std::string tokenTypeStrings[] = {
 	"nothing",
 
-	"eol",
+	"EOL",
+	"EOF",
 
 	"Comment",
 

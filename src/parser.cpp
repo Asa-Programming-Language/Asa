@@ -7,7 +7,7 @@ int beginParse(const std::vector<std::pair<std::string, TokenType>>& tokens)
 
 //std::vector<ASTNode> ASTNodes = std::vector<ASTNode>();
 
-// Add nodes here as they are still yet to be used.
+// Add leaf nodes here as they are still yet to be used.
 std::stack<ASTNode*> unusedNodes = std::stack<ASTNode*>();
 
 ASTNode* rootNode = new ASTNode();
@@ -35,6 +35,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, bool hasPa
 		std::string tokenValue = tokens[i].first;
 		TokenType tokenType = tokens[i].second;
 		int lineNumber = tokens[i].lineNumber;
+		bool unusedNode = false;
 
 		node->tokenType = tokenType;
 		node->token = tokenValue;
@@ -155,6 +156,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, bool hasPa
 			node->childNodes.push_back(bodyNode);
 		}
 		else if (tokenType == Plus) {
+			//continue;
 			node->nodeType = Expression_Plus;
 
 			ASTNode* firstTerm = new ASTNode();
@@ -163,14 +165,15 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, bool hasPa
 			// Instead of backtracking to get the first term, pop the unusedNodes vector =)
 			if (unusedNodes.size() == 0) {
 				std::cerr << "Error: `unusedNodes` variable was empty when it was expected to contain an element\nLine: " << lineNumber << std::endl;
+				std::cerr << unusedNodes.top();
 
-				printf("\nTokens:\n");
-				for (int tok = 0; tok < tokens.size(); tok++) {
-					if (tokens[tok].second != EndOfLine) {
-						printf("%dT:%d: ", tok, tokens[tok].lineNumber);
-						printf("[%s]\t[%s]\n", tokens[tok].first.c_str(), tokenAsString(tokens[tok].second).c_str());
-					}
-				}
+				//printf("\nTokens:\n");
+				//for (int tok = 0; tok < tokens.size(); tok++) {
+				//	if (tokens[tok].second != EndOfLine) {
+				//		printf("%dT:%d: ", tok, tokens[tok].lineNumber);
+				//		printf("[%s]\t[%s]\n", tokens[tok].first.c_str(), tokenAsString(tokens[tok].second).c_str());
+				//	}
+				//}
 				throw;
 			}
 			firstTerm->childNodes.push_back(unusedNodes.top());
@@ -329,9 +332,13 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, bool hasPa
 		continue;
 
 	dontAddNode:
+		printf("unusedNodes top: ");
+		printf("%s ", unusedNodes.top()->token.c_str());
+		printf("\n");
 		// If it has a parent waiting for results, dont skip adding node
 		if (hasParent) {
 			unusedNodes.pop();
+			printf("removed\n");
 			goto addNode;
 		}
 	dontAddNodeForce:
@@ -362,7 +369,7 @@ inline void indent(int& depth)
 		printf("\t");
 }
 
-inline std::vector<tokenPair> GATHER_SCOPE_BODY(int braceLevel, int& i)
+std::vector<tokenPair> GATHER_SCOPE_BODY(int braceLevel, int& i)
 {
 	std::vector<tokenPair> subTokens = std::vector<tokenPair>();
 	for (;;) {
@@ -375,7 +382,7 @@ inline std::vector<tokenPair> GATHER_SCOPE_BODY(int braceLevel, int& i)
 
 		subTokens.push_back(t);
 
-		if (braceLevel == 0)
+		if (braceLevel == 0 || t.second == EndOfFile)
 			break;
 	}
 	return subTokens;

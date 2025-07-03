@@ -120,4 +120,4 @@ int beginParse(const std::vector<tokenPair>& tokens);
 ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth = 0, bool hasParent = false);
 const std::string ASTNodeTypeAsString(ASTNodeType t);
 int printAST(ASTNode* startNode, int depth = 0);
-inline std::vector<tokenPair> GATHER_SCOPE_BODY(int braceLevel, int& i);
+std::vector<tokenPair> GATHER_SCOPE_BODY(int braceLevel, int& i);

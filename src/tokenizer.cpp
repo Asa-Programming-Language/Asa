@@ -189,6 +189,7 @@ int tokenize(std::string& rawFile)
 				tokenContent += c;
 		}
 	}
+	tokens.push_back(tokenPair("", EndOfFile, lineNumber + 1));
 
 	return 0;
 }

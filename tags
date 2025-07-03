@@ -99,6 +99,7 @@ Compile_Time_Directive	src/parser.h	/^	Compile_Time_Directive,$/;"	e	enum:ASTNod
 Compiler_Define	src/parser.h	/^	Compiler_Define,$/;"	e	enum:ASTNodeType
 Dot	src/tokenizer.h	/^	Dot,$/;"	e	enum:TokenType
 ERROR	src/console.h	/^#define ERROR(/;"	d
+EndOfFile	src/tokenizer.h	/^	EndOfFile,$/;"	e	enum:TokenType
 EndOfLine	src/tokenizer.h	/^	EndOfLine,$/;"	e	enum:TokenType
 Equal	src/tokenizer.h	/^	Equal,$/;"	e	enum:TokenType
 Equal_Equal	src/tokenizer.h	/^	Equal_Equal,$/;"	e	enum:TokenType
@@ -114,7 +115,7 @@ For_It	src/parser.h	/^	For_It,$/;"	e	enum:ASTNodeType
 For_Range	src/parser.h	/^	For_Range,$/;"	e	enum:ASTNodeType
 For_Statement	src/tokenizer.h	/^	For_Statement,$/;"	e	enum:TokenType
 For_Statement_Node	src/parser.h	/^	For_Statement_Node,$/;"	e	enum:ASTNodeType
-GATHER_SCOPE_BODY	src/parser.cpp	/^inline std::vector<tokenPair> GATHER_SCOPE_BODY(int braceLevel, int& i)$/;"	f	typeref:typename:std::vector<tokenPair>
+GATHER_SCOPE_BODY	src/parser.cpp	/^std::vector<tokenPair> GATHER_SCOPE_BODY(int braceLevel, int& i)$/;"	f	typeref:typename:std::vector<tokenPair>
 GO_BACK_TO_BEGINNING_OF_TERM	src/parser.cpp	/^void GO_BACK_TO_BEGINNING_OF_TERM(int& i)$/;"	f	typeref:typename:void
 Greater	src/tokenizer.h	/^	Greater,$/;"	e	enum:TokenType
 Greater_Equal	src/tokenizer.h	/^	Greater_Equal,$/;"	e	enum:TokenType
@@ -185,16 +186,16 @@ nodeType	src/parser.h	/^	ASTNodeType nodeType = Nothing_Node;$/;"	m	struct:ASTNo
 prevNode	src/parser.h	/^	ASTNode* prevNode;$/;"	m	struct:ASTNode	typeref:typename:ASTNode *
 printAST	src/parser.cpp	/^int printAST(ASTNode* startNode, int depth)$/;"	f	typeref:typename:int
 rootNode	src/parser.cpp	/^ASTNode* rootNode = new ASTNode();$/;"	v	typeref:typename:ASTNode *
-s:l	src/Session.vim	/^let s:l = 10 - ((9 * winheight(0) + 22) \/ 45)$/;"	v
-s:l	src/Session.vim	/^let s:l = 14 - ((13 * winheight(0) + 22) \/ 45)$/;"	v
-s:l	src/Session.vim	/^let s:l = 17 - ((16 * winheight(0) + 22) \/ 45)$/;"	v
-s:l	src/Session.vim	/^let s:l = 18 - ((17 * winheight(0) + 22) \/ 45)$/;"	v
-s:l	src/Session.vim	/^let s:l = 2050 - ((7 * winheight(0) + 7) \/ 15)$/;"	v
-s:l	src/Session.vim	/^let s:l = 22 - ((21 * winheight(0) + 22) \/ 45)$/;"	v
-s:l	src/Session.vim	/^let s:l = 7 - ((6 * winheight(0) + 22) \/ 45)$/;"	v
-s:l	src/Session.vim	/^let s:l = 8 - ((7 * winheight(0) + 22) \/ 45)$/;"	v
-s:l	src/Session.vim	/^let s:l = 83 - ((43 * winheight(0) + 22) \/ 45)$/;"	v
-s:l	src/Session.vim	/^let s:l = 91 - ((13 * winheight(0) + 14) \/ 29)$/;"	v
+s:l	src/Session.vim	/^let s:l = 105 - ((21 * winheight(0) + 17) \/ 34)$/;"	v
+s:l	src/Session.vim	/^let s:l = 135 - ((10 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 14 - ((13 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 146 - ((50 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 171 - ((41 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 19 - ((18 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 23 - ((22 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 3 - ((2 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 7 - ((6 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 9777 - ((8 * winheight(0) + 9) \/ 18)$/;"	v
 s:save_splitbelow	src/Session.vim	/^let s:save_splitbelow = &splitbelow$/;"	v
 s:save_splitright	src/Session.vim	/^let s:save_splitright = &splitright$/;"	v
 s:save_winminheight	src/Session.vim	/^let s:save_winminheight = &winminheight$/;"	v
