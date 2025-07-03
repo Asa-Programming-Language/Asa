@@ -11,7 +11,6 @@
 
 #define MAX_AST_DEPTH -1
 
-//#define NEXT_TOKEN(i) (if (i + 1 < tokens.size()) tokens[++i] else "ERROR");
 void GO_BACK_TO_BEGINNING_OF_TERM(int& i);
 
 enum ASTNodeType {
@@ -111,6 +110,9 @@ struct ASTNode {
 	ASTNodeType nodeType = Nothing_Node;
 	TokenType tokenType = Nothing;
 	std::string token;
+	int lineNumber = 0;
+	// Add leaf nodes here as they are still yet to be used.
+	std::vector<ASTNode*> leafNodes = std::vector<ASTNode*>();
 };
 
 
@@ -120,4 +122,4 @@ int beginParse(const std::vector<tokenPair>& tokens);
 ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth = 0, bool hasParent = false);
 const std::string ASTNodeTypeAsString(ASTNodeType t);
 int printAST(ASTNode* startNode, int depth = 0);
-std::vector<tokenPair> GATHER_SCOPE_BODY(int braceLevel, int& i);
+std::vector<tokenPair> GATHER_SCOPE_BODY(int brLevel, int& i);

@@ -11,14 +11,14 @@ bool charInArray(char x, const char* a)
 	return false;
 }
 
-tokenPair NEXT_TOKEN(int& i)
-{
-	if (i + 1 < tokens.size())
-		return tokens[++i];
-	else
-		printf("Error: Out of bounds token\n");
-	throw std::runtime_error("Error: Out of bounds token from NEXT_TOKEN\n" __FILE__);
-}
+//tokenPair NEXT_TOKEN(int& i)
+//{
+//	if (i + 1 < tokens.size())
+//		return tokens[++i];
+//	else
+//		printf("Error: Out of bounds token\n");
+//	throw std::runtime_error("Error: Out of bounds token from NEXT_TOKEN\n" __FILE__);
+//}
 
 const std::map<TokenType, const char*> tokenStarts = {
 	{Identifier, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_"},

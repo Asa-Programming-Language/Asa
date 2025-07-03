@@ -5,10 +5,8 @@ int beginParse(const std::vector<std::pair<std::string, TokenType>>& tokens)
 	return 0;
 }
 
-//std::vector<ASTNode> ASTNodes = std::vector<ASTNode>();
+std::vector<ASTNode*> ASTNodes = std::vector<ASTNode*>();
 
-// Add leaf nodes here as they are still yet to be used.
-std::stack<ASTNode*> unusedNodes = std::stack<ASTNode*>();
 
 ASTNode* rootNode = new ASTNode();
 
@@ -31,6 +29,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, bool hasPa
 	// Iterate all tokens
 	for (int i = 0; i < tokens.size(); i++) {
 		ASTNode* node = new ASTNode();
+		ASTNodes.push_back(node);
 		//node.prevNode = &parentNode;
 		std::string tokenValue = tokens[i].first;
 		TokenType tokenType = tokens[i].second;
@@ -39,6 +38,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, bool hasPa
 
 		node->tokenType = tokenType;
 		node->token = tokenValue;
+		node->lineNumber = lineNumber;
 
 		if (tokenType == If_Statement) {
 			node->nodeType = If_Statement_Node;
@@ -144,7 +144,9 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, bool hasPa
 			rangeNode->nodeType = For_Range;
 
 			// Step through all tokens to gather body until braces are closed
+			printf("Gather for body start i and line: %dT:%dL     ", i, tokens[i].lineNumber);
 			subTokens = GATHER_SCOPE_BODY(0, i);
+			printf("End i and line: %dT:%dL\n", i, tokens[i].lineNumber);
 
 			bodyNode = generateAST(subTokens, depth + 1, true);
 			bodyNode->nodeType = For_Body;
@@ -162,10 +164,10 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, bool hasPa
 			ASTNode* firstTerm = new ASTNode();
 			ASTNode* secondTerm = new ASTNode();
 
-			// Instead of backtracking to get the first term, pop the unusedNodes vector =)
-			if (unusedNodes.size() == 0) {
-				std::cerr << "Error: `unusedNodes` variable was empty when it was expected to contain an element\nLine: " << lineNumber << std::endl;
-				std::cerr << unusedNodes.top();
+			// Instead of backtracking to get the first term, pop the leafNodes vector =)
+			if (parentNode->leafNodes.size() == 0) {
+				std::cerr << "Error: `leafNodes` variable was empty when it was expected to contain an element\nLine: " << lineNumber << std::endl;
+				std::cerr << parentNode->leafNodes.back();
 
 				//printf("\nTokens:\n");
 				//for (int tok = 0; tok < tokens.size(); tok++) {
@@ -176,8 +178,8 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, bool hasPa
 				//}
 				throw;
 			}
-			firstTerm->childNodes.push_back(unusedNodes.top());
-			unusedNodes.pop();
+			firstTerm->childNodes.push_back(parentNode->leafNodes.back());
+			parentNode->leafNodes.pop_back();
 			firstTerm->nodeType = Expression_Term;
 
 			// Step through all following tokens until parens are closed
@@ -229,7 +231,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, bool hasPa
 
 
 				printf("subtoken added of value: `%s`\n", t.first.c_str());
-				//subTokens.push_back(t);
+				subTokens.push_back(t);
 			}
 			bodyNode = generateAST(subTokens, depth + 1, true);
 			bodyNode->nodeType = Scope_Body;
@@ -240,14 +242,15 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, bool hasPa
 		}
 		else if (tokenType == Colon_Colon) {
 			node->nodeType = Compiler_Define;
+			printAST(parentNode);
 
 			ASTNode* identifier = new ASTNode();
 			ASTNode* returnType = new ASTNode();
 			ASTNode* arguments = new ASTNode();
 			ASTNode* bodyNode = new ASTNode();
 
-			identifier = unusedNodes.top();
-			unusedNodes.pop();
+			identifier = parentNode->leafNodes.back();
+			parentNode->leafNodes.pop_back();
 			identifier->nodeType = Identifier_Node;
 
 			// Step through all following tokens until parens start
@@ -299,27 +302,30 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, bool hasPa
 		}
 		else if (tokenType == Number) {
 			node->nodeType = Number_Node;
-			unusedNodes.push(node);
+			parentNode->leafNodes.push_back(node);
 			goto dontAddNode;
 		}
 		else if (tokenType == String) {
 			node->nodeType = String_Node;
-			unusedNodes.push(node);
+			parentNode->leafNodes.push_back(node);
 			goto dontAddNode;
 		}
 		else if (tokenType == True_Literal) {
 			node->nodeType = Boolean_Node;
-			unusedNodes.push(node);
+			parentNode->leafNodes.push_back(node);
 			goto dontAddNode;
 		}
 		else if (tokenType == False_Literal) {
 			node->nodeType = Boolean_Node;
-			unusedNodes.push(node);
+			parentNode->leafNodes.push_back(node);
 			goto dontAddNode;
+		}
+		else if (tokenType == Comment) {
+			goto dontAddNodeForce;
 		}
 		else if (tokenType == Identifier) {
 			node->nodeType = Identifier_Node;
-			unusedNodes.push(node);
+			parentNode->leafNodes.push_back(node);
 			goto dontAddNode;
 		}
 		else {
@@ -332,18 +338,22 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, bool hasPa
 		continue;
 
 	dontAddNode:
-		printf("unusedNodes top: ");
-		printf("%s ", unusedNodes.top()->token.c_str());
-		printf("\n");
-		// If it has a parent waiting for results, dont skip adding node
-		if (hasParent) {
-			unusedNodes.pop();
-			printf("removed\n");
-			goto addNode;
-		}
+		//// If it has a parent waiting for results, dont skip adding node
+		//if (hasParent) {
+		//	leafNodes.pop();
+		//	printf("removed\n");
+		//	goto addNode;
+		//}
 	dontAddNodeForce:
 		continue;
 	}
+
+	//if (parentNode->childNodes.size() == 1) {
+	//	parentNode->leafNodes.push(parentNode->childNodes[0]);
+	//	printf("leafNodes top: ");
+	//	printf("%s ", parentNode->leafNodes.top()->token.c_str());
+	//	printf("\n");
+	//}
 
 
 	return parentNode;
@@ -369,8 +379,9 @@ inline void indent(int& depth)
 		printf("\t");
 }
 
-std::vector<tokenPair> GATHER_SCOPE_BODY(int braceLevel, int& i)
+std::vector<tokenPair> GATHER_SCOPE_BODY(int brLevel, int& i)
 {
+	int braceLevel = brLevel;
 	std::vector<tokenPair> subTokens = std::vector<tokenPair>();
 	for (;;) {
 		tokenPair t = NEXT_TOKEN(i);
@@ -400,25 +411,39 @@ const std::string ASTNodeTypeAsString(ASTNodeType t)
 
 int printAST(ASTNode* startNode, int depth)
 {
+	// Print each node
+
 	indent(depth);
 
-	try {
-		printf("%s:(%s){", startNode->token.c_str(), ASTNodeTypeAsString(startNode->nodeType).c_str());
+	printf("%s", startNode->token.c_str());
+	if (startNode->token.size() > 0)
+		printf(":L%d", startNode->lineNumber);
+	printf(":(%s){", ASTNodeTypeAsString(startNode->nodeType).c_str());
 
-		if (startNode->childNodes.size() > 0)
-			printf("\n");
+	if (startNode->childNodes.size() > 0 || startNode->leafNodes.size() > 0)
+		printf("\n");
 
-		for (int c = 0; c < startNode->childNodes.size(); c++) {
-			printAST(startNode->childNodes[c], depth + 1);
+	for (int c = 0; c < startNode->childNodes.size(); c++) {
+		printAST(startNode->childNodes[c], depth + 1);
+	}
+
+	// Print unused leaf nodes
+	depth++;
+	if (startNode->leafNodes.size() > 0) {
+		indent(depth);
+		printf("!unusedLeafNodes!:{\n");
+		for (int c = 0; c < startNode->leafNodes.size(); c++) {
+			printAST(startNode->leafNodes[c], depth + 1);
 		}
+		indent(depth);
+		printf("}\n");
 	}
-	catch (std::exception& e) {
-		printf(e.what());
-	}
+	depth--;
 
-	if (startNode->childNodes.size() > 0)
+	if (startNode->childNodes.size() > 0 || startNode->leafNodes.size() > 0)
 		indent(depth);
 	printf("}\n");
+
 
 	return 0;
 }

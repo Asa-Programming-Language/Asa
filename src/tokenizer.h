@@ -142,7 +142,8 @@ typedef tokenDataType tokenPair;
 
 extern std::vector<tokenPair> tokens;
 
-tokenPair NEXT_TOKEN(int& i);
+#define NEXT_TOKEN(i) tokens[++i];
+//tokenPair NEXT_TOKEN(int& i);
 
 int tokenize(std::string& rawFile);
 int labelSubTokens(std::vector<tokenPair>& tokens);

@@ -77,6 +77,7 @@ ASTNode	src/parser.h	/^struct ASTNode {$/;"	s
 ASTNodeType	src/parser.h	/^enum ASTNodeType {$/;"	g
 ASTNodeTypeAsString	src/parser.cpp	/^const std::string ASTNodeTypeAsString(ASTNodeType t)$/;"	f	typeref:typename:const std::string
 ASTNodeTypeStrings	src/parser.h	/^const std::string ASTNodeTypeStrings[] = {$/;"	v	typeref:typename:const std::string[]
+ASTNodes	src/parser.cpp	/^std::vector<ASTNode*> ASTNodes = std::vector<ASTNode*>();$/;"	v	typeref:typename:std::vector<ASTNode * >
 Arguments	src/parser.h	/^	Arguments,$/;"	e	enum:ASTNodeType
 Bang	src/tokenizer.h	/^	Bang,$/;"	e	enum:TokenType
 Bang_Equal	src/tokenizer.h	/^	Bang_Equal,$/;"	e	enum:TokenType
@@ -115,7 +116,7 @@ For_It	src/parser.h	/^	For_It,$/;"	e	enum:ASTNodeType
 For_Range	src/parser.h	/^	For_Range,$/;"	e	enum:ASTNodeType
 For_Statement	src/tokenizer.h	/^	For_Statement,$/;"	e	enum:TokenType
 For_Statement_Node	src/parser.h	/^	For_Statement_Node,$/;"	e	enum:ASTNodeType
-GATHER_SCOPE_BODY	src/parser.cpp	/^std::vector<tokenPair> GATHER_SCOPE_BODY(int braceLevel, int& i)$/;"	f	typeref:typename:std::vector<tokenPair>
+GATHER_SCOPE_BODY	src/parser.cpp	/^std::vector<tokenPair> GATHER_SCOPE_BODY(int brLevel, int& i)$/;"	f	typeref:typename:std::vector<tokenPair>
 GO_BACK_TO_BEGINNING_OF_TERM	src/parser.cpp	/^void GO_BACK_TO_BEGINNING_OF_TERM(int& i)$/;"	f	typeref:typename:void
 Greater	src/tokenizer.h	/^	Greater,$/;"	e	enum:TokenType
 Greater_Equal	src/tokenizer.h	/^	Greater_Equal,$/;"	e	enum:TokenType
@@ -138,7 +139,7 @@ MAX_AST_DEPTH	src/parser.h	/^#define MAX_AST_DEPTH /;"	d
 Minus	src/tokenizer.h	/^	Minus,$/;"	e	enum:TokenType
 Minus_Equal	src/tokenizer.h	/^	Minus_Equal,$/;"	e	enum:TokenType
 Minus_Minus	src/tokenizer.h	/^	Minus_Minus,$/;"	e	enum:TokenType
-NEXT_TOKEN	src/tokenizer.cpp	/^tokenPair NEXT_TOKEN(int& i)$/;"	f	typeref:typename:tokenPair
+NEXT_TOKEN	src/tokenizer.h	/^#define NEXT_TOKEN(/;"	d
 Nothing	src/tokenizer.h	/^	Nothing,$/;"	e	enum:TokenType
 Nothing_Node	src/parser.h	/^	Nothing_Node,$/;"	e	enum:ASTNodeType
 Number	src/tokenizer.h	/^	Number,$/;"	e	enum:TokenType
@@ -179,6 +180,8 @@ indent	src/parser.cpp	/^inline void indent(int& depth)$/;"	f	typeref:typename:vo
 initialFileString	src/filemanager.cpp	/^std::string initialFileString;$/;"	v	typeref:typename:std::string
 joinCommentTokens	src/tokenizer.cpp	/^int joinCommentTokens(std::vector<tokenPair>& tokens)$/;"	f	typeref:typename:int
 labelSubTokens	src/tokenizer.cpp	/^int labelSubTokens(std::vector<tokenPair>& tokens)$/;"	f	typeref:typename:int
+leafNodes	src/parser.h	/^	std::vector<ASTNode*> leafNodes = std::vector<ASTNode*>();$/;"	m	struct:ASTNode	typeref:typename:std::vector<ASTNode * >
+lineNumber	src/parser.h	/^	int lineNumber = 0;$/;"	m	struct:ASTNode	typeref:typename:int
 lineNumber	src/tokenizer.h	/^	int lineNumber = 0;$/;"	m	struct:tokenDataType	typeref:typename:int
 loadFile	src/filemanager.cpp	/^int loadFile(const std::string& fileName)$/;"	f	typeref:typename:int
 main	src/main.cpp	/^int main(int argc, char** argv)$/;"	f	typeref:typename:int
@@ -220,5 +223,4 @@ tokenType	src/parser.h	/^	TokenType tokenType = Nothing;$/;"	m	struct:ASTNode	ty
 tokenTypeStrings	src/tokenizer.h	/^const std::string tokenTypeStrings[] = {$/;"	v	typeref:typename:const std::string[]
 tokenize	src/tokenizer.cpp	/^int tokenize(std::string& rawFile)$/;"	f	typeref:typename:int
 tokens	src/tokenizer.cpp	/^std::vector<tokenPair> tokens = std::vector<tokenPair>();$/;"	v	typeref:typename:std::vector<tokenPair>
-unusedNodes	src/parser.cpp	/^std::stack<ASTNode*> unusedNodes = std::stack<ASTNode*>();$/;"	v	typeref:typename:std::stack<ASTNode * >
 verbosity	src/main.cpp	/^static int verbosity = 2;  \/\/ Verbosity of 0 is silent (no output), 1 is quiet, 2 is default, /;"	v	typeref:typename:int	file:
