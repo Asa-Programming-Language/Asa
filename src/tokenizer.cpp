@@ -1,6 +1,6 @@
 #include "tokenizer.h"
 
-std::vector<std::pair<std::string, TokenType>> tokens = std::vector<std::pair<std::string, TokenType>>();
+std::vector<tokenPair> tokens = std::vector<tokenPair>();
 
 bool charInArray(char x, const char* a)
 {
@@ -11,13 +11,22 @@ bool charInArray(char x, const char* a)
 	return false;
 }
 
+tokenPair NEXT_TOKEN(int& i)
+{
+	if (i + 1 < tokens.size())
+		return tokens[++i];
+	else
+		printf("Error: Out of bounds token\n");
+	throw std::runtime_error("Error: Out of bounds token from NEXT_TOKEN\n" __FILE__);
+}
 
 const std::map<TokenType, const char*> tokenStarts = {
 	{Identifier, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_"},
 	{Number, "0123456789"},
 	{String, "\""},
 	{Punctuation, ".,/;()+=-\\|<>?:!@#$%^&*{}[]`~"},
-	{Nothing, " \n"},
+	{EndOfLine, "\n"},
+	{Nothing, " "},
 };
 
 const std::map<TokenType, const char*> tokenEscapes = {
@@ -25,14 +34,17 @@ const std::map<TokenType, const char*> tokenEscapes = {
 	{Number, " ,/;()+=-\\|<>?:!@#$%^&*{}[]\"'\n"},
 	{String, "\""},
 	{Punctuation, " ,/;()+=-\\|<>?:!@#$%^&*{}[]\"'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789.\n"},
+	{EndOfLine, " ,/;()+=-\\|<>?:!@#$%^&*{}[]\"'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789.\n"},
 };
 
 
 // If the char is the first item and the following character is the second item, keep adding to token type
 const std::map<const char*, const char*> tokenEscapeCancels = {
 	{"+-*:^|!&~<>=", "="},
+	{"+-", "+-"},
 	{"/", "/*"},
 	{"*", "/"},
+	{":", ":"},
 };
 
 // If this and the following character match for the specific token type, immediately end
@@ -41,6 +53,7 @@ const std::map<TokenType, const char*> tokenForceEscapes = {
 };
 
 std::map<const std::string, const TokenType> subTokenTypes = {
+	// Symbols
 	{"(", Left_Paren},
 	{")", Right_Paren},
 	{"[", Left_Bracket},
@@ -53,32 +66,74 @@ std::map<const std::string, const TokenType> subTokenTypes = {
 	{"-", Minus},
 	{"/", Slash},
 	{"*", Star},
+	{"#", Hash},
 	{":", Colon},
+	{"::", Colon_Colon},
 	{";", Semi_Colon},
 	{"!", Bang},
 	{"!=", Bang_Equal},
+	{"+=", Plus_Equal},
+	{"++", Plus_Plus},
+	{"-=", Minus_Equal},
+	{"--", Minus_Minus},
+	{"*=", Times_Equal},
+	{"/=", Slash_Equal},
 	{"=", Equal},
 	{"==", Equal_Equal},
 	{"<", Less},
 	{"<=", Less_Equal},
 	{">", Greater},
 	{">=", Greater_Equal},
+
+	// Keywords
+	{"if", If_Statement},
+	{"for", For_Statement},
+	{"while", While_Statement},
+	//{"return", },
+	//{"break", },
+	//{"continue", },
+	//{"switch", },
+	//{"case", },
+	//{"constant", },
+	//{"int", },
+
+	// Literals
+	{"true", True_Literal},
+	{"false", False_Literal},
 };
 
 const std::string tokenAsString(TokenType t)
 {
-	return tokenTypeStrings[t];
+	if (t < LastTokenType)
+		return tokenTypeStrings[t];
+	else {
+		printf("Error: Undefined token type `%d`", t);
+		return "UNDEFINED TOKEN TYPE";
+	}
 }
 
 TokenType currentToken = Nothing;
 std::string tokenContent = "";
 int tokenize(std::string& rawFile)
 {
+	// First remove carriage returns if they exist
+	std::string output = "";
+	for (char c : rawFile) {
+		if (c != '\r') {
+			output += c;
+		}
+	}
+	rawFile = output;
+
+	// Then start making tokens
+	int lineNumber = 0;
 	rawFile = "\n" + rawFile + "\n";  // add extra character at end as buffer for lookahead
 	for (int i = 1; i < rawFile.size(); i++) {
 		char c = rawFile[i];
 		char nextChar = rawFile[i + 1];
 		char lastChar = rawFile[i - 1];
+		//if (lastChar == '\n')
+		//	lineNumber++;
 		// If no token is building, check what the new one should be
 		if (currentToken == Nothing) {
 			for (auto const& [tokenType, str] : tokenStarts) {
@@ -110,10 +165,12 @@ int tokenize(std::string& rawFile)
 						}
 						else
 							i--;
+						if (currentToken == EndOfLine)
+							lineNumber++;
 
 
 						// Add tokenContent as element to tokens, and clear it
-						tokens.push_back(std::make_pair(tokenContent, currentToken));
+						tokens.push_back(tokenPair(tokenContent, currentToken, lineNumber));
 						tokenContent = "";
 
 						currentToken = Nothing;
@@ -136,19 +193,66 @@ int tokenize(std::string& rawFile)
 	return 0;
 }
 
-int labelSubTokens(std::vector<std::pair<std::string, TokenType>>& tokens)
+int labelSubTokens(std::vector<tokenPair>& tokens)
 {
 	for (int i = 0; i < tokens.size(); i++) {
 		std::string t = tokens[i].first;
 		TokenType tt = tokens[i].second;
-		if (tt != Punctuation)
-			continue;
+		//if (tt != Punctuation)
+		//	continue;
 		// If token has a known subtype, set TokenType to that instead
 		if (subTokenTypes.find(t) != subTokenTypes.end()) {
 			const TokenType newType = subTokenTypes[t];
-			tokens[i] = std::make_pair(t, newType);
+			tokens[i].second = newType;
 		}
 	}
 
+	return 0;
+}
+
+int joinCommentTokens(std::vector<tokenPair>& tokens)
+{
+	int i = 0;
+	bool inComment = false;
+	bool multiLineComment = false;
+	int startIndex = 0;
+	std::string newTokenContents = "";
+	while (i < tokens.size() - 1) {
+		tokenPair t = NEXT_TOKEN(i);
+		if (!inComment) {
+			if (t.first == "//" || t.first == "/*") {
+				inComment = true;
+				if (t.first == "/*")
+					multiLineComment = true;
+				startIndex = i;
+				newTokenContents = t.first + " ";
+			}
+		}
+		else if (inComment) {
+			newTokenContents += t.first + " ";
+			//tokens.erase(tokens.begin() + i);
+			// If end of comment, combine all parts into single token and delete others
+			if (multiLineComment) {
+				if (t.first == "*/")
+					goto endComment;
+			}
+			else if (t.second == EndOfLine)
+				goto endComment;
+
+			continue;
+
+		endComment:
+			if (t.second == EndOfLine) {  // If newline, redact last character
+				//i--;
+				newTokenContents = newTokenContents.substr(0, newTokenContents.length() - 4);
+			}
+			inComment = false;
+			multiLineComment = false;
+			tokens[startIndex].first = newTokenContents;
+			tokens[startIndex].second = Comment;
+			tokens.erase(tokens.begin() + startIndex + 1, tokens.begin() + i);
+			i = startIndex + 1;
+		}
+	}
 	return 0;
 }

@@ -93,17 +93,27 @@ int main(int argc, char** argv)
 		ERROR("Invalid tokens met\n");
 		exit(1);
 	}
+	e = joinCommentTokens(tokens);
+	if (e != 0) {
+		ERROR("Invalid tokens met\n");
+		exit(1);
+	}
 	printf("\nTokens:\n");
 	for (int i = 0; i < tokens.size(); i++) {
-		printf("[%s]\t[%s]\n", tokens[i].first.c_str(), tokenAsString(tokens[i].second).c_str());
+		if (tokens[i].second != EndOfLine) {
+			printf("%dT:%d: ", i, tokens[i].lineNumber);
+			printf("[%s]\t[%s]\n", tokens[i].first.c_str(), tokenAsString(tokens[i].second).c_str());
+		}
 	}
 
 	// Generate AST
-	e = generateAST(tokens);
-	if (e != 0) {
-		ERROR("Errors creating abstract syntax tree\n");
-		exit(1);
-	}
+	rootNode = generateAST(tokens);
+	//if (e != 0) {
+	//	ERROR("Errors creating abstract syntax tree\n");
+	//	exit(1);
+	//}
+	printf("\n\nGenerated AST:\n");
+	printAST(rootNode);
 
 
 	//// Parse the tokens

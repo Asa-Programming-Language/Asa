@@ -1,6 +1,7 @@
 #pragma once
 
 #include <map>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
@@ -8,6 +9,12 @@
 enum TokenType {
 	// Null type
 	Nothing,
+
+	// Line end
+	EndOfLine,
+
+	// Comment
+	Comment,
 
 	// Literals
 	Identifier,
@@ -24,6 +31,7 @@ enum TokenType {
 	Right_Brace,
 	Comma,
 	Dot,
+	Hash,
 
 	Plus,
 	Minus,
@@ -31,20 +39,41 @@ enum TokenType {
 	Star,
 
 	Colon,
+	Colon_Colon,
 	Semi_Colon,
 
 	Bang,
 	Bang_Equal,
+	Plus_Equal,
+	Plus_Plus,
+	Minus_Equal,
+	Minus_Minus,
+	Times_Equal,
+	Slash_Equal,
 	Equal,
 	Equal_Equal,
 	Less,
 	Less_Equal,
 	Greater,
-	Greater_Equal
+	Greater_Equal,
+
+	If_Statement,
+	For_Statement,
+	While_Statement,
+
+	True_Literal,
+	False_Literal,
+
+	// Nothing below this
+	LastTokenType,
 };
 
 const std::string tokenTypeStrings[] = {
 	"nothing",
+
+	"eol",
+
+	"Comment",
 
 	"identifier",
 	"number",
@@ -60,25 +89,60 @@ const std::string tokenTypeStrings[] = {
 	"right_brace",
 	"comma",
 	"dot",
+	"Hash",
 
 	"plus",
 	"minus",
 	"slash",
 	"star",
 
-	"colon",
-	"semi_colon",
+	"Colon",
+	"Colon_Colon",
+	"Semi_Colon",
 
 	"bang",
 	"bang_equal",
+	"Plus_Equal",
+	"Plus_Plus",
+	"Minus_Equal",
+	"Minus_Minus",
+	"Times_Equal",
+	"Slash_Equal",
+	"equal_equal",
 	"less",
 	"less_equal",
 	"greater",
 	"greater_equal",
+
+	"if_statement",
+	"for_statement",
+	"while_statement",
+
+	"true_literal",
+	"false_literal",
 };
 
-extern std::vector<std::pair<std::string, TokenType>> tokens;
+struct tokenDataType {
+	std::string first;
+	TokenType second;
+	int lineNumber = 0;
+
+	tokenDataType(std::string f, TokenType s, int l)
+	{
+		first = f;
+		second = s;
+		lineNumber = l;
+	}
+};
+
+typedef tokenDataType tokenPair;
+//typedef std::pair<std::string, TokenType> tokenPair;
+
+extern std::vector<tokenPair> tokens;
+
+tokenPair NEXT_TOKEN(int& i);
 
 int tokenize(std::string& rawFile);
-int labelSubTokens(std::vector<std::pair<std::string, TokenType>>& tokens);
+int labelSubTokens(std::vector<tokenPair>& tokens);
+int joinCommentTokens(std::vector<tokenPair>& tokens);
 const std::string tokenAsString(TokenType t);

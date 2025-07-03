@@ -4,7 +4,7 @@ project(asa_compiler CXX)
 set (CMAKE_CXX_STANDARD 17)
 
 if(NOT CMAKE_BUILD_TYPE)
-	set(CMAKE_BUILD_TYPE Release)
+	set(CMAKE_BUILD_TYPE Debug)
 endif()
 
 #set(CMAKE_CXX_FLAGS "-Wall -Wextra")
