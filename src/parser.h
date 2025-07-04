@@ -7,6 +7,7 @@
 #include <utility>
 #include <vector>
 
+#include "settings.h"
 #include "tokenizer.h"
 
 #define MAX_AST_DEPTH -1
@@ -64,6 +65,13 @@ enum ASTNodeType {
 
 	// Nothing below this
 	LastASTNodeType
+};
+
+const std::map<tokenType, nodeType> binaryOperatorExType = {
+	{Plus, Expression_Plus},
+	{Minus, Expression_Minus},
+	{Star, Expression_Times},
+	{Slash, Expression_Divided},
 };
 
 const std::string ASTNodeTypeStrings[] = {
@@ -126,7 +134,7 @@ struct ASTNode {
 extern ASTNode* rootNode;
 
 int beginParse(const std::vector<tokenPair>& tokens);
-ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth = 0, bool hasParent = false);
+ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth = 0, ASTNode* parentNodePtr = nullptr);
 const std::string ASTNodeTypeAsString(ASTNodeType t);
 int printAST(ASTNode* startNode, int depth = 0);
 //std::vector<tokenPair> GATHER_SCOPE_BODY(int brLevel, int& i);

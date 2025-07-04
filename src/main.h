@@ -11,6 +11,7 @@
 #include "filemanager.h"
 #include "lexer.h"
 #include "parser.h"
+#include "settings.h"
 #include "tokenizer.h"
 
 

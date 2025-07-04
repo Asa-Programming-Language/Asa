@@ -29,14 +29,16 @@ std::vector<ASTNode*> ASTNodes = std::vector<ASTNode*>();
 
 ASTNode* rootNode = new ASTNode();
 
-ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, bool hasParent)
+ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* parentNodePtr)
 {
 	if (depth == MAX_AST_DEPTH) {
 		printf("Error: Max AST Depth of %d Reached", MAX_AST_DEPTH);
 		exit(1);
 	}
 
-	ASTNode* parentNode = new ASTNode();
+	ASTNode* parentNode = parentNodePtr;
+	if (parentNodePtr == nullptr)
+		parentNode = new ASTNode();
 
 	// If root node
 	if (depth == 0) {
@@ -85,14 +87,14 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, bool hasPa
 				if (parenLevel == 0 || t.second == EndOfLine)
 					break;
 			}
-			conditionNode = generateAST(subTokens, depth + 1, true);
+			conditionNode = generateAST(subTokens, depth + 1);
 			conditionNode->nodeType = Condition;
 
 			// Step through all tokens to gather body until braces are closed
 			GATHER_SCOPE_BODY(subTokens, 0, i);
 			PRINT_SUBTOKENS(subTokens);
 
-			bodyNode = generateAST(subTokens, depth + 1, true);
+			bodyNode = generateAST(subTokens, depth + 1);
 			bodyNode->nodeType = Scope_Body;
 
 			node->childNodes.push_back(conditionNode);
@@ -124,13 +126,13 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, bool hasPa
 				if (parenLevel == 0 || t.second == EndOfLine)
 					break;
 			}
-			conditionNode = generateAST(subTokens, depth + 1, true);
+			conditionNode = generateAST(subTokens, depth + 1);
 			conditionNode->nodeType = Condition;
 
 			// Step through all tokens to gather body until braces are closed
 			GATHER_SCOPE_BODY(subTokens, 0, i);
 
-			bodyNode = generateAST(subTokens, depth + 1, true);
+			bodyNode = generateAST(subTokens, depth + 1);
 			bodyNode->nodeType = Scope_Body;
 
 			node->childNodes.push_back(conditionNode);
@@ -161,7 +163,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, bool hasPa
 				// If colon like =>  for(i : 0..10)
 				// generate AST for i, and set iteratorNode as the output
 				if (t.second == Colon) {
-					iteratorNode = generateAST(subTokens, depth + 1, true);
+					iteratorNode = generateAST(subTokens, depth + 1);
 					iteratorNode->nodeType = Iterator;
 					subTokens = std::vector<tokenPair>();  // Clear subtokens
 					continue;
@@ -172,13 +174,13 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, bool hasPa
 				if (parenLevel == 0 || t.second == EndOfLine || t.second == Semi_Colon)
 					break;
 			}
-			rangeNode = generateAST(subTokens, depth + 1, true);
+			rangeNode = generateAST(subTokens, depth + 1);
 			rangeNode->nodeType = Range_Node;
 
 			// Step through all tokens to gather body until braces are closed
 			GATHER_SCOPE_BODY(subTokens, 0, i);
 
-			bodyNode = generateAST(subTokens, depth + 1, true);
+			bodyNode = generateAST(subTokens, depth + 1);
 			bodyNode->nodeType = Scope_Body;
 
 			// Only add iterator if one is explicity defined
@@ -219,7 +221,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, bool hasPa
 				if (parenLevel == 0)
 					break;
 			}
-			secondTerm = generateAST(subTokens, depth + 1, true);
+			secondTerm = generateAST(subTokens, depth + 1);
 			secondTerm->nodeType = Range_End;
 
 			node->childNodes.push_back(firstTerm);
@@ -257,7 +259,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, bool hasPa
 				if (parenLevel == 0)
 					break;
 			}
-			secondTerm = generateAST(subTokens, depth + 1, true);
+			secondTerm = generateAST(subTokens, depth + 1);
 			secondTerm->nodeType = Expression_Term;
 
 			node->childNodes.push_back(firstTerm);
@@ -270,7 +272,6 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, bool hasPa
 			ASTNode* secondTerm = new ASTNode();
 
 			// Instead of backtracking to get the first term, pop the leafNodes vector =)
-			printAST(parentNode);
 			firstTerm->childNodes.push_back(parentNode->leafNodes.back());
 			parentNode->leafNodes.pop_back();
 			firstTerm->nodeType = Identifier_Node;
@@ -293,7 +294,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, bool hasPa
 
 				subTokens.push_back(t);
 			}
-			secondTerm = generateAST(subTokens, depth + 1, true);
+			secondTerm = generateAST(subTokens, depth + 1);
 			secondTerm->nodeType = Expression_Term;
 
 			node->childNodes.push_back(firstTerm);
@@ -327,7 +328,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, bool hasPa
 				printf("subtoken added of value: `%s`\n", t.first.c_str());
 				subTokens.push_back(t);
 			}
-			bodyNode = generateAST(subTokens, depth + 1, true);
+			bodyNode = generateAST(subTokens, depth + 1);
 			bodyNode->nodeType = Scope_Body;
 
 			node->token = "<#" + identifier->token + ">";
@@ -336,7 +337,6 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, bool hasPa
 		}
 		else if (tokenType == Colon_Colon) {
 			node->nodeType = Compiler_Define;
-			printAST(parentNode);
 
 			ASTNode* identifier = new ASTNode();
 			ASTNode* returnType = new ASTNode();
@@ -359,7 +359,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, bool hasPa
 
 				subTokens.push_back(t);
 			}
-			returnType = generateAST(subTokens, depth + 1, true);
+			returnType = generateAST(subTokens, depth + 1);
 			returnType->nodeType = Type;
 			// Step through all following tokens until parens are closed
 			int parenLevel = 1;
@@ -382,13 +382,13 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, bool hasPa
 				if (parenLevel == 0)
 					break;
 			}
-			arguments = generateAST(subTokens, depth + 1, true);
+			arguments = generateAST(subTokens, depth + 1);
 			arguments->nodeType = Arguments;
 
 			// Step through all tokens to gather body until braces are closed
 			GATHER_SCOPE_BODY(subTokens, 0, i);
 
-			bodyNode = generateAST(subTokens, depth + 1, true);
+			bodyNode = generateAST(subTokens, depth + 1);
 			bodyNode->nodeType = Scope_Body;
 
 			node->token = "<" + identifier->token + ">";
@@ -436,7 +436,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, bool hasPa
 				// If comma and parenLevel is in same scope
 				if ((t.second == Comma && parenLevel == 1)) {
 					ASTNode* newNode = new ASTNode();
-					newNode = generateAST(subTokens, depth + 1, true);
+					generateAST(subTokens, depth + 1, newNode);
 					newNode->nodeType = Expression_Term;
 					insideNodes.push_back(newNode);
 					subTokens = std::vector<tokenPair>();
@@ -446,7 +446,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, bool hasPa
 				subTokens.push_back(t);
 			}
 			ASTNode* newNode = new ASTNode();
-			newNode = generateAST(subTokens, depth + 1, true);
+			generateAST(subTokens, depth + 1, newNode);
 			newNode->nodeType = Expression_Term;
 			insideNodes.push_back(newNode);
 
@@ -459,7 +459,8 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, bool hasPa
 			}
 			else {
 				insideNodes[0]->nodeType = Expression_Term;
-				node->childNodes.push_back(insideNodes[0]);
+				node = insideNodes[0];
+				//node->childNodes.push_back(insideNodes[0]);
 			}
 		}
 		else if (tokenType == Number) {
@@ -577,8 +578,9 @@ int printAST(ASTNode* startNode, int depth)
 	indent(depth);
 
 	printf("%s", startNode->token.c_str());
-	if (startNode->token.size() > 0)
-		printf(":L%d", startNode->lineNumber);
+	if (verbosity >= 3)
+		if (startNode->token.size() > 0)
+			printf(":L%d", startNode->lineNumber);
 	printf(":(%s){", ASTNodeTypeAsString(startNode->nodeType).c_str());
 
 	if (startNode->childNodes.size() > 0 || startNode->leafNodes.size() > 0)

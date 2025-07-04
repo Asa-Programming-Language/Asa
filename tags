@@ -168,15 +168,16 @@ Type	src/parser.h	/^	Type,$/;"	e	enum:ASTNodeType
 While_Statement	src/tokenizer.h	/^	While_Statement,$/;"	e	enum:TokenType
 While_Statement_Node	src/parser.h	/^	While_Statement_Node,$/;"	e	enum:ASTNodeType
 allTokens	src/tokenizer.cpp	/^std::vector<tokenPair> allTokens = std::vector<tokenPair>();$/;"	v	typeref:typename:std::vector<tokenPair>
-asa	src/CMakeLists.txt	/^add_executable(asa main.cpp main.h filemanager.cpp filemanager.h tokenizer.cpp tokenizer.h parse/;"	t
+asa	src/CMakeLists.txt	/^add_executable(asa main.cpp main.h settings.h filemanager.cpp filemanager.h tokenizer.cpp tokeni/;"	t
 asa_compiler	src/CMakeLists.txt	/^project(asa_compiler CXX)$/;"	p
 at	examples/start/main.asa	/^	\/\/ Test the functionality of redefining a function at runtime.$/;"	f
 beginParse	src/parser.cpp	/^int beginParse(const std::vector<std::pair<std::string, TokenType>>& tokens)$/;"	f	typeref:typename:int
+binaryOperatorExType	src/parser.h	/^const std::map<tokenType, nodeType> binaryOperatorExType = {$/;"	v	typeref:typename:const std::map<tokenType,nodeType>
 charInArray	src/tokenizer.cpp	/^bool charInArray(char x, const char* a)$/;"	f	typeref:typename:bool
 childNodes	src/parser.h	/^	std::vector<ASTNode*> childNodes = std::vector<ASTNode*>();$/;"	m	struct:ASTNode	typeref:typename:std::vector<ASTNode * >
 currentToken	src/tokenizer.cpp	/^TokenType currentToken = Nothing;$/;"	v	typeref:typename:TokenType
 first	src/tokenizer.h	/^	std::string first = "";$/;"	m	struct:tokenDataType	typeref:typename:std::string
-generateAST	src/parser.cpp	/^ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, bool hasParent)$/;"	f	typeref:typename:ASTNode *
+generateAST	src/parser.cpp	/^ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* parentNodePtr)$/;"	f	typeref:typename:ASTNode *
 indent	src/parser.cpp	/^inline void indent(int& depth)$/;"	f	typeref:typename:void
 initialFileString	src/filemanager.cpp	/^std::string initialFileString;$/;"	v	typeref:typename:std::string
 joinCommentTokens	src/tokenizer.cpp	/^int joinCommentTokens(std::vector<tokenPair>& tokens)$/;"	f	typeref:typename:int
@@ -221,4 +222,4 @@ tokenStarts	src/tokenizer.cpp	/^const std::map<TokenType, const char*> tokenStar
 tokenType	src/parser.h	/^	TokenType tokenType = Nothing;$/;"	m	struct:ASTNode	typeref:typename:TokenType
 tokenTypeStrings	src/tokenizer.h	/^const std::string tokenTypeStrings[] = {$/;"	v	typeref:typename:const std::string[]
 tokenize	src/tokenizer.cpp	/^int tokenize(std::string& rawFile)$/;"	f	typeref:typename:int
-verbosity	src/main.cpp	/^static int verbosity = 2;  \/\/ Verbosity of 0 is silent (no output), 1 is quiet, 2 is default, /;"	v	typeref:typename:int	file:
+verbosity	src/settings.h	/^static int verbosity = 2;  \/\/ Verbosity of 0 is silent (no output), 1 is quiet, 2 is default, /;"	v	typeref:typename:int
