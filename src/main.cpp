@@ -84,30 +84,30 @@ int main(int argc, char** argv)
 	// Begin tokenizing file
 	int e = tokenize(initialFileString);
 	if (e != 0) {
-		ERROR("Invalid tokens met\n");
+		ERROR("Invalid allTokens met\n");
 		exit(1);
 	}
-	// Now change any tokens to their subtoken type if applicable
-	e = labelSubTokens(tokens);
+	// Now change any allTokens to their subtoken type if applicable
+	e = labelSubTokens(allTokens);
 	if (e != 0) {
-		ERROR("Invalid tokens met\n");
+		ERROR("Invalid allTokens met\n");
 		exit(1);
 	}
-	e = joinCommentTokens(tokens);
+	e = joinCommentTokens(allTokens);
 	if (e != 0) {
-		ERROR("Invalid tokens met\n");
+		ERROR("Invalid allTokens met\n");
 		exit(1);
 	}
 	printf("\nTokens:\n");
-	for (int i = 0; i < tokens.size(); i++) {
-		if (tokens[i].second != EndOfLine) {
-			printf("%dT:%d: ", i, tokens[i].lineNumber);
-			printf("[%s]\t[%s]\n", tokens[i].first.c_str(), tokenAsString(tokens[i].second).c_str());
+	for (int i = 0; i < allTokens.size(); i++) {
+		if (allTokens[i].second != EndOfLine) {
+			printf("%dT:%d: ", i, allTokens[i].lineNumber);
+			printf("[%s]\t[%s]\n", allTokens[i].first.c_str(), tokenAsString(allTokens[i].second).c_str());
 		}
 	}
 
 	// Generate AST
-	rootNode = generateAST(tokens);
+	rootNode = generateAST(allTokens);
 	//if (e != 0) {
 	//	ERROR("Errors creating abstract syntax tree\n");
 	//	exit(1);
@@ -116,10 +116,10 @@ int main(int argc, char** argv)
 	printAST(rootNode);
 
 
-	//// Parse the tokens
-	//e = beginParse(tokens);
+	//// Parse the allTokens
+	//e = beginParse(allTokens);
 	//if (e != 0) {
-	//	ERROR("Invalid tokens met\n");
+	//	ERROR("Invalid allTokens met\n");
 	//	exit(1);
 	//}
 

@@ -32,6 +32,7 @@ enum TokenType {
 	Right_Brace,
 	Comma,
 	Dot,
+	Dot_Dot,
 	Hash,
 
 	Plus,
@@ -91,6 +92,7 @@ const std::string tokenTypeStrings[] = {
 	"right_brace",
 	"comma",
 	"dot",
+	"Dot_Dot",
 	"Hash",
 
 	"plus",
@@ -110,6 +112,7 @@ const std::string tokenTypeStrings[] = {
 	"Minus_Minus",
 	"Times_Equal",
 	"Slash_Equal",
+	"Equal",
 	"equal_equal",
 	"less",
 	"less_equal",
@@ -125,8 +128,8 @@ const std::string tokenTypeStrings[] = {
 };
 
 struct tokenDataType {
-	std::string first;
-	TokenType second;
+	std::string first = "";
+	TokenType second = Nothing;
 	int lineNumber = 0;
 
 	tokenDataType(std::string f, TokenType s, int l)
@@ -140,7 +143,7 @@ struct tokenDataType {
 typedef tokenDataType tokenPair;
 //typedef std::pair<std::string, TokenType> tokenPair;
 
-extern std::vector<tokenPair> tokens;
+extern std::vector<tokenPair> allTokens;
 
 #define NEXT_TOKEN(i) tokens[++i];
 //tokenPair NEXT_TOKEN(int& i);

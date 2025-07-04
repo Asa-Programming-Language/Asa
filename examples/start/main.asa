@@ -17,7 +17,7 @@ main :: (){
 	for (i : 0..100){  // for(<range>){} automatically iterates through range type
 		print("%\n", i);
 	}
-	for (i : 0..100){  // for(<range>){} automatically iterates through range type
+	for (i : 0..(100-i)){  // for(<range>){} automatically iterates through range type
 		print("%\n", i);
 		i += 1;
 	}
@@ -26,8 +26,9 @@ main :: (){
 		i++;
 	}
 
-	if(true)
+	if(true){
 		print("Hello, again!");
+	}
 
 	w = window_create("New window", 512, 512);
 

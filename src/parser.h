@@ -11,6 +11,11 @@
 
 #define MAX_AST_DEPTH -1
 
+#define PRINT_SUBTOKENS(subTokens)                  \
+	for (int ST = 0; ST < subTokens.size(); ST++)   \
+		printf("%s ", subTokens[ST].first.c_str()); \
+	printf("\n");
+
 void GO_BACK_TO_BEGINNING_OF_TERM(int& i);
 
 enum ASTNodeType {
@@ -30,19 +35,20 @@ enum ASTNodeType {
 	Expression_Times,
 	Expression_Divided,
 
+	Range_Node,
+	Range_Begin,
+	Range_End,
+
+	Function_Call,
+
 	If_Statement_Node,
-	If_Cond,
-	If_Body,
 
 	For_Statement_Node,
-	For_It,
-	For_Range,
-	For_Body,
 
 	While_Statement_Node,
-	While_Cond,
-	While_Body,
 
+	Iterator,
+	Condition,
 	Scope_Body,
 
 	Compare_Equal,
@@ -76,19 +82,20 @@ const std::string ASTNodeTypeStrings[] = {
 	"Expression_Times",
 	"Expression_Divided",
 
+	"Range_Node",
+	"Range_Begin",
+	"Range_End",
+
+	"Function_Call",
+
 	"If_Statement_Node",
-	"If_Cond",
-	"If_Body",
 
 	"For_Statement_Node",
-	"For_It",
-	"For_Range",
-	"For_Body",
 
 	"While_Statement_Node",
-	"While_Cond",
-	"While_Body",
 
+	"Iterator",
+	"Condition",
 	"Scope_Body",
 
 	"Compare_Equal",
@@ -122,4 +129,4 @@ int beginParse(const std::vector<tokenPair>& tokens);
 ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth = 0, bool hasParent = false);
 const std::string ASTNodeTypeAsString(ASTNodeType t);
 int printAST(ASTNode* startNode, int depth = 0);
-std::vector<tokenPair> GATHER_SCOPE_BODY(int brLevel, int& i);
+//std::vector<tokenPair> GATHER_SCOPE_BODY(int brLevel, int& i);

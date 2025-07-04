@@ -1,6 +1,6 @@
 #include "tokenizer.h"
 
-std::vector<tokenPair> tokens = std::vector<tokenPair>();
+std::vector<tokenPair> allTokens = std::vector<tokenPair>();
 
 bool charInArray(char x, const char* a)
 {
@@ -45,6 +45,7 @@ const std::map<const char*, const char*> tokenEscapeCancels = {
 	{"/", "/*"},
 	{"*", "/"},
 	{":", ":"},
+	{".", "."},
 };
 
 // If this and the following character match for the specific token type, immediately end
@@ -62,6 +63,7 @@ std::map<const std::string, const TokenType> subTokenTypes = {
 	{"}", Right_Brace},
 	{",", Comma},
 	{".", Dot},
+	{"..", Dot_Dot},
 	{"+", Plus},
 	{"-", Minus},
 	{"/", Slash},
@@ -126,7 +128,7 @@ int tokenize(std::string& rawFile)
 	rawFile = output;
 
 	// Then start making tokens
-	int lineNumber = 0;
+	int lineNumber = 1;
 	rawFile = "\n" + rawFile + "\n";  // add extra character at end as buffer for lookahead
 	for (int i = 1; i < rawFile.size(); i++) {
 		char c = rawFile[i];
@@ -170,7 +172,7 @@ int tokenize(std::string& rawFile)
 
 
 						// Add tokenContent as element to tokens, and clear it
-						tokens.push_back(tokenPair(tokenContent, currentToken, lineNumber));
+						allTokens.push_back(tokenPair(tokenContent, currentToken, lineNumber));
 						tokenContent = "";
 
 						currentToken = Nothing;
@@ -189,7 +191,7 @@ int tokenize(std::string& rawFile)
 				tokenContent += c;
 		}
 	}
-	tokens.push_back(tokenPair("", EndOfFile, lineNumber + 1));
+	allTokens.push_back(tokenPair("", EndOfFile, lineNumber + 1));
 
 	return 0;
 }
