@@ -172,7 +172,7 @@ asa	src/CMakeLists.txt	/^add_executable(asa main.cpp main.h settings.h filemanag
 asa_compiler	src/CMakeLists.txt	/^project(asa_compiler CXX)$/;"	p
 at	examples/start/main.asa	/^	\/\/ Test the functionality of redefining a function at runtime.$/;"	f
 beginParse	src/parser.cpp	/^int beginParse(const std::vector<std::pair<std::string, TokenType>>& tokens)$/;"	f	typeref:typename:int
-binaryOperatorExType	src/parser.h	/^const std::map<tokenType, nodeType> binaryOperatorExType = {$/;"	v	typeref:typename:const std::map<tokenType,nodeType>
+binaryOperatorExType	src/parser.cpp	/^std::map<TokenType, ASTNodeType> binaryOperatorExType = {$/;"	v	typeref:typename:std::map<TokenType,ASTNodeType>
 charInArray	src/tokenizer.cpp	/^bool charInArray(char x, const char* a)$/;"	f	typeref:typename:bool
 childNodes	src/parser.h	/^	std::vector<ASTNode*> childNodes = std::vector<ASTNode*>();$/;"	m	struct:ASTNode	typeref:typename:std::vector<ASTNode * >
 currentToken	src/tokenizer.cpp	/^TokenType currentToken = Nothing;$/;"	v	typeref:typename:TokenType

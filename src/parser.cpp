@@ -26,6 +26,12 @@ int beginParse(const std::vector<std::pair<std::string, TokenType>>& tokens)
 
 std::vector<ASTNode*> ASTNodes = std::vector<ASTNode*>();
 
+std::map<TokenType, ASTNodeType> binaryOperatorExType = {
+	{Plus, Expression_Plus},
+	{Minus, Expression_Minus},
+	{Star, Expression_Times},
+	{Slash, Expression_Divided},
+};
 
 ASTNode* rootNode = new ASTNode();
 
@@ -61,439 +67,502 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 		node->token = tokenValue;
 		node->lineNumber = lineNumber;
 
-		if (tokenType == If_Statement) {
-			node->nodeType = If_Statement_Node;
+		switch (tokenType) {
+			case If_Statement: {
+				node->nodeType = If_Statement_Node;
 
-			ASTNode* conditionNode = new ASTNode();
-			ASTNode* bodyNode = new ASTNode();
+				ASTNode* conditionNode = new ASTNode();
+				ASTNode* bodyNode = new ASTNode();
 
-			i++;
+				i++;
 
-			// Step through all tokens until parens are closed
-			int parenLevel = 1;
-			std::vector<tokenPair> subTokens = std::vector<tokenPair>();
-			for (;;) {
-				if (i >= tokens.size() - 1)
-					break;
-				tokenPair t = NEXT_TOKEN(i);
+				// Step through all tokens until parens are closed
+				int parenLevel = 1;
+				std::vector<tokenPair> subTokens = std::vector<tokenPair>();
+				for (;;) {
+					if (i >= tokens.size() - 1)
+						break;
+					tokenPair t = NEXT_TOKEN(i);
 
-				if (t.second == Left_Paren)
-					parenLevel++;
-				if (t.second == Right_Paren)
-					parenLevel--;
+					if (t.second == Left_Paren)
+						parenLevel++;
+					if (t.second == Right_Paren)
+						parenLevel--;
 
-				subTokens.push_back(t);
+					subTokens.push_back(t);
 
-				if (parenLevel == 0 || t.second == EndOfLine)
-					break;
-			}
-			conditionNode = generateAST(subTokens, depth + 1);
-			conditionNode->nodeType = Condition;
-
-			// Step through all tokens to gather body until braces are closed
-			GATHER_SCOPE_BODY(subTokens, 0, i);
-			PRINT_SUBTOKENS(subTokens);
-
-			bodyNode = generateAST(subTokens, depth + 1);
-			bodyNode->nodeType = Scope_Body;
-
-			node->childNodes.push_back(conditionNode);
-			node->childNodes.push_back(bodyNode);
-		}
-		else if (tokenType == While_Statement) {
-			node->nodeType = While_Statement_Node;
-
-			ASTNode* conditionNode = new ASTNode();
-			ASTNode* bodyNode = new ASTNode();
-
-			i++;
-
-			// Step through all tokens until parens are closed
-			int parenLevel = 1;
-			std::vector<tokenPair> subTokens = std::vector<tokenPair>();
-			for (;;) {
-				if (i >= tokens.size() - 1)
-					break;
-				tokenPair t = NEXT_TOKEN(i);
-
-				if (t.second == Left_Paren)
-					parenLevel++;
-				if (t.second == Right_Paren)
-					parenLevel--;
-
-				subTokens.push_back(t);
-
-				if (parenLevel == 0 || t.second == EndOfLine)
-					break;
-			}
-			conditionNode = generateAST(subTokens, depth + 1);
-			conditionNode->nodeType = Condition;
-
-			// Step through all tokens to gather body until braces are closed
-			GATHER_SCOPE_BODY(subTokens, 0, i);
-
-			bodyNode = generateAST(subTokens, depth + 1);
-			bodyNode->nodeType = Scope_Body;
-
-			node->childNodes.push_back(conditionNode);
-			node->childNodes.push_back(bodyNode);
-		}
-		else if (tokenType == For_Statement) {
-			node->nodeType = For_Statement_Node;
-
-			ASTNode* iteratorNode = new ASTNode();
-			ASTNode* rangeNode = new ASTNode();
-			ASTNode* bodyNode = new ASTNode();
-
-			i++;
-
-			// Step through all tokens until parens are closed
-			int parenLevel = 1;
-			std::vector<tokenPair> subTokens = std::vector<tokenPair>();
-			for (;;) {
-				if (i >= tokens.size() - 1)
-					break;
-				tokenPair t = NEXT_TOKEN(i);
-
-				if (t.second == Left_Paren)
-					parenLevel++;
-				if (t.second == Right_Paren)
-					parenLevel--;
-
-				// If colon like =>  for(i : 0..10)
-				// generate AST for i, and set iteratorNode as the output
-				if (t.second == Colon) {
-					iteratorNode = generateAST(subTokens, depth + 1);
-					iteratorNode->nodeType = Iterator;
-					subTokens = std::vector<tokenPair>();  // Clear subtokens
-					continue;
+					if (parenLevel == 0 || t.second == EndOfLine)
+						break;
 				}
+				conditionNode = generateAST(subTokens, depth + 1);
+				conditionNode->nodeType = Condition;
 
-				subTokens.push_back(t);
+				// Step through all tokens to gather body until braces are closed
+				GATHER_SCOPE_BODY(subTokens, 0, i);
+				PRINT_SUBTOKENS(subTokens);
 
-				if (parenLevel == 0 || t.second == EndOfLine || t.second == Semi_Colon)
-					break;
+				bodyNode = generateAST(subTokens, depth + 1);
+				bodyNode->nodeType = Scope_Body;
+
+				node->childNodes.push_back(conditionNode);
+				node->childNodes.push_back(bodyNode);
+				break;
 			}
-			rangeNode = generateAST(subTokens, depth + 1);
-			rangeNode->nodeType = Range_Node;
 
-			// Step through all tokens to gather body until braces are closed
-			GATHER_SCOPE_BODY(subTokens, 0, i);
+			case While_Statement: {
+				node->nodeType = While_Statement_Node;
 
-			bodyNode = generateAST(subTokens, depth + 1);
-			bodyNode->nodeType = Scope_Body;
+				ASTNode* conditionNode = new ASTNode();
+				ASTNode* bodyNode = new ASTNode();
 
-			// Only add iterator if one is explicity defined
-			if (iteratorNode->nodeType == Iterator)
-				node->childNodes.push_back(iteratorNode);
-			node->childNodes.push_back(rangeNode);
-			node->childNodes.push_back(bodyNode);
-		}
-		else if (tokenType == Dot_Dot) {
-			node->nodeType = Range_Node;
+				i++;
 
-			ASTNode* firstTerm = new ASTNode();
-			ASTNode* secondTerm = new ASTNode();
+				// Step through all tokens until parens are closed
+				int parenLevel = 1;
+				std::vector<tokenPair> subTokens = std::vector<tokenPair>();
+				for (;;) {
+					if (i >= tokens.size() - 1)
+						break;
+					tokenPair t = NEXT_TOKEN(i);
 
-			// Instead of backtracking to get the first term, pop the leafNodes vector =)
-			firstTerm->childNodes.push_back(parentNode->leafNodes.back());
-			parentNode->leafNodes.pop_back();
-			firstTerm->nodeType = Range_Begin;
+					if (t.second == Left_Paren)
+						parenLevel++;
+					if (t.second == Right_Paren)
+						parenLevel--;
 
-			// Step through all following tokens until parens are closed
-			int parenLevel = 1;
-			std::vector<tokenPair> subTokens = std::vector<tokenPair>();
-			for (;;) {
-				if (i >= tokens.size() - 1)
-					break;
-				tokenPair t = NEXT_TOKEN(i);
+					subTokens.push_back(t);
 
-				if (t.second == Left_Paren)
-					parenLevel++;
-				if (t.second == Right_Paren)
-					parenLevel--;
+					if (parenLevel == 0 || t.second == EndOfLine)
+						break;
+				}
+				conditionNode = generateAST(subTokens, depth + 1);
+				conditionNode->nodeType = Condition;
 
-				if (t.second == EndOfLine || t.second == Semi_Colon)
-					break;
+				// Step through all tokens to gather body until braces are closed
+				GATHER_SCOPE_BODY(subTokens, 0, i);
 
-				subTokens.push_back(t);
+				bodyNode = generateAST(subTokens, depth + 1);
+				bodyNode->nodeType = Scope_Body;
 
-				if (parenLevel == 0)
-					break;
+				node->childNodes.push_back(conditionNode);
+				node->childNodes.push_back(bodyNode);
+				break;
 			}
-			secondTerm = generateAST(subTokens, depth + 1);
-			secondTerm->nodeType = Range_End;
 
-			node->childNodes.push_back(firstTerm);
-			node->childNodes.push_back(secondTerm);
-		}
-		else if (tokenType == Plus) {
-			node->nodeType = Expression_Plus;
+			case For_Statement: {
+				node->nodeType = For_Statement_Node;
 
-			ASTNode* firstTerm = new ASTNode();
-			ASTNode* secondTerm = new ASTNode();
+				ASTNode* iteratorNode = new ASTNode();
+				ASTNode* rangeNode = new ASTNode();
+				ASTNode* bodyNode = new ASTNode();
 
-			// Instead of backtracking to get the first term, pop the leafNodes vector =)
-			firstTerm->childNodes.push_back(parentNode->leafNodes.back());
-			parentNode->leafNodes.pop_back();
-			firstTerm->nodeType = Expression_Term;
+				i++;
 
-			// Step through all following tokens until parens are closed
-			int parenLevel = 1;
-			std::vector<tokenPair> subTokens = std::vector<tokenPair>();
-			for (;;) {
-				if (i >= tokens.size() - 1)
-					break;
-				tokenPair t = NEXT_TOKEN(i);
+				// Step through all tokens until parens are closed
+				int parenLevel = 1;
+				std::vector<tokenPair> subTokens = std::vector<tokenPair>();
+				for (;;) {
+					if (i >= tokens.size() - 1)
+						break;
+					tokenPair t = NEXT_TOKEN(i);
 
-				if (t.second == Left_Paren)
-					parenLevel++;
-				if (t.second == Right_Paren)
-					parenLevel--;
+					if (t.second == Left_Paren)
+						parenLevel++;
+					if (t.second == Right_Paren)
+						parenLevel--;
 
-				if (t.second == EndOfLine || t.second == Semi_Colon)
-					break;
+					// If colon like =>  for(i : 0..10)
+					// generate AST for i, and set iteratorNode as the output
+					if (t.second == Colon) {
+						iteratorNode = generateAST(subTokens, depth + 1);
+						iteratorNode->nodeType = Iterator;
+						subTokens = std::vector<tokenPair>();  // Clear subtokens
+						continue;
+					}
 
-				subTokens.push_back(t);
+					subTokens.push_back(t);
 
-				if (parenLevel == 0)
-					break;
+					if (parenLevel == 0 || t.second == EndOfLine || t.second == Semi_Colon)
+						break;
+				}
+				rangeNode = generateAST(subTokens, depth + 1);
+				rangeNode->nodeType = Range_Node;
+
+				// Step through all tokens to gather body until braces are closed
+				GATHER_SCOPE_BODY(subTokens, 0, i);
+
+				bodyNode = generateAST(subTokens, depth + 1);
+				bodyNode->nodeType = Scope_Body;
+
+				// Only add iterator if one is explicity defined
+				if (iteratorNode->nodeType == Iterator)
+					node->childNodes.push_back(iteratorNode);
+				node->childNodes.push_back(rangeNode);
+				node->childNodes.push_back(bodyNode);
+				break;
 			}
-			secondTerm = generateAST(subTokens, depth + 1);
-			secondTerm->nodeType = Expression_Term;
 
-			node->childNodes.push_back(firstTerm);
-			node->childNodes.push_back(secondTerm);
-		}
-		else if (tokenType == Equal) {
-			node->nodeType = Expression_Statement;
+			case Dot_Dot: {
+				node->nodeType = Range_Node;
 
-			ASTNode* firstTerm = new ASTNode();
-			ASTNode* secondTerm = new ASTNode();
+				ASTNode* firstTerm = new ASTNode();
+				ASTNode* secondTerm = new ASTNode();
 
-			// Instead of backtracking to get the first term, pop the leafNodes vector =)
-			firstTerm->childNodes.push_back(parentNode->leafNodes.back());
-			parentNode->leafNodes.pop_back();
-			firstTerm->nodeType = Identifier_Node;
-
-			// Step through all following tokens until end of term
-			int parenLevel = 1;
-			std::vector<tokenPair> subTokens = std::vector<tokenPair>();
-			for (;;) {
-				if (i >= tokens.size() - 1)
-					break;
-				tokenPair t = NEXT_TOKEN(i);
-
-				if (t.second == Left_Paren)
-					parenLevel++;
-				if (t.second == Right_Paren)
-					parenLevel--;
-
-				if ((t.second == EndOfLine || t.second == Semi_Colon))
-					break;
-
-				subTokens.push_back(t);
-			}
-			secondTerm = generateAST(subTokens, depth + 1);
-			secondTerm->nodeType = Expression_Term;
-
-			node->childNodes.push_back(firstTerm);
-			node->childNodes.push_back(secondTerm);
-		}
-		else if (tokenType == Hash) {
-			node->nodeType = Compile_Time_Directive;
-
-			ASTNode* identifier = new ASTNode();
-			ASTNode* bodyNode = new ASTNode();
-
-			tokenPair tt = NEXT_TOKEN(i);
-			identifier->token = tt.first;
-			identifier->tokenType = tt.second;
-			identifier->nodeType = Identifier_Node;
-
-			// Step through all following tokens until end of line via semicolon
-			std::vector<tokenPair> subTokens = std::vector<tokenPair>();
-			while (i < tokens.size() - 1) {
-				if (i >= tokens.size() - 1)
-					break;
-				tokenPair t = NEXT_TOKEN(i);
-				printf("token %d value: `%s`\n", i, t.first.c_str());
-
-				if (t.second == Semi_Colon)
-					break;
-				if (t.second == EndOfLine)
-					throw std::runtime_error("Error: Missing semicolon to specify end of line");
-
-
-				printf("subtoken added of value: `%s`\n", t.first.c_str());
-				subTokens.push_back(t);
-			}
-			bodyNode = generateAST(subTokens, depth + 1);
-			bodyNode->nodeType = Scope_Body;
-
-			node->token = "<#" + identifier->token + ">";
-			node->childNodes.push_back(identifier);
-			node->childNodes.push_back(bodyNode);
-		}
-		else if (tokenType == Colon_Colon) {
-			node->nodeType = Compiler_Define;
-
-			ASTNode* identifier = new ASTNode();
-			ASTNode* returnType = new ASTNode();
-			ASTNode* arguments = new ASTNode();
-			ASTNode* bodyNode = new ASTNode();
-
-			identifier = parentNode->leafNodes.back();
-			parentNode->leafNodes.pop_back();
-			identifier->nodeType = Identifier_Node;
-
-			// Step through all following tokens until parens start
-			std::vector<tokenPair> subTokens = std::vector<tokenPair>();
-			for (;;) {
-				if (i >= tokens.size() - 1)
-					break;
-				tokenPair t = NEXT_TOKEN(i);
-
-				if (t.second == Left_Paren)
-					break;
-
-				subTokens.push_back(t);
-			}
-			returnType = generateAST(subTokens, depth + 1);
-			returnType->nodeType = Type;
-			// Step through all following tokens until parens are closed
-			int parenLevel = 1;
-			subTokens = std::vector<tokenPair>();
-			for (;;) {
-				if (i >= tokens.size() - 1)
-					break;
-				tokenPair t = NEXT_TOKEN(i);
-
-				if (t.second == Left_Paren)
-					parenLevel++;
-				if (t.second == Right_Paren)
-					parenLevel--;
-
-				if (t.second == EndOfLine || t.second == Semi_Colon)
-					break;
-
-				subTokens.push_back(t);
-
-				if (parenLevel == 0)
-					break;
-			}
-			arguments = generateAST(subTokens, depth + 1);
-			arguments->nodeType = Arguments;
-
-			// Step through all tokens to gather body until braces are closed
-			GATHER_SCOPE_BODY(subTokens, 0, i);
-
-			bodyNode = generateAST(subTokens, depth + 1);
-			bodyNode->nodeType = Scope_Body;
-
-			node->token = "<" + identifier->token + ">";
-			node->childNodes.push_back(identifier);
-			if (returnType->childNodes.size() > 0)
-				node->childNodes.push_back(returnType);
-			node->childNodes.push_back(arguments);
-			node->childNodes.push_back(bodyNode);
-		}
-		else if (tokenType == Left_Paren) {
-			node->nodeType = Expression_Term;
-
-			ASTNode* previousTerm = new ASTNode();
-			std::vector<ASTNode*> insideNodes = std::vector<ASTNode*>();
-			bool isFunction = false;
-
-			// Check the previous node, if it is an identifier then this must be a function call
-			if (parentNode->leafNodes.size() > 0) {
-				previousTerm = parentNode->leafNodes.back();
+				// Instead of backtracking to get the first term, pop the leafNodes vector =)
+				firstTerm->childNodes.push_back(parentNode->leafNodes.back());
 				parentNode->leafNodes.pop_back();
-				if (previousTerm->nodeType == Identifier_Node) {
-					node->nodeType = Function_Call;
-					node->token = previousTerm->token;
-					isFunction = true;
+				firstTerm->nodeType = Range_Begin;
+
+				// Step through all following tokens until parens are closed
+				int parenLevel = 1;
+				std::vector<tokenPair> subTokens = std::vector<tokenPair>();
+				for (;;) {
+					if (i >= tokens.size() - 1)
+						break;
+					tokenPair t = NEXT_TOKEN(i);
+
+					if (t.second == Left_Paren)
+						parenLevel++;
+					if (t.second == Right_Paren)
+						parenLevel--;
+
+					if (t.second == EndOfLine || t.second == Semi_Colon)
+						break;
+
+					subTokens.push_back(t);
+
+					if (parenLevel == 0)
+						break;
 				}
+				secondTerm = generateAST(subTokens, depth + 1);
+				secondTerm->nodeType = Range_End;
+
+				node->childNodes.push_back(firstTerm);
+				node->childNodes.push_back(secondTerm);
+				break;
 			}
 
-			// Collect all comma-separated terms
-			// Step through all following tokens until last paren
-			int parenLevel = 1;
-			std::vector<tokenPair> subTokens = std::vector<tokenPair>();
-			for (;;) {
-				if (i >= tokens.size() - 1)
-					break;
-				tokenPair t = NEXT_TOKEN(i);
+			case Plus:
+			case Minus:
+			case Star:
+			case Slash: {
+				node->nodeType = binaryOperatorExType[tokenType];
 
-				if (t.second == Left_Paren)
-					parenLevel++;
-				if (t.second == Right_Paren)
-					parenLevel--;
+				ASTNode* firstTerm = new ASTNode();
+				ASTNode* secondTerm = new ASTNode();
 
-				if ((t.second == EndOfLine || t.second == Semi_Colon)) {
-					break;
+				// Instead of backtracking to get the first term, pop the leafNodes vector =)
+				firstTerm->childNodes.push_back(parentNode->leafNodes.back());
+				parentNode->leafNodes.pop_back();
+				firstTerm->nodeType = Expression_Term;
+
+				// Step through all following tokens until parens are closed
+				int parenLevel = 1;
+				std::vector<tokenPair> subTokens = std::vector<tokenPair>();
+				for (;;) {
+					if (i >= tokens.size() - 1)
+						break;
+					tokenPair t = NEXT_TOKEN(i);
+
+					if (t.second == Left_Paren)
+						parenLevel++;
+					if (t.second == Right_Paren)
+						parenLevel--;
+
+					if (t.second == EndOfLine || t.second == Semi_Colon)
+						break;
+
+					subTokens.push_back(t);
+
+					if (parenLevel == 0)
+						break;
 				}
-				// If comma and parenLevel is in same scope
-				if ((t.second == Comma && parenLevel == 1)) {
-					ASTNode* newNode = new ASTNode();
-					generateAST(subTokens, depth + 1, newNode);
-					newNode->nodeType = Expression_Term;
-					insideNodes.push_back(newNode);
-					subTokens = std::vector<tokenPair>();
-					continue;
-				}
+				secondTerm = generateAST(subTokens, depth + 1);
+				secondTerm->nodeType = Expression_Term;
 
-				subTokens.push_back(t);
+				node->childNodes.push_back(firstTerm);
+				node->childNodes.push_back(secondTerm);
+				break;
 			}
-			ASTNode* newNode = new ASTNode();
-			generateAST(subTokens, depth + 1, newNode);
-			newNode->nodeType = Expression_Term;
-			insideNodes.push_back(newNode);
 
-			if (isFunction) {
+			case Equal: {
+				node->nodeType = Expression_Statement;
+
+				ASTNode* firstTerm = new ASTNode();
+				ASTNode* secondTerm = new ASTNode();
+
+				// Instead of backtracking to get the first term, pop the leafNodes vector =)
+				firstTerm->childNodes.push_back(parentNode->leafNodes.back());
+				parentNode->leafNodes.pop_back();
+				firstTerm->nodeType = Identifier_Node;
+
+				// Step through all following tokens until end of term
+				int parenLevel = 1;
+				std::vector<tokenPair> subTokens = std::vector<tokenPair>();
+				for (;;) {
+					if (i >= tokens.size() - 1)
+						break;
+					tokenPair t = NEXT_TOKEN(i);
+
+					if (t.second == Left_Paren)
+						parenLevel++;
+					if (t.second == Right_Paren)
+						parenLevel--;
+
+					if ((t.second == EndOfLine || t.second == Semi_Colon))
+						break;
+
+					subTokens.push_back(t);
+				}
+				secondTerm = generateAST(subTokens, depth + 1);
+				secondTerm->nodeType = Expression_Term;
+
+				node->childNodes.push_back(firstTerm);
+				node->childNodes.push_back(secondTerm);
+				break;
+			}
+
+			case Hash: {
+				node->nodeType = Compile_Time_Directive;
+
+				ASTNode* identifier = new ASTNode();
+				ASTNode* bodyNode = new ASTNode();
+
+				tokenPair tt = NEXT_TOKEN(i);
+				identifier->token = tt.first;
+				identifier->tokenType = tt.second;
+				identifier->nodeType = Identifier_Node;
+
+				// Step through all following tokens until end of line via semicolon
+				std::vector<tokenPair> subTokens = std::vector<tokenPair>();
+				while (i < tokens.size() - 1) {
+					if (i >= tokens.size() - 1)
+						break;
+					tokenPair t = NEXT_TOKEN(i);
+					printf("token %d value: `%s`\n", i, t.first.c_str());
+
+					if (t.second == Semi_Colon)
+						break;
+					if (t.second == EndOfLine)
+						throw std::runtime_error("Error: Missing semicolon to specify end of line");
+
+
+					printf("subtoken added of value: `%s`\n", t.first.c_str());
+					subTokens.push_back(t);
+				}
+				bodyNode = generateAST(subTokens, depth + 1);
+				bodyNode->nodeType = Scope_Body;
+
+				node->token = "<#" + identifier->token + ">";
+				node->childNodes.push_back(identifier);
+				node->childNodes.push_back(bodyNode);
+				break;
+			}
+
+			case Colon_Colon: {
+				node->nodeType = Compiler_Define;
+
+				ASTNode* identifier = new ASTNode();
+				ASTNode* returnType = new ASTNode();
 				ASTNode* argumentsNode = new ASTNode();
+				ASTNode* bodyNode = new ASTNode();
+				std::vector<ASTNode*> arguments = std::vector<ASTNode*>();
+
+				identifier = parentNode->leafNodes.back();
+				parentNode->leafNodes.pop_back();
+				identifier->nodeType = Identifier_Node;
 				argumentsNode->nodeType = Arguments;
-				for (int a = 0; a < insideNodes.size(); a++)
-					argumentsNode->childNodes.push_back(insideNodes[a]);
+
+				// Step through all following tokens until parens start
+				std::vector<tokenPair> subTokens = std::vector<tokenPair>();
+				for (;;) {
+					if (i >= tokens.size() - 1)
+						break;
+					tokenPair t = NEXT_TOKEN(i);
+
+					if (t.second == Left_Paren)
+						break;
+
+					subTokens.push_back(t);
+				}
+				returnType = generateAST(subTokens, depth + 1);
+				returnType->nodeType = Type;
+				// Step through all following tokens until parens are closed
+				int parenLevel = 1;
+				subTokens = std::vector<tokenPair>();
+				for (;;) {
+					if (i >= tokens.size() - 1)
+						break;
+					tokenPair t = NEXT_TOKEN(i);
+
+					if (t.second == Left_Paren)
+						parenLevel++;
+					if (t.second == Right_Paren)
+						parenLevel--;
+
+					if (t.second == EndOfLine || t.second == Semi_Colon)
+						break;
+					// If comma and parenLevel is in same scope
+					if ((t.second == Comma && parenLevel == 1)) {
+						ASTNode* newNode = new ASTNode();
+						generateAST(subTokens, depth + 1, newNode);
+						newNode->nodeType = Expression_Term;
+						arguments.push_back(newNode);
+						subTokens = std::vector<tokenPair>();
+						continue;
+					}
+
+					subTokens.push_back(t);
+
+					if (parenLevel == 0)
+						break;
+				}
+				ASTNode* newNode = new ASTNode();
+				generateAST(subTokens, depth + 1, newNode);
+				newNode->nodeType = Expression_Term;
+				arguments.push_back(newNode);
+				subTokens = std::vector<tokenPair>();
+				//arguments = generateAST(subTokens, depth + 1);
+				//arguments->nodeType = Arguments;
+				for (int a = 0; a < arguments.size(); a++) {
+					//argumentsNode->childNodes.push_back(arguments[a]);
+					if (arguments[a]->leafNodes.size() == 2) {	// Make sure follows: <type> <identifier>  pattern
+						arguments[a]->leafNodes[0]->nodeType = Type;
+						arguments[a]->childNodes.push_back(arguments[a]->leafNodes[0]);
+						arguments[a]->childNodes.push_back(arguments[a]->leafNodes[1]);
+						arguments[a]->leafNodes.pop_back();
+						arguments[a]->leafNodes.pop_back();
+					}
+					else if (arguments[a]->leafNodes.size() == 0) {
+					}
+					else {
+						printf("Error: Expected type followed by identifier\n");
+						exit(1);
+					}
+					argumentsNode->childNodes.push_back(arguments[a]);
+				}
+
+				// Step through all tokens to gather body until braces are closed
+				GATHER_SCOPE_BODY(subTokens, 0, i);
+
+				bodyNode = generateAST(subTokens, depth + 1);
+				bodyNode->nodeType = Scope_Body;
+
+				node->token = "<" + identifier->token + ">";
+				node->childNodes.push_back(identifier);
+				if (returnType->childNodes.size() > 0)
+					node->childNodes.push_back(returnType);
 				node->childNodes.push_back(argumentsNode);
+				node->childNodes.push_back(bodyNode);
+				break;
 			}
-			else {
-				insideNodes[0]->nodeType = Expression_Term;
-				node = insideNodes[0];
-				//node->childNodes.push_back(insideNodes[0]);
+
+			case Left_Paren: {
+				node->nodeType = Expression_Term;
+
+				ASTNode* previousTerm = new ASTNode();
+				std::vector<ASTNode*> insideNodes = std::vector<ASTNode*>();
+				bool isFunction = false;
+
+				// Check the previous node, if it is an identifier then this must be a function call
+				if (parentNode->leafNodes.size() > 0) {
+					previousTerm = parentNode->leafNodes.back();
+					parentNode->leafNodes.pop_back();
+					if (previousTerm->nodeType == Identifier_Node) {
+						node->nodeType = Function_Call;
+						node->token = previousTerm->token;
+						isFunction = true;
+					}
+				}
+
+				// Collect all comma-separated terms
+				// Step through all following tokens until last paren
+				int parenLevel = 1;
+				std::vector<tokenPair> subTokens = std::vector<tokenPair>();
+				for (;;) {
+					if (i >= tokens.size() - 1)
+						break;
+					tokenPair t = NEXT_TOKEN(i);
+
+					if (t.second == Left_Paren)
+						parenLevel++;
+					if (t.second == Right_Paren)
+						parenLevel--;
+
+					if ((t.second == EndOfLine || t.second == Semi_Colon)) {
+						break;
+					}
+					// If comma and parenLevel is in same scope
+					if ((t.second == Comma && parenLevel == 1)) {
+						ASTNode* newNode = new ASTNode();
+						generateAST(subTokens, depth + 1, newNode);
+						newNode->nodeType = Expression_Term;
+						insideNodes.push_back(newNode);
+						subTokens = std::vector<tokenPair>();
+						continue;
+					}
+
+					subTokens.push_back(t);
+				}
+				ASTNode* newNode = new ASTNode();
+				generateAST(subTokens, depth + 1, newNode);
+				newNode->nodeType = Expression_Term;
+				insideNodes.push_back(newNode);
+
+				if (isFunction) {
+					ASTNode* argumentsNode = new ASTNode();
+					argumentsNode->nodeType = Arguments;
+					for (int a = 0; a < insideNodes.size(); a++) {
+						argumentsNode->childNodes.push_back(insideNodes[a]);
+					}
+					node->childNodes.push_back(argumentsNode);
+				}
+				else {
+					insideNodes[0]->nodeType = Expression_Term;
+					node = insideNodes[0];
+					//node->childNodes.push_back(insideNodes[0]);
+				}
+				break;
 			}
-		}
-		else if (tokenType == Number) {
-			node->nodeType = Number_Node;
-			parentNode->leafNodes.push_back(node);
-			goto dontAddNode;
-		}
-		else if (tokenType == String) {
-			node->nodeType = String_Node;
-			parentNode->leafNodes.push_back(node);
-			goto dontAddNode;
-		}
-		else if (tokenType == True_Literal) {
-			node->nodeType = Boolean_Node;
-			parentNode->leafNodes.push_back(node);
-			goto dontAddNode;
-		}
-		else if (tokenType == False_Literal) {
-			node->nodeType = Boolean_Node;
-			parentNode->leafNodes.push_back(node);
-			goto dontAddNode;
-		}
-		else if (tokenType == Comment) {
-			goto dontAddNodeForce;
-		}
-		else if (tokenType == Identifier) {
-			node->nodeType = Identifier_Node;
-			parentNode->leafNodes.push_back(node);
-			goto dontAddNode;
-		}
-		else {
-			printf("Warning: Undefined node, %s\n", tokenValue.c_str());
-			goto dontAddNodeForce;
+
+			case Number: {
+				node->nodeType = Number_Node;
+				parentNode->leafNodes.push_back(node);
+				goto dontAddNode;
+			}
+
+			case String: {
+				node->nodeType = String_Node;
+				parentNode->leafNodes.push_back(node);
+				goto dontAddNode;
+			}
+
+			case True_Literal: {
+				node->nodeType = Boolean_Node;
+				parentNode->leafNodes.push_back(node);
+				goto dontAddNode;
+			}
+
+			case False_Literal: {
+				node->nodeType = Boolean_Node;
+				parentNode->leafNodes.push_back(node);
+				goto dontAddNode;
+			}
+
+			case Comment: {
+				goto dontAddNodeForce;
+			}
+
+			case Identifier: {
+				node->nodeType = Identifier_Node;
+				parentNode->leafNodes.push_back(node);
+				goto dontAddNode;
+			}
+
+			default: {
+				printf("Warning: Undefined node, %s\n", tokenValue.c_str());
+				goto dontAddNodeForce;
+			}
 		}
 
 	addNode:

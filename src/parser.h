@@ -67,12 +67,7 @@ enum ASTNodeType {
 	LastASTNodeType
 };
 
-const std::map<tokenType, nodeType> binaryOperatorExType = {
-	{Plus, Expression_Plus},
-	{Minus, Expression_Minus},
-	{Star, Expression_Times},
-	{Slash, Expression_Divided},
-};
+extern std::map<TokenType, ASTNodeType> binaryOperatorExType;
 
 const std::string ASTNodeTypeStrings[] = {
 	"Nothing_Node",
