@@ -30,6 +30,7 @@ enum ASTNodeType {
 	Type,
 
 	Expression_Term,
+	Expression_Paren_Term,
 	Expression_Statement,
 	Expression_Plus,
 	Expression_Minus,
@@ -79,6 +80,7 @@ const std::string ASTNodeTypeStrings[] = {
 	"Type",
 
 	"Expression_Term",
+	"Expression_Paren_Term",
 	"Expression_Statement",
 	"Expression_Plus",
 	"Expression_Minus",
@@ -130,6 +132,7 @@ extern ASTNode* rootNode;
 
 int beginParse(const std::vector<tokenPair>& tokens);
 ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth = 0, ASTNode* parentNodePtr = nullptr);
+void orderASTOperations(ASTNode* startNode);
 const std::string ASTNodeTypeAsString(ASTNodeType t);
 int printAST(ASTNode* startNode, int depth = 0);
 //std::vector<tokenPair> GATHER_SCOPE_BODY(int brLevel, int& i);

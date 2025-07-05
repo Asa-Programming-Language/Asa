@@ -26,15 +26,15 @@ const std::map<TokenType, const char*> tokenStarts = {
 	{String, "\""},
 	{Punctuation, ".,/;()+=-\\|<>?:!@#$%^&*{}[]`~"},
 	{EndOfLine, "\n"},
-	{Nothing, " "},
+	{Nothing, " \t"},
 };
 
 const std::map<TokenType, const char*> tokenEscapes = {
-	{Identifier, " .,/;()+=-\\|<>?:!@#$%^&*{}[]\"'\n"},
-	{Number, " ,/;()+=-\\|<>?:!@#$%^&*{}[]\"'\n"},
+	{Identifier, " .,/;()+=-\\|<>?:!@#$%^&*{}[]\"'\n\t\r"},
+	{Number, " ,/;()+=-\\|<>?:!@#$%^&*{}[]\"'\n\t\r"},
 	{String, "\""},
-	{Punctuation, " ,/;()+=-\\|<>?:!@#$%^&*{}[]\"'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789.\n"},
-	{EndOfLine, " ,/;()+=-\\|<>?:!@#$%^&*{}[]\"'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789.\n"},
+	{Punctuation, " ,/;()+=-\\|<>?:!@#$%^&*{}[]\"'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789.\n\t\r"},
+	{EndOfLine, " ,/;()+=-\\|<>?:!@#$%^&*{}[]\"'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789.\n\t\r"},
 };
 
 
@@ -255,6 +255,19 @@ int joinCommentTokens(std::vector<tokenPair>& tokens)
 			tokens[startIndex].second = Comment;
 			tokens.erase(tokens.begin() + startIndex + 1, tokens.begin() + i);
 			i = startIndex + 1;
+		}
+	}
+	return 0;
+}
+
+int removeCommentTokens(std::vector<tokenPair>& tokens)
+{
+	int i = 0;
+	while (i < tokens.size() - 1) {
+		tokenPair t = NEXT_TOKEN(i);
+		if (t.second == Comment) {
+			tokens.erase(tokens.begin() + i);
+			i--;
 		}
 	}
 	return 0;

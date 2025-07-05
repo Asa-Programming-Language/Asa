@@ -27,6 +27,11 @@ int beginParse(const std::vector<std::pair<std::string, TokenType>>& tokens)
 std::vector<ASTNode*> ASTNodes = std::vector<ASTNode*>();
 
 std::map<TokenType, ASTNodeType> binaryOperatorExType = {
+	{Bang_Equal, Compare_Not},
+	{Equal_Equal, Compare_Equal},
+	{Less, Compare_Less},
+	{Greater, Compare_Greater},
+	{Greater_Equal, Compare_GreaterEqual},
 	{Plus, Expression_Plus},
 	{Minus, Expression_Minus},
 	{Star, Expression_Times},
@@ -242,6 +247,13 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 				break;
 			}
 
+			// Two component operations
+			case Bang_Equal:
+			case Equal_Equal:
+			case Less:
+			case Less_Equal:
+			case Greater:
+			case Greater_Equal:
 			case Plus:
 			case Minus:
 			case Star:
@@ -250,6 +262,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 
 				ASTNode* firstTerm = new ASTNode();
 				ASTNode* secondTerm = new ASTNode();
+				bool isLeaf = true;
 
 				// Instead of backtracking to get the first term, pop the leafNodes vector =)
 				firstTerm->childNodes.push_back(parentNode->leafNodes.back());
@@ -269,19 +282,22 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 					if (t.second == Right_Paren)
 						parenLevel--;
 
-					if (t.second == EndOfLine || t.second == Semi_Colon)
-						break;
-
-					subTokens.push_back(t);
-
 					if (parenLevel == 0)
 						break;
+					if (t.second == EndOfLine || t.second == Semi_Colon) {
+						isLeaf = false;
+						break;
+					}
+
+					subTokens.push_back(t);
 				}
-				secondTerm = generateAST(subTokens, depth + 1);
+				generateAST(subTokens, depth + 1, secondTerm);
 				secondTerm->nodeType = Expression_Term;
 
 				node->childNodes.push_back(firstTerm);
 				node->childNodes.push_back(secondTerm);
+				if (isLeaf)
+					goto addNodeAsLeaf;
 				break;
 			}
 
@@ -292,9 +308,8 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 				ASTNode* secondTerm = new ASTNode();
 
 				// Instead of backtracking to get the first term, pop the leafNodes vector =)
-				firstTerm->childNodes.push_back(parentNode->leafNodes.back());
+				firstTerm = parentNode->leafNodes.back();
 				parentNode->leafNodes.pop_back();
-				firstTerm->nodeType = Identifier_Node;
 
 				// Step through all following tokens until end of term
 				int parenLevel = 1;
@@ -400,7 +415,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 					if (t.second == Right_Paren)
 						parenLevel--;
 
-					if (t.second == EndOfLine || t.second == Semi_Colon)
+					if (parenLevel == 0 || t.second == EndOfLine || t.second == Semi_Colon)
 						break;
 					// If comma and parenLevel is in same scope
 					if ((t.second == Comma && parenLevel == 1)) {
@@ -413,9 +428,6 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 					}
 
 					subTokens.push_back(t);
-
-					if (parenLevel == 0)
-						break;
 				}
 				ASTNode* newNode = new ASTNode();
 				generateAST(subTokens, depth + 1, newNode);
@@ -458,11 +470,12 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 			}
 
 			case Left_Paren: {
-				node->nodeType = Expression_Term;
+				node->nodeType = Expression_Paren_Term;
 
 				ASTNode* previousTerm = new ASTNode();
 				std::vector<ASTNode*> insideNodes = std::vector<ASTNode*>();
 				bool isFunction = false;
+				bool isLeaf = true;
 
 				// Check the previous node, if it is an identifier then this must be a function call
 				if (parentNode->leafNodes.size() > 0) {
@@ -489,7 +502,10 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 					if (t.second == Right_Paren)
 						parenLevel--;
 
-					if ((t.second == EndOfLine || t.second == Semi_Colon)) {
+					if (parenLevel == 0)
+						break;
+					if (t.second == EndOfLine || t.second == Semi_Colon) {
+						isLeaf = false;
 						break;
 					}
 					// If comma and parenLevel is in same scope
@@ -519,9 +535,11 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 				}
 				else {
 					insideNodes[0]->nodeType = Expression_Term;
-					node = insideNodes[0];
-					//node->childNodes.push_back(insideNodes[0]);
+					//node = insideNodes[0];
+					node->childNodes.push_back(insideNodes[0]);
 				}
+				if (isLeaf)
+					goto addNodeAsLeaf;
 				break;
 			}
 
@@ -559,14 +577,27 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 				goto dontAddNode;
 			}
 
+				//case Semi_Colon: {
+				//	for (int l = 0; l < parentNode->leafNodes.size(); l++) {
+				//		parentNode->childNodes.push_back(parentNode->leafNodes[l]);
+				//	}
+				//	for (int l = 0; l < parentNode->leafNodes.size(); l++)
+				//		parentNode->leafNodes.pop_back();
+				//}
+
 			default: {
 				printf("Warning: Undefined node, %s\n", tokenValue.c_str());
 				goto dontAddNodeForce;
 			}
 		}
 
+
 	addNode:
 		parentNode->childNodes.push_back(node);
+		continue;
+
+	addNodeAsLeaf:
+		parentNode->leafNodes.push_back(node);
 		continue;
 
 	dontAddNode:
@@ -629,6 +660,12 @@ inline void indent(int& depth)
 //	}
 //	return subTokens;
 //}
+
+void orderASTOperations(ASTNode* startNode)
+{
+	for (int i = 0; i < startNode->childNodes.size(); i++) {
+	}
+}
 
 const std::string ASTNodeTypeAsString(ASTNodeType t)
 {

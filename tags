@@ -108,6 +108,7 @@ Equal	src/tokenizer.h	/^	Equal,$/;"	e	enum:TokenType
 Equal_Equal	src/tokenizer.h	/^	Equal_Equal,$/;"	e	enum:TokenType
 Expression_Divided	src/parser.h	/^	Expression_Divided,$/;"	e	enum:ASTNodeType
 Expression_Minus	src/parser.h	/^	Expression_Minus,$/;"	e	enum:ASTNodeType
+Expression_Paren_Term	src/parser.h	/^	Expression_Paren_Term,$/;"	e	enum:ASTNodeType
 Expression_Plus	src/parser.h	/^	Expression_Plus,$/;"	e	enum:ASTNodeType
 Expression_Statement	src/parser.h	/^	Expression_Statement,$/;"	e	enum:ASTNodeType
 Expression_Term	src/parser.h	/^	Expression_Term,$/;"	e	enum:ASTNodeType
@@ -188,8 +189,10 @@ lineNumber	src/tokenizer.h	/^	int lineNumber = 0;$/;"	m	struct:tokenDataType	typ
 loadFile	src/filemanager.cpp	/^int loadFile(const std::string& fileName)$/;"	f	typeref:typename:int
 main	src/main.cpp	/^int main(int argc, char** argv)$/;"	f	typeref:typename:int
 nodeType	src/parser.h	/^	ASTNodeType nodeType = Nothing_Node;$/;"	m	struct:ASTNode	typeref:typename:ASTNodeType
+orderASTOperations	src/parser.cpp	/^void orderASTOperations(ASTNode* startNode)$/;"	f	typeref:typename:void
 prevNode	src/parser.h	/^	ASTNode* prevNode;$/;"	m	struct:ASTNode	typeref:typename:ASTNode *
 printAST	src/parser.cpp	/^int printAST(ASTNode* startNode, int depth)$/;"	f	typeref:typename:int
+removeCommentTokens	src/tokenizer.cpp	/^int removeCommentTokens(std::vector<tokenPair>& tokens)$/;"	f	typeref:typename:int
 rootNode	src/parser.cpp	/^ASTNode* rootNode = new ASTNode();$/;"	v	typeref:typename:ASTNode *
 s:l	src/Session.vim	/^let s:l = 1 - ((0 * winheight(0) + 26) \/ 53)$/;"	v
 s:l	src/Session.vim	/^let s:l = 105 - ((21 * winheight(0) + 17) \/ 34)$/;"	v

@@ -151,4 +151,5 @@ extern std::vector<tokenPair> allTokens;
 int tokenize(std::string& rawFile);
 int labelSubTokens(std::vector<tokenPair>& tokens);
 int joinCommentTokens(std::vector<tokenPair>& tokens);
+int removeCommentTokens(std::vector<tokenPair>& tokens);
 const std::string tokenAsString(TokenType t);

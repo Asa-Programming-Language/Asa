@@ -97,6 +97,7 @@ int main(int argc, char** argv)
 		ERROR("Invalid allTokens met\n");
 		exit(1);
 	}
+	e = removeCommentTokens(allTokens);
 	printf("\nTokens:\n");
 	for (int i = 0; i < allTokens.size(); i++) {
 		if (allTokens[i].second != EndOfLine) {
@@ -107,6 +108,8 @@ int main(int argc, char** argv)
 
 	// Generate AST
 	rootNode = generateAST(allTokens);
+	// Order AST operations
+	orderASTOperations(rootNode);
 	//if (e != 0) {
 	//	ERROR("Errors creating abstract syntax tree\n");
 	//	exit(1);
