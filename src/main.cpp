@@ -109,7 +109,7 @@ int main(int argc, char** argv)
 	// Generate AST
 	rootNode = generateAST(allTokens);
 	// Order AST operations
-	orderASTOperations(rootNode);
+	fixPrecedence(rootNode);
 	//if (e != 0) {
 	//	ERROR("Errors creating abstract syntax tree\n");
 	//	exit(1);

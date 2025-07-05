@@ -38,6 +38,20 @@ std::map<TokenType, ASTNodeType> binaryOperatorExType = {
 	{Slash, Expression_Divided},
 };
 
+std::map<ASTNodeType, int> operatorPrecedence = {
+	{Expression_Paren_Term, 5},	 // ()
+	{Expression_Times, 4},		 // *
+	{Expression_Divided, 4},	 // /
+	{Expression_Plus, 3},		 // +
+	{Expression_Minus, 3},		 // -
+	{Compare_Equal, 2},			 // ==
+	{Compare_Not, 2},			 // !=
+	{Compare_Less, 2},			 // <
+	{Compare_LessEqual, 2},		 // <=
+	{Compare_Greater, 2},		 // >
+	{Compare_GreaterEqual, 2},	 // >=
+};
+
 ASTNode* rootNode = new ASTNode();
 
 ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* parentNodePtr)
@@ -265,9 +279,9 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 				bool isLeaf = true;
 
 				// Instead of backtracking to get the first term, pop the leafNodes vector =)
-				firstTerm->childNodes.push_back(parentNode->leafNodes.back());
+				firstTerm = parentNode->leafNodes.back();
 				parentNode->leafNodes.pop_back();
-				firstTerm->nodeType = Expression_Term;
+				//firstTerm->nodeType = Expression_Term;
 
 				// Step through all following tokens until parens are closed
 				int parenLevel = 1;
@@ -291,8 +305,8 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 
 					subTokens.push_back(t);
 				}
-				generateAST(subTokens, depth + 1, secondTerm);
-				secondTerm->nodeType = Expression_Term;
+				secondTerm = generateAST(subTokens, depth + 1)->childNodes[0];
+				//secondTerm->nodeType = Expression_Term;
 
 				node->childNodes.push_back(firstTerm);
 				node->childNodes.push_back(secondTerm);
@@ -620,6 +634,112 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 
 	return parentNode;
 }
+
+
+void fixPrecedence(ASTNode* node)
+{
+	if (!node)
+		return;
+
+	// First, recursively fix all child nodes
+	for (auto& child : node->childNodes) {
+		fixPrecedence(child);
+	}
+
+	// Check if this node is a binary operator that needs precedence fixing
+	if (operatorPrecedence.find(node->nodeType) != operatorPrecedence.end()) {
+
+		// Must have exactly 2 children for binary operators
+		if (node->childNodes.size() != 2)
+			return;
+
+		ASTNode* leftChild = node->childNodes[0];
+		ASTNode* rightChild = node->childNodes[1];
+
+		// Check if left child is a binary operator with lower precedence
+		if (leftChild->childNodes.size() == 2 &&
+			operatorPrecedence.find(leftChild->nodeType) != operatorPrecedence.end()) {
+
+			int currentPrecedence = operatorPrecedence[node->nodeType];
+			int leftPrecedence = operatorPrecedence[leftChild->nodeType];
+
+			// If current operator has higher precedence than left child, rotate right
+			if (currentPrecedence > leftPrecedence) {
+				// Rotate: (A op1 B) op2 C  ->  A op1 (B op2 C)
+				// where op2 has higher precedence than op1
+
+				ASTNode* A = leftChild->childNodes[0];
+				ASTNode* B = leftChild->childNodes[1];
+				ASTNode* C = rightChild;
+
+				// Create new subtree: B op2 C
+				ASTNode* newRight = new ASTNode();
+				newRight->nodeType = node->nodeType;
+				newRight->token = node->token;
+				newRight->tokenType = node->tokenType;
+				newRight->lineNumber = node->lineNumber;
+				newRight->childNodes.push_back(B);
+				newRight->childNodes.push_back(C);
+
+				// Update current node to be: A op1 (B op2 C)
+				node->nodeType = leftChild->nodeType;
+				node->token = leftChild->token;
+				node->tokenType = leftChild->tokenType;
+				node->lineNumber = leftChild->lineNumber;
+
+				// Clear and rebuild children
+				node->childNodes.clear();
+				node->childNodes.push_back(A);
+				node->childNodes.push_back(newRight);
+
+				// Recursively fix the new subtree
+				fixPrecedence(newRight);
+			}
+		}
+
+		// Check if right child is a binary operator with lower or equal precedence
+		if (rightChild->childNodes.size() == 2 &&
+			operatorPrecedence.find(rightChild->nodeType) != operatorPrecedence.end()) {
+
+			int currentPrecedence = operatorPrecedence[node->nodeType];
+			int rightPrecedence = operatorPrecedence[rightChild->nodeType];
+
+			// If current operator has higher precedence than right child, rotate left
+			if (currentPrecedence > rightPrecedence) {
+				// Rotate: A op1 (B op2 C)  ->  (A op1 B) op2 C
+				// where op1 has higher precedence than op2
+
+				ASTNode* A = leftChild;
+				ASTNode* B = rightChild->childNodes[0];
+				ASTNode* C = rightChild->childNodes[1];
+
+				// Create new subtree: A op1 B
+				ASTNode* newLeft = new ASTNode();
+				newLeft->nodeType = node->nodeType;
+				newLeft->token = node->token;
+				newLeft->tokenType = node->tokenType;
+				newLeft->lineNumber = node->lineNumber;
+				newLeft->childNodes.push_back(A);
+				newLeft->childNodes.push_back(B);
+
+				// Update current node to be: (A op1 B) op2 C
+				node->nodeType = rightChild->nodeType;
+				node->token = rightChild->token;
+				node->tokenType = rightChild->tokenType;
+				node->lineNumber = rightChild->lineNumber;
+
+				// Clear and rebuild children
+				node->childNodes.clear();
+				node->childNodes.push_back(newLeft);
+				node->childNodes.push_back(C);
+
+				// Recursively fix the new subtree
+				fixPrecedence(newLeft);
+			}
+		}
+	}
+}
+
 
 //void GO_BACK_TO_BEGINNING_OF_TERM(int& i)
 //{
