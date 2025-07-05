@@ -19,7 +19,8 @@ enum TokenType {
 
 	// Literals
 	Identifier,
-	Number,
+	Integer,
+	Float,
 	String,
 
 	// Punctuation and its subtypes
@@ -79,7 +80,8 @@ const std::string tokenTypeStrings[] = {
 	"Comment",
 
 	"identifier",
-	"number",
+	"Integer",
+	"Float",
 	"string",
 
 	"punctuation",

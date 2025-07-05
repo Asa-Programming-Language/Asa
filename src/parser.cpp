@@ -52,6 +52,13 @@ std::map<ASTNodeType, int> operatorPrecedence = {
 	{Compare_GreaterEqual, 2},	 // >=
 };
 
+std::map<ASTNodeType, int> literalMap = {
+	{Integer_Node, 1},
+	{Float_Node, 1},
+	{Boolean_Node, 1},
+	{String_Node, 1},
+};
+
 ASTNode* rootNode = new ASTNode();
 
 ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* parentNodePtr)
@@ -548,17 +555,23 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 					node->childNodes.push_back(argumentsNode);
 				}
 				else {
-					insideNodes[0]->nodeType = Expression_Term;
-					//node = insideNodes[0];
-					node->childNodes.push_back(insideNodes[0]);
+					insideNodes[0]->nodeType = Expression_Paren_Term;
+					node = insideNodes[0];
+					//node->childNodes.push_back(insideNodes[0]);
 				}
 				if (isLeaf)
 					goto addNodeAsLeaf;
 				break;
 			}
 
-			case Number: {
-				node->nodeType = Number_Node;
+			case Integer: {
+				node->nodeType = Integer_Node;
+				parentNode->leafNodes.push_back(node);
+				goto dontAddNode;
+			}
+
+			case Float: {
+				node->nodeType = Float_Node;
 				parentNode->leafNodes.push_back(node);
 				goto dontAddNode;
 			}
@@ -591,13 +604,13 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 				goto dontAddNode;
 			}
 
-				//case Semi_Colon: {
-				//	for (int l = 0; l < parentNode->leafNodes.size(); l++) {
-				//		parentNode->childNodes.push_back(parentNode->leafNodes[l]);
-				//	}
-				//	for (int l = 0; l < parentNode->leafNodes.size(); l++)
-				//		parentNode->leafNodes.pop_back();
-				//}
+			case Semi_Colon: {
+				for (int l = 0; l < parentNode->leafNodes.size(); l++) {
+					parentNode->childNodes.push_back(parentNode->leafNodes[l]);
+				}
+				for (int l = 0; l < parentNode->leafNodes.size(); l++)
+					parentNode->leafNodes.pop_back();
+			}
 
 			default: {
 				printf("Warning: Undefined node, %s\n", tokenValue.c_str());
@@ -636,7 +649,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 }
 
 
-void fixPrecedence(ASTNode* node)
+void fixPrecedence(ASTNode*& node)
 {
 	if (!node)
 		return;
@@ -738,6 +751,207 @@ void fixPrecedence(ASTNode* node)
 			}
 		}
 	}
+}
+
+
+void optimizeASTNode(ASTNode*& node)
+{
+	for (int i = 0; i < node->childNodes.size(); i++) {
+		optimizeASTNode(node->childNodes[i]);
+	}
+
+	// If binary operator
+	if (node->childNodes.size() >= 2) {
+		if (operatorPrecedence.find(node->nodeType) != operatorPrecedence.end()) {
+			ASTNode* first = node->childNodes[0];
+			ASTNode* second = node->childNodes[1];
+
+			bool first_b = false;
+			int first_i = 0;
+			double first_f = 0;
+			void* first_val_ptr = &first_b;
+			ASTNodeType first_type = Boolean_Node;
+
+			bool second_b = false;
+			int second_i = 0;
+			double second_f = 0;
+			void* second_val_ptr = &second_b;
+			ASTNodeType second_type = Boolean_Node;
+
+			bool output_b = false;
+			int output_i = 0;
+			double output_f = 0;
+			void* output_val_ptr = &output_b;
+			ASTNodeType output_type = Boolean_Node;
+
+			bool firstIsLiteral = false;
+			bool secondIsLiteral = false;
+
+			// If the first node is a literal
+			if (literalMap.find(first->nodeType) != literalMap.end()) {
+				firstIsLiteral = true;
+				switch (first->nodeType) {
+					case Boolean_Node:
+						first_val_ptr = &first_b;
+						first_b = first->token == "true" ? true : false;
+						output_val_ptr = &output_b;
+						output_type = Boolean_Node;
+						first_type = Boolean_Node;
+						break;
+					case Integer_Node:
+						first_val_ptr = &first_i;
+						first_i = std::stoi(first->token);
+						output_val_ptr = &output_i;
+						output_type = Integer_Node;
+						first_type = Integer_Node;
+						break;
+					case Float_Node:
+						first_val_ptr = &first_f;
+						first_f = std::stod(first->token);
+						output_val_ptr = &output_f;
+						output_type = Float_Node;
+						first_type = Float_Node;
+						break;
+					default:
+						firstIsLiteral = false;
+				}
+			}
+			// If the second node is a literal
+			if (literalMap.find(second->nodeType) != literalMap.end()) {
+				secondIsLiteral = true;
+				switch (second->nodeType) {
+					case Boolean_Node:
+						second_val_ptr = &second_b;
+						second_b = second->token == "true" ? true : false;
+						second_type = Boolean_Node;
+						break;
+					case Integer_Node:
+						second_val_ptr = &second_i;
+						second_i = std::stoi(second->token);
+						if (output_type != Float_Node) {
+							output_val_ptr = &output_i;
+							output_type = Integer_Node;
+						}
+						second_type = Integer_Node;
+						break;
+					case Float_Node:
+						second_val_ptr = &second_f;
+						second_f = std::stod(second->token);
+						output_val_ptr = &output_f;
+						output_type = Float_Node;
+						second_type = Float_Node;
+						break;
+					default:
+						secondIsLiteral = false;
+				}
+			}
+
+			if (output_type == Float_Node) {
+				if (first_type == Boolean_Node) {
+					first_type = Float_Node;
+					first_f = (double)first_b;
+					first_val_ptr = &first_f;
+				}
+				if (first_type == Integer_Node) {
+					first_type = Float_Node;
+					first_f = (double)first_i;
+					first_val_ptr = &first_f;
+				}
+				if (second_type == Boolean_Node) {
+					second_type = Float_Node;
+					second_f = (double)second_b;
+					second_val_ptr = &second_f;
+				}
+				if (second_type == Integer_Node) {
+					second_type = Float_Node;
+					second_f = (double)second_i;
+					second_val_ptr = &second_f;
+				}
+			}
+			else if (output_type == Integer_Node) {
+				if (first_type == Boolean_Node) {
+					first_type = Integer_Node;
+					first_i = (int)first_b;
+					first_val_ptr = &first_i;
+				}
+				if (second_type == Boolean_Node) {
+					second_type = Integer_Node;
+					second_i = (int)second_b;
+					second_val_ptr = &second_i;
+				}
+			}
+
+			if (firstIsLiteral && secondIsLiteral) {
+				printf("COMBINED\n");
+
+				std::string outString;
+
+				// If float output
+				if (output_type == Float_Node) {
+					switch (node->nodeType) {
+						case (Expression_Times):
+							output_f = (*(double*)first_val_ptr) * (*(double*)second_val_ptr);
+							break;
+						case (Expression_Divided):
+							output_f = (*(double*)first_val_ptr) / (*(double*)second_val_ptr);
+							break;
+						case (Expression_Plus):
+							output_f = (*(double*)first_val_ptr) + (*(double*)second_val_ptr);
+							break;
+						case (Expression_Minus):
+							output_f = (*(double*)first_val_ptr) - (*(double*)second_val_ptr);
+							break;
+					}
+					printf("val: %f\n", output_f);
+					outString = std::to_string(output_f);
+				}
+				// If int output
+				else if (output_type == Integer_Node) {
+					switch (node->nodeType) {
+						case (Expression_Times):
+							output_i = (*(int*)first_val_ptr) * (*(int*)second_val_ptr);
+							break;
+						case (Expression_Divided):
+							output_i = (*(int*)first_val_ptr) / (*(int*)second_val_ptr);
+							break;
+						case (Expression_Plus):
+							output_i = (*(int*)first_val_ptr) + (*(int*)second_val_ptr);
+							break;
+						case (Expression_Minus):
+							output_i = (*(int*)first_val_ptr) - (*(int*)second_val_ptr);
+							break;
+					}
+					printf("val: %d\n", output_i);
+					outString = std::to_string(output_i);
+				}
+
+
+				node->childNodes = std::vector<ASTNode*>();
+				node->nodeType = output_type;
+				switch (output_type) {
+					case Integer_Node:
+					case Boolean_Node:
+						node->tokenType = Integer;
+					case Float_Node:
+						node->tokenType = Float;
+				}
+				node->token = outString;
+			}
+		}
+	}
+	// Else if a paren term
+	else if (node->nodeType == Expression_Paren_Term) {
+		// If this paren term only has one child, and that child is any type of literal,
+		// the paren can be removed
+		if (node->childNodes.size() == 1 && literalMap.find(node->childNodes[0]->nodeType) != literalMap.end()) {
+			node = node->childNodes[0];
+		}
+	}
+}
+
+template<typename O, typename F, typename S>
+void evaluateExpression(O output, F first, S second)
+{
 }
 
 

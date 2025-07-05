@@ -114,6 +114,8 @@ Expression_Statement	src/parser.h	/^	Expression_Statement,$/;"	e	enum:ASTNodeTyp
 Expression_Term	src/parser.h	/^	Expression_Term,$/;"	e	enum:ASTNodeType
 Expression_Times	src/parser.h	/^	Expression_Times,$/;"	e	enum:ASTNodeType
 False_Literal	src/tokenizer.h	/^	False_Literal,$/;"	e	enum:TokenType
+Float	src/tokenizer.h	/^	Float,$/;"	e	enum:TokenType
+Float_Node	src/parser.h	/^	Float_Node,$/;"	e	enum:ASTNodeType
 For_Statement	src/tokenizer.h	/^	For_Statement,$/;"	e	enum:TokenType
 For_Statement_Node	src/parser.h	/^	For_Statement_Node,$/;"	e	enum:ASTNodeType
 Function_Call	src/parser.h	/^	Function_Call,$/;"	e	enum:ASTNodeType
@@ -125,6 +127,8 @@ Identifier	src/tokenizer.h	/^	Identifier,$/;"	e	enum:TokenType
 Identifier_Node	src/parser.h	/^	Identifier_Node,$/;"	e	enum:ASTNodeType
 If_Statement	src/tokenizer.h	/^	If_Statement,$/;"	e	enum:TokenType
 If_Statement_Node	src/parser.h	/^	If_Statement_Node,$/;"	e	enum:ASTNodeType
+Integer	src/tokenizer.h	/^	Integer,$/;"	e	enum:TokenType
+Integer_Node	src/parser.h	/^	Integer_Node,$/;"	e	enum:ASTNodeType
 Iterator	src/parser.h	/^	Iterator,$/;"	e	enum:ASTNodeType
 LastASTNodeType	src/parser.h	/^	LastASTNodeType$/;"	e	enum:ASTNodeType
 LastTokenType	src/tokenizer.h	/^	LastTokenType,$/;"	e	enum:TokenType
@@ -141,8 +145,6 @@ Minus_Minus	src/tokenizer.h	/^	Minus_Minus,$/;"	e	enum:TokenType
 NEXT_TOKEN	src/tokenizer.h	/^#define NEXT_TOKEN(/;"	d
 Nothing	src/tokenizer.h	/^	Nothing,$/;"	e	enum:TokenType
 Nothing_Node	src/parser.h	/^	Nothing_Node,$/;"	e	enum:ASTNodeType
-Number	src/tokenizer.h	/^	Number,$/;"	e	enum:TokenType
-Number_Node	src/parser.h	/^	Number_Node,$/;"	e	enum:ASTNodeType
 PRINT_SUBTOKENS	src/parser.h	/^#define PRINT_SUBTOKENS(/;"	d
 Plus	src/tokenizer.h	/^	Plus,$/;"	e	enum:TokenType
 Plus_Equal	src/tokenizer.h	/^	Plus_Equal,$/;"	e	enum:TokenType
@@ -177,8 +179,9 @@ binaryOperatorExType	src/parser.cpp	/^std::map<TokenType, ASTNodeType> binaryOpe
 charInArray	src/tokenizer.cpp	/^bool charInArray(char x, const char* a)$/;"	f	typeref:typename:bool
 childNodes	src/parser.h	/^	std::vector<ASTNode*> childNodes = std::vector<ASTNode*>();$/;"	m	struct:ASTNode	typeref:typename:std::vector<ASTNode * >
 currentToken	src/tokenizer.cpp	/^TokenType currentToken = Nothing;$/;"	v	typeref:typename:TokenType
+evaluateExpression	src/parser.cpp	/^void evaluateExpression(O output, F first, S second)$/;"	f	typeref:typename:void
 first	src/tokenizer.h	/^	std::string first = "";$/;"	m	struct:tokenDataType	typeref:typename:std::string
-fixPrecedence	src/parser.cpp	/^void fixPrecedence(ASTNode* node)$/;"	f	typeref:typename:void
+fixPrecedence	src/parser.cpp	/^void fixPrecedence(ASTNode*& node)$/;"	f	typeref:typename:void
 generateAST	src/parser.cpp	/^ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* parentNodePtr)$/;"	f	typeref:typename:ASTNode *
 indent	src/parser.cpp	/^inline void indent(int& depth)$/;"	f	typeref:typename:void
 initialFileString	src/filemanager.cpp	/^std::string initialFileString;$/;"	v	typeref:typename:std::string
@@ -187,23 +190,29 @@ labelSubTokens	src/tokenizer.cpp	/^int labelSubTokens(std::vector<tokenPair>& to
 leafNodes	src/parser.h	/^	std::vector<ASTNode*> leafNodes = std::vector<ASTNode*>();$/;"	m	struct:ASTNode	typeref:typename:std::vector<ASTNode * >
 lineNumber	src/parser.h	/^	int lineNumber = 0;$/;"	m	struct:ASTNode	typeref:typename:int
 lineNumber	src/tokenizer.h	/^	int lineNumber = 0;$/;"	m	struct:tokenDataType	typeref:typename:int
+literalMap	src/parser.cpp	/^std::map<ASTNodeType, int> literalMap = {$/;"	v	typeref:typename:std::map<ASTNodeType,int>
 loadFile	src/filemanager.cpp	/^int loadFile(const std::string& fileName)$/;"	f	typeref:typename:int
 main	src/main.cpp	/^int main(int argc, char** argv)$/;"	f	typeref:typename:int
 nodeType	src/parser.h	/^	ASTNodeType nodeType = Nothing_Node;$/;"	m	struct:ASTNode	typeref:typename:ASTNodeType
 operatorPrecedence	src/parser.cpp	/^std::map<ASTNodeType, int> operatorPrecedence = {$/;"	v	typeref:typename:std::map<ASTNodeType,int>
+optimizeASTNode	src/parser.cpp	/^void optimizeASTNode(ASTNode*& node)$/;"	f	typeref:typename:void
 orderASTOperations	src/parser.cpp	/^void orderASTOperations(ASTNode* startNode)$/;"	f	typeref:typename:void
 prevNode	src/parser.h	/^	ASTNode* prevNode;$/;"	m	struct:ASTNode	typeref:typename:ASTNode *
 printAST	src/parser.cpp	/^int printAST(ASTNode* startNode, int depth)$/;"	f	typeref:typename:int
 removeCommentTokens	src/tokenizer.cpp	/^int removeCommentTokens(std::vector<tokenPair>& tokens)$/;"	f	typeref:typename:int
 rootNode	src/parser.cpp	/^ASTNode* rootNode = new ASTNode();$/;"	v	typeref:typename:ASTNode *
-s:l	src/Session.vim	/^let s:l = 1 - ((0 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 105 - ((21 * winheight(0) + 17) \/ 34)$/;"	v
-s:l	src/Session.vim	/^let s:l = 14 - ((13 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 145 - ((46 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 112 - ((10 * winheight(0) + 25) \/ 51)$/;"	v
+s:l	src/Session.vim	/^let s:l = 112 - ((9 * winheight(0) + 10) \/ 20)$/;"	v
+s:l	src/Session.vim	/^let s:l = 138 - ((48 * winheight(0) + 25) \/ 51)$/;"	v
+s:l	src/Session.vim	/^let s:l = 14 - ((13 * winheight(0) + 25) \/ 51)$/;"	v
+s:l	src/Session.vim	/^let s:l = 15 - ((14 * winheight(0) + 25) \/ 51)$/;"	v
 s:l	src/Session.vim	/^let s:l = 19 - ((18 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 356 - ((42 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 23 - ((22 * winheight(0) + 25) \/ 51)$/;"	v
+s:l	src/Session.vim	/^let s:l = 24 - ((18 * winheight(0) + 15) \/ 30)$/;"	v
+s:l	src/Session.vim	/^let s:l = 257 - ((40 * winheight(0) + 25) \/ 51)$/;"	v
 s:l	src/Session.vim	/^let s:l = 7 - ((6 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 9936 - ((8 * winheight(0) + 9) \/ 18)$/;"	v
+s:l	src/Session.vim	/^let s:l = 742 - ((40 * winheight(0) + 25) \/ 51)$/;"	v
+s:l	src/Session.vim	/^let s:l = 9832 - ((10 * winheight(0) + 15) \/ 30)$/;"	v
 s:save_splitbelow	src/Session.vim	/^let s:save_splitbelow = &splitbelow$/;"	v
 s:save_splitright	src/Session.vim	/^let s:save_splitright = &splitright$/;"	v
 s:save_winminheight	src/Session.vim	/^let s:save_winminheight = &winminheight$/;"	v
@@ -216,6 +225,7 @@ second	src/tokenizer.h	/^	TokenType second = Nothing;$/;"	m	struct:tokenDataType
 subTokenTypes	src/tokenizer.cpp	/^std::map<const std::string, const TokenType> subTokenTypes = {$/;"	v	typeref:typename:std::map<const std::string,const TokenType>
 token	src/parser.h	/^	std::string token;$/;"	m	struct:ASTNode	typeref:typename:std::string
 tokenAsString	src/tokenizer.cpp	/^const std::string tokenAsString(TokenType t)$/;"	f	typeref:typename:const std::string
+tokenContainsSwap	src/tokenizer.cpp	/^std::map<TokenType, std::pair<const char*, TokenType>> tokenContainsSwap = {$/;"	v	typeref:typename:std::map<TokenType,std::pair<const char *,TokenType>>
 tokenContent	src/tokenizer.cpp	/^std::string tokenContent = "";$/;"	v	typeref:typename:std::string
 tokenDataType	src/tokenizer.h	/^	tokenDataType(std::string f, TokenType s, int l)$/;"	f	struct:tokenDataType
 tokenDataType	src/tokenizer.h	/^struct tokenDataType {$/;"	s

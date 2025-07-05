@@ -24,7 +24,8 @@ enum ASTNodeType {
 	Nothing_Node,
 
 	Identifier_Node,
-	Number_Node,
+	Integer_Node,
+	Float_Node,
 	Boolean_Node,
 	String_Node,
 	Type,
@@ -74,7 +75,8 @@ const std::string ASTNodeTypeStrings[] = {
 	"Nothing_Node",
 
 	"Identifier_Node",
-	"Number_Node",
+	"Integer_Node",
+	"Float_Node",
 	"Boolean_Node",
 	"String_node",
 	"Type",
@@ -135,5 +137,6 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth = 0, ASTNod
 void orderASTOperations(ASTNode* startNode);
 const std::string ASTNodeTypeAsString(ASTNodeType t);
 int printAST(ASTNode* startNode, int depth = 0);
-void fixPrecedence(ASTNode* node);
+void fixPrecedence(ASTNode*& node);
+void optimizeASTNode(ASTNode*& node);
 //std::vector<tokenPair> GATHER_SCOPE_BODY(int brLevel, int& i);

@@ -22,7 +22,7 @@ bool charInArray(char x, const char* a)
 
 const std::map<TokenType, const char*> tokenStarts = {
 	{Identifier, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_"},
-	{Number, "0123456789"},
+	{Integer, "0123456789"},
 	{String, "\""},
 	{Punctuation, ".,/;()+=-\\|<>?:!@#$%^&*{}[]`~"},
 	{EndOfLine, "\n"},
@@ -31,7 +31,7 @@ const std::map<TokenType, const char*> tokenStarts = {
 
 const std::map<TokenType, const char*> tokenEscapes = {
 	{Identifier, " .,/;()+=-\\|<>?:!@#$%^&*{}[]\"'\n\t\r"},
-	{Number, " ,/;()+=-\\|<>?:!@#$%^&*{}[]\"'\n\t\r"},
+	{Integer, " ,/;()+=-\\|<>?:!@#$%^&*{}[]\"'\n\t\r"},
 	{String, "\""},
 	{Punctuation, " ,/;()+=-\\|<>?:!@#$%^&*{}[]\"'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789.\n\t\r"},
 	{EndOfLine, " ,/;()+=-\\|<>?:!@#$%^&*{}[]\"'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789.\n\t\r"},
@@ -50,7 +50,12 @@ const std::map<const char*, const char*> tokenEscapeCancels = {
 
 // If this and the following character match for the specific token type, immediately end
 const std::map<TokenType, const char*> tokenForceEscapes = {
-	{Number, ".."},
+	{Integer, ".."},
+};
+
+// If tokenType value contains string, change to new tokenType
+std::map<TokenType, std::pair<const char*, TokenType>> tokenContainsSwap = {
+	{Integer, {".", Float}},
 };
 
 std::map<const std::string, const TokenType> subTokenTypes = {
@@ -169,6 +174,11 @@ int tokenize(std::string& rawFile)
 							i--;
 						if (currentToken == EndOfLine)
 							lineNumber++;
+
+						if (tokenContainsSwap.find(currentToken) != tokenContainsSwap.end()) {
+							if (tokenContent.find(tokenContainsSwap[currentToken].first[0]) != std::string::npos)
+								currentToken = tokenContainsSwap[currentToken].second;
+						}
 
 
 						// Add tokenContent as element to tokens, and clear it
