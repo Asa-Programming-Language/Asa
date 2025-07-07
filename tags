@@ -124,6 +124,7 @@ For_Statement	src/tokenizer.h	/^	For_Statement,$/;"	e	enum:TokenType
 For_Statement_Node	src/parser.h	/^	For_Statement_Node,$/;"	e	enum:ASTNodeType
 Function_Call	src/parser.h	/^	Function_Call,$/;"	e	enum:ASTNodeType
 GATHER_SCOPE_BODY	src/parser.cpp	/^#define GATHER_SCOPE_BODY(/;"	d	file:
+GATHER_SCOPE_BODY_APPEND	src/parser.cpp	/^#define GATHER_SCOPE_BODY_APPEND(/;"	d	file:
 Goto_Node	src/parser.h	/^	Goto_Node,$/;"	e	enum:ASTNodeType
 Goto_Statement	src/tokenizer.h	/^	Goto_Statement,$/;"	e	enum:TokenType
 Greater	src/tokenizer.h	/^	Greater,$/;"	e	enum:TokenType
@@ -172,6 +173,8 @@ Slash_Equal	src/tokenizer.h	/^	Slash_Equal,$/;"	e	enum:TokenType
 Star	src/tokenizer.h	/^	Star,$/;"	e	enum:TokenType
 String	src/tokenizer.h	/^	String,$/;"	e	enum:TokenType
 String_Node	src/parser.h	/^	String_Node,$/;"	e	enum:ASTNodeType
+Struct_Define	src/tokenizer.h	/^	Struct_Define,$/;"	e	enum:TokenType
+Struct_Define_Node	src/parser.h	/^	Struct_Define_Node,$/;"	e	enum:ASTNodeType
 Times_Equal	src/tokenizer.h	/^	Times_Equal,$/;"	e	enum:TokenType
 TokenType	src/tokenizer.h	/^enum TokenType {$/;"	g
 True_Literal	src/tokenizer.h	/^	True_Literal,$/;"	e	enum:TokenType
@@ -186,6 +189,7 @@ beginParse	src/parser.cpp	/^int beginParse(const std::vector<std::pair<std::stri
 binaryOperatorExType	src/parser.cpp	/^std::map<TokenType, ASTNodeType> binaryOperatorExType = {$/;"	v	typeref:typename:std::map<TokenType,ASTNodeType>
 charInArray	src/tokenizer.cpp	/^bool charInArray(char x, const char* a)$/;"	f	typeref:typename:bool
 childNodes	src/parser.h	/^	std::vector<ASTNode*> childNodes = std::vector<ASTNode*>();$/;"	m	struct:ASTNode	typeref:typename:std::vector<ASTNode * >
+compileTimeDefinable	src/parser.cpp	/^std::map<TokenType, int> compileTimeDefinable = {$/;"	v	typeref:typename:std::map<TokenType,int>
 currentToken	src/tokenizer.cpp	/^TokenType currentToken = Nothing;$/;"	v	typeref:typename:TokenType
 evaluateExpression	src/parser.cpp	/^void evaluateExpression(O output, F first, S second)$/;"	f	typeref:typename:void
 first	src/tokenizer.h	/^	std::string first = "";$/;"	m	struct:tokenDataType	typeref:typename:std::string

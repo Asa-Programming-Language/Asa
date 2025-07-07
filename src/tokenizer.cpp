@@ -100,6 +100,7 @@ std::map<const std::string, const TokenType> subTokenTypes = {
 	{"break", Break_Statement},
 	{"continue", Continue_Statement},
 	{"goto", Goto_Statement},
+	{"struct", Struct_Define},
 	//{"switch", },
 	//{"case", },
 	//{"constant", },

@@ -11,9 +11,11 @@ Or individual components:
 #import "Rendering/Window";
 */
 
+TEST_MACRO :: {print("Macro works!")};
+
 customObject :: struct {
-	a :: int = 5;
-	b :: int = 1;
+	int a = 5;
+	int b = 1;
 }
 
 main :: (){
@@ -27,14 +29,16 @@ main :: (){
 		i += 1;
 	}
 	i = ((1.1+5.2)*1+2)-9;
-	while(i < 4){
+	A :: while(i < 4){
 		for(j : 0..6){
 			if(j == 3){
-				break 1;
+				break A;
 			}
 		}
 		i++;
 	}
+
+	TEST_MACRO;
 
 
 	if(true){
