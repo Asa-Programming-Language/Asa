@@ -11,6 +11,11 @@ Or individual components:
 #import "Rendering/Window";
 */
 
+customObject :: struct {
+	a :: int = 5;
+	b :: int = 1;
+}
+
 main :: (){
 	print("Hello World!");
 	
@@ -23,8 +28,14 @@ main :: (){
 	}
 	i = ((1.1+5.2)*1+2)-9;
 	while(i < 4){
+		for(j : 0..6){
+			if(j == 3){
+				break 1;
+			}
+		}
 		i++;
 	}
+
 
 	if(true){
 		print("Hello, again!");

@@ -50,6 +50,11 @@ enum ASTNodeType {
 
 	While_Statement_Node,
 
+	Return_Node,
+	Continue_Node,
+	Break_Node,
+	Goto_Node,
+
 	Iterator,
 	Condition,
 	Scope_Body,
@@ -100,6 +105,11 @@ const std::string ASTNodeTypeStrings[] = {
 	"For_Statement_Node",
 
 	"While_Statement_Node",
+
+	"Return_Node",
+	"Continue_Node",
+	"Break_Node",
+	"Goto_Node",
 
 	"Iterator",
 	"Condition",

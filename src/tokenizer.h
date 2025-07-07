@@ -64,6 +64,11 @@ enum TokenType {
 	For_Statement,
 	While_Statement,
 
+	Return_Statement,
+	Continue_Statement,
+	Break_Statement,
+	Goto_Statement,
+
 	True_Literal,
 	False_Literal,
 
@@ -125,6 +130,11 @@ const std::string tokenTypeStrings[] = {
 	"for_statement",
 	"while_statement",
 
+	"Return_Statement",
+	"Continue_Statement",
+	"Break_Statement",
+	"Goto_Statement",
+
 	"true_literal",
 	"false_literal",
 };
@@ -147,7 +157,7 @@ typedef tokenDataType tokenPair;
 
 extern std::vector<tokenPair> allTokens;
 
-#define NEXT_TOKEN(i) tokens[++i];
+#define NEXT_TOKEN(tokens, i) tokens[++i];
 //tokenPair NEXT_TOKEN(int& i);
 
 int tokenize(std::string& rawFile);

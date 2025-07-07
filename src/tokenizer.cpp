@@ -96,9 +96,10 @@ std::map<const std::string, const TokenType> subTokenTypes = {
 	{"if", If_Statement},
 	{"for", For_Statement},
 	{"while", While_Statement},
-	//{"return", },
-	//{"break", },
-	//{"continue", },
+	{"return", Return_Statement},
+	{"break", Break_Statement},
+	{"continue", Continue_Statement},
+	{"goto", Goto_Statement},
 	//{"switch", },
 	//{"case", },
 	//{"constant", },
@@ -231,7 +232,7 @@ int joinCommentTokens(std::vector<tokenPair>& tokens)
 	int startIndex = 0;
 	std::string newTokenContents = "";
 	while (i < tokens.size() - 1) {
-		tokenPair t = NEXT_TOKEN(i);
+		tokenPair t = NEXT_TOKEN(tokens, i);
 		if (!inComment) {
 			if (t.first == "//" || t.first == "/*") {
 				inComment = true;
@@ -274,7 +275,7 @@ int removeCommentTokens(std::vector<tokenPair>& tokens)
 {
 	int i = 0;
 	while (i < tokens.size() - 1) {
-		tokenPair t = NEXT_TOKEN(i);
+		tokenPair t = NEXT_TOKEN(tokens, i);
 		if (t.second == Comment) {
 			tokens.erase(tokens.begin() + i);
 			i--;

@@ -1,11 +1,13 @@
 #include "parser.h"
 
-#define GATHER_SCOPE_BODY(subTokens, brLevel, i)                  \
+#define GATHER_SCOPE_BODY(tokens, subTokens, brLevel, i)          \
 	{                                                             \
 		int braceLevel = brLevel;                                 \
 		subTokens = std::vector<tokenPair>();                     \
 		for (;;) {                                                \
-			tokenPair TOKENPAIR = NEXT_TOKEN(i);                  \
+			if (i >= tokens.size() - 1)                           \
+				break;                                            \
+			tokenPair TOKENPAIR = NEXT_TOKEN(tokens, i);          \
                                                                   \
 			if (TOKENPAIR.second == Left_Brace)                   \
 				braceLevel++;                                     \
@@ -108,7 +110,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 				for (;;) {
 					if (i >= tokens.size() - 1)
 						break;
-					tokenPair t = NEXT_TOKEN(i);
+					tokenPair t = NEXT_TOKEN(tokens, i);
 
 					if (t.second == Left_Paren)
 						parenLevel++;
@@ -117,15 +119,15 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 
 					subTokens.push_back(t);
 
-					if (parenLevel == 0 || t.second == EndOfLine)
+					if (parenLevel == 0 || t.second == EndOfLine || t.second == Semi_Colon)
 						break;
 				}
 				conditionNode = generateAST(subTokens, depth + 1);
 				conditionNode->nodeType = Condition;
 
 				// Step through all tokens to gather body until braces are closed
-				GATHER_SCOPE_BODY(subTokens, 0, i);
-				PRINT_SUBTOKENS(subTokens);
+				GATHER_SCOPE_BODY(tokens, subTokens, 0, i);
+				//PRINT_SUBTOKENS(subTokens);
 
 				bodyNode = generateAST(subTokens, depth + 1);
 				bodyNode->nodeType = Scope_Body;
@@ -149,7 +151,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 				for (;;) {
 					if (i >= tokens.size() - 1)
 						break;
-					tokenPair t = NEXT_TOKEN(i);
+					tokenPair t = NEXT_TOKEN(tokens, i);
 
 					if (t.second == Left_Paren)
 						parenLevel++;
@@ -165,7 +167,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 				conditionNode->nodeType = Condition;
 
 				// Step through all tokens to gather body until braces are closed
-				GATHER_SCOPE_BODY(subTokens, 0, i);
+				GATHER_SCOPE_BODY(tokens, subTokens, 0, i);
 
 				bodyNode = generateAST(subTokens, depth + 1);
 				bodyNode->nodeType = Scope_Body;
@@ -190,7 +192,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 				for (;;) {
 					if (i >= tokens.size() - 1)
 						break;
-					tokenPair t = NEXT_TOKEN(i);
+					tokenPair t = NEXT_TOKEN(tokens, i);
 
 					if (t.second == Left_Paren)
 						parenLevel++;
@@ -215,7 +217,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 				rangeNode->nodeType = Range_Node;
 
 				// Step through all tokens to gather body until braces are closed
-				GATHER_SCOPE_BODY(subTokens, 0, i);
+				GATHER_SCOPE_BODY(tokens, subTokens, 0, i);
 
 				bodyNode = generateAST(subTokens, depth + 1);
 				bodyNode->nodeType = Scope_Body;
@@ -245,7 +247,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 				for (;;) {
 					if (i >= tokens.size() - 1)
 						break;
-					tokenPair t = NEXT_TOKEN(i);
+					tokenPair t = NEXT_TOKEN(tokens, i);
 
 					if (t.second == Left_Paren)
 						parenLevel++;
@@ -296,7 +298,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 				for (;;) {
 					if (i >= tokens.size() - 1)
 						break;
-					tokenPair t = NEXT_TOKEN(i);
+					tokenPair t = NEXT_TOKEN(tokens, i);
 
 					if (t.second == Left_Paren)
 						parenLevel++;
@@ -338,7 +340,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 				for (;;) {
 					if (i >= tokens.size() - 1)
 						break;
-					tokenPair t = NEXT_TOKEN(i);
+					tokenPair t = NEXT_TOKEN(tokens, i);
 
 					if (t.second == Left_Paren)
 						parenLevel++;
@@ -364,7 +366,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 				ASTNode* identifier = new ASTNode();
 				ASTNode* bodyNode = new ASTNode();
 
-				tokenPair tt = NEXT_TOKEN(i);
+				tokenPair tt = NEXT_TOKEN(tokens, i);
 				identifier->token = tt.first;
 				identifier->tokenType = tt.second;
 				identifier->nodeType = Identifier_Node;
@@ -374,7 +376,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 				while (i < tokens.size() - 1) {
 					if (i >= tokens.size() - 1)
 						break;
-					tokenPair t = NEXT_TOKEN(i);
+					tokenPair t = NEXT_TOKEN(tokens, i);
 					printf("token %d value: `%s`\n", i, t.first.c_str());
 
 					if (t.second == Semi_Colon)
@@ -414,7 +416,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 				for (;;) {
 					if (i >= tokens.size() - 1)
 						break;
-					tokenPair t = NEXT_TOKEN(i);
+					tokenPair t = NEXT_TOKEN(tokens, i);
 
 					if (t.second == Left_Paren)
 						break;
@@ -429,7 +431,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 				for (;;) {
 					if (i >= tokens.size() - 1)
 						break;
-					tokenPair t = NEXT_TOKEN(i);
+					tokenPair t = NEXT_TOKEN(tokens, i);
 
 					if (t.second == Left_Paren)
 						parenLevel++;
@@ -476,7 +478,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 				}
 
 				// Step through all tokens to gather body until braces are closed
-				GATHER_SCOPE_BODY(subTokens, 0, i);
+				GATHER_SCOPE_BODY(tokens, subTokens, 0, i);
 
 				bodyNode = generateAST(subTokens, depth + 1);
 				bodyNode->nodeType = Scope_Body;
@@ -516,7 +518,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 				for (;;) {
 					if (i >= tokens.size() - 1)
 						break;
-					tokenPair t = NEXT_TOKEN(i);
+					tokenPair t = NEXT_TOKEN(tokens, i);
 
 					if (t.second == Left_Paren)
 						parenLevel++;

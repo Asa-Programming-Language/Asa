@@ -82,6 +82,8 @@ Arguments	src/parser.h	/^	Arguments,$/;"	e	enum:ASTNodeType
 Bang	src/tokenizer.h	/^	Bang,$/;"	e	enum:TokenType
 Bang_Equal	src/tokenizer.h	/^	Bang_Equal,$/;"	e	enum:TokenType
 Boolean_Node	src/parser.h	/^	Boolean_Node,$/;"	e	enum:ASTNodeType
+Break_Node	src/parser.h	/^	Break_Node,$/;"	e	enum:ASTNodeType
+Break_Statement	src/tokenizer.h	/^	Break_Statement,$/;"	e	enum:TokenType
 CMAKE_BUILD_TYPE	src/CMakeLists.txt	/^	set(CMAKE_BUILD_TYPE Debug)$/;"	v
 CMAKE_CXX_FLAGS_DEBUG	src/CMakeLists.txt	/^set(CMAKE_CXX_FLAGS_DEBUG "-g")$/;"	v
 CMAKE_CXX_FLAGS_RELEASE	src/CMakeLists.txt	/^set(CMAKE_CXX_FLAGS_RELEASE "-O3")$/;"	v
@@ -99,6 +101,8 @@ Compare_Not	src/parser.h	/^	Compare_Not,$/;"	e	enum:ASTNodeType
 Compile_Time_Directive	src/parser.h	/^	Compile_Time_Directive,$/;"	e	enum:ASTNodeType
 Compiler_Define	src/parser.h	/^	Compiler_Define,$/;"	e	enum:ASTNodeType
 Condition	src/parser.h	/^	Condition,$/;"	e	enum:ASTNodeType
+Continue_Node	src/parser.h	/^	Continue_Node,$/;"	e	enum:ASTNodeType
+Continue_Statement	src/tokenizer.h	/^	Continue_Statement,$/;"	e	enum:TokenType
 Dot	src/tokenizer.h	/^	Dot,$/;"	e	enum:TokenType
 Dot_Dot	src/tokenizer.h	/^	Dot_Dot,$/;"	e	enum:TokenType
 ERROR	src/console.h	/^#define ERROR(/;"	d
@@ -120,6 +124,8 @@ For_Statement	src/tokenizer.h	/^	For_Statement,$/;"	e	enum:TokenType
 For_Statement_Node	src/parser.h	/^	For_Statement_Node,$/;"	e	enum:ASTNodeType
 Function_Call	src/parser.h	/^	Function_Call,$/;"	e	enum:ASTNodeType
 GATHER_SCOPE_BODY	src/parser.cpp	/^#define GATHER_SCOPE_BODY(/;"	d	file:
+Goto_Node	src/parser.h	/^	Goto_Node,$/;"	e	enum:ASTNodeType
+Goto_Statement	src/tokenizer.h	/^	Goto_Statement,$/;"	e	enum:TokenType
 Greater	src/tokenizer.h	/^	Greater,$/;"	e	enum:TokenType
 Greater_Equal	src/tokenizer.h	/^	Greater_Equal,$/;"	e	enum:TokenType
 Hash	src/tokenizer.h	/^	Hash,$/;"	e	enum:TokenType
@@ -153,6 +159,8 @@ Punctuation	src/tokenizer.h	/^	Punctuation,$/;"	e	enum:TokenType
 Range_Begin	src/parser.h	/^	Range_Begin,$/;"	e	enum:ASTNodeType
 Range_End	src/parser.h	/^	Range_End,$/;"	e	enum:ASTNodeType
 Range_Node	src/parser.h	/^	Range_Node,$/;"	e	enum:ASTNodeType
+Return_Node	src/parser.h	/^	Return_Node,$/;"	e	enum:ASTNodeType
+Return_Statement	src/tokenizer.h	/^	Return_Statement,$/;"	e	enum:TokenType
 Right_Brace	src/tokenizer.h	/^	Right_Brace,$/;"	e	enum:TokenType
 Right_Bracket	src/tokenizer.h	/^	Right_Bracket,$/;"	e	enum:TokenType
 Right_Paren	src/tokenizer.h	/^	Right_Paren,$/;"	e	enum:TokenType
