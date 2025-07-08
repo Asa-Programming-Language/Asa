@@ -3,6 +3,15 @@
 
 #file "function_redefine.asa";
 
+
+TestModule :: module {
+	init :: (){
+
+	}
+
+	#run init();
+}
+
 /*
 You can import the full library like:
 #import "Rendering";

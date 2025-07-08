@@ -50,6 +50,8 @@ enum ASTNodeType {
 
 	Struct_Define_Node,
 
+	Module_Define_Node,
+
 	Return_Node,
 	Continue_Node,
 	Break_Node,
@@ -105,6 +107,8 @@ const std::string ASTNodeTypeStrings[] = {
 	"While_Statement_Node",
 
 	"Struct_Define_Node",
+
+	"Module_Define_Node",
 
 	"Return_Node",
 	"Continue_Node",

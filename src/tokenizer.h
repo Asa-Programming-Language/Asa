@@ -69,6 +69,7 @@ enum TokenType {
 	Break_Statement,
 	Goto_Statement,
 	Struct_Define,
+	Module_Define,
 
 	True_Literal,
 	False_Literal,
@@ -136,6 +137,7 @@ const std::string tokenTypeStrings[] = {
 	"Break_Statement",
 	"Goto_Statement",
 	"Struct_Define",
+	"Module_Define",
 
 	"true_literal",
 	"false_literal",

@@ -162,6 +162,7 @@ std::map<TokenType, int> compileTimeDefinable = {
 	{For_Statement, 1},
 	{If_Statement, 1},
 	{Struct_Define, 1},
+	{Module_Define, 1},
 };
 
 ASTNode* rootNode = new ASTNode();
@@ -309,6 +310,23 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 
 			case Struct_Define: {
 				node->nodeType = Struct_Define_Node;
+
+				ASTNode* bodyNode = new ASTNode();
+
+				std::vector<tokenPair> subTokens = std::vector<tokenPair>();
+
+				// Step through all tokens to gather body until braces are closed
+				GATHER_SCOPE_BODY(tokens, subTokens, 0, i);
+
+				bodyNode = generateAST(subTokens, depth + 1);
+				bodyNode->nodeType = Scope_Body;
+
+				node->childNodes.push_back(bodyNode);
+				break;
+			}
+
+			case Module_Define: {
+				node->nodeType = Module_Define_Node;
 
 				ASTNode* bodyNode = new ASTNode();
 
@@ -666,11 +684,11 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 				break;
 			}
 
-			case Right_Brace: {
-				printTokenError(token, "Unmatched brace");
-				exit(1);
-				break;
-			}
+				//case Right_Brace: {
+				//	printTokenError(token, "Unmatched brace");
+				//	exit(1);
+				//	break;
+				//}
 
 			case Integer: {
 				node->nodeType = Integer_Node;

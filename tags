@@ -151,6 +151,8 @@ MAX_AST_DEPTH	src/parser.h	/^#define MAX_AST_DEPTH /;"	d
 Minus	src/tokenizer.h	/^	Minus,$/;"	e	enum:TokenType
 Minus_Equal	src/tokenizer.h	/^	Minus_Equal,$/;"	e	enum:TokenType
 Minus_Minus	src/tokenizer.h	/^	Minus_Minus,$/;"	e	enum:TokenType
+Module_Define	src/tokenizer.h	/^	Module_Define,$/;"	e	enum:TokenType
+Module_Define_Node	src/parser.h	/^	Module_Define_Node,$/;"	e	enum:ASTNodeType
 NEXT_TOKEN	src/tokenizer.h	/^#define NEXT_TOKEN(/;"	d
 Nothing	src/tokenizer.h	/^	Nothing,$/;"	e	enum:TokenType
 Nothing_Node	src/parser.h	/^	Nothing_Node,$/;"	e	enum:ASTNodeType
