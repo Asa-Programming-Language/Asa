@@ -141,16 +141,21 @@ const std::string tokenTypeStrings[] = {
 	"false_literal",
 };
 
+extern std::string nullStr;
 struct tokenDataType {
 	std::string first = "";
 	TokenType second = Nothing;
 	int lineNumber = 0;
+	std::string* lineValue = nullptr;
+	int indexInLine = 0;
 
-	tokenDataType(std::string f, TokenType s, int l)
+	tokenDataType(std::string f, TokenType s, int l, int i, std::string* lV)
 	{
 		first = f;
 		second = s;
 		lineNumber = l;
+		indexInLine = i;
+		lineValue = lV;
 	}
 };
 
@@ -158,6 +163,7 @@ typedef tokenDataType tokenPair;
 //typedef std::pair<std::string, TokenType> tokenPair;
 
 extern std::vector<tokenPair> allTokens;
+extern std::vector<std::string*> lines;
 
 #define NEXT_TOKEN(tokens, i) tokens[++i];
 //tokenPair NEXT_TOKEN(int& i);

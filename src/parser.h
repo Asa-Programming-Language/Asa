@@ -39,8 +39,6 @@ enum ASTNodeType {
 	Expression_Divided,
 
 	Range_Node,
-	Range_Begin,
-	Range_End,
 
 	Function_Call,
 
@@ -97,8 +95,6 @@ const std::string ASTNodeTypeStrings[] = {
 	"Expression_Divided",
 
 	"Range_Node",
-	"Range_Begin",
-	"Range_End",
 
 	"Function_Call",
 
@@ -153,4 +149,5 @@ const std::string ASTNodeTypeAsString(ASTNodeType t);
 int printAST(ASTNode* startNode, int depth = 0);
 void fixPrecedence(ASTNode*& node);
 void optimizeASTNode(ASTNode*& node);
+void printTokenError(tokenPair& token, std::string errorString = "");
 //std::vector<tokenPair> GATHER_SCOPE_BODY(int brLevel, int& i);

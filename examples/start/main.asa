@@ -40,7 +40,6 @@ main :: (){
 
 	TEST_MACRO;
 
-
 	if(true){
 		print("Hello, again!");
 	}

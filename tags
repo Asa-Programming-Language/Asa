@@ -123,8 +123,10 @@ Float_Node	src/parser.h	/^	Float_Node,$/;"	e	enum:ASTNodeType
 For_Statement	src/tokenizer.h	/^	For_Statement,$/;"	e	enum:TokenType
 For_Statement_Node	src/parser.h	/^	For_Statement_Node,$/;"	e	enum:ASTNodeType
 Function_Call	src/parser.h	/^	Function_Call,$/;"	e	enum:ASTNodeType
-GATHER_SCOPE_BODY	src/parser.cpp	/^#define GATHER_SCOPE_BODY(/;"	d	file:
-GATHER_SCOPE_BODY_APPEND	src/parser.cpp	/^#define GATHER_SCOPE_BODY_APPEND(/;"	d	file:
+GATHER_PAREN_EXPRESSION	src/parser.cpp	/^void GATHER_PAREN_EXPRESSION(const std::vector<tokenPair>& tokens, std::vector<tokenPair>& subTo/;"	f	typeref:typename:void
+GATHER_SCOPE_BODY	src/parser.cpp	/^void GATHER_SCOPE_BODY(const std::vector<tokenPair>& tokens, std::vector<tokenPair>& subTokens, /;"	f	typeref:typename:void
+GATHER_SCOPE_BODY_APPEND	src/parser.cpp	/^void GATHER_SCOPE_BODY_APPEND(const std::vector<tokenPair>& tokens, std::vector<tokenPair>& subT/;"	f	typeref:typename:void
+GATHER_TO_SEMICOLON	src/parser.cpp	/^void GATHER_TO_SEMICOLON(const std::vector<tokenPair>& tokens, std::vector<tokenPair>& subTokens/;"	f	typeref:typename:void
 Goto_Node	src/parser.h	/^	Goto_Node,$/;"	e	enum:ASTNodeType
 Goto_Statement	src/tokenizer.h	/^	Goto_Statement,$/;"	e	enum:TokenType
 Greater	src/tokenizer.h	/^	Greater,$/;"	e	enum:TokenType
@@ -157,8 +159,6 @@ Plus	src/tokenizer.h	/^	Plus,$/;"	e	enum:TokenType
 Plus_Equal	src/tokenizer.h	/^	Plus_Equal,$/;"	e	enum:TokenType
 Plus_Plus	src/tokenizer.h	/^	Plus_Plus,$/;"	e	enum:TokenType
 Punctuation	src/tokenizer.h	/^	Punctuation,$/;"	e	enum:TokenType
-Range_Begin	src/parser.h	/^	Range_Begin,$/;"	e	enum:ASTNodeType
-Range_End	src/parser.h	/^	Range_End,$/;"	e	enum:ASTNodeType
 Range_Node	src/parser.h	/^	Range_Node,$/;"	e	enum:ASTNodeType
 Return_Node	src/parser.h	/^	Return_Node,$/;"	e	enum:ASTNodeType
 Return_Statement	src/tokenizer.h	/^	Return_Statement,$/;"	e	enum:TokenType
@@ -196,21 +196,26 @@ first	src/tokenizer.h	/^	std::string first = "";$/;"	m	struct:tokenDataType	type
 fixPrecedence	src/parser.cpp	/^void fixPrecedence(ASTNode*& node)$/;"	f	typeref:typename:void
 generateAST	src/parser.cpp	/^ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* parentNodePtr)$/;"	f	typeref:typename:ASTNode *
 indent	src/parser.cpp	/^inline void indent(int& depth)$/;"	f	typeref:typename:void
+indexInLine	src/tokenizer.h	/^	int indexInLine = 0;$/;"	m	struct:tokenDataType	typeref:typename:int
 initialFileString	src/filemanager.cpp	/^std::string initialFileString;$/;"	v	typeref:typename:std::string
 joinCommentTokens	src/tokenizer.cpp	/^int joinCommentTokens(std::vector<tokenPair>& tokens)$/;"	f	typeref:typename:int
 labelSubTokens	src/tokenizer.cpp	/^int labelSubTokens(std::vector<tokenPair>& tokens)$/;"	f	typeref:typename:int
 leafNodes	src/parser.h	/^	std::vector<ASTNode*> leafNodes = std::vector<ASTNode*>();$/;"	m	struct:ASTNode	typeref:typename:std::vector<ASTNode * >
 lineNumber	src/parser.h	/^	int lineNumber = 0;$/;"	m	struct:ASTNode	typeref:typename:int
 lineNumber	src/tokenizer.h	/^	int lineNumber = 0;$/;"	m	struct:tokenDataType	typeref:typename:int
+lineValue	src/tokenizer.h	/^	std::string* lineValue = nullptr;$/;"	m	struct:tokenDataType	typeref:typename:std::string *
+lines	src/tokenizer.cpp	/^std::vector<std::string*> lines = std::vector<std::string*>();$/;"	v	typeref:typename:std::vector<std::string * >
 literalMap	src/parser.cpp	/^std::map<ASTNodeType, int> literalMap = {$/;"	v	typeref:typename:std::map<ASTNodeType,int>
 loadFile	src/filemanager.cpp	/^int loadFile(const std::string& fileName)$/;"	f	typeref:typename:int
 main	src/main.cpp	/^int main(int argc, char** argv)$/;"	f	typeref:typename:int
 nodeType	src/parser.h	/^	ASTNodeType nodeType = Nothing_Node;$/;"	m	struct:ASTNode	typeref:typename:ASTNodeType
+nullStr	src/tokenizer.cpp	/^std::string nullStr = "";$/;"	v	typeref:typename:std::string
 operatorPrecedence	src/parser.cpp	/^std::map<ASTNodeType, int> operatorPrecedence = {$/;"	v	typeref:typename:std::map<ASTNodeType,int>
 optimizeASTNode	src/parser.cpp	/^void optimizeASTNode(ASTNode*& node)$/;"	f	typeref:typename:void
 orderASTOperations	src/parser.cpp	/^void orderASTOperations(ASTNode* startNode)$/;"	f	typeref:typename:void
 prevNode	src/parser.h	/^	ASTNode* prevNode;$/;"	m	struct:ASTNode	typeref:typename:ASTNode *
 printAST	src/parser.cpp	/^int printAST(ASTNode* startNode, int depth)$/;"	f	typeref:typename:int
+printTokenError	src/parser.cpp	/^void printTokenError(tokenPair& token, std::string errorString)$/;"	f	typeref:typename:void
 removeCommentTokens	src/tokenizer.cpp	/^int removeCommentTokens(std::vector<tokenPair>& tokens)$/;"	f	typeref:typename:int
 rootNode	src/parser.cpp	/^ASTNode* rootNode = new ASTNode();$/;"	v	typeref:typename:ASTNode *
 s:l	src/Session.vim	/^let s:l = 112 - ((10 * winheight(0) + 25) \/ 51)$/;"	v
@@ -239,7 +244,7 @@ token	src/parser.h	/^	std::string token;$/;"	m	struct:ASTNode	typeref:typename:s
 tokenAsString	src/tokenizer.cpp	/^const std::string tokenAsString(TokenType t)$/;"	f	typeref:typename:const std::string
 tokenContainsSwap	src/tokenizer.cpp	/^std::map<TokenType, std::pair<const char*, TokenType>> tokenContainsSwap = {$/;"	v	typeref:typename:std::map<TokenType,std::pair<const char *,TokenType>>
 tokenContent	src/tokenizer.cpp	/^std::string tokenContent = "";$/;"	v	typeref:typename:std::string
-tokenDataType	src/tokenizer.h	/^	tokenDataType(std::string f, TokenType s, int l)$/;"	f	struct:tokenDataType
+tokenDataType	src/tokenizer.h	/^	tokenDataType(std::string f, TokenType s, int l, int i, std::string* lV)$/;"	f	struct:tokenDataType
 tokenDataType	src/tokenizer.h	/^struct tokenDataType {$/;"	s
 tokenEscapeCancels	src/tokenizer.cpp	/^const std::map<const char*, const char*> tokenEscapeCancels = {$/;"	v	typeref:typename:const std::map<const char *,const char * >
 tokenEscapes	src/tokenizer.cpp	/^const std::map<TokenType, const char*> tokenEscapes = {$/;"	v	typeref:typename:const std::map<TokenType,const char * >

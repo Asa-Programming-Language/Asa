@@ -102,7 +102,8 @@ int main(int argc, char** argv)
 	for (int i = 0; i < allTokens.size(); i++) {
 		if (allTokens[i].second != EndOfLine) {
 			printf("%dT:%d: ", i, allTokens[i].lineNumber);
-			printf("[%s]\t[%s]\n", allTokens[i].first.c_str(), tokenAsString(allTokens[i].second).c_str());
+			//if (allTokens[i].lineValue != nullptr)
+			printf("[%s]\t[%s]\t[%s]\n", allTokens[i].first.c_str(), tokenAsString(allTokens[i].second).c_str(), allTokens[i].lineValue->c_str());
 		}
 	}
 
@@ -111,7 +112,7 @@ int main(int argc, char** argv)
 	// Order AST operations
 	fixPrecedence(rootNode);
 	// Optimize constant AST nodes
-	optimizeASTNode(rootNode);
+	//optimizeASTNode(rootNode);
 	//if (e != 0) {
 	//	ERROR("Errors creating abstract syntax tree\n");
 	//	exit(1);

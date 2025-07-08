@@ -1,6 +1,8 @@
 #include "tokenizer.h"
 
 std::vector<tokenPair> allTokens = std::vector<tokenPair>();
+std::vector<std::string*> lines = std::vector<std::string*>();
+std::string nullStr = "";
 
 bool charInArray(char x, const char* a)
 {
@@ -134,8 +136,12 @@ int tokenize(std::string& rawFile)
 	}
 	rawFile = output;
 
+	lines.push_back(new std::string(""));
+
 	// Then start making tokens
 	int lineNumber = 1;
+	int indexInLine = 0;
+	std::string* lineValue = new std::string("");
 	rawFile = "\n" + rawFile + "\n";  // add extra character at end as buffer for lookahead
 	for (int i = 1; i < rawFile.size(); i++) {
 		char c = rawFile[i];
@@ -154,6 +160,10 @@ int tokenize(std::string& rawFile)
 					break;
 				}
 			}
+			if (c != '\t') {
+				*lineValue += c;
+				indexInLine++;
+			}
 		}
 		// If current token is something
 		else {
@@ -171,11 +181,21 @@ int tokenize(std::string& rawFile)
 					endToken:
 						if (currentToken == String) {
 							tokenContent += c;
+							if (c != '\t') {
+								*lineValue += c;
+								indexInLine++;
+							}
 						}
 						else
-							i--;
-						if (currentToken == EndOfLine)
+							i--;  // Dont include first character of next token
+						if (currentToken == EndOfLine) {
 							lineNumber++;
+							//*(lines[lines.size() - 1]) = lineValue;
+							*lineValue = (*lineValue).substr(0, (*lineValue).size() - 1);
+							lines.push_back(lineValue);
+							lineValue = new std::string("");
+							indexInLine = 0;
+						}
 
 						if (tokenContainsSwap.find(currentToken) != tokenContainsSwap.end()) {
 							if (tokenContent.find(tokenContainsSwap[currentToken].first[0]) != std::string::npos)
@@ -184,7 +204,7 @@ int tokenize(std::string& rawFile)
 
 
 						// Add tokenContent as element to tokens, and clear it
-						allTokens.push_back(tokenPair(tokenContent, currentToken, lineNumber));
+						allTokens.push_back(tokenPair(tokenContent, currentToken, lineNumber, indexInLine, lineValue));
 						tokenContent = "";
 
 						currentToken = Nothing;
@@ -199,11 +219,16 @@ int tokenize(std::string& rawFile)
 				}
 			}
 		cancelEnd:
-			if (currentToken != Nothing)
+			if (currentToken != Nothing) {
 				tokenContent += c;
+				if (c != '\t') {
+					*lineValue += c;
+					indexInLine++;
+				}
+			}
 		}
 	}
-	allTokens.push_back(tokenPair("", EndOfFile, lineNumber + 1));
+	allTokens.push_back(tokenPair("", EndOfFile, lineNumber + 1, 0, &nullStr));
 
 	return 0;
 }
