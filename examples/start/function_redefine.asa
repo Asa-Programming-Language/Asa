@@ -1,4 +1,4 @@
-#import "Basic/Print";
+#import Basic.Print;
 
 testRedefineFunction :: (){
 	printl("* Function testFunction():");

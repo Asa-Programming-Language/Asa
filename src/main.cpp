@@ -9,6 +9,8 @@ int main(int argc, char** argv)
 
 	std::string fileName;
 
+	executableDirectory = std::filesystem::weakly_canonical(std::filesystem::path(argv[0])).parent_path().string() + "/";
+
 	while (1) {
 		int this_option_optind = optind ? optind : 1;
 		int option_index = 0;
@@ -69,7 +71,7 @@ int main(int argc, char** argv)
 
 	// Load file if provided
 	if (fileName != "") {
-		int e = loadFile(fileName);
+		int e = loadFile(fileName, initialFileString);
 		if (e != 0) {
 			ERROR("Invalid file path provided\n");
 			exit(1);
@@ -79,22 +81,23 @@ int main(int argc, char** argv)
 		ERROR("Invalid file path provided\n");
 		exit(1);
 	}
+	projectDirectory = std::filesystem::weakly_canonical(std::filesystem::path(fileName)).parent_path().string() + "/";
 
 	// Begin tokenizing file
-	int e = tokenize(initialFileString);
+	int e = tokenize(initialFileString, allTokens);
 	if (e != 0) {
-		ERROR("Invalid allTokens met\n");
+		ERROR("Invalid tokens met\n");
 		exit(1);
 	}
 	// Now change any allTokens to their subtoken type if applicable
 	e = labelSubTokens(allTokens);
 	if (e != 0) {
-		ERROR("Invalid allTokens met\n");
+		ERROR("Invalid tokens met\n");
 		exit(1);
 	}
 	e = joinCommentTokens(allTokens);
 	if (e != 0) {
-		ERROR("Invalid allTokens met\n");
+		ERROR("Invalid tokens met\n");
 		exit(1);
 	}
 	e = removeCommentTokens(allTokens);
@@ -109,16 +112,41 @@ int main(int argc, char** argv)
 
 	// Generate AST
 	rootNode = generateAST(allTokens);
+	// Handle importing nodes from other sources
+	for (;;) {
+		bool noImports = true;
+		// File includes
+		addFileIncludes(rootNode);
+		for (int i = 0; i < importedNodes.size(); i++)
+			rootNode->childNodes.push_back(importedNodes[i]);
+		if (importedNodes.size() > 0)
+			noImports = false;
+		importedNodes = std::vector<ASTNode*>();
+
+		// Module imports
+		addModuleImports(rootNode);
+		for (int i = 0; i < importedNodes.size(); i++)
+			rootNode->childNodes.push_back(importedNodes[i]);
+		if (importedNodes.size() > 0)
+			noImports = false;
+		importedNodes = std::vector<ASTNode*>();
+
+		if (noImports)
+			break;
+	}
 	// Order AST operations
 	fixPrecedence(rootNode);
 	// Optimize constant AST nodes
-	//optimizeASTNode(rootNode);
-	//if (e != 0) {
-	//	ERROR("Errors creating abstract syntax tree\n");
-	//	exit(1);
-	//}
+	optimizeASTNode(rootNode);
+	// Assign parent nodes
+	assignParentNodes(rootNode);
+
+	// Print AST
 	printf("\n\nGenerated AST:\n");
 	printAST(rootNode);
+
+	// Resolve dependencies
+	resolveDependencies(rootNode);
 
 
 	//// Parse the allTokens

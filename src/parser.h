@@ -4,9 +4,11 @@
 #include <stack>
 #include <stdexcept>
 #include <string>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
+#include "filemanager.h"
 #include "settings.h"
 #include "tokenizer.h"
 
@@ -29,6 +31,8 @@ enum ASTNodeType {
 	Boolean_Node,
 	String_Node,
 	Type,
+
+	Module_Scope,
 
 	Expression_Term,
 	Expression_Paren_Term,
@@ -88,6 +92,8 @@ const std::string ASTNodeTypeStrings[] = {
 	"String_node",
 	"Type",
 
+	"Module_Scope",
+
 	"Expression_Term",
 	"Expression_Paren_Term",
 	"Expression_Statement",
@@ -133,11 +139,12 @@ const std::string ASTNodeTypeStrings[] = {
 
 
 struct ASTNode {
-	ASTNode* prevNode;
+	ASTNode* parentNode = nullptr;
 	std::vector<ASTNode*> childNodes = std::vector<ASTNode*>();
 	ASTNodeType nodeType = Nothing_Node;
-	TokenType tokenType = Nothing;
-	std::string token;
+	//TokenType tokenType = Nothing;
+	//std::string token;
+	tokenPair token = tokenPair();
 	int lineNumber = 0;
 	// Add leaf nodes here as they are still yet to be used.
 	std::vector<ASTNode*> leafNodes = std::vector<ASTNode*>();
@@ -145,6 +152,7 @@ struct ASTNode {
 
 
 extern ASTNode* rootNode;
+extern std::vector<ASTNode*> importedNodes;
 
 int beginParse(const std::vector<tokenPair>& tokens);
 ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth = 0, ASTNode* parentNodePtr = nullptr);
@@ -153,5 +161,8 @@ const std::string ASTNodeTypeAsString(ASTNodeType t);
 int printAST(ASTNode* startNode, int depth = 0);
 void fixPrecedence(ASTNode*& node);
 void optimizeASTNode(ASTNode*& node);
-void printTokenError(tokenPair& token, std::string errorString = "");
+void addFileIncludes(ASTNode*& node);
+void addModuleImports(ASTNode*& node);
+void assignParentNodes(ASTNode*& node);
+void printTokenError(tokenPair& token, std::string errorString = "", int sourceLineNumber = 0);
 //std::vector<tokenPair> GATHER_SCOPE_BODY(int brLevel, int& i);

@@ -1,16 +1,10 @@
-#import "Basic/Print";
-#import "Rendering/Window";
+#import Basic.Print;
+//#import Rendering.Window;
 
-#file "function_redefine.asa";
+//#import GameLogic;
 
+#file "./function_redefine.asa";
 
-TestModule :: module {
-	init :: (){
-
-	}
-
-	#run init();
-}
 
 /*
 You can import the full library like:
@@ -20,21 +14,21 @@ Or individual components:
 #import "Rendering/Window";
 */
 
-TEST_MACRO :: {print("Macro works!")};
+TEST_MACRO :: {printl("Macro works!")};
 
-customObject :: struct {
+customObject :: struct{
 	int a = 5;
 	int b = 1;
 }
 
 main :: (){
-	print("Hello World!");
+	printl("Hello World!");
 	
 	for (i : 0..100){  // for(<range>){} automatically iterates through range type
-		print("%\n", i);
+		printl("%\n", i);
 	}
 	for (i : 0..(100+i)){  // for(<range>){} automatically iterates through range type
-		print("%\n", i);
+		printl("%\n", i);
 		i += 1;
 	}
 	i = ((1.1+5.2)*1+2)-9;
@@ -50,10 +44,10 @@ main :: (){
 	TEST_MACRO;
 
 	if(true){
-		print("Hello, again!");
+		printl("Hello, again!");
 	}
 
-	w = window_create("New window", 512, 512);
+	//w = window_create("New window", 512, 512);
 
 	// Test the functionality of redefining a function at runtime.
 	testRedefineFunction();
@@ -64,7 +58,7 @@ multiply :: int (int x, int y){
 }
 
 
-#run build();
+//#run build();
 
 
 

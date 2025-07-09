@@ -1,0 +1,21 @@
+
+Print :: module {
+	print :: (string sFormat, ...){
+		
+	}
+	print :: (...){
+		
+	}
+	printl :: (string sFormat, ...){
+	}
+	printl :: (...){
+	}
+	printl :: (){
+	}
+}
+
+main ::(){
+//tests
+}
+
+#run init();

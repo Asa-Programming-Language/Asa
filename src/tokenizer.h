@@ -34,6 +34,7 @@ enum TokenType {
 	Comma,
 	Dot,
 	Dot_Dot,
+	Dot_Dot_Dot,
 	Hash,
 
 	Plus,
@@ -102,6 +103,7 @@ const std::string tokenTypeStrings[] = {
 	"comma",
 	"dot",
 	"Dot_Dot",
+	"Dot_Dot_Dot",
 	"Hash",
 
 	"plus",
@@ -151,6 +153,7 @@ struct tokenDataType {
 	std::string* lineValue = nullptr;
 	int indexInLine = 0;
 
+	tokenDataType() {}
 	tokenDataType(std::string f, TokenType s, int l, int i, std::string* lV)
 	{
 		first = f;
@@ -170,7 +173,7 @@ extern std::vector<std::string*> lines;
 #define NEXT_TOKEN(tokens, i) tokens[++i];
 //tokenPair NEXT_TOKEN(int& i);
 
-int tokenize(std::string& rawFile);
+int tokenize(std::string& rawFile, std::vector<tokenPair>& tokens);
 int labelSubTokens(std::vector<tokenPair>& tokens);
 int joinCommentTokens(std::vector<tokenPair>& tokens);
 int removeCommentTokens(std::vector<tokenPair>& tokens);

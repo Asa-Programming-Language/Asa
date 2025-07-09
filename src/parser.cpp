@@ -99,8 +99,10 @@ void GATHER_TO_SEMICOLON(const std::vector<tokenPair>& tokens, std::vector<token
 	}
 }
 
-void printTokenError(tokenPair& token, std::string errorString)
+void printTokenError(tokenPair& token, std::string errorString, int sourceLineNumber)
 {
+	if (sourceLineNumber > 0)
+		std::cerr << "> Source Line: " << sourceLineNumber << std::endl;
 	std::cerr << "Error: " << errorString << std::endl;
 	std::string lineNumberStr = std::to_string(token.lineNumber);
 	std::cerr << lineNumberStr << " |  " << token.lineValue->c_str() << std::endl;
@@ -125,6 +127,7 @@ std::vector<ASTNode*> ASTNodes = std::vector<ASTNode*>();
 
 std::map<TokenType, ASTNodeType> binaryOperatorExType = {
 	{Dot_Dot, Range_Node},
+	{Dot, Module_Scope},
 	{Bang_Equal, Compare_Not},
 	{Equal_Equal, Compare_Equal},
 	{Less, Compare_Less},
@@ -166,6 +169,9 @@ std::map<TokenType, int> compileTimeDefinable = {
 };
 
 ASTNode* rootNode = new ASTNode();
+std::vector<ASTNode*> importedNodes = std::vector<ASTNode*>();
+std::unordered_set<std::string> importedModuleNames = std::unordered_set<std::string>();
+std::unordered_set<std::string> importedFileNames = std::unordered_set<std::string>();
 
 ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* parentNodePtr)
 {
@@ -180,8 +186,8 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 
 	// If root node
 	if (depth == 0) {
-		parentNode->token = "global";
-		parentNode->tokenType = Nothing;
+		parentNode->token = tokenPair("global", Nothing, 0, 0, nullptr);
+		//parentNode->tokenType = Nothing;
 		parentNode->nodeType = Scope_Body;
 	}
 
@@ -196,8 +202,8 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 		int lineNumber = tokens[i].lineNumber;
 		bool unusedNode = false;
 
-		node->tokenType = tokenType;
-		node->token = tokenValue;
+		//node->tokenType = tokenType;
+		node->token = token;
 		node->lineNumber = lineNumber;
 
 		switch (tokenType) {
@@ -344,6 +350,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 
 			// Two component operations
 			case Dot_Dot:
+			case Dot:
 			case Bang_Equal:
 			case Equal_Equal:
 			case Less:
@@ -450,8 +457,8 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 				ASTNode* bodyNode = new ASTNode();
 
 				tokenPair tt = NEXT_TOKEN(tokens, i);
-				identifier->token = tt.first;
-				identifier->tokenType = tt.second;
+				identifier->token = tt;
+				//identifier->tokenType = tt.second;
 				identifier->nodeType = Identifier_Node;
 
 				std::vector<tokenPair> subTokens = std::vector<tokenPair>();
@@ -476,7 +483,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 				bodyNode = generateAST(subTokens, depth + 1);
 				bodyNode->nodeType = Scope_Body;
 
-				node->token = "<#" + identifier->token + ">";
+				node->token.first = "<#" + identifier->token.first + ">";
 				node->childNodes.push_back(identifier);
 				node->childNodes.push_back(bodyNode);
 				break;
@@ -501,19 +508,52 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 
 				// If the first token after :: is not a paren, or the token is in the map of non-function compiler defines
 				tokenPair tt = NEXT_TOKEN(tokens, i);
-				if (tt.second != Left_Paren || compileTimeDefinable.find(tt.second) != compileTimeDefinable.end()) {
-					i--;
-					// Step through all following tokens until braces start
+				if (tt.second != Left_Paren && tokens[i + 1].second != Left_Paren || compileTimeDefinable.find(tt.second) != compileTimeDefinable.end()) {
+					i--;  // NEXT_TOKEN==tt starts on first token after :: <here>
+					// Step through all following tokens until parens start OR braces start
+					int tokenNum = 0;
 					std::vector<tokenPair> subTokens = std::vector<tokenPair>();
 					for (;;) {
-						if (i >= tokens.size() - 1)
-							break;
+						if (i >= tokens.size() - 1) {
+							printTokenError(tt, "Unmatched parenthesis", __LINE__);
+							exit(1);
+						}
 						tokenPair t = NEXT_TOKEN(tokens, i);
 
-						if (t.second == Left_Brace)
+						if (t.second == Left_Brace) {
+							i--;
 							break;
+						}
 
 						subTokens.push_back(t);
+
+						if (t.second == Left_Paren) {
+							//i--;
+							break;
+						}
+						if (tt.second != EndOfLine)
+							tokenNum++;
+					}
+					// Step through all following tokens until braces start
+					tokenNum = 0;
+					for (;;) {
+						if (i >= tokens.size() - 1) {
+							printTokenError(tt, "Unmatched brace", __LINE__);
+							exit(1);
+						}
+						tokenPair t = NEXT_TOKEN(tokens, i);
+						//if (tokenNum >= 2 && t.second != Left_Brace) {
+						//	printTokenError(tt, "Unmatched brace");
+						//	exit(1);
+						//}
+
+						if (t.second == Left_Brace) {
+							break;
+						}
+
+						subTokens.push_back(t);
+						if (tt.second != EndOfLine)
+							tokenNum++;
 					}
 					i--;
 					// Step through all tokens to gather body until braces are closed
@@ -522,7 +562,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 					bodyNode = generateAST(subTokens, depth + 1);
 					bodyNode->nodeType = Scope_Body;
 
-					node->token = "<" + identifier->token + ">";
+					node->token.first = identifier->token.first;
 					node->childNodes.push_back(bodyNode);
 				}
 				else {
@@ -600,7 +640,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 					bodyNode = generateAST(subTokens, depth + 1);
 					bodyNode->nodeType = Scope_Body;
 
-					node->token = "<" + identifier->token + ">";
+					node->token.first = identifier->token.first;
 					node->childNodes.push_back(identifier);
 					if (secondPart->childNodes.size() > 0)
 						node->childNodes.push_back(secondPart);
@@ -855,7 +895,7 @@ void fixPrecedence(ASTNode*& node)
 				ASTNode* newRight = new ASTNode();
 				newRight->nodeType = node->nodeType;
 				newRight->token = node->token;
-				newRight->tokenType = node->tokenType;
+				//newRight->tokenType = node->tokenType;
 				newRight->lineNumber = node->lineNumber;
 				newRight->childNodes.push_back(B);
 				newRight->childNodes.push_back(C);
@@ -863,7 +903,7 @@ void fixPrecedence(ASTNode*& node)
 				// Update current node to be: A op1 (B op2 C)
 				node->nodeType = leftChild->nodeType;
 				node->token = leftChild->token;
-				node->tokenType = leftChild->tokenType;
+				//node->tokenType = leftChild->tokenType;
 				node->lineNumber = leftChild->lineNumber;
 
 				// Clear and rebuild children
@@ -896,7 +936,7 @@ void fixPrecedence(ASTNode*& node)
 				ASTNode* newLeft = new ASTNode();
 				newLeft->nodeType = node->nodeType;
 				newLeft->token = node->token;
-				newLeft->tokenType = node->tokenType;
+				//newLeft->tokenType = node->tokenType;
 				newLeft->lineNumber = node->lineNumber;
 				newLeft->childNodes.push_back(A);
 				newLeft->childNodes.push_back(B);
@@ -904,7 +944,7 @@ void fixPrecedence(ASTNode*& node)
 				// Update current node to be: (A op1 B) op2 C
 				node->nodeType = rightChild->nodeType;
 				node->token = rightChild->token;
-				node->tokenType = rightChild->tokenType;
+				//node->tokenType = rightChild->tokenType;
 				node->lineNumber = rightChild->lineNumber;
 
 				// Clear and rebuild children
@@ -959,21 +999,21 @@ void optimizeASTNode(ASTNode*& node)
 				switch (first->nodeType) {
 					case Boolean_Node:
 						first_val_ptr = &first_b;
-						first_b = first->token == "true" ? true : false;
+						first_b = first->token.first == "true" ? true : false;
 						output_val_ptr = &output_b;
 						output_type = Boolean_Node;
 						first_type = Boolean_Node;
 						break;
 					case Integer_Node:
 						first_val_ptr = &first_i;
-						first_i = std::stoi(first->token);
+						first_i = std::stoi(first->token.first);
 						output_val_ptr = &output_i;
 						output_type = Integer_Node;
 						first_type = Integer_Node;
 						break;
 					case Float_Node:
 						first_val_ptr = &first_f;
-						first_f = std::stod(first->token);
+						first_f = std::stod(first->token.first);
 						output_val_ptr = &output_f;
 						output_type = Float_Node;
 						first_type = Float_Node;
@@ -988,12 +1028,12 @@ void optimizeASTNode(ASTNode*& node)
 				switch (second->nodeType) {
 					case Boolean_Node:
 						second_val_ptr = &second_b;
-						second_b = second->token == "true" ? true : false;
+						second_b = second->token.first == "true" ? true : false;
 						second_type = Boolean_Node;
 						break;
 					case Integer_Node:
 						second_val_ptr = &second_i;
-						second_i = std::stoi(second->token);
+						second_i = std::stoi(second->token.first);
 						if (output_type != Float_Node) {
 							output_val_ptr = &output_i;
 							output_type = Integer_Node;
@@ -1002,7 +1042,7 @@ void optimizeASTNode(ASTNode*& node)
 						break;
 					case Float_Node:
 						second_val_ptr = &second_f;
-						second_f = std::stod(second->token);
+						second_f = std::stod(second->token.first);
 						output_val_ptr = &output_f;
 						output_type = Float_Node;
 						second_type = Float_Node;
@@ -1048,7 +1088,6 @@ void optimizeASTNode(ASTNode*& node)
 			}
 
 			if (firstIsLiteral && secondIsLiteral) {
-				printf("COMBINED\n");
 
 				std::string outString;
 
@@ -1068,7 +1107,6 @@ void optimizeASTNode(ASTNode*& node)
 							output_f = (*(double*)first_val_ptr) - (*(double*)second_val_ptr);
 							break;
 					}
-					printf("val: %f\n", output_f);
 					outString = std::to_string(output_f);
 				}
 				// If int output
@@ -1087,7 +1125,6 @@ void optimizeASTNode(ASTNode*& node)
 							output_i = (*(int*)first_val_ptr) - (*(int*)second_val_ptr);
 							break;
 					}
-					printf("val: %d\n", output_i);
 					outString = std::to_string(output_i);
 				}
 
@@ -1097,11 +1134,11 @@ void optimizeASTNode(ASTNode*& node)
 				switch (output_type) {
 					case Integer_Node:
 					case Boolean_Node:
-						node->tokenType = Integer;
+						node->token.second = Integer;
 					case Float_Node:
-						node->tokenType = Float;
+						node->token.second = Float;
 				}
-				node->token = outString;
+				node->token.first = outString;
 			}
 		}
 	}
@@ -1115,9 +1152,212 @@ void optimizeASTNode(ASTNode*& node)
 	}
 }
 
-template<typename O, typename F, typename S>
-void evaluateExpression(O output, F first, S second)
+void addFileIncludes(ASTNode*& node)
 {
+	for (int i = 0; i < node->childNodes.size(); i++)
+		addFileIncludes(node->childNodes[i]);
+
+	if (node->childNodes.size() > 0)
+		if (node->nodeType == Compile_Time_Directive) {
+			if (node->childNodes[0]->token.first == "file") {
+				std::string fileString = "";
+
+				// Load file if provided
+				if (node->childNodes.size() > 1) {
+					ASTNode* strChild = node->childNodes[1]->childNodes[0];
+					if (strChild->nodeType == String_Node) {
+						std::string fileName = strChild->token.first.substr(1, strChild->token.first.size() - 2);
+
+						fileName = std::filesystem::weakly_canonical(std::filesystem::path(projectDirectory + fileName)).string();
+
+						if (importedFileNames.find(fileName) != importedFileNames.end()) {
+							node->nodeType = Nothing_Node;
+							return;
+						}
+
+						int e = loadFile(fileName, fileString);
+						if (e != 0) {
+							printTokenError(strChild->token, "Failed to include file from given path");
+							exit(1);
+						}
+
+						importedFileNames.insert(fileName);
+					}
+					else {
+						printTokenError(strChild->token, "Expected string literal");
+						exit(1);
+					}
+				}
+				else {
+					printTokenError(node->childNodes[0]->token, "Expected string literal");
+					exit(1);
+				}
+
+				std::vector<tokenPair> localTokens = std::vector<tokenPair>();
+
+				// Begin tokenizing file
+				int e = tokenize(fileString, localTokens);
+				if (e != 0) {
+					std::cerr << "Invalid tokens met\n";
+					exit(1);
+				}
+				// Now change any tokens to their subtoken type if applicable
+				e = labelSubTokens(localTokens);
+				if (e != 0) {
+					std::cerr << "Invalid tokens met\n";
+					exit(1);
+				}
+				e = joinCommentTokens(localTokens);
+				if (e != 0) {
+					std::cerr << "Invalid tokens met\n";
+					exit(1);
+				}
+				e = removeCommentTokens(localTokens);
+
+				// Generate AST
+				ASTNode* localRoot = generateAST(localTokens);
+				for (int i = 0; i < localRoot->childNodes.size(); i++) {
+					importedNodes.push_back(localRoot->childNodes[i]);
+					//rootNode->childNodes.push_back(localRoot->childNodes[i]);
+				}
+
+
+				node->nodeType = Nothing_Node;
+			}
+		}
+}
+
+bool loadModule(std::string& modulePath, std::string& moduleName)
+{
+	for (const auto& p : std::filesystem::directory_iterator(modulePath)) {
+		std::string outStr = "";
+		loadFile(p.path(), outStr);
+
+		std::vector<tokenPair> localTokens = std::vector<tokenPair>();
+
+		// Begin tokenizing file
+		int e = tokenize(outStr, localTokens);
+		if (e != 0) {
+			std::cerr << "Invalid tokens met\n";
+			exit(1);
+		}
+		// Now change any tokens to their subtoken type if applicable
+		e = labelSubTokens(localTokens);
+		if (e != 0) {
+			std::cerr << "Invalid tokens met\n";
+			exit(1);
+		}
+		e = joinCommentTokens(localTokens);
+		if (e != 0) {
+			std::cerr << "Invalid tokens met\n";
+			exit(1);
+		}
+		e = removeCommentTokens(localTokens);
+
+		// Generate AST
+		ASTNode* localRoot = generateAST(localTokens);
+		printf("%s\n", p.path().c_str());
+		printAST(localRoot);
+		printf("\n");
+
+		for (int j = 0; j < localRoot->childNodes.size(); j++) {
+			if (localRoot->childNodes[j]->nodeType == Compiler_Define)
+				if (localRoot->childNodes[j]->childNodes[0]->childNodes[0]->nodeType == Module_Define_Node) {
+					ASTNode* moduleNode = localRoot->childNodes[j]->childNodes[0]->childNodes[0];
+					if (localRoot->childNodes[j]->token.first == moduleName) {
+						for (int i = 0; i < moduleNode->childNodes[0]->childNodes.size(); i++) {
+							importedNodes.push_back(moduleNode->childNodes[0]->childNodes[i]);
+							//rootNode->childNodes.push_back(localRoot->childNodes[i]);
+						}
+						return true;
+					}
+				}
+		}
+	}
+	return false;
+}
+
+void addModuleImports(ASTNode*& node)
+{
+	for (int i = 0; i < node->childNodes.size(); i++)
+		addModuleImports(node->childNodes[i]);
+
+	if (node->childNodes.size() > 0)
+		if (node->nodeType == Compile_Time_Directive) {
+			if (node->childNodes[0]->token.first == "import") {
+				std::string fileString = "";
+
+				// Load module if module name is provided
+				if (node->childNodes.size() > 1) {
+					ASTNode* moduleNameNode = node->childNodes[1]->childNodes[0];
+					if (moduleNameNode->nodeType == Module_Scope) {
+						std::string modulePath = "";
+						bool moduleFound = false;
+						for (int i = 0; i < moduleNameNode->childNodes.size() - 1; i++)
+							modulePath += moduleNameNode->childNodes[i]->token.first;
+						std::string moduleName = moduleNameNode->childNodes.back()->token.first;
+
+						if (importedModuleNames.find(moduleName) != importedModuleNames.end()) {
+							node->nodeType = Nothing_Node;
+							return;
+						}
+
+						std::string searchPath[2] = {projectDirectory + modulePath, executableDirectory + "modules/" + modulePath};
+						if (directoryExists(searchPath[0]))
+							moduleFound = loadModule(searchPath[0], moduleName);
+						else if (directoryExists(searchPath[1]))
+							moduleFound = loadModule(searchPath[1], moduleName);
+
+						importedModuleNames.insert(moduleName);
+
+						if (!moduleFound) {
+							printTokenError(moduleNameNode->token, "Failed to import module, not found");
+							exit(1);
+						}
+					}
+					else if (moduleNameNode->nodeType == Identifier_Node) {
+						bool moduleFound = false;
+						std::string moduleName = moduleNameNode->token.first;
+
+						if (importedModuleNames.find(moduleName) != importedModuleNames.end()) {
+							node->nodeType = Nothing_Node;
+							return;
+						}
+
+						std::string searchPath[2] = {projectDirectory, executableDirectory + "modules/"};
+						if (directoryExists(searchPath[0]))
+							moduleFound = loadModule(searchPath[0], moduleName);
+						else if (directoryExists(searchPath[1]))
+							moduleFound = loadModule(searchPath[1], moduleName);
+
+						importedModuleNames.insert(moduleName);
+
+						if (!moduleFound) {
+							printTokenError(moduleNameNode->token, "Failed to import module, not found");
+							exit(1);
+						}
+					}
+					else {
+						printTokenError(moduleNameNode->token, "Expected module name");
+						exit(1);
+					}
+				}
+				else {
+					printTokenError(node->childNodes[0]->token, "Expected module name");
+					exit(1);
+				}
+
+				node->nodeType = Nothing_Node;
+			}
+		}
+}
+
+void assignParentNodes(ASTNode*& node)
+{
+	for (int i = 0; i < node->childNodes.size(); i++) {
+		node->childNodes[i]->parentNode = node;
+		assignParentNodes(node->childNodes[i]);
+	}
 }
 
 
@@ -1183,9 +1423,9 @@ int printAST(ASTNode* startNode, int depth)
 
 	indent(depth);
 
-	printf("%s", startNode->token.c_str());
+	printf("%s", startNode->token.first.c_str());
 	if (verbosity >= 3)
-		if (startNode->token.size() > 0)
+		if (startNode->token.first.size() > 0)
 			printf(":L%d", startNode->lineNumber);
 	printf(":(%s){", ASTNodeTypeAsString(startNode->nodeType).c_str());
 

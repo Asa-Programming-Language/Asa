@@ -71,6 +71,7 @@ std::map<const std::string, const TokenType> subTokenTypes = {
 	{",", Comma},
 	{".", Dot},
 	{"..", Dot_Dot},
+	{"...", Dot_Dot_Dot},
 	{"+", Plus},
 	{"-", Minus},
 	{"/", Slash},
@@ -126,7 +127,7 @@ const std::string tokenAsString(TokenType t)
 
 TokenType currentToken = Nothing;
 std::string tokenContent = "";
-int tokenize(std::string& rawFile)
+int tokenize(std::string& rawFile, std::vector<tokenPair>& tokens)
 {
 	// First remove carriage returns if they exist
 	std::string output = "";
@@ -142,6 +143,7 @@ int tokenize(std::string& rawFile)
 	// Then start making tokens
 	int lineNumber = 1;
 	int indexInLine = 0;
+	int startIndexInLine = 0;
 	std::string* lineValue = new std::string("");
 	rawFile = "\n" + rawFile + "\n";  // add extra character at end as buffer for lookahead
 	for (int i = 1; i < rawFile.size(); i++) {
@@ -158,6 +160,7 @@ int tokenize(std::string& rawFile)
 						break;
 					currentToken = tokenType;
 					tokenContent += c;
+					startIndexInLine = indexInLine + 1;
 					break;
 				}
 			}
@@ -205,7 +208,7 @@ int tokenize(std::string& rawFile)
 
 
 						// Add tokenContent as element to tokens, and clear it
-						allTokens.push_back(tokenPair(tokenContent, currentToken, lineNumber, indexInLine, lineValue));
+						tokens.push_back(tokenPair(tokenContent, currentToken, lineNumber, startIndexInLine, lineValue));
 						tokenContent = "";
 
 						currentToken = Nothing;
@@ -229,7 +232,7 @@ int tokenize(std::string& rawFile)
 			}
 		}
 	}
-	allTokens.push_back(tokenPair("", EndOfFile, lineNumber + 1, 0, &nullStr));
+	tokens.push_back(tokenPair("", EndOfFile, lineNumber + 1, 0, &nullStr));
 
 	return 0;
 }
