@@ -3,6 +3,14 @@
 
 int main(int argc, char** argv)
 {
+	if (verbosity >= 2)
+		std::cout << COMPILER_PRINTOUT << std::endl
+				  << std::endl;
+
+#ifdef DEBUG
+	runTests();
+#endif
+
 	// Handle options
 	int c;
 	int digit_optind = 0;
@@ -28,44 +36,45 @@ int main(int argc, char** argv)
 
 		switch (c) {
 			case 0:
-				printf("option %s", long_options[option_index].name);
-				if (optarg)
-					printf(" with arg %s", optarg);
-				printf("\n");
+				//printf("option %s", long_options[option_index].name);
+				//if (optarg)
+				//	printf(" with arg %s", optarg);
+				//printf("\n");
 				break;
 
 			case '0':
-				if (digit_optind != 0 && digit_optind != this_option_optind)
-					printf("digits occur in two different argv-elements.\n");
-				digit_optind = this_option_optind;
-				printf("option %c\n", c);
+				//if (digit_optind != 0 && digit_optind != this_option_optind)
+				//	printf("digits occur in two different argv-elements.\n");
+				//digit_optind = this_option_optind;
+				//printf("option %c\n", c);
 				break;
 
 			case 'c':
-				printf("option c\n");
+				//printf("option c\n");
 				break;
 
 			case 'v':
-				printf("option v\n");
-				verbosity++;
+				//printf("option v\n");
+				verbosity += 1;
 				break;
 
 			case 'q':
-				printf("option q\n");
-				verbosity--;
+				//printf("option q\n");
+				verbosity += 1;
 				break;
 
 			case 'f':
-				printf("option f with value '%s'\n", optarg);
+				//printf("option f with value '%s'\n", optarg);
 				fileName = std::string(optarg);
-				printf("fileName is %s\n", fileName.c_str());
+				//printf("fileName is %s\n", fileName.c_str());
 				break;
 
 			case '?':
 				break;
 
 			default:
-				printf("?? getopt returned character code 0%o ??\n", c);
+				//printf("?? getopt returned character code 0%o ??\n", c);
+				break;
 		}
 	}
 
@@ -101,12 +110,14 @@ int main(int argc, char** argv)
 		exit(1);
 	}
 	e = removeCommentTokens(allTokens);
-	printf("\nTokens:\n");
-	for (int i = 0; i < allTokens.size(); i++) {
-		if (allTokens[i].second != EndOfLine) {
-			printf("%dT:%d: ", i, allTokens[i].lineNumber);
-			//if (allTokens[i].lineValue != nullptr)
-			printf("[%s]\t[%s]\t[%s]\n", allTokens[i].first.c_str(), tokenAsString(allTokens[i].second).c_str(), allTokens[i].lineValue->c_str());
+	if (verbosity >= 5) {
+		printf("\nTokens:\n");
+		for (int i = 0; i < allTokens.size(); i++) {
+			if (allTokens[i].second != EndOfLine) {
+				printf("%dT:%d: ", i, allTokens[i].lineNumber);
+				//if (allTokens[i].lineValue != nullptr)
+				printf("[%s]\t[%s]\t[%s]\n", allTokens[i].first.c_str(), tokenAsString(allTokens[i].second).c_str(), allTokens[i].lineValue->c_str());
+			}
 		}
 	}
 
@@ -142,8 +153,10 @@ int main(int argc, char** argv)
 	assignParentNodes(rootNode);
 
 	// Print AST
-	printf("\n\nGenerated AST:\n");
-	printAST(rootNode);
+	if (verbosity >= 4) {
+		printf("\n\nGenerated AST:\n");
+		printAST(rootNode);
+	}
 
 	// Resolve dependencies
 	resolveDependencies(rootNode);

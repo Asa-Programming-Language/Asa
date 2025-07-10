@@ -154,6 +154,11 @@ struct tokenDataType {
 	int indexInLine = 0;
 
 	tokenDataType() {}
+	tokenDataType(std::string f, TokenType s)
+	{
+		first = f;
+		second = s;
+	}
 	tokenDataType(std::string f, TokenType s, int l, int i, std::string* lV)
 	{
 		first = f;
@@ -161,6 +166,14 @@ struct tokenDataType {
 		lineNumber = l;
 		indexInLine = i;
 		lineValue = lV;
+	}
+
+	bool operator==(tokenDataType other)
+	{
+		if (first == other.first && second == other.second)
+			return true;
+		else
+			return false;
 	}
 };
 

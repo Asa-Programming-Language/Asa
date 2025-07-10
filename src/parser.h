@@ -148,6 +148,62 @@ struct ASTNode {
 	int lineNumber = 0;
 	// Add leaf nodes here as they are still yet to be used.
 	std::vector<ASTNode*> leafNodes = std::vector<ASTNode*>();
+
+	bool compareTokens = false;
+
+	ASTNode() {}
+	ASTNode(ASTNodeType nType)
+	{
+		nodeType = nType;
+	}
+	ASTNode(ASTNodeType nType, std::vector<ASTNode*> cNodes)
+	{
+		childNodes = cNodes;
+		nodeType = nType;
+	}
+	ASTNode(std::vector<ASTNode*> cNodes, ASTNodeType nType)
+	{
+		childNodes = cNodes;
+		nodeType = nType;
+	}
+	ASTNode(ASTNodeType nType, std::vector<ASTNode*> cNodes, tokenPair t, bool cmpTokens = false)
+	{
+		childNodes = cNodes;
+		nodeType = nType;
+		token = t;
+		compareTokens = cmpTokens;
+	}
+	ASTNode(std::vector<ASTNode*> cNodes, ASTNodeType nType, tokenPair t, bool cmpTokens = false)
+	{
+		childNodes = cNodes;
+		nodeType = nType;
+		token = t;
+		compareTokens = cmpTokens;
+	}
+
+	bool operator==(ASTNode other)
+	{
+		// Make sure children are the same as well
+		if (childNodes.size() == other.childNodes.size())
+			for (int i = 0; i < childNodes.size(); i++) {
+				if ((*(childNodes[i]) == *(other.childNodes[i])) == false)
+					return false;
+			}
+		else
+			return false;
+
+		// If child nodes match, then we have to check the current node
+		if (compareTokens)
+			if (!(token == other.token))
+				return false;
+		if (nodeType == other.nodeType /* && token == other.token &&
+			lineNumber == other.lineNumber*/
+		)
+			return true;
+
+		// Otherwise false
+		return false;
+	}
 };
 
 
@@ -165,4 +221,5 @@ void addFileIncludes(ASTNode*& node);
 void addModuleImports(ASTNode*& node);
 void assignParentNodes(ASTNode*& node);
 void printTokenError(tokenPair& token, std::string errorString = "", int sourceLineNumber = 0);
+void printModuleLoaded(std::string& moduleName, std::string& modulePath);
 //std::vector<tokenPair> GATHER_SCOPE_BODY(int brLevel, int& i);

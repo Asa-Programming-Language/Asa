@@ -1,0 +1,9 @@
+
+testMultiReturn ::(){
+	a, b, c = getThreeObjects();
+	printl("%d, %d, %d", a, b, c);
+}
+
+getThreeObjects :: int, int, int (){
+	return 2, 3, 4;
+}

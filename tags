@@ -73,6 +73,14 @@
 !_TAG_ROLE_DESCRIPTION!C++!partition	imported	/imported with "imported ..."/
 !_TAG_ROLE_DESCRIPTION!Sh!heredoc	endmarker	/end marker/
 !_TAG_ROLE_DESCRIPTION!Sh!script	loaded	/loaded/
+A	src/tests.cpp	/^	#define A new AS/;"	d	file:
+AST	src/tests.cpp	/^	AST,$/;"	e	enum:TestType	file:
+ASTNode	src/parser.h	/^	ASTNode() {}$/;"	f	struct:ASTNode
+ASTNode	src/parser.h	/^	ASTNode(ASTNodeType nType)$/;"	f	struct:ASTNode
+ASTNode	src/parser.h	/^	ASTNode(ASTNodeType nType, std::vector<ASTNode*> cNodes)$/;"	f	struct:ASTNode
+ASTNode	src/parser.h	/^	ASTNode(ASTNodeType nType, std::vector<ASTNode*> cNodes, tokenPair t, bool cmpTokens = false)$/;"	f	struct:ASTNode
+ASTNode	src/parser.h	/^	ASTNode(std::vector<ASTNode*> cNodes, ASTNodeType nType)$/;"	f	struct:ASTNode
+ASTNode	src/parser.h	/^	ASTNode(std::vector<ASTNode*> cNodes, ASTNodeType nType, tokenPair t, bool cmpTokens = false)$/;"	f	struct:ASTNode
 ASTNode	src/parser.h	/^struct ASTNode {$/;"	s
 ASTNodeType	src/parser.h	/^enum ASTNodeType {$/;"	g
 ASTNodeTypeAsString	src/parser.cpp	/^const std::string ASTNodeTypeAsString(ASTNodeType t)$/;"	f	typeref:typename:const std::string
@@ -88,6 +96,7 @@ CMAKE_BUILD_TYPE	src/CMakeLists.txt	/^	set(CMAKE_BUILD_TYPE Debug)$/;"	v
 CMAKE_CXX_FLAGS_DEBUG	src/CMakeLists.txt	/^set(CMAKE_CXX_FLAGS_DEBUG "-g")$/;"	v
 CMAKE_CXX_FLAGS_RELEASE	src/CMakeLists.txt	/^set(CMAKE_CXX_FLAGS_RELEASE "-O3")$/;"	v
 CMAKE_CXX_STANDARD	src/CMakeLists.txt	/^set (CMAKE_CXX_STANDARD 17)$/;"	v
+COMPILER_PRINTOUT	src/settings.h	/^#define COMPILER_PRINTOUT /;"	d
 Colon	src/tokenizer.h	/^	Colon,$/;"	e	enum:TokenType
 Colon_Colon	src/tokenizer.h	/^	Colon_Colon,$/;"	e	enum:TokenType
 Comma	src/tokenizer.h	/^	Comma,$/;"	e	enum:TokenType
@@ -156,6 +165,7 @@ Module_Define	src/tokenizer.h	/^	Module_Define,$/;"	e	enum:TokenType
 Module_Define_Node	src/parser.h	/^	Module_Define_Node,$/;"	e	enum:ASTNodeType
 Module_Scope	src/parser.h	/^	Module_Scope,$/;"	e	enum:ASTNodeType
 NEXT_TOKEN	src/tokenizer.h	/^#define NEXT_TOKEN(/;"	d
+No_Test	src/tests.cpp	/^	No_Test,$/;"	e	enum:TestType	file:
 Nothing	src/tokenizer.h	/^	Nothing,$/;"	e	enum:TokenType
 Nothing_Node	src/parser.h	/^	Nothing_Node,$/;"	e	enum:ASTNodeType
 PRINT_SUBTOKENS	src/parser.h	/^#define PRINT_SUBTOKENS(/;"	d
@@ -179,16 +189,21 @@ String	src/tokenizer.h	/^	String,$/;"	e	enum:TokenType
 String_Node	src/parser.h	/^	String_Node,$/;"	e	enum:ASTNodeType
 Struct_Define	src/tokenizer.h	/^	Struct_Define,$/;"	e	enum:TokenType
 Struct_Define_Node	src/parser.h	/^	Struct_Define_Node,$/;"	e	enum:ASTNodeType
+Test	src/tests.cpp	/^	Test()$/;"	f	struct:Test	file:
+Test	src/tests.cpp	/^	Test(std::string s, ASTNode* n)$/;"	f	struct:Test	file:
+Test	src/tests.cpp	/^struct Test {$/;"	s	file:
+TestType	src/tests.cpp	/^enum TestType {$/;"	g	file:
 Times_Equal	src/tokenizer.h	/^	Times_Equal,$/;"	e	enum:TokenType
 TokenType	src/tokenizer.h	/^enum TokenType {$/;"	g
 True_Literal	src/tokenizer.h	/^	True_Literal,$/;"	e	enum:TokenType
 Type	src/parser.h	/^	Type,$/;"	e	enum:ASTNodeType
+VERSION	src/settings.h	/^#define VERSION /;"	d
 While_Statement	src/tokenizer.h	/^	While_Statement,$/;"	e	enum:TokenType
 While_Statement_Node	src/parser.h	/^	While_Statement_Node,$/;"	e	enum:ASTNodeType
 addFileIncludes	src/parser.cpp	/^void addFileIncludes(ASTNode*& node)$/;"	f	typeref:typename:void
 addModuleImports	src/parser.cpp	/^void addModuleImports(ASTNode*& node)$/;"	f	typeref:typename:void
 allTokens	src/tokenizer.cpp	/^std::vector<tokenPair> allTokens = std::vector<tokenPair>();$/;"	v	typeref:typename:std::vector<tokenPair>
-asa	src/CMakeLists.txt	/^add_executable(asa main.cpp main.h settings.h filemanager.cpp filemanager.h tokenizer.cpp tokeni/;"	t
+asa	src/CMakeLists.txt	/^add_executable(asa main.cpp main.h tests.cpp tests.h settings.h filemanager.cpp filemanager.h to/;"	t
 asa_compiler	src/CMakeLists.txt	/^project(asa_compiler CXX)$/;"	p
 assignParentNodes	src/parser.cpp	/^void assignParentNodes(ASTNode*& node)$/;"	f	typeref:typename:void
 at	examples/start/main.asa	/^	\/\/ Test the functionality of redefining a function at runtime.$/;"	f
@@ -196,10 +211,13 @@ beginParse	src/parser.cpp	/^int beginParse(const std::vector<std::pair<std::stri
 binaryOperatorExType	src/parser.cpp	/^std::map<TokenType, ASTNodeType> binaryOperatorExType = {$/;"	v	typeref:typename:std::map<TokenType,ASTNodeType>
 charInArray	src/tokenizer.cpp	/^bool charInArray(char x, const char* a)$/;"	f	typeref:typename:bool
 childNodes	src/parser.h	/^	std::vector<ASTNode*> childNodes = std::vector<ASTNode*>();$/;"	m	struct:ASTNode	typeref:typename:std::vector<ASTNode * >
-compileTimeDefinable	src/parser.cpp	/^std::map<TokenType, int> compileTimeDefinable = {$/;"	v	typeref:typename:std::map<TokenType,int>
+code	src/tests.cpp	/^	std::string code;$/;"	m	struct:Test	typeref:typename:std::string	file:
+compareTokens	src/parser.h	/^	bool compareTokens = false;$/;"	m	struct:ASTNode	typeref:typename:bool
+compileTimeDefinable	src/parser.cpp	/^std::unordered_set<TokenType> compileTimeDefinable = {$/;"	v	typeref:typename:std::unordered_set<TokenType>
 currentToken	src/tokenizer.cpp	/^TokenType currentToken = Nothing;$/;"	v	typeref:typename:TokenType
 directoryExists	src/filemanager.cpp	/^bool directoryExists(std::string& path)$/;"	f	typeref:typename:bool
 executableDirectory	src/filemanager.cpp	/^std::string executableDirectory;$/;"	v	typeref:typename:std::string
+expectedAST	src/tests.cpp	/^	ASTNode* expectedAST = nullptr;$/;"	m	struct:Test	typeref:typename:ASTNode *	file:
 first	src/tokenizer.h	/^	std::string first = "";$/;"	m	struct:tokenDataType	typeref:typename:std::string
 fixPrecedence	src/parser.cpp	/^void fixPrecedence(ASTNode*& node)$/;"	f	typeref:typename:void
 generateAST	src/parser.cpp	/^ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* parentNodePtr)$/;"	f	typeref:typename:ASTNode *
@@ -216,34 +234,41 @@ lineNumber	src/parser.h	/^	int lineNumber = 0;$/;"	m	struct:ASTNode	typeref:type
 lineNumber	src/tokenizer.h	/^	int lineNumber = 0;$/;"	m	struct:tokenDataType	typeref:typename:int
 lineValue	src/tokenizer.h	/^	std::string* lineValue = nullptr;$/;"	m	struct:tokenDataType	typeref:typename:std::string *
 lines	src/tokenizer.cpp	/^std::vector<std::string*> lines = std::vector<std::string*>();$/;"	v	typeref:typename:std::vector<std::string * >
-literalMap	src/parser.cpp	/^std::map<ASTNodeType, int> literalMap = {$/;"	v	typeref:typename:std::map<ASTNodeType,int>
+literals	src/parser.cpp	/^std::unordered_set<ASTNodeType> literals = {$/;"	v	typeref:typename:std::unordered_set<ASTNodeType>
 loadFile	src/filemanager.cpp	/^int loadFile(const std::string& fileName, std::string& outStr)$/;"	f	typeref:typename:int
 loadModule	src/parser.cpp	/^bool loadModule(std::string& modulePath, std::string& moduleName)$/;"	f	typeref:typename:bool
 main	src/main.cpp	/^int main(int argc, char** argv)$/;"	f	typeref:typename:int
 nodeType	src/parser.h	/^	ASTNodeType nodeType = Nothing_Node;$/;"	m	struct:ASTNode	typeref:typename:ASTNodeType
 nullStr	src/tokenizer.cpp	/^std::string nullStr = "";$/;"	v	typeref:typename:std::string
+operator ==	src/parser.h	/^	bool operator==(ASTNode other)$/;"	f	struct:ASTNode	typeref:typename:bool
+operator ==	src/tokenizer.h	/^	bool operator==(tokenDataType other)$/;"	f	struct:tokenDataType	typeref:typename:bool
 operatorPrecedence	src/parser.cpp	/^std::map<ASTNodeType, int> operatorPrecedence = {$/;"	v	typeref:typename:std::map<ASTNodeType,int>
 optimizeASTNode	src/parser.cpp	/^void optimizeASTNode(ASTNode*& node)$/;"	f	typeref:typename:void
 orderASTOperations	src/parser.cpp	/^void orderASTOperations(ASTNode* startNode)$/;"	f	typeref:typename:void
 parentNode	src/parser.h	/^	ASTNode* parentNode = nullptr;$/;"	m	struct:ASTNode	typeref:typename:ASTNode *
 printAST	src/parser.cpp	/^int printAST(ASTNode* startNode, int depth)$/;"	f	typeref:typename:int
+printError	src/console.cpp	/^void printError(std::string s, int lineNumber, std::string fileName)$/;"	f	typeref:typename:void
+printModuleLoaded	src/parser.cpp	/^void printModuleLoaded(std::string& moduleName, std::string& modulePath)$/;"	f	typeref:typename:void
 printTokenError	src/parser.cpp	/^void printTokenError(tokenPair& token, std::string errorString, int sourceLineNumber)$/;"	f	typeref:typename:void
 projectDirectory	src/filemanager.cpp	/^std::string projectDirectory;$/;"	v	typeref:typename:std::string
 removeCommentTokens	src/tokenizer.cpp	/^int removeCommentTokens(std::vector<tokenPair>& tokens)$/;"	f	typeref:typename:int
 resolveDependencies	src/dependencies.cpp	/^int resolveDependencies(ASTNode*& node)$/;"	f	typeref:typename:int
 rootNode	src/parser.cpp	/^ASTNode* rootNode = new ASTNode();$/;"	v	typeref:typename:ASTNode *
-s:l	src/Session.vim	/^let s:l = 112 - ((10 * winheight(0) + 25) \/ 51)$/;"	v
-s:l	src/Session.vim	/^let s:l = 112 - ((9 * winheight(0) + 10) \/ 20)$/;"	v
-s:l	src/Session.vim	/^let s:l = 138 - ((48 * winheight(0) + 25) \/ 51)$/;"	v
-s:l	src/Session.vim	/^let s:l = 14 - ((13 * winheight(0) + 25) \/ 51)$/;"	v
-s:l	src/Session.vim	/^let s:l = 15 - ((14 * winheight(0) + 25) \/ 51)$/;"	v
-s:l	src/Session.vim	/^let s:l = 19 - ((18 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 23 - ((22 * winheight(0) + 25) \/ 51)$/;"	v
-s:l	src/Session.vim	/^let s:l = 24 - ((18 * winheight(0) + 15) \/ 30)$/;"	v
-s:l	src/Session.vim	/^let s:l = 257 - ((40 * winheight(0) + 25) \/ 51)$/;"	v
+runTests	src/tests.cpp	/^void runTests()$/;"	f	typeref:typename:void
+s:l	src/Session.vim	/^let s:l = 1 - ((0 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 10 - ((9 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 1171 - ((20 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 16 - ((15 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 169 - ((23 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 176 - ((47 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 2 - ((1 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 21 - ((10 * winheight(0) + 15) \/ 31)$/;"	v
+s:l	src/Session.vim	/^let s:l = 24 - ((23 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 26 - ((25 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 56 - ((39 * winheight(0) + 26) \/ 53)$/;"	v
 s:l	src/Session.vim	/^let s:l = 7 - ((6 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 742 - ((40 * winheight(0) + 25) \/ 51)$/;"	v
-s:l	src/Session.vim	/^let s:l = 9832 - ((10 * winheight(0) + 15) \/ 30)$/;"	v
+s:l	src/Session.vim	/^let s:l = 84 - ((10 * winheight(0) + 10) \/ 21)$/;"	v
+s:l	src/Session.vim	/^let s:l = 9725 - ((16 * winheight(0) + 15) \/ 31)$/;"	v
 s:save_splitbelow	src/Session.vim	/^let s:save_splitbelow = &splitbelow$/;"	v
 s:save_splitright	src/Session.vim	/^let s:save_splitright = &splitright$/;"	v
 s:save_winminheight	src/Session.vim	/^let s:save_winminheight = &winminheight$/;"	v
@@ -254,11 +279,14 @@ s:sx	src/Session.vim	/^let s:sx = expand("<sfile>:p:r")."x.vim"$/;"	v
 s:wipebuf	src/Session.vim	/^  let s:wipebuf = bufnr('%')$/;"	v
 second	src/tokenizer.h	/^	TokenType second = Nothing;$/;"	m	struct:tokenDataType	typeref:typename:TokenType
 subTokenTypes	src/tokenizer.cpp	/^std::map<const std::string, const TokenType> subTokenTypes = {$/;"	v	typeref:typename:std::map<const std::string,const TokenType>
+testType	src/tests.cpp	/^	TestType testType = No_Test;$/;"	m	struct:Test	typeref:typename:TestType	file:
+tests	src/tests.cpp	/^std::vector<Test> tests = {$/;"	v	typeref:typename:std::vector<Test>
 token	src/parser.h	/^	tokenPair token = tokenPair();$/;"	m	struct:ASTNode	typeref:typename:tokenPair
 tokenAsString	src/tokenizer.cpp	/^const std::string tokenAsString(TokenType t)$/;"	f	typeref:typename:const std::string
 tokenContainsSwap	src/tokenizer.cpp	/^std::map<TokenType, std::pair<const char*, TokenType>> tokenContainsSwap = {$/;"	v	typeref:typename:std::map<TokenType,std::pair<const char *,TokenType>>
 tokenContent	src/tokenizer.cpp	/^std::string tokenContent = "";$/;"	v	typeref:typename:std::string
 tokenDataType	src/tokenizer.h	/^	tokenDataType() {}$/;"	f	struct:tokenDataType
+tokenDataType	src/tokenizer.h	/^	tokenDataType(std::string f, TokenType s)$/;"	f	struct:tokenDataType
 tokenDataType	src/tokenizer.h	/^	tokenDataType(std::string f, TokenType s, int l, int i, std::string* lV)$/;"	f	struct:tokenDataType
 tokenDataType	src/tokenizer.h	/^struct tokenDataType {$/;"	s
 tokenEscapeCancels	src/tokenizer.cpp	/^const std::map<const char*, const char*> tokenEscapeCancels = {$/;"	v	typeref:typename:const std::map<const char *,const char * >
@@ -268,4 +296,4 @@ tokenPair	src/tokenizer.h	/^typedef tokenDataType tokenPair;$/;"	t	typeref:typen
 tokenStarts	src/tokenizer.cpp	/^const std::map<TokenType, const char*> tokenStarts = {$/;"	v	typeref:typename:const std::map<TokenType,const char * >
 tokenTypeStrings	src/tokenizer.h	/^const std::string tokenTypeStrings[] = {$/;"	v	typeref:typename:const std::string[]
 tokenize	src/tokenizer.cpp	/^int tokenize(std::string& rawFile, std::vector<tokenPair>& tokens)$/;"	f	typeref:typename:int
-verbosity	src/settings.h	/^static int verbosity = 2;  \/\/ Verbosity of 0 is silent (no output), 1 is quiet, 2 is default, /;"	v	typeref:typename:int
+verbosity	src/main.h	/^int verbosity = 2;$/;"	v	typeref:typename:int

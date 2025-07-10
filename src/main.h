@@ -14,7 +14,9 @@
 #include "lexer.h"
 #include "parser.h"
 #include "settings.h"
+#include "tests.h"
 #include "tokenizer.h"
 
+int verbosity = 2;
 
 #endif
