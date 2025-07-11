@@ -589,6 +589,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 					node->childNodes.push_back(bodyNode);
 				}
 				else {
+					node->nodeType = Compiler_Define_Function;
 					i--;
 					// Step through all following tokens until parens start
 					std::vector<tokenPair> subTokens = std::vector<tokenPair>();
@@ -647,10 +648,15 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 							arguments[a]->leafNodes.pop_back();
 							arguments[a]->leafNodes.pop_back();
 						}
+						else if (arguments[a]->leafNodes.size() == 1 && arguments[a]->leafNodes[0]->nodeType == Argument_List) {  // If ...  pattern
+							arguments[a]->nodeType = Expression_Term;
+							arguments[a]->childNodes = {arguments[a]->leafNodes[0]};
+							arguments[a]->leafNodes.pop_back();
+						}
 						else if (arguments[a]->leafNodes.size() == 0) {
 						}
 						else {
-							printf("Error: Expected type followed by identifier\n");
+							printTokenError(arguments[a]->leafNodes[0]->token, "Expected type followed by identifier");
 							exit(1);
 						}
 						argumentsNode->childNodes.push_back(arguments[a]);
@@ -752,6 +758,12 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 				break;
 			}
 
+			case Dot_Dot_Dot: {
+				node->nodeType = Argument_List;
+				parentNode->leafNodes.push_back(node);
+				break;
+			}
+
 			case Integer: {
 				node->nodeType = Integer_Node;
 				parentNode->leafNodes.push_back(node);
@@ -838,6 +850,12 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 				}
 				for (int l = 0; l < parentNode->leafNodes.size(); l++)
 					parentNode->leafNodes.pop_back();
+				goto dontAddNodeForce;
+			}
+
+			case EndOfLine:
+			case Nothing: {
+				goto dontAddNodeForce;
 			}
 
 			default: {
@@ -1288,17 +1306,19 @@ bool loadModule(std::string& modulePath, std::string& moduleName)
 		// Look through file to see if it contains the desired module
 		for (int j = 0; j < localRoot->childNodes.size(); j++) {
 			if (localRoot->childNodes[j]->nodeType == Compiler_Define)
-				if (localRoot->childNodes[j]->childNodes[0]->childNodes[0]->nodeType == Module_Define_Node) {
-					ASTNode* moduleNode = localRoot->childNodes[j]->childNodes[0]->childNodes[0];
-					if (localRoot->childNodes[j]->token.first == moduleName) {
-						for (int i = 0; i < moduleNode->childNodes[0]->childNodes.size(); i++) {
-							importedNodes.push_back(moduleNode->childNodes[0]->childNodes[i]);
-							//rootNode->childNodes.push_back(localRoot->childNodes[i]);
+				if (localRoot->childNodes[j]->childNodes.size() >= 1)
+					if (localRoot->childNodes[j]->childNodes[0]->childNodes.size() >= 1)
+						if (localRoot->childNodes[j]->childNodes[0]->childNodes[0]->nodeType == Module_Define_Node) {
+							ASTNode* moduleNode = localRoot->childNodes[j]->childNodes[0]->childNodes[0];
+							if (localRoot->childNodes[j]->token.first == moduleName) {
+								for (int i = 0; i < moduleNode->childNodes[0]->childNodes.size(); i++) {
+									importedNodes.push_back(moduleNode->childNodes[0]->childNodes[i]);
+									//rootNode->childNodes.push_back(localRoot->childNodes[i]);
+								}
+								printModuleLoaded(moduleName, pathStr);
+								return true;
+							}
 						}
-						printModuleLoaded(moduleName, pathStr);
-						return true;
-					}
-				}
 		}
 	}
 	return false;

@@ -3,6 +3,7 @@
 std::string initialFileString;
 std::string executableDirectory;
 std::string projectDirectory;
+std::string baseFileName;
 
 int loadFile(const std::string& fileName, std::string& outStr)
 {
@@ -20,6 +21,39 @@ int loadFile(const std::string& fileName, std::string& outStr)
 		return 1;
 	}
 
+	return 0;
+}
+
+int saveStringToFile(const std::string& fileName, std::string& s)
+{
+	try {
+		std::ofstream fileStream(fileName);
+		std::string str = "";
+		if (fileStream.is_open() == false)
+			return 1;
+		fileStream << s;
+		fileStream.close();
+	}
+	catch (std::exception& e) {
+		return 1;
+	}
+	return 0;
+}
+
+int saveVectorToFile(const std::string& fileName, std::vector<std::string>& v)
+{
+	try {
+		std::ofstream fileStream(fileName);
+		std::string str = "";
+		if (fileStream.is_open() == false)
+			return 1;
+		for (const auto& s : v)
+			fileStream << s << "\n";
+		fileStream.close();
+	}
+	catch (std::exception& e) {
+		return 1;
+	}
 	return 0;
 }
 

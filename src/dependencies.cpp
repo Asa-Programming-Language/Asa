@@ -18,7 +18,7 @@ int resolveDependencies(ASTNode*& node)
 
 			for (int i = 0; i < parent->childNodes.size(); i++) {
 				ASTNode* childNode = parent->childNodes[i];
-				if (childNode->nodeType == Compiler_Define)
+				if (childNode->nodeType == Compiler_Define_Function || childNode->nodeType == Compiler_Define)
 					if (childNode->token.first == identifier) {
 						foundDefinition = true;
 						goto exitLoop;

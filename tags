@@ -74,6 +74,9 @@
 !_TAG_ROLE_DESCRIPTION!Sh!heredoc	endmarker	/end marker/
 !_TAG_ROLE_DESCRIPTION!Sh!script	loaded	/loaded/
 A	src/tests.cpp	/^	#define A new AS/;"	d	file:
+ADD	src/output_builder.cpp	/^#define ADD(/;"	d	file:
+ADDB	src/output_builder.cpp	/^#define ADDB(/;"	d	file:
+ADDP	src/output_builder.cpp	/^#define ADDP(/;"	d	file:
 AST	src/tests.cpp	/^	AST,$/;"	e	enum:TestType	file:
 ASTNode	src/parser.h	/^	ASTNode() {}$/;"	f	struct:ASTNode
 ASTNode	src/parser.h	/^	ASTNode(ASTNodeType nType)$/;"	f	struct:ASTNode
@@ -86,6 +89,7 @@ ASTNodeType	src/parser.h	/^enum ASTNodeType {$/;"	g
 ASTNodeTypeAsString	src/parser.cpp	/^const std::string ASTNodeTypeAsString(ASTNodeType t)$/;"	f	typeref:typename:const std::string
 ASTNodeTypeStrings	src/parser.h	/^const std::string ASTNodeTypeStrings[] = {$/;"	v	typeref:typename:const std::string[]
 ASTNodes	src/parser.cpp	/^std::vector<ASTNode*> ASTNodes = std::vector<ASTNode*>();$/;"	v	typeref:typename:std::vector<ASTNode * >
+Argument_List	src/parser.h	/^	Argument_List,$/;"	e	enum:ASTNodeType
 Arguments	src/parser.h	/^	Arguments,$/;"	e	enum:ASTNodeType
 Bang	src/tokenizer.h	/^	Bang,$/;"	e	enum:TokenType
 Bang_Equal	src/tokenizer.h	/^	Bang_Equal,$/;"	e	enum:TokenType
@@ -109,6 +113,7 @@ Compare_LessEqual	src/parser.h	/^	Compare_LessEqual,$/;"	e	enum:ASTNodeType
 Compare_Not	src/parser.h	/^	Compare_Not,$/;"	e	enum:ASTNodeType
 Compile_Time_Directive	src/parser.h	/^	Compile_Time_Directive,$/;"	e	enum:ASTNodeType
 Compiler_Define	src/parser.h	/^	Compiler_Define,$/;"	e	enum:ASTNodeType
+Compiler_Define_Function	src/parser.h	/^	Compiler_Define_Function,$/;"	e	enum:ASTNodeType
 Condition	src/parser.h	/^	Condition,$/;"	e	enum:ASTNodeType
 Continue_Node	src/parser.h	/^	Continue_Node,$/;"	e	enum:ASTNodeType
 Continue_Statement	src/tokenizer.h	/^	Continue_Statement,$/;"	e	enum:TokenType
@@ -127,6 +132,8 @@ Expression_Plus	src/parser.h	/^	Expression_Plus,$/;"	e	enum:ASTNodeType
 Expression_Statement	src/parser.h	/^	Expression_Statement,$/;"	e	enum:ASTNodeType
 Expression_Term	src/parser.h	/^	Expression_Term,$/;"	e	enum:ASTNodeType
 Expression_Times	src/parser.h	/^	Expression_Times,$/;"	e	enum:ASTNodeType
+FIRST	src/output_builder.cpp	/^#define FIRST /;"	d	file:
+FIRST_TOKEN	src/output_builder.cpp	/^#define FIRST_TOKEN /;"	d	file:
 False_Literal	src/tokenizer.h	/^	False_Literal,$/;"	e	enum:TokenType
 Float	src/tokenizer.h	/^	Float,$/;"	e	enum:TokenType
 Float_Node	src/parser.h	/^	Float_Node,$/;"	e	enum:ASTNodeType
@@ -168,7 +175,11 @@ NEXT_TOKEN	src/tokenizer.h	/^#define NEXT_TOKEN(/;"	d
 No_Test	src/tests.cpp	/^	No_Test,$/;"	e	enum:TestType	file:
 Nothing	src/tokenizer.h	/^	Nothing,$/;"	e	enum:TokenType
 Nothing_Node	src/parser.h	/^	Nothing_Node,$/;"	e	enum:ASTNodeType
+POP	src/output_builder.cpp	/^#define POP(/;"	d	file:
+POPP	src/output_builder.cpp	/^#define POPP(/;"	d	file:
 PRINT_SUBTOKENS	src/parser.h	/^#define PRINT_SUBTOKENS(/;"	d
+PUSH	src/output_builder.cpp	/^#define PUSH(/;"	d	file:
+PUSHP	src/output_builder.cpp	/^#define PUSHP(/;"	d	file:
 Plus	src/tokenizer.h	/^	Plus,$/;"	e	enum:TokenType
 Plus_Equal	src/tokenizer.h	/^	Plus_Equal,$/;"	e	enum:TokenType
 Plus_Plus	src/tokenizer.h	/^	Plus_Plus,$/;"	e	enum:TokenType
@@ -179,6 +190,8 @@ Return_Statement	src/tokenizer.h	/^	Return_Statement,$/;"	e	enum:TokenType
 Right_Brace	src/tokenizer.h	/^	Right_Brace,$/;"	e	enum:TokenType
 Right_Bracket	src/tokenizer.h	/^	Right_Bracket,$/;"	e	enum:TokenType
 Right_Paren	src/tokenizer.h	/^	Right_Paren,$/;"	e	enum:TokenType
+SECOND	src/output_builder.cpp	/^#define SECOND /;"	d	file:
+SECOND_TOKEN	src/output_builder.cpp	/^#define SECOND_TOKEN /;"	d	file:
 Scope_Body	src/parser.h	/^	Scope_Body,$/;"	e	enum:ASTNodeType
 Semi_Colon	src/tokenizer.h	/^	Semi_Colon,$/;"	e	enum:TokenType
 SessionLoad	src/Session.vim	/^let SessionLoad = 1$/;"	v
@@ -189,6 +202,8 @@ String	src/tokenizer.h	/^	String,$/;"	e	enum:TokenType
 String_Node	src/parser.h	/^	String_Node,$/;"	e	enum:ASTNodeType
 Struct_Define	src/tokenizer.h	/^	Struct_Define,$/;"	e	enum:TokenType
 Struct_Define_Node	src/parser.h	/^	Struct_Define_Node,$/;"	e	enum:ASTNodeType
+THIRD	src/output_builder.cpp	/^#define THIRD /;"	d	file:
+THIRD_TOKEN	src/output_builder.cpp	/^#define THIRD_TOKEN /;"	d	file:
 Test	src/tests.cpp	/^	Test()$/;"	f	struct:Test	file:
 Test	src/tests.cpp	/^	Test(std::string s, ASTNode* n)$/;"	f	struct:Test	file:
 Test	src/tests.cpp	/^struct Test {$/;"	s	file:
@@ -207,8 +222,13 @@ asa	src/CMakeLists.txt	/^add_executable(asa main.cpp main.h tests.cpp tests.h se
 asa_compiler	src/CMakeLists.txt	/^project(asa_compiler CXX)$/;"	p
 assignParentNodes	src/parser.cpp	/^void assignParentNodes(ASTNode*& node)$/;"	f	typeref:typename:void
 at	examples/start/main.asa	/^	\/\/ Test the functionality of redefining a function at runtime.$/;"	f
+baseFileName	src/filemanager.cpp	/^std::string baseFileName;$/;"	v	typeref:typename:std::string
 beginParse	src/parser.cpp	/^int beginParse(const std::vector<std::pair<std::string, TokenType>>& tokens)$/;"	f	typeref:typename:int
 binaryOperatorExType	src/parser.cpp	/^std::map<TokenType, ASTNodeType> binaryOperatorExType = {$/;"	v	typeref:typename:std::map<TokenType,ASTNodeType>
+boilerPlate	src/output_builder.cpp	/^std::vector<std::string> boilerPlate = std::vector<std::string>();$/;"	v	typeref:typename:std::vector<std::string>
+build	src/output_builder.cpp	/^void build(ASTNode*& node)$/;"	f	typeref:typename:void
+buildOutput	src/output_builder.cpp	/^int buildOutput(ASTNode*& node)$/;"	f	typeref:typename:int
+called	examples/pong/main.asa	/^\/\/ Function called by draw_window method$/;"	f
 charInArray	src/tokenizer.cpp	/^bool charInArray(char x, const char* a)$/;"	f	typeref:typename:bool
 childNodes	src/parser.h	/^	std::vector<ASTNode*> childNodes = std::vector<ASTNode*>();$/;"	m	struct:ASTNode	typeref:typename:std::vector<ASTNode * >
 code	src/tests.cpp	/^	std::string code;$/;"	m	struct:Test	typeref:typename:std::string	file:
@@ -237,7 +257,9 @@ lines	src/tokenizer.cpp	/^std::vector<std::string*> lines = std::vector<std::str
 literals	src/parser.cpp	/^std::unordered_set<ASTNodeType> literals = {$/;"	v	typeref:typename:std::unordered_set<ASTNodeType>
 loadFile	src/filemanager.cpp	/^int loadFile(const std::string& fileName, std::string& outStr)$/;"	f	typeref:typename:int
 loadModule	src/parser.cpp	/^bool loadModule(std::string& modulePath, std::string& moduleName)$/;"	f	typeref:typename:bool
+main	examples/start/build/main.asa.cpp	/^int main()$/;"	f	typeref:typename:int
 main	src/main.cpp	/^int main(int argc, char** argv)$/;"	f	typeref:typename:int
+multiply	examples/start/build/main.asa.cpp	/^int multiply($/;"	f	typeref:typename:int
 nodeType	src/parser.h	/^	ASTNodeType nodeType = Nothing_Node;$/;"	m	struct:ASTNode	typeref:typename:ASTNodeType
 nullStr	src/tokenizer.cpp	/^std::string nullStr = "";$/;"	v	typeref:typename:std::string
 operator ==	src/parser.h	/^	bool operator==(ASTNode other)$/;"	f	struct:ASTNode	typeref:typename:bool
@@ -245,30 +267,35 @@ operator ==	src/tokenizer.h	/^	bool operator==(tokenDataType other)$/;"	f	struct
 operatorPrecedence	src/parser.cpp	/^std::map<ASTNodeType, int> operatorPrecedence = {$/;"	v	typeref:typename:std::map<ASTNodeType,int>
 optimizeASTNode	src/parser.cpp	/^void optimizeASTNode(ASTNode*& node)$/;"	f	typeref:typename:void
 orderASTOperations	src/parser.cpp	/^void orderASTOperations(ASTNode* startNode)$/;"	f	typeref:typename:void
+otherFunction	examples/start/build/main.asa.cpp	/^void otherFunction()$/;"	f	typeref:typename:void
+outputCode	src/output_builder.cpp	/^std::vector<std::string> outputCode = std::vector<std::string>();$/;"	v	typeref:typename:std::vector<std::string>
 parentNode	src/parser.h	/^	ASTNode* parentNode = nullptr;$/;"	m	struct:ASTNode	typeref:typename:ASTNode *
+print	examples/start/build/main.asa.cpp	/^void print()$/;"	f	typeref:typename:void
 printAST	src/parser.cpp	/^int printAST(ASTNode* startNode, int depth)$/;"	f	typeref:typename:int
 printError	src/console.cpp	/^void printError(std::string s, int lineNumber, std::string fileName)$/;"	f	typeref:typename:void
 printModuleLoaded	src/parser.cpp	/^void printModuleLoaded(std::string& moduleName, std::string& modulePath)$/;"	f	typeref:typename:void
 printTokenError	src/parser.cpp	/^void printTokenError(tokenPair& token, std::string errorString, int sourceLineNumber)$/;"	f	typeref:typename:void
+printl	examples/start/build/main.asa.cpp	/^void printl()$/;"	f	typeref:typename:void
 projectDirectory	src/filemanager.cpp	/^std::string projectDirectory;$/;"	v	typeref:typename:std::string
+prototypes	src/output_builder.cpp	/^std::vector<std::string> prototypes = std::vector<std::string>();$/;"	v	typeref:typename:std::vector<std::string>
 removeCommentTokens	src/tokenizer.cpp	/^int removeCommentTokens(std::vector<tokenPair>& tokens)$/;"	f	typeref:typename:int
 resolveDependencies	src/dependencies.cpp	/^int resolveDependencies(ASTNode*& node)$/;"	f	typeref:typename:int
 rootNode	src/parser.cpp	/^ASTNode* rootNode = new ASTNode();$/;"	v	typeref:typename:ASTNode *
 runTests	src/tests.cpp	/^void runTests()$/;"	f	typeref:typename:void
 s:l	src/Session.vim	/^let s:l = 1 - ((0 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 10 - ((9 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 1171 - ((20 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 105 - ((33 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 1161 - ((36 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 155 - ((12 * winheight(0) + 26) \/ 53)$/;"	v
 s:l	src/Session.vim	/^let s:l = 16 - ((15 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 169 - ((23 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 176 - ((47 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 2 - ((1 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 21 - ((10 * winheight(0) + 15) \/ 31)$/;"	v
-s:l	src/Session.vim	/^let s:l = 24 - ((23 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 161 - ((12 * winheight(0) + 13) \/ 26)$/;"	v
+s:l	src/Session.vim	/^let s:l = 162 - ((15 * winheight(0) + 13) \/ 26)$/;"	v
+s:l	src/Session.vim	/^let s:l = 173 - ((40 * winheight(0) + 26) \/ 53)$/;"	v
 s:l	src/Session.vim	/^let s:l = 26 - ((25 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 56 - ((39 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 268 - ((42 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 48 - ((15 * winheight(0) + 13) \/ 26)$/;"	v
+s:l	src/Session.vim	/^let s:l = 58 - ((40 * winheight(0) + 26) \/ 53)$/;"	v
 s:l	src/Session.vim	/^let s:l = 7 - ((6 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 84 - ((10 * winheight(0) + 10) \/ 21)$/;"	v
-s:l	src/Session.vim	/^let s:l = 9725 - ((16 * winheight(0) + 15) \/ 31)$/;"	v
+s:l	src/Session.vim	/^let s:l = 9691 - ((15 * winheight(0) + 13) \/ 26)$/;"	v
 s:save_splitbelow	src/Session.vim	/^let s:save_splitbelow = &splitbelow$/;"	v
 s:save_splitright	src/Session.vim	/^let s:save_splitright = &splitright$/;"	v
 s:save_winminheight	src/Session.vim	/^let s:save_winminheight = &winminheight$/;"	v
@@ -277,8 +304,13 @@ s:shortmess_save	src/Session.vim	/^let s:shortmess_save = &shortmess$/;"	v
 s:so_save	src/Session.vim	/^let s:so_save = &g:so | let s:siso_save = &g:siso | setg so=0 siso=0 | setl so=-1 siso=-1$/;"	v
 s:sx	src/Session.vim	/^let s:sx = expand("<sfile>:p:r")."x.vim"$/;"	v
 s:wipebuf	src/Session.vim	/^  let s:wipebuf = bufnr('%')$/;"	v
+saveStringToFile	src/filemanager.cpp	/^int saveStringToFile(const std::string& fileName, std::string& s)$/;"	f	typeref:typename:int
+saveVectorToFile	src/filemanager.cpp	/^int saveVectorToFile(const std::string& fileName, std::vector<std::string>& v)$/;"	f	typeref:typename:int
 second	src/tokenizer.h	/^	TokenType second = Nothing;$/;"	m	struct:tokenDataType	typeref:typename:TokenType
 subTokenTypes	src/tokenizer.cpp	/^std::map<const std::string, const TokenType> subTokenTypes = {$/;"	v	typeref:typename:std::map<const std::string,const TokenType>
+testFunction	examples/start/build/main.asa.cpp	/^void testFunction()$/;"	f	typeref:typename:void
+testMultiReturn	examples/start/build/main.asa.cpp	/^void testMultiReturn()$/;"	f	typeref:typename:void
+testRedefineFunction	examples/start/build/main.asa.cpp	/^void testRedefineFunction()$/;"	f	typeref:typename:void
 testType	src/tests.cpp	/^	TestType testType = No_Test;$/;"	m	struct:Test	typeref:typename:TestType	file:
 tests	src/tests.cpp	/^std::vector<Test> tests = {$/;"	v	typeref:typename:std::vector<Test>
 token	src/parser.h	/^	tokenPair token = tokenPair();$/;"	m	struct:ASTNode	typeref:typename:tokenPair

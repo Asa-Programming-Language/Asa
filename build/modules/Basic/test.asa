@@ -1,0 +1,6 @@
+
+Test :: module {
+	x :: (){
+		return 1;
+	}
+}

@@ -91,6 +91,7 @@ int main(int argc, char** argv)
 		exit(1);
 	}
 	projectDirectory = std::filesystem::weakly_canonical(std::filesystem::path(fileName)).parent_path().string() + "/";
+	baseFileName = std::filesystem::path(fileName).filename();
 
 	// Begin tokenizing file
 	int e = tokenize(initialFileString, allTokens);
@@ -161,13 +162,10 @@ int main(int argc, char** argv)
 	// Resolve dependencies
 	resolveDependencies(rootNode);
 
+	// Create build directory
+	std::filesystem::create_directory(projectDirectory + "build");
+	buildOutput(rootNode);
 
-	//// Parse the allTokens
-	//e = beginParse(allTokens);
-	//if (e != 0) {
-	//	ERROR("Invalid allTokens met\n");
-	//	exit(1);
-	//}
 
 	if (optind < argc) {
 		printf("non-option ARGV-elements: ");

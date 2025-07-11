@@ -12,6 +12,7 @@
 #include "dependencies.h"
 #include "filemanager.h"
 #include "lexer.h"
+#include "output_builder.h"
 #include "parser.h"
 #include "settings.h"
 #include "tests.h"

@@ -44,6 +44,8 @@ enum ASTNodeType {
 
 	Range_Node,
 
+	Argument_List,
+
 	Function_Call,
 
 	If_Statement_Node,
@@ -73,6 +75,7 @@ enum ASTNodeType {
 	Compare_GreaterEqual,
 
 	Compiler_Define,
+	Compiler_Define_Function,
 	Compile_Time_Directive,
 	Arguments,
 
@@ -104,6 +107,8 @@ const std::string ASTNodeTypeStrings[] = {
 
 	"Range_Node",
 
+	"Argument_List",
+
 	"Function_Call",
 
 	"If_Statement_Node",
@@ -133,6 +138,7 @@ const std::string ASTNodeTypeStrings[] = {
 	"Compare_GreaterEqual",
 
 	"Compiler_Define",
+	"Compiler_Define_Function",
 	"Compile_Time_Directive",
 	"Arguments",
 };

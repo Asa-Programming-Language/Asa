@@ -46,7 +46,7 @@ std::vector<Test> tests = {
 					A(
 						{},
 						Scope_Body)},
-				Compiler_Define)},
+				Compiler_Define_Function)},
 			Scope_Body)
 
 			),
@@ -59,7 +59,7 @@ std::vector<Test> tests = {
 		}
 	)",
 		A(Scope_Body,
-			{A(Compiler_Define,
+			{A(Compiler_Define_Function,
 				{
 					A(Identifier_Node,{}),
 					A(Arguments,
@@ -93,7 +93,7 @@ std::vector<Test> tests = {
 		}
 	)",
 		A(Scope_Body, // Global
-			{A(Compiler_Define, // Main
+			{A(Compiler_Define_Function, // Main
 				{
 					A(Identifier_Node,{}), // main name
 					A(Arguments,
@@ -134,7 +134,7 @@ std::vector<Test> tests = {
 		}
 	)",
 		A(Scope_Body, // Global
-			{A(Compiler_Define, // Main
+			{A(Compiler_Define_Function, // Main
 				{
 					A(Identifier_Node,{}), // main name
 					A(Arguments,
@@ -146,7 +146,7 @@ std::vector<Test> tests = {
 								{
 									A(Iterator,  // Iterator i
 										{A(Identifier_Node, {}, tokenPair("i", Identifier), true)}
-		   							),
+									),
 									A(Range_Node, // Range
 										{
 											A(Range_Node,
@@ -158,6 +158,71 @@ std::vector<Test> tests = {
 										}
 									),
 									A(Scope_Body, {}),
+								}
+							)
+						}
+					)
+				}
+			)
+			}
+		)
+	),
+
+	// Macro definition
+	Test(
+		R"(
+		Macro :: {};
+	)",
+		A(Scope_Body, // Global
+			{A(Compiler_Define, // Macro
+				{
+					A(Scope_Body, // Contents of {}
+						{
+						}
+					)
+				}
+			)
+			}
+		)
+	),
+
+	// Module includes
+	Test(
+		R"(
+		#import Tests.Test1;
+	)",
+		A(Scope_Body, // Global
+			{
+			A(Nothing_Node,
+				{
+					A(Identifier_Node, {}),
+					A(Scope_Body, 
+						{
+							A(Module_Scope,
+								{
+									A(Identifier_Node),
+									A(Identifier_Node),
+								}
+							)
+						}
+					),
+				}
+			),
+			A(Compiler_Define_Function, // x
+				{
+					A(Identifier_Node,{}), // x name
+					A(Arguments,
+						{A(Expression_Term, {})}
+					),
+					A(Scope_Body, // Contents of x(){
+						{
+							A(Return_Node, 
+								{
+									A(Expression_Term,
+										{
+											A(Integer_Node)
+										}
+									)
 								}
 							)
 						}
