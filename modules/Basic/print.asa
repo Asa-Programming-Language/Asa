@@ -4,18 +4,11 @@ Print :: module {
 	//#library "libc";
 	//print :: {#foreign "printf"};
 
-	print :: (string sFormat, ...){
-		
-	}
 	print :: (...){
 		
 	}
 
-	printl :: (string sFormat, ...){
-	}
 	printl :: (...){
-	}
-	printl :: (){
 	}
 }
 

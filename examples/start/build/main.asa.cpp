@@ -8,80 +8,86 @@ using namespace std;
 
 
 int main();
-int multiply(
+int multiplyORIGINAL(
 	int
 		x,
 	int
 		y);
-void testRedefineFunction();
-void testFunction();
-void otherFunction();
-void testMultiReturn();
-void print(
-	string
-		sFormat,
+void testRedefineFunctionORIGINAL();
+void testFunctionORIGINAL();
+void otherFunctionORIGINAL();
+void testMultiReturnORIGINAL();
+void printORIGINAL(
 	...);
-void print(
+void printlORIGINAL(
 	...);
-void printl(
-	string
-		sFormat,
+
+
+int (*multiply)(
+	int,
+	int);
+void (*testRedefineFunction)();
+void (*testFunction)();
+void (*otherFunction)();
+void (*testMultiReturn)();
+void (*print)(
 	...);
-void printl(
+void (*printl)(
 	...);
-void printl();
-int main()
+
+
+printl(
+	"Macro works!") int main()
 {
 }
 
-int multiply(
-	int
-		x,
-	int
-		y)
+printl(
+	"Hello World!")
+	printl(
+		"%\n")
+		printl(
+			"%\n")
+			printl(
+				"Hello, again!")
+				testRedefineFunction() int multiplyORIGINAL(
+					int
+						x,
+					int
+						y)
 {
 }
 
-void testRedefineFunction()
+void testRedefineFunctionORIGINAL()
 {
 }
 
-void testFunction()
+printl(
+	"* Function testFunction():")
+	testFunction()
+		printl(
+			"* redefining...")
+			printl(
+				"* Function testFunction():") void testFunctionORIGINAL()
 {
 }
 
-void otherFunction()
+printl(
+	"First test function") void otherFunctionORIGINAL()
 {
 }
 
-void testMultiReturn()
+printl(
+	"This is another function's output!") void testMultiReturnORIGINAL()
 {
 }
 
-void print(
-	string
-		sFormat,
+getThreeObjects()
+	printl(
+		"%d, %d, %d") void printORIGINAL(...)
+{
+}
+
+void printlORIGINAL(
 	...)
-{
-}
-
-void print(
-	...)
-{
-}
-
-void printl(
-	string
-		sFormat,
-	...)
-{
-}
-
-void printl(
-	...)
-{
-}
-
-void printl()
 {
 }
