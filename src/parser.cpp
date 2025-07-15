@@ -1,5 +1,7 @@
 #include "parser.h"
 
+void* (ASTNode::*codegen)() = nullptr;
+
 void GATHER_SCOPE_BODY(const std::vector<tokenPair>& tokens, std::vector<tokenPair>& subTokens, int brLevel, int& i)
 {
 	int braceLevel = brLevel;
@@ -384,6 +386,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 			case Star:
 			case Slash: {
 				node->nodeType = binaryOperatorExType[tokenType];
+				node->codegen = &ASTNode::generateBinaryExpression;
 
 				ASTNode* firstTerm = new ASTNode();
 				ASTNode* secondTerm = new ASTNode();
@@ -505,7 +508,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 				bodyNode = generateAST(subTokens, depth + 1);
 				bodyNode->nodeType = Scope_Body;
 
-				node->token.first = "<#" + identifier->token.first + ">";
+				node->token.first = "#" + identifier->token.first;
 				node->childNodes.push_back(identifier);
 				node->childNodes.push_back(bodyNode);
 				break;
@@ -590,6 +593,8 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 				}
 				else {
 					node->nodeType = Compiler_Define_Function;
+					node->codegen = &ASTNode::generateFunction;
+					printf("codegen pointer: %p\n", (void*)node->codegen);
 					i--;
 					// Step through all following tokens until parens start
 					std::vector<tokenPair> subTokens = std::vector<tokenPair>();
@@ -604,7 +609,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 						subTokens.push_back(t);
 					}
 					secondPart = generateAST(subTokens, depth + 1);
-					secondPart->nodeType = Type;
+					secondPart->nodeType = Type_Node;
 					// Step through all following tokens until parens are closed
 					int parenLevel = 1;
 					subTokens = std::vector<tokenPair>();
@@ -642,7 +647,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 					for (int a = 0; a < arguments.size(); a++) {
 						//argumentsNode->childNodes.push_back(arguments[a]);
 						if (arguments[a]->leafNodes.size() == 2) {	// Make sure follows: <type> <identifier>  pattern
-							arguments[a]->leafNodes[0]->nodeType = Type;
+							arguments[a]->leafNodes[0]->nodeType = Type_Node;
 							arguments[a]->childNodes.push_back(arguments[a]->leafNodes[0]);
 							arguments[a]->childNodes.push_back(arguments[a]->leafNodes[1]);
 							arguments[a]->leafNodes.pop_back();
@@ -667,6 +672,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 
 					bodyNode = generateAST(subTokens, depth + 1);
 					bodyNode->nodeType = Scope_Body;
+					bodyNode->codegen = &ASTNode::generateScopeBody;
 
 					node->token.first = identifier->token.first;
 					node->childNodes.push_back(identifier);
@@ -692,6 +698,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 					parentNode->leafNodes.pop_back();
 					if (previousTerm->nodeType == Identifier_Node) {
 						node->nodeType = Function_Call;
+						node->codegen = &ASTNode::generateCallExpression;
 						node->token = previousTerm->token;
 						isFunction = true;
 					}
@@ -766,12 +773,14 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 
 			case Integer: {
 				node->nodeType = Integer_Node;
+				node->codegen = &ASTNode::generateConstant;
 				parentNode->leafNodes.push_back(node);
 				goto dontAddNode;
 			}
 
 			case Float: {
 				node->nodeType = Float_Node;
+				node->codegen = &ASTNode::generateConstant;
 				parentNode->leafNodes.push_back(node);
 				goto dontAddNode;
 			}
@@ -784,12 +793,14 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 
 			case True_Literal: {
 				node->nodeType = Boolean_Node;
+				node->codegen = &ASTNode::generateConstant;
 				parentNode->leafNodes.push_back(node);
 				goto dontAddNode;
 			}
 
 			case False_Literal: {
 				node->nodeType = Boolean_Node;
+				node->codegen = &ASTNode::generateConstant;
 				parentNode->leafNodes.push_back(node);
 				goto dontAddNode;
 			}
@@ -1195,6 +1206,10 @@ void optimizeASTNode(ASTNode*& node)
 			node = node->childNodes[0];
 		}
 	}
+	// Else if it is an expression term
+	else if (node->nodeType == Expression_Term) {
+		// If there are no children, this expression can be removed
+	}
 }
 
 void addFileIncludes(ASTNode*& node)
@@ -1502,4 +1517,21 @@ int printAST(ASTNode* startNode, int depth)
 
 
 	return 0;
+}
+
+
+void generateOutputCode(ASTNode*& node, int depth)
+{
+	switch (node->nodeType) {
+		case Compiler_Define_Function: {
+			printf("generating for: %s\n", node->token.first.c_str());
+			if (node->codegen != nullptr)
+				auto fnVal = (Function*)(node->*(node->codegen))();
+		}
+
+		default:
+			break;
+	}
+	for (auto& c : node->childNodes)
+		generateOutputCode(c, depth + 1);
 }

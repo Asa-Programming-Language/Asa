@@ -164,7 +164,15 @@ int main(int argc, char** argv)
 
 	// Create build directory
 	std::filesystem::create_directory(projectDirectory + "build");
-	buildOutput(rootNode);
+	//buildOutput(rootNode);
+
+	// Generate the IR LLVM Code:
+	initializeCodeGenerator();
+	generateOutputCode(rootNode);
+
+	// Print out all of the generated code.
+	printf("\n\nOutput IR Code:\n");
+	TheModule->print(errs(), nullptr);
 
 
 	if (optind < argc) {

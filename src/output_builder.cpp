@@ -49,7 +49,7 @@ void build(ASTNode*& node)
 				PUSHP(FIRST_TOKEN + "ORIGINAL");
 				PUSHF(FIRST_TOKEN);
 
-				if (SECOND->nodeType == Type) {
+				if (SECOND->nodeType == Type_Node) {
 					ADD(SECOND->childNodes[0]->token.first);
 					ADDP(SECOND->childNodes[0]->token.first);
 					ADDF(SECOND->childNodes[0]->token.first);

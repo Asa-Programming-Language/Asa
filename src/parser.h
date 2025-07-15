@@ -8,6 +8,7 @@
 #include <utility>
 #include <vector>
 
+#include "codegen.h"
 #include "filemanager.h"
 #include "settings.h"
 #include "tokenizer.h"
@@ -19,7 +20,10 @@
 		printf("%s ", subTokens[ST].first.c_str()); \
 	printf("\n");
 
+using namespace llvm;
+
 void GO_BACK_TO_BEGINNING_OF_TERM(int& i);
+
 
 enum ASTNodeType {
 	// Null type
@@ -30,7 +34,7 @@ enum ASTNodeType {
 	Float_Node,
 	Boolean_Node,
 	String_Node,
-	Type,
+	Type_Node,
 
 	Module_Scope,
 
@@ -93,7 +97,7 @@ const std::string ASTNodeTypeStrings[] = {
 	"Float_Node",
 	"Boolean_Node",
 	"String_node",
-	"Type",
+	"Type_Node",
 
 	"Module_Scope",
 
@@ -148,14 +152,25 @@ struct ASTNode {
 	ASTNode* parentNode = nullptr;
 	std::vector<ASTNode*> childNodes = std::vector<ASTNode*>();
 	ASTNodeType nodeType = Nothing_Node;
-	//TokenType tokenType = Nothing;
-	//std::string token;
 	tokenPair token = tokenPair();
 	int lineNumber = 0;
 	// Add leaf nodes here as they are still yet to be used.
 	std::vector<ASTNode*> leafNodes = std::vector<ASTNode*>();
 
 	bool compareTokens = false;
+
+	void* generateConstant();
+	void* generateVariableExpression();
+	void* generateBinaryExpression();
+	void* generateScopeBody();
+	void* generateFunction();
+	void* generateCallExpression();
+	void* generatePrototype();
+
+	void* (ASTNode::*codegen)() = nullptr;
+
+	//std::unique_ptr<PrototypeAST> Proto;
+	//std::unique_ptr<ExprAST> Body;
 
 	ASTNode() {}
 	ASTNode(ASTNodeType nType)
@@ -228,4 +243,5 @@ void addModuleImports(ASTNode*& node);
 void assignParentNodes(ASTNode*& node);
 void printTokenError(tokenPair& token, std::string errorString = "", int sourceLineNumber = 0);
 void printModuleLoaded(std::string& moduleName, std::string& modulePath);
+void generateOutputCode(ASTNode*& node, int depth = 0);
 //std::vector<tokenPair> GATHER_SCOPE_BODY(int brLevel, int& i);
