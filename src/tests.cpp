@@ -35,21 +35,24 @@ std::vector<Test> tests = {
 
 		}
 	)",
-		A(
-			{A(
-				{A(
-					 {},
-					 Identifier_Node),
-					A(
-						{A({}, Expression_Term)},
-						Arguments),
-					A(
-						{},
-						Scope_Body)},
-				Compiler_Define_Function)},
-			Scope_Body)
-
-			),
+		A(Scope_Body,
+			{A(Compiler_Define_Function,
+				{
+					A(Identifier_Node,{}),
+					A(Type_Node,{}),
+					A(Arguments,
+						{A(Expression_Term, {})}
+					),
+					A(Compiler_Modifiers,{}),
+					A(Scope_Body,
+						{
+						}
+					)
+				}
+			)
+			}
+		)
+	),
 
 	// Main function with set expression, adding two integers, result should have simplified AST
 	Test(
@@ -62,9 +65,11 @@ std::vector<Test> tests = {
 			{A(Compiler_Define_Function,
 				{
 					A(Identifier_Node,{}),
+					A(Type_Node,{}),
 					A(Arguments,
 						{A(Expression_Term, {})}
 					),
+					A(Compiler_Modifiers,{}),
 					A(Scope_Body,
 						{
 							A(Expression_Statement,
@@ -96,9 +101,11 @@ std::vector<Test> tests = {
 			{A(Compiler_Define_Function, // Main
 				{
 					A(Identifier_Node,{}), // main name
+					A(Type_Node,{}),
 					A(Arguments,
 						{A(Expression_Term, {})}
 					),
+					A(Compiler_Modifiers,{}),
 					A(Scope_Body, // Contents of main(){
 						{
 							A(For_Statement_Node,
@@ -137,9 +144,11 @@ std::vector<Test> tests = {
 			{A(Compiler_Define_Function, // Main
 				{
 					A(Identifier_Node,{}), // main name
+					A(Type_Node,{}),
 					A(Arguments,
 						{A(Expression_Term, {})}
 					),
+					A(Compiler_Modifiers,{}),
 					A(Scope_Body, // Contents of main(){
 						{
 							A(For_Statement_Node,
@@ -211,9 +220,11 @@ std::vector<Test> tests = {
 			A(Compiler_Define_Function, // x
 				{
 					A(Identifier_Node,{}), // x name
+					A(Type_Node,{}),
 					A(Arguments,
 						{A(Expression_Term, {})}
 					),
+					A(Compiler_Modifiers,{}),
 					A(Scope_Body, // Contents of x(){
 						{
 							A(Return_Node, 

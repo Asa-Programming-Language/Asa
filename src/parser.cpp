@@ -108,29 +108,140 @@ void GATHER_PAREN_EXPRESSION(const std::vector<tokenPair>& tokens, std::vector<t
 	}
 }
 
-void GATHER_TO_SEMICOLON(const std::vector<tokenPair>& tokens, std::vector<tokenPair>& subTokens, int pLevel, int& i)
+bool GATHER_TO_SEMICOLON(const std::vector<tokenPair>& tokens, std::vector<tokenPair>& subTokens, int& i, bool includeLast = false, bool allowRunOut = false)
 {
-	tokenPair firstToken = NEXT_TOKEN(tokens, i);
+	tokenPair firstToken;
+	if (i < tokens.size() - 1) {
+		firstToken = NEXT_TOKEN(tokens, i);
+		//if (firstToken.second == Semi_Colon)
+		//	return true;
+	}
+	else {
+		return true;
+	}
 	i--;
-	while (i < tokens.size() - 1) {
+	for (;;) {
 		if (i >= tokens.size() - 1 || tokens[i].second == EndOfLine) {
-			printTokenError(firstToken, "Missing semicolon");
+			if (!allowRunOut) {
+				printTokenError(firstToken, "Missing semicolon");
+				exit(1);
+			}
+			break;
+		}
+		tokenPair t = NEXT_TOKEN(tokens, i);
+
+		if (t.second == Semi_Colon) {
+			if (includeLast)
+				subTokens.push_back(t);
+			break;
+		}
+
+		subTokens.push_back(t);
+	}
+	return false;
+}
+
+bool GATHER_TO_SEMICOLON_OR_OTHER(const std::vector<tokenPair>& tokens, std::vector<tokenPair>& subTokens, int pLevel, int& i, TokenType other, bool includeLast)
+{
+	tokenPair firstToken;
+	if (i < tokens.size() - 1) {
+		firstToken = NEXT_TOKEN(tokens, i);
+		//if (firstToken.second == Semi_Colon)
+		//	return true;
+	}
+	else {
+		return true;
+	}
+	i--;
+	for (;;) {
+		if (i >= tokens.size() - 1 || tokens[i].second == EndOfLine) {
+			printTokenError(firstToken, "Missing semicolon or " + tokenAsString(other));
 			exit(1);
 			break;
 		}
 		tokenPair t = NEXT_TOKEN(tokens, i);
 
-		if (t.second == Semi_Colon)
+		if (t.second == Semi_Colon || t.second == other) {
+			if (includeLast)
+				subTokens.push_back(t);
 			break;
+		}
 
 		subTokens.push_back(t);
 	}
+	return false;
 }
 
-void printTokenError(tokenPair& token, std::string errorString, int sourceLineNumber)
+bool GATHER_TO_A_OR_B(const std::vector<tokenPair>& tokens, std::vector<tokenPair>& subTokens, int pLevel, int& i, TokenType a, TokenType b, bool includeLast)
 {
+	tokenPair firstToken;
+	if (i < tokens.size() - 1) {
+		firstToken = NEXT_TOKEN(tokens, i);
+		//if (firstToken.second == Semi_Colon)
+		//	return true;
+	}
+	else {
+		return true;
+	}
+	i--;
+	for (;;) {
+		if (i >= tokens.size() - 1) {
+			printTokenError(firstToken, "End of file reached before expected " + tokenAsString(a) + " or " + tokenAsString(b));
+			exit(1);
+			break;
+		}
+		tokenPair t = NEXT_TOKEN(tokens, i);
+
+		if (t.second == a || t.second == b) {
+			if (includeLast)
+				subTokens.push_back(t);
+			break;
+		}
+
+		subTokens.push_back(t);
+	}
+	return false;
+}
+
+bool GATHER_TO_TOKEN(const std::vector<tokenPair>& tokens, std::vector<tokenPair>& subTokens, int pLevel, int& i, TokenType a, bool includeLast = false, bool allowRunOut = false)
+{
+	tokenPair firstToken;
+	if (i < tokens.size() - 1) {
+		firstToken = NEXT_TOKEN(tokens, i);
+		//if (firstToken.second == Semi_Colon)
+		//	return true;
+	}
+	else {
+		return true;
+	}
+	i--;
+	for (;;) {
+		if (i >= tokens.size() - 1) {
+			if (!allowRunOut) {
+				printTokenError(firstToken, "End of file reached before expected " + tokenAsString(a));
+				exit(1);
+			}
+			break;
+		}
+		tokenPair t = NEXT_TOKEN(tokens, i);
+
+		if (t.second == a) {
+			if (includeLast)
+				subTokens.push_back(t);
+			break;
+		}
+
+		subTokens.push_back(t);
+	}
+	return false;
+}
+
+void printTokenError(tokenPair& token, std::string errorString, int sourceLineNumber, const char* fileName)
+{
+	if (fileName != "")
+		std::cerr << "Source file: " << fileName << std::endl;
 	if (sourceLineNumber > 0)
-		std::cerr << "> Source Line: " << sourceLineNumber << std::endl;
+		std::cerr << "Line: " << sourceLineNumber << std::endl;
 	std::cerr << "Error: " << errorString << std::endl;
 	std::string lineNumberStr = std::to_string(token.lineNumber);
 	std::cerr << lineNumberStr << " |  " << token.lineValue->c_str() << std::endl;
@@ -144,8 +255,8 @@ void printTokenError(tokenPair& token, std::string errorString, int sourceLineNu
 	std::cerr << "here";
 	std::cerr << std::endl
 			  << std::endl;
-	if (verbosity >= 3)
-		throw;
+	//if (verbosity >= 2)
+	throw;
 }
 
 void printModuleLoaded(std::string& moduleName, std::string& modulePath)
@@ -465,7 +576,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 				std::vector<tokenPair> subTokens = std::vector<tokenPair>();
 
 				// Step through all following tokens until end of term
-				GATHER_TO_SEMICOLON(tokens, subTokens, 1, i);
+				GATHER_TO_SEMICOLON(tokens, subTokens, i, false);
 				//int parenLevel = 1;
 				//for (;;) {
 				//	if (i >= tokens.size() - 1)
@@ -505,24 +616,15 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 				std::vector<tokenPair> subTokens = std::vector<tokenPair>();
 
 				// Step through all following tokens until end of line via semicolon
-				GATHER_TO_SEMICOLON(tokens, subTokens, 1, i);
-				//while (i < tokens.size() - 1) {
-				//	if (i >= tokens.size() - 1)
-				//		break;
-				//	tokenPair t = NEXT_TOKEN(tokens, i);
-				//	printf("token %d value: `%s`\n", i, t.first.c_str());
+				GATHER_TO_SEMICOLON(tokens, subTokens, i, true, true);
+				//GATHER_TO_SEMICOLON_OR_OTHER(tokens, subTokens, 1, i, Left_Brace, true);
 
-				//	if (t.second == Semi_Colon)
-				//		break;
-				//	if (t.second == EndOfLine)
-				//		throw std::runtime_error("Error: Missing semicolon to specify end of line");
-
-
-				//	printf("subtoken added of value: `%s`\n", t.first.c_str());
-				//	subTokens.push_back(t);
-				//}
 				bodyNode = generateAST(subTokens, depth + 1);
 				bodyNode->nodeType = Scope_Body;
+
+				if (identifier->token.first == "cast") {
+					node->codegen = &ASTNode::generateCast;
+				}
 
 				node->token.first = "#" + identifier->token.first;
 				node->childNodes.push_back(identifier);
@@ -536,6 +638,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 				ASTNode* identifier = new ASTNode();
 				ASTNode* secondPart = new ASTNode();
 				ASTNode* argumentsNode = new ASTNode();
+				ASTNode* modifiersNode = new ASTNode();
 				ASTNode* bodyNode = new ASTNode();
 				std::vector<ASTNode*> arguments = std::vector<ASTNode*>();
 
@@ -543,6 +646,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 				parentNode->leafNodes.pop_back();
 				identifier->nodeType = Identifier_Node;
 				argumentsNode->nodeType = Arguments;
+				modifiersNode->nodeType = Compiler_Modifiers;
 
 				// Based on the next token, decide what this compiler define does
 				// (if function, or if/for/while etc. or any line of code)
@@ -685,7 +789,16 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 						argumentsNode->childNodes.push_back(arguments[a]);
 					}
 
+					// Get modifiers between ) and {
+					bool noModifiers = GATHER_TO_TOKEN(tokens, subTokens, 0, i, Left_Brace, true, true);
+					i--;
+					if (!noModifiers) {
+						modifiersNode = generateAST(subTokens, depth + 1);
+						modifiersNode->nodeType = Compiler_Modifiers;
+					}
+
 					// Step through all tokens to gather body until braces are closed
+					subTokens = std::vector<tokenPair>();
 					bool endedEarly = GATHER_SCOPE_BODY(tokens, subTokens, 0, i);
 
 					if (!endedEarly) {
@@ -698,11 +811,22 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 
 					node->token.first = identifier->token.first;
 					node->childNodes.push_back(identifier);
-					if (secondPart->childNodes.size() > 0)
-						node->childNodes.push_back(secondPart);
+					node->childNodes.push_back(secondPart);
 					node->childNodes.push_back(argumentsNode);
+					node->childNodes.push_back(modifiersNode);
 					if (!endedEarly)
 						node->childNodes.push_back(bodyNode);
+
+					// Check for special function types
+					if (identifier->token.first == "cast") {
+						if (secondPart->childNodes.size() > 0)
+							node->token.first = secondPart->childNodes[0]->token.first;
+						else {
+							printTokenError(secondPart->token, "Cast function must have a return type");
+							exit(1);
+						}
+						node->nodeType = Compiler_Define_Cast;
+					}
 				}
 				break;
 			}
@@ -787,7 +911,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 			}
 
 			case Right_Brace: {
-				printTokenError(token, "Unmatched brace", __LINE__);
+				printTokenError(token, "Unmatched brace", __LINE__, __FILE__);
 				exit(1);
 				break;
 			}
@@ -839,6 +963,17 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 			case Identifier: {
 				node->nodeType = Identifier_Node;
 				node->codegen = &ASTNode::generateVariableExpression;
+
+				// If this is identifer, and is preceded by identifier, then that one is type, and this is name
+				if (parentNode->leafNodes.size() >= 1) {
+					if (parentNode->leafNodes.back()->nodeType == Identifier_Node) {
+						ASTNode* typeNode = parentNode->leafNodes.back();
+						parentNode->leafNodes.pop_back();
+						typeNode->nodeType = Type_Node;
+						typeNode->codegen = nullptr;
+						node->childNodes.push_back(typeNode);
+					}
+				}
 				parentNode->leafNodes.push_back(node);
 				goto dontAddNode;
 			}
@@ -861,7 +996,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 				std::vector<tokenPair> subTokens = std::vector<tokenPair>();
 
 				// Step through all following tokens until end of term
-				GATHER_TO_SEMICOLON(tokens, subTokens, 1, i);
+				GATHER_TO_SEMICOLON(tokens, subTokens, i, true);
 				//for (;;) {
 				//	if (i >= tokens.size() - 1)
 				//		break;
@@ -1444,11 +1579,12 @@ void addModuleImports(ASTNode*& node)
 		}
 }
 
-void assignParentNodes(ASTNode*& node)
+void assignParentNodes(ASTNode*& node, int depth)
 {
 	for (int i = 0; i < node->childNodes.size(); i++) {
 		node->childNodes[i]->parentNode = node;
-		assignParentNodes(node->childNodes[i]);
+		node->childNodes[i]->depth = depth + 1;
+		assignParentNodes(node->childNodes[i], depth + 1);
 	}
 }
 
@@ -1550,18 +1686,19 @@ int printAST(ASTNode* startNode, int depth)
 }
 
 
-void generateOutputCode(ASTNode*& node, int depth)
+void generateOutputCode(ASTNode*& node, int depth, int pass)
 {
 	switch (node->nodeType) {
+		case Compiler_Define_Cast:
 		case Compiler_Define_Function: {
-			printf("generating for: %s\n", node->token.first.c_str());
+			printf("pass %d: generating for: %s\n", pass, node->token.first.c_str());
 			if (node->codegen != nullptr)
-				auto fnVal = (Function*)(node->*(node->codegen))();
+				auto fnVal = (Function*)(node->*(node->codegen))(pass);
 		}
 
 		default:
 			break;
 	}
 	for (auto& c : node->childNodes)
-		generateOutputCode(c, depth + 1);
+		generateOutputCode(c, depth + 1, pass);
 }

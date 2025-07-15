@@ -159,8 +159,8 @@ int main(int argc, char** argv)
 		printAST(rootNode);
 	}
 
-	// Resolve dependencies
-	resolveDependencies(rootNode);
+	//// Resolve dependencies
+	//resolveDependencies(rootNode);
 
 	// Create build directory
 	std::filesystem::create_directory(projectDirectory + "build");
@@ -168,7 +168,10 @@ int main(int argc, char** argv)
 
 	// Generate the IR LLVM Code:
 	initializeCodeGenerator();
-	generateOutputCode(rootNode);
+	// First pass
+	generateOutputCode(rootNode, 0, 0);
+	// Second pass
+	generateOutputCode(rootNode, 0, 1);
 
 	// Print out all of the generated code.
 	printf("\n\nOutput IR Code:\n");

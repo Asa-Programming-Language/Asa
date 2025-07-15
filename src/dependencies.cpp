@@ -12,13 +12,13 @@ int resolveDependencies(ASTNode*& node)
 		// Work backwards up node tree
 		for (;;) {
 			if (parent == nullptr) {
-				printTokenError(node->token, "Function definition not found for use");
+				printTokenError(node->token, "Function definition not found");
 				exit(1);
 			}
 
 			for (int i = 0; i < parent->childNodes.size(); i++) {
 				ASTNode* childNode = parent->childNodes[i];
-				if (childNode->nodeType == Compiler_Define_Function || childNode->nodeType == Compiler_Define)
+				if (childNode->nodeType == Compiler_Define_Function || childNode->nodeType == Compiler_Define || childNode->nodeType == Compiler_Define_Cast)
 					if (childNode->token.first == identifier) {
 						foundDefinition = true;
 						goto exitLoop;
@@ -28,7 +28,7 @@ int resolveDependencies(ASTNode*& node)
 		}
 	exitLoop:
 		if (!foundDefinition) {
-			printTokenError(node->token, "Function definition not found for use");
+			printTokenError(node->token, "Function definition not found");
 			exit(1);
 		}
 	}

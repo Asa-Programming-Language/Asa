@@ -80,8 +80,10 @@ enum ASTNodeType {
 
 	Compiler_Define,
 	Compiler_Define_Function,
+	Compiler_Define_Cast,
 	Compile_Time_Directive,
 	Arguments,
+	Compiler_Modifiers,
 
 	// Nothing below this
 	LastASTNodeType
@@ -143,8 +145,10 @@ const std::string ASTNodeTypeStrings[] = {
 
 	"Compiler_Define",
 	"Compiler_Define_Function",
+	"Compiler_Define_Cast",
 	"Compile_Time_Directive",
 	"Arguments",
+	"Compiler_Modifiers",
 };
 
 
@@ -154,23 +158,27 @@ struct ASTNode {
 	ASTNodeType nodeType = Nothing_Node;
 	tokenPair token = tokenPair();
 	int lineNumber = 0;
+	uint16_t depth = 0;
 	// Add leaf nodes here as they are still yet to be used.
 	std::vector<ASTNode*> leafNodes = std::vector<ASTNode*>();
 
+	std::map<std::string, Value*> namedValues = std::map<std::string, Value*>();
+
 	bool compareTokens = false;
 
-	void* generateConstant();
-	void* generateVariableExpression();
-	void* generateReturn();
-	void* generateExpression();
-	void* generateExpressionStatement();
-	void* generateBinaryExpression();
-	void* generateScopeBody();
-	void* generateFunction();
-	void* generateCallExpression();
-	void* generatePrototype();
+	void* generateConstant(int pass = 0);
+	void* generateVariableExpression(int pass = 0);
+	void* generateReturn(int pass = 0);
+	void* generateExpression(int pass = 0);
+	void* generateExpressionStatement(int pass = 0);
+	void* generateBinaryExpression(int pass = 0);
+	void* generateScopeBody(int pass = 0);
+	void* generatePrototype(int pass = 0);
+	void* generateFunction(int pass = 0);
+	void* generateCast(int pass = 0);
+	void* generateCallExpression(int pass = 0);
 
-	void* (ASTNode::*codegen)() = nullptr;
+	void* (ASTNode::*codegen)(int pass) = nullptr;
 
 	//std::unique_ptr<PrototypeAST> Proto;
 	//std::unique_ptr<ExprAST> Body;
@@ -243,8 +251,8 @@ void fixPrecedence(ASTNode*& node);
 void optimizeASTNode(ASTNode*& node);
 void addFileIncludes(ASTNode*& node);
 void addModuleImports(ASTNode*& node);
-void assignParentNodes(ASTNode*& node);
-void printTokenError(tokenPair& token, std::string errorString = "", int sourceLineNumber = 0);
+void assignParentNodes(ASTNode*& node, int depth = 0);
+void printTokenError(tokenPair& token, std::string errorString = "", int sourceLineNumber = 0, const char* fileName = "");
 void printModuleLoaded(std::string& moduleName, std::string& modulePath);
-void generateOutputCode(ASTNode*& node, int depth = 0);
+void generateOutputCode(ASTNode*& node, int depth = 0, int pass = 0);
 //std::vector<tokenPair> GATHER_SCOPE_BODY(int brLevel, int& i);
