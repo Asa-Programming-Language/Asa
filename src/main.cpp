@@ -148,8 +148,8 @@ int main(int argc, char** argv)
 	}
 	// Order AST operations
 	fixPrecedence(rootNode);
-	// Optimize constant AST nodes
-	optimizeASTNode(rootNode);
+	//// Optimize constant AST nodes
+	//optimizeASTNode(rootNode);
 	// Assign parent nodes
 	assignParentNodes(rootNode);
 

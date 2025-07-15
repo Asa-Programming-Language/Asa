@@ -9,5 +9,6 @@ void printError(std::string s, int lineNumber, std::string fileName)
 		std::cerr << " On line: " << lineNumber;
 	std::cerr << ":" << std::endl;
 
-	std::cerr << s << std::endl;
+	std::cerr << s << std::endl
+			  << std::endl;
 }

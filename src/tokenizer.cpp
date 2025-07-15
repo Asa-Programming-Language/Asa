@@ -264,9 +264,9 @@ int joinCommentTokens(std::vector<tokenPair>& tokens)
 	while (i < tokens.size() - 1) {
 		tokenPair t = NEXT_TOKEN(tokens, i);
 		if (!inComment) {
-			if (t.first == "//" || t.first == "/*") {
+			if (t.first.substr(0, 2) == "//" || t.first.substr(0, 2) == "/*") {
 				inComment = true;
-				if (t.first == "/*")
+				if (t.first.substr(0, 2) == "/*")
 					multiLineComment = true;
 				startIndex = i;
 				newTokenContents = t.first + " ";
@@ -277,7 +277,7 @@ int joinCommentTokens(std::vector<tokenPair>& tokens)
 			//tokens.erase(tokens.begin() + i);
 			// If end of comment, combine all parts into single token and delete others
 			if (multiLineComment) {
-				if (t.first == "*/")
+				if (t.first.substr(0, 2) == "*/")
 					goto endComment;
 			}
 			else if (t.second == EndOfLine)

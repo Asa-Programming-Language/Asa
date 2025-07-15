@@ -161,6 +161,9 @@ struct ASTNode {
 
 	void* generateConstant();
 	void* generateVariableExpression();
+	void* generateReturn();
+	void* generateExpression();
+	void* generateExpressionStatement();
 	void* generateBinaryExpression();
 	void* generateScopeBody();
 	void* generateFunction();

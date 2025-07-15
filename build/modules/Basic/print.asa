@@ -3,12 +3,13 @@ Print :: module {
 	
 	//#library "libc";
 	//print :: {#foreign "printf"};
+	#extern printf:: (...);
 
-	print :: (...){
-		
+	print:: (...){
+		//printf();
 	}
 
-	printl :: (...){
+	printl:: (...){
 	}
 }
 

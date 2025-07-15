@@ -16243,8 +16243,8 @@ G	src/include/llvm/XRay/Graph.h	/^    GraphT &G;$/;"	m	class:llvm::xray::Graph::
 G	src/include/llvm/XRay/Graph.h	/^    GraphT &G;$/;"	m	class:llvm::xray::Graph::VertexView	typeref:typename:GraphT &
 GAR	src/include/llvm/Analysis/GlobalsModRef.h	/^    GlobalsAAResult *GAR;$/;"	m	struct:llvm::GlobalsAAResult::DeletionCallbackHandle	typeref:typename:GlobalsAAResult *
 GATHER_PAREN_EXPRESSION	src/parser.cpp	/^void GATHER_PAREN_EXPRESSION(const std::vector<tokenPair>& tokens, std::vector<tokenPair>& subTo/;"	f	typeref:typename:void
-GATHER_SCOPE_BODY	src/parser.cpp	/^void GATHER_SCOPE_BODY(const std::vector<tokenPair>& tokens, std::vector<tokenPair>& subTokens, /;"	f	typeref:typename:void
-GATHER_SCOPE_BODY_APPEND	src/parser.cpp	/^void GATHER_SCOPE_BODY_APPEND(const std::vector<tokenPair>& tokens, std::vector<tokenPair>& subT/;"	f	typeref:typename:void
+GATHER_SCOPE_BODY	src/parser.cpp	/^bool GATHER_SCOPE_BODY(const std::vector<tokenPair>& tokens, std::vector<tokenPair>& subTokens, /;"	f	typeref:typename:bool
+GATHER_SCOPE_BODY_APPEND	src/parser.cpp	/^bool GATHER_SCOPE_BODY_APPEND(const std::vector<tokenPair>& tokens, std::vector<tokenPair>& subT/;"	f	typeref:typename:bool
 GATHER_TO_SEMICOLON	src/parser.cpp	/^void GATHER_TO_SEMICOLON(const std::vector<tokenPair>& tokens, std::vector<tokenPair>& subTokens/;"	f	typeref:typename:void
 GAdd	src/include/llvm/CodeGen/GlobalISel/GenericMachineInstrs.h	/^class GAdd : public GIntBinOp {$/;"	c	namespace:llvm
 GAddCarryOut	src/include/llvm/CodeGen/GlobalISel/GenericMachineInstrs.h	/^class GAddCarryOut : public GBinOpCarryOut {$/;"	c	namespace:llvm
@@ -51256,7 +51256,7 @@ async	src/include/llvm/Support/ThreadPool.h	/^  inline auto async(Function &&F, 
 asyncEnqueue	src/include/llvm/Support/ThreadPool.h	/^  void asyncEnqueue(std::function<void()> Task,$/;"	f	class:llvm::SingleThreadExecutor	typeref:typename:void
 asyncEnqueue	src/include/llvm/Support/ThreadPool.h	/^  void asyncEnqueue(std::function<void()> Task,$/;"	f	class:llvm::StdThreadPool	typeref:typename:void
 asyncImpl	src/include/llvm/Support/ThreadPool.h	/^  std::shared_future<ResTy> asyncImpl(std::function<ResTy()> Task,$/;"	f	class:llvm::ThreadPoolInterface	typeref:typename:std::shared_future<ResTy>
-at	examples/start/main.asa	/^	\/\/ Test the functionality of redefining a function at runtime.$/;"	f
+at	examples/start/main.asa	/^	\/\/\/\/ Test the functionality of redefining a function at runtime.$/;"	f
 at	src/include/llvm/ADT/DenseMap.h	/^  const ValueT &at(const_arg_type_t<KeyT> Val) const {$/;"	f	class:llvm::DenseMapBase	typeref:typename:const ValueT &
 at	src/include/llvm/ADT/StringMap.h	/^  const ValueTy &at(StringRef Val) const {$/;"	f	class:llvm::StringMap	typeref:typename:const ValueTy &
 at	src/include/llvm/IR/DebugInfo.h	/^namespace at {$/;"	n	namespace:llvm
@@ -57768,11 +57768,14 @@ generateCallExpression	src/codegen.cpp	/^void* ASTNode::generateCallExpression()
 generateCodeForModule	src/include/llvm/ExecutionEngine/ExecutionEngine.h	/^  virtual void generateCodeForModule(Module *M) {}$/;"	f	class:llvm::ExecutionEngine	typeref:typename:void
 generateCompactUnwindEncoding	src/include/llvm/MC/MCAsmBackend.h	/^  virtual uint64_t generateCompactUnwindEncoding(const MCDwarfFrameInfo *FI,$/;"	f	class:llvm::MCAsmBackend	typeref:typename:uint64_t
 generateConstant	src/codegen.cpp	/^void* ASTNode::generateConstant()$/;"	f	class:ASTNode	typeref:typename:void *
+generateExpression	src/codegen.cpp	/^void* ASTNode::generateExpression()$/;"	f	class:ASTNode	typeref:typename:void *
+generateExpressionStatement	src/codegen.cpp	/^void* ASTNode::generateExpressionStatement()$/;"	f	class:ASTNode	typeref:typename:void *
 generateFMAsInMachineCombiner	src/include/llvm/CodeGen/TargetLowering.h	/^  virtual bool generateFMAsInMachineCombiner(EVT VT,$/;"	f	class:llvm::TargetLoweringBase	typeref:typename:bool
 generateFunction	src/codegen.cpp	/^void* ASTNode::generateFunction()$/;"	f	class:ASTNode	typeref:typename:void *
 generateInstructionOrderMap	src/include/llvm/Analysis/LoopAccessAnalysis.h	/^  DenseMap<Instruction *, unsigned> generateInstructionOrderMap() const {$/;"	f	class:llvm::MemoryDepChecker	typeref:typename:DenseMap<Instruction *,unsigned>
 generateOutputCode	src/parser.cpp	/^void generateOutputCode(ASTNode*& node, int depth)$/;"	f	typeref:typename:void
 generatePrototype	src/codegen.cpp	/^void* ASTNode::generatePrototype()$/;"	f	class:ASTNode	typeref:typename:void *
+generateReturn	src/codegen.cpp	/^void* ASTNode::generateReturn()$/;"	f	class:ASTNode	typeref:typename:void *
 generateScopeBody	src/codegen.cpp	/^void* ASTNode::generateScopeBody()$/;"	f	class:ASTNode	typeref:typename:void *
 generateVariableExpression	src/codegen.cpp	/^void* ASTNode::generateVariableExpression()$/;"	f	class:ASTNode	typeref:typename:void *
 generate_vcs_version_script	src/include/llvm/Support/CMakeLists.txt	/^set(generate_vcs_version_script "${LLVM_CMAKE_DIR}\/GenerateVersionFromVCS.cmake")$/;"	v

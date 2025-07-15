@@ -2,11 +2,19 @@
 
 void* (ASTNode::*codegen)() = nullptr;
 
-void GATHER_SCOPE_BODY(const std::vector<tokenPair>& tokens, std::vector<tokenPair>& subTokens, int brLevel, int& i)
+bool GATHER_SCOPE_BODY(const std::vector<tokenPair>& tokens, std::vector<tokenPair>& subTokens, int brLevel, int& i)
 {
 	int braceLevel = brLevel;
 	subTokens = std::vector<tokenPair>();
-	tokenPair firstToken = NEXT_TOKEN(tokens, i);
+	tokenPair firstToken;
+	if (i < tokens.size() - 1) {
+		firstToken = NEXT_TOKEN(tokens, i);
+		//if (firstToken.second == Semi_Colon)
+		//	return true;
+	}
+	else {
+		return true;
+	}
 	i--;
 	for (;;) {
 		if (i >= tokens.size() - 1 || tokens[i].second == EndOfFile) {
@@ -16,6 +24,8 @@ void GATHER_SCOPE_BODY(const std::vector<tokenPair>& tokens, std::vector<tokenPa
 		}
 		tokenPair TOKENPAIR = NEXT_TOKEN(tokens, i);
 
+		if (braceLevel == 0 && TOKENPAIR.second == Semi_Colon)
+			return true;
 		if (TOKENPAIR.second == Left_Brace) {
 			if (braceLevel != 0)
 				subTokens.push_back(TOKENPAIR);
@@ -32,9 +42,10 @@ void GATHER_SCOPE_BODY(const std::vector<tokenPair>& tokens, std::vector<tokenPa
 		if (braceLevel == 0)
 			break;
 	}
+	return false;
 }
 
-void GATHER_SCOPE_BODY_APPEND(const std::vector<tokenPair>& tokens, std::vector<tokenPair>& subTokens, int brLevel, int& i, bool preserveBraces = false)
+bool GATHER_SCOPE_BODY_APPEND(const std::vector<tokenPair>& tokens, std::vector<tokenPair>& subTokens, int brLevel, int& i, bool preserveBraces = false)
 {
 	int braceLevel = brLevel;
 	tokenPair firstToken = NEXT_TOKEN(tokens, i);
@@ -47,6 +58,8 @@ void GATHER_SCOPE_BODY_APPEND(const std::vector<tokenPair>& tokens, std::vector<
 		}
 		tokenPair TOKENPAIR = NEXT_TOKEN(tokens, i);
 
+		if (braceLevel == 0 && TOKENPAIR.second == Semi_Colon)
+			return true;
 		if (TOKENPAIR.second == Left_Brace) {
 			if (braceLevel != 0 || preserveBraces)
 				subTokens.push_back(TOKENPAIR);
@@ -63,6 +76,7 @@ void GATHER_SCOPE_BODY_APPEND(const std::vector<tokenPair>& tokens, std::vector<
 		if (braceLevel == 0)
 			break;
 	}
+	return false;
 }
 
 
@@ -439,6 +453,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 
 			case Equal: {
 				node->nodeType = Expression_Statement;
+				node->codegen = &ASTNode::generateExpressionStatement;
 
 				ASTNode* firstTerm = new ASTNode();
 				ASTNode* secondTerm = new ASTNode();
@@ -469,6 +484,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 				//}
 				secondTerm = generateAST(subTokens, depth + 1);
 				secondTerm->nodeType = Expression_Term;
+				secondTerm->codegen = &ASTNode::generateExpression;
 
 				node->childNodes.push_back(firstTerm);
 				node->childNodes.push_back(secondTerm);
@@ -594,7 +610,6 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 				else {
 					node->nodeType = Compiler_Define_Function;
 					node->codegen = &ASTNode::generateFunction;
-					printf("codegen pointer: %p\n", (void*)node->codegen);
 					i--;
 					// Step through all following tokens until parens start
 					std::vector<tokenPair> subTokens = std::vector<tokenPair>();
@@ -630,6 +645,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 							ASTNode* newNode = new ASTNode();
 							generateAST(subTokens, depth + 1, newNode);
 							newNode->nodeType = Expression_Term;
+							newNode->codegen = &ASTNode::generateExpression;
 							arguments.push_back(newNode);
 							subTokens = std::vector<tokenPair>();
 							continue;
@@ -640,6 +656,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 					ASTNode* newNode = new ASTNode();
 					generateAST(subTokens, depth + 1, newNode);
 					newNode->nodeType = Expression_Term;
+					newNode->codegen = &ASTNode::generateExpression;
 					arguments.push_back(newNode);
 					subTokens = std::vector<tokenPair>();
 					//arguments = generateAST(subTokens, depth + 1);
@@ -655,6 +672,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 						}
 						else if (arguments[a]->leafNodes.size() == 1 && arguments[a]->leafNodes[0]->nodeType == Argument_List) {  // If ...  pattern
 							arguments[a]->nodeType = Expression_Term;
+							arguments[a]->codegen = &ASTNode::generateExpression;
 							arguments[a]->childNodes = {arguments[a]->leafNodes[0]};
 							arguments[a]->leafNodes.pop_back();
 						}
@@ -668,24 +686,30 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 					}
 
 					// Step through all tokens to gather body until braces are closed
-					GATHER_SCOPE_BODY(tokens, subTokens, 0, i);
+					bool endedEarly = GATHER_SCOPE_BODY(tokens, subTokens, 0, i);
 
-					bodyNode = generateAST(subTokens, depth + 1);
-					bodyNode->nodeType = Scope_Body;
-					bodyNode->codegen = &ASTNode::generateScopeBody;
+					if (!endedEarly) {
+						bodyNode = generateAST(subTokens, depth + 1);
+						bodyNode->nodeType = Scope_Body;
+						bodyNode->codegen = &ASTNode::generateScopeBody;
+					}
+					else
+						node->codegen = &ASTNode::generatePrototype;
 
 					node->token.first = identifier->token.first;
 					node->childNodes.push_back(identifier);
 					if (secondPart->childNodes.size() > 0)
 						node->childNodes.push_back(secondPart);
 					node->childNodes.push_back(argumentsNode);
-					node->childNodes.push_back(bodyNode);
+					if (!endedEarly)
+						node->childNodes.push_back(bodyNode);
 				}
 				break;
 			}
 
 			case Left_Paren: {
 				node->nodeType = Expression_Paren_Term;
+				node->codegen = &ASTNode::generateExpression;
 
 				ASTNode* previousTerm = new ASTNode();
 				std::vector<ASTNode*> insideNodes = std::vector<ASTNode*>();
@@ -729,6 +753,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 						ASTNode* newNode = new ASTNode();
 						generateAST(subTokens, depth + 1, newNode);
 						newNode->nodeType = Expression_Term;
+						newNode->codegen = &ASTNode::generateExpression;
 						insideNodes.push_back(newNode);
 						subTokens = std::vector<tokenPair>();
 						continue;
@@ -739,6 +764,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 				ASTNode* newNode = new ASTNode();
 				generateAST(subTokens, depth + 1, newNode);
 				newNode->nodeType = Expression_Term;
+				newNode->codegen = &ASTNode::generateExpression;
 				insideNodes.push_back(newNode);
 
 				if (isFunction) {
@@ -751,6 +777,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 				}
 				else {
 					insideNodes[0]->nodeType = Expression_Paren_Term;
+					insideNodes[0]->codegen = &ASTNode::generateExpression;
 					node = insideNodes[0];
 					//node->childNodes.push_back(insideNodes[0]);
 				}
@@ -811,12 +838,14 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 
 			case Identifier: {
 				node->nodeType = Identifier_Node;
+				node->codegen = &ASTNode::generateVariableExpression;
 				parentNode->leafNodes.push_back(node);
 				goto dontAddNode;
 			}
 
 			case Return_Statement:
 				node->nodeType = Return_Node;
+				node->codegen = &ASTNode::generateReturn;
 				goto positionChangeStatement;
 			case Break_Statement:
 				node->nodeType = Break_Node;
@@ -850,6 +879,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 				//}
 				argumentTerm = generateAST(subTokens, depth + 1);
 				argumentTerm->nodeType = Expression_Term;
+				argumentTerm->codegen = &ASTNode::generateExpression;
 
 				node->childNodes.push_back(argumentTerm);
 				break;
