@@ -3,6 +3,9 @@
 
 int main(int argc, char** argv)
 {
+	// Check if the console supports color, and disable if not
+	console::useColor = console::consoleSupportsColor();
+
 	if (verbosity >= 2)
 		std::cout << COMPILER_PRINTOUT << std::endl
 				  << std::endl;
@@ -19,6 +22,7 @@ int main(int argc, char** argv)
 
 	executableDirectory = std::filesystem::weakly_canonical(std::filesystem::path(argv[0])).parent_path().string() + "/";
 
+	console::SetColor(console::redFGColor);
 	while (1) {
 		int this_option_optind = optind ? optind : 1;
 		int option_index = 0;
@@ -70,24 +74,26 @@ int main(int argc, char** argv)
 				break;
 
 			case '?':
-				break;
+				console::ResetColor();
+				exit(1);
 
 			default:
 				//printf("?? getopt returned character code 0%o ??\n", c);
 				break;
 		}
 	}
+	console::ResetColor();
 
 	// Load file if provided
 	if (fileName != "") {
 		int e = loadFile(fileName, initialFileString);
 		if (e != 0) {
-			ERROR("Invalid file path provided\n");
+			console::Write("Invalid file path provided\n");
 			exit(1);
 		}
 	}
 	else {
-		ERROR("Invalid file path provided\n");
+		console::Write("Invalid file path provided\n");
 		exit(1);
 	}
 	projectDirectory = std::filesystem::weakly_canonical(std::filesystem::path(fileName)).parent_path().string() + "/";
@@ -96,18 +102,18 @@ int main(int argc, char** argv)
 	// Begin tokenizing file
 	int e = tokenize(initialFileString, allTokens);
 	if (e != 0) {
-		ERROR("Invalid tokens met\n");
+		console::Write("Invalid tokens met\n");
 		exit(1);
 	}
 	// Now change any allTokens to their subtoken type if applicable
 	e = labelSubTokens(allTokens);
 	if (e != 0) {
-		ERROR("Invalid tokens met\n");
+		console::Write("Invalid tokens met\n");
 		exit(1);
 	}
 	e = joinCommentTokens(allTokens);
 	if (e != 0) {
-		ERROR("Invalid tokens met\n");
+		console::Write("Invalid tokens met\n");
 		exit(1);
 	}
 	e = removeCommentTokens(allTokens);
@@ -115,7 +121,7 @@ int main(int argc, char** argv)
 		printf("\nTokens:\n");
 		for (int i = 0; i < allTokens.size(); i++) {
 			if (allTokens[i].second != EndOfLine) {
-				printf("%dT:%d: ", i, allTokens[i].lineNumber);
+				console::Write(std::to_string(i) + "T:" + std::to_string(allTokens[i].lineNumber) + "L: ", console::yellowFGColor);
 				//if (allTokens[i].lineValue != nullptr)
 				printf("[%s]\t[%s]\t[%s]\n", allTokens[i].first.c_str(), tokenAsString(allTokens[i].second).c_str(), allTokens[i].lineValue->c_str());
 			}
@@ -123,6 +129,8 @@ int main(int argc, char** argv)
 	}
 
 	// Generate AST
+	if (verbosity >= 3)
+		console::WriteLine("\n\nGenerating AST...", console::greenFGColor);
 	rootNode = generateAST(allTokens);
 	// Handle importing nodes from other sources
 	for (;;) {
@@ -155,12 +163,15 @@ int main(int argc, char** argv)
 
 	// Print AST
 	if (verbosity >= 4) {
-		printf("\n\nGenerated AST:\n");
+		console::Write("\n\nGenerated AST:\n", console::greenFGColor);
 		printAST(rootNode);
 	}
 
 	//// Resolve dependencies
 	//resolveDependencies(rootNode);
+
+	// TODO: At this point allow for compile-time execution (#run)
+	// via tree-walking or byte-code execution
 
 	// Create build directory
 	std::filesystem::create_directory(projectDirectory + "build");
@@ -168,15 +179,19 @@ int main(int argc, char** argv)
 
 	// Generate the IR LLVM Code:
 	initializeCodeGenerator();
+	if (verbosity >= 2)
+		console::WriteLine("\n\nCompiling:", console::greenFGColor);
 	// First pass
 	generateOutputCode(rootNode, 0, 0);
 	// Second pass
 	generateOutputCode(rootNode, 0, 1);
 
 	// Print out all of the generated code.
-	printf("\n\nOutput IR Code:\n");
+	console::WriteLine("\n\nOutput IR Code:", console::greenFGColor);
 	TheModule->print(errs(), nullptr);
 
+	// Output the object file in project directory
+	outputObjectFile();
 
 	if (optind < argc) {
 		printf("non-option ARGV-elements: ");

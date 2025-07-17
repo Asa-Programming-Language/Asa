@@ -253,6 +253,7 @@ void addFileIncludes(ASTNode*& node);
 void addModuleImports(ASTNode*& node);
 void assignParentNodes(ASTNode*& node, int depth = 0);
 void printTokenError(tokenPair& token, std::string errorString = "", int sourceLineNumber = 0, const char* fileName = "");
+void printTokenWarning(tokenPair& token, std::string errorString = "", int sourceLineNumber = 0, const char* fileName = "");
 void printModuleLoaded(std::string& moduleName, std::string& modulePath);
 void generateOutputCode(ASTNode*& node, int depth = 0, int pass = 0);
 //std::vector<tokenPair> GATHER_SCOPE_BODY(int brLevel, int& i);

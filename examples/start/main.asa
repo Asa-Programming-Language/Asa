@@ -1,4 +1,4 @@
-#import Basic.Print;
+//#import Basic.Print;
 //#import Rendering.Window;
 
 //#import GameLogic;
@@ -15,17 +15,17 @@ Or individual components:
 #import "Rendering/Window";
 */
 
-TEST_MACRO :: {printl("Macro works!")};
-
-customObject :: struct{
-	int a = 5;
-	int b = 1;
-}
-
+//TEST_MACRO :: {printl("Macro works!")};
+//
+//customObject :: struct{
+//	int a = 5;
+//	int b = 1;
+//}
+//
 cast:: float(int x) #inline {
 	return #cast float x;
 }
-cast:: int(float x) {
+cast:: int(float x) #inline {
 	return #cast int x;
 }
 
@@ -64,13 +64,13 @@ main :: (){
 	return 1;
 }
 
-multiply :: float (int x, float y){
-	return float(x) * y;
-}
-
-multiply :: int (int x, int y){
-	return x * y;
-}
+//multiply :: float (int x, float y){
+//	return float(x) * y;
+//}
+//
+//multiply :: int (int x, int y){
+//	return x * y;
+//}
 
 
 //#run build();

@@ -9,7 +9,7 @@ BasicBlock* prototypesBlock;
 
 Value* LogErrorV(const char* Str)
 {
-	printError(Str);
+	console::PrintError(Str);
 	return nullptr;
 }
 
@@ -239,7 +239,6 @@ void* ASTNode::generateCast(int pass)
 		exit(1);
 	}
 	ASTNodeType oldType;
-	var->getType()->dump();
 	switch (var->getType()->getTypeID()) {
 		case Type::IntegerTyID:
 			oldType = Integer_Node;
@@ -432,4 +431,67 @@ void* ASTNode::generateFunction(int pass)
 	printTokenError(token, "Function is missing a return statement");
 
 	return nullptr;
+}
+
+int outputObjectFile()
+{
+
+	// Initialize the target registry etc.
+	InitializeAllTargetInfos();
+	InitializeAllTargets();
+	InitializeAllTargetMCs();
+	InitializeAllAsmParsers();
+	InitializeAllAsmPrinters();
+
+	auto TargetTriple = sys::getDefaultTargetTriple();
+	TheModule->setTargetTriple(TargetTriple);
+
+	std::string Error;
+	auto Target = TargetRegistry::lookupTarget(TargetTriple, Error);
+
+	// Print an error and exit if we couldn't find the requested target.
+	// This generally occurs if we've forgotten to initialise the
+	// TargetRegistry or we have a bogus target triple.
+	if (!Target) {
+		errs() << Error;
+		return 1;
+	}
+
+	auto CPU = "generic";
+	auto Features = "";
+
+	TargetOptions opt;
+	auto TheTargetMachine = Target->createTargetMachine(TargetTriple, CPU, Features, opt, Reloc::PIC_);
+
+	TheModule->setDataLayout(TheTargetMachine->createDataLayout());
+
+	std::string Filename = projectDirectory + baseFileName + ".o";
+	std::error_code EC;
+	raw_fd_ostream dest(Filename, EC, sys::fs::OF_None);
+
+	if (EC) {
+		errs() << "Could not open file: " << EC.message();
+		return 1;
+	}
+
+	legacy::PassManager pass;
+	auto FileType = CodeGenFileType::ObjectFile;
+
+	if (TheTargetMachine->addPassesToEmitFile(pass, dest, nullptr, FileType)) {
+		errs() << "TheTargetMachine can't emit a file of this type";
+		return 1;
+	}
+
+	pass.run(*TheModule);
+	dest.flush();
+
+	return 0;
+}
+
+int generateExecutable(const std::string& objectFilePath, const std::string& exeFilePath)
+{
+	// Example using clang as the linker
+	std::string command = "clang -o " + exeFilePath + " " + objectFilePath;
+	int result = std::system(command.c_str());
+	return result;
 }

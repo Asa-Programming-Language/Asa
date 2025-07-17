@@ -9,15 +9,9 @@ find_package(LLVM REQUIRED CONFIG)
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
 message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 
-# Set your project compile flags.
-# E.g. if using the C++ header files
-# you will need to enable C++11 support
-# for your compiler.
-
 include_directories(${LLVM_INCLUDE_DIRS})
 separate_arguments(LLVM_DEFINITIONS_LIST NATIVE_COMMAND ${LLVM_DEFINITIONS})
 add_definitions(${LLVM_DEFINITIONS_LIST})
-
 
 
 if(NOT CMAKE_BUILD_TYPE)
@@ -29,12 +23,18 @@ set(CMAKE_CXX_FLAGS_DEBUG "-g")
 
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
-add_executable(asa main.cpp main.h tests.cpp tests.h settings.h filemanager.cpp filemanager.h tokenizer.cpp tokenizer.h parser.cpp parser.h dependencies.cpp dependencies.h codegen.cpp codegen.h lexer.cpp lexer.h console.cpp console.h)
+add_executable(asa main.cpp main.h tests.cpp tests.h settings.h filemanager.cpp filemanager.h tokenizer.cpp tokenizer.h parser.cpp parser.h dependencies.cpp dependencies.h codegen.cpp codegen.h lexer.cpp lexer.h console.cpp console.h strops.cpp strops.h)
 target_compile_definitions(asa PUBLIC $<$<CONFIG:Debug>:DEBUG>)
+
+# Speed optimizations
+set(CMAKE_C_COMPILER_LAUNCHER ccache)
+set(CMAKE_CXX_COMPILER_LAUNCHER ccache)
+target_precompile_headers(asa PRIVATE "pch.h" "llvm.h")
 
 # Find the libraries that correspond to the LLVM components
 # that we wish to use
-llvm_map_components_to_libnames(llvm_libs support core irreader)
+#llvm_map_components_to_libnames(llvm_libs support core target irreader nativecodegen)
+llvm_map_components_to_libnames(llvm_libs ${LLVM_TARGETS_TO_BUILD} support core target irreader)
 
 # Link against LLVM libraries
 target_link_libraries(asa ${llvm_libs})

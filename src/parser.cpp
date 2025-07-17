@@ -238,25 +238,51 @@ bool GATHER_TO_TOKEN(const std::vector<tokenPair>& tokens, std::vector<tokenPair
 
 void printTokenError(tokenPair& token, std::string errorString, int sourceLineNumber, const char* fileName)
 {
-	if (fileName != "")
-		std::cerr << "Source file: " << fileName << std::endl;
-	if (sourceLineNumber > 0)
-		std::cerr << "Line: " << sourceLineNumber << std::endl;
-	std::cerr << "Error: " << errorString << std::endl;
+	if (verbosity >= 5) {
+		if (fileName != "")
+			std::cerr << "Source file: " << fileName << std::endl;
+		if (sourceLineNumber > 0)
+			std::cerr << "Line: " << sourceLineNumber << std::endl;
+	}
+	console::PrintError(errorString);
 	std::string lineNumberStr = std::to_string(token.lineNumber);
-	std::cerr << lineNumberStr << " |  " << token.lineValue->c_str() << std::endl;
+	console::Write(lineNumberStr + " |  ", console::yellowFGColor);
+	console::WriteLine(*(token.lineValue));
 	for (int i = 0; i < lineNumberStr.size() + 4 + token.indexInLine - 1; i++)
-		std::cerr << " ";
+		console::Write(" ");
 	for (int i = 0; i < token.first.size(); i++)
-		std::cerr << "^";
-	std::cerr << std::endl;
+		console::Write("^", console::redFGColor);
+	console::WriteLine();
 	for (int i = 0; i < lineNumberStr.size() + 4 + token.indexInLine - 1; i++)
-		std::cerr << " ";
-	std::cerr << "here";
-	std::cerr << std::endl
-			  << std::endl;
-	//if (verbosity >= 2)
-	throw;
+		console::Write(" ");
+	console::Write("here", console::redFGColor);
+	console::WriteLine("\n");
+	//throw;
+	exit(1);
+}
+
+void printTokenWarning(tokenPair& token, std::string errorString, int sourceLineNumber, const char* fileName)
+{
+	if (verbosity >= 5) {
+		if (fileName != "")
+			std::cerr << "Source file: " << fileName << std::endl;
+		if (sourceLineNumber > 0)
+			std::cerr << "Line: " << sourceLineNumber << std::endl;
+	}
+	console::PrintWarning(errorString);
+	std::string lineNumberStr = std::to_string(token.lineNumber);
+	console::Write(lineNumberStr + " |  ", console::yellowFGColor);
+	console::WriteLine(*(token.lineValue));
+	for (int i = 0; i < lineNumberStr.size() + 4 + token.indexInLine - 1; i++)
+		console::Write(" ");
+	for (int i = 0; i < token.first.size(); i++)
+		console::Write("^", console::yellowFGColor);
+	console::WriteLine();
+	for (int i = 0; i < lineNumberStr.size() + 4 + token.indexInLine - 1; i++)
+		console::Write(" ");
+	console::Write("here", console::yellowFGColor);
+	console::WriteLine("\n");
+	//throw;
 }
 
 void printModuleLoaded(std::string& moduleName, std::string& modulePath)
@@ -1029,6 +1055,8 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 				goto dontAddNodeForce;
 			}
 
+			case EndOfFile:
+			case Left_Brace:
 			case EndOfLine:
 			case Nothing: {
 				goto dontAddNodeForce;
@@ -1036,7 +1064,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 
 			default: {
 				if (verbosity >= 4)
-					printf("Warning: Undefined node, %s\n", tokenValue.c_str());
+					printTokenWarning(token, "Undefined node");
 				goto dontAddNodeForce;
 			}
 		}
@@ -1495,7 +1523,8 @@ bool loadModule(std::string& modulePath, std::string& moduleName)
 									importedNodes.push_back(moduleNode->childNodes[0]->childNodes[i]);
 									//rootNode->childNodes.push_back(localRoot->childNodes[i]);
 								}
-								printModuleLoaded(moduleName, pathStr);
+								if (verbosity >= 2)
+									printModuleLoaded(moduleName, pathStr);
 								return true;
 							}
 						}
@@ -1651,11 +1680,13 @@ int printAST(ASTNode* startNode, int depth)
 
 	indent(depth);
 
-	printf("%s", startNode->token.first.c_str());
+	console::Write(startNode->token.first, console::greenFGColor);
 	if (verbosity >= 5)
 		if (startNode->token.first.size() > 0)
 			printf(":L%d", startNode->lineNumber);
-	printf(":(%s){", ASTNodeTypeAsString(startNode->nodeType).c_str());
+	console::Write(":(");
+	console::Write(ASTNodeTypeAsString(startNode->nodeType), console::yellowFGColor);
+	console::Write("){");
 
 	if (startNode->childNodes.size() > 0 || startNode->leafNodes.size() > 0)
 		printf("\n");
@@ -1691,7 +1722,10 @@ void generateOutputCode(ASTNode*& node, int depth, int pass)
 	switch (node->nodeType) {
 		case Compiler_Define_Cast:
 		case Compiler_Define_Function: {
-			printf("pass %d: generating for: %s\n", pass, node->token.first.c_str());
+			console::Write("pass ");
+			console::Write(std::to_string(pass), console::greenFGColor);
+			console::Write(": generating for: ");
+			console::WriteLine(node->token.first, console::yellowFGColor);
 			if (node->codegen != nullptr)
 				auto fnVal = (Function*)(node->*(node->codegen))(pass);
 		}

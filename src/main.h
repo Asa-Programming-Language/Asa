@@ -1,20 +1,13 @@
 #ifndef MAIN_H
 #define MAIN_H
 
-#include <getopt.h>
-
-#include <filesystem>
-#include <iostream>
-#include <stdexcept>
-#include <string>
-
 #include "codegen.h"
 #include "console.h"
 #include "dependencies.h"
 #include "filemanager.h"
 #include "lexer.h"
-//#include "output_builder.h"
 #include "parser.h"
+#include "pch.h"
 #include "settings.h"
 #include "tests.h"
 #include "tokenizer.h"

@@ -4110,6 +4110,7 @@ BlockVerifier	src/include/llvm/XRay/BlockVerifier.h	/^class LLVM_ABI BlockVerifi
 BlockWeightMap	src/include/llvm/Transforms/Utils/SampleProfileInference.h	/^  using BlockWeightMap = DenseMap<const BasicBlockT *, uint64_t>;$/;"	t	class:llvm::SampleProfileInference	typeref:typename:DenseMap<const BasicBlockT *,uint64_t>
 BlockWeightMap	src/include/llvm/Transforms/Utils/SampleProfileLoaderBaseImpl.h	/^  using BlockWeightMap = DenseMap<const BasicBlockT *, uint64_t>;$/;"	t	class:llvm::SampleProfileLoaderBaseImpl	typeref:typename:DenseMap<const BasicBlockT *,uint64_t>
 BlockWeights	src/include/llvm/Transforms/Utils/SampleProfileLoaderBaseImpl.h	/^  BlockWeightMap BlockWeights;$/;"	m	class:llvm::SampleProfileLoaderBaseImpl	typeref:typename:BlockWeightMap
+BlockchainPrint	src/console.cpp	/^	void BlockchainPrint()$/;"	f	namespace:console	typeref:typename:void
 Blocked	src/include/llvm/CodeGen/MachinePipeliner.h	/^    BitVector Blocked;$/;"	m	class:llvm::SwingSchedulerDAG::Circuits	typeref:typename:BitVector
 Blocklist	src/include/llvm/Transforms/Instrumentation/SanitizerCoverage.h	/^  std::unique_ptr<SpecialCaseList> Blocklist;$/;"	m	class:llvm::SanitizerCoveragePass	typeref:typename:std::unique_ptr<SpecialCaseList>
 Blocks	src/include/llvm/ADT/GenericCycleInfo.h	/^  BlockSetVectorT Blocks;$/;"	m	class:llvm::GenericCycle	typeref:typename:BlockSetVectorT
@@ -4875,9 +4876,11 @@ CLR_RUNTIME_HEADER	src/include/llvm/BinaryFormat/COFF.h	/^  CLR_RUNTIME_HEADER,$
 CLSID_SetupConfiguration	src/include/llvm/WindowsDriver/MSVCSetupApi.h	/^EXTERN_C const CLSID CLSID_SetupConfiguration;$/;"	v	typeref:typename:EXTERN_C const CLSID
 CM	src/include/llvm/ExecutionEngine/Orc/JITTargetMachineBuilder.h	/^  std::optional<CodeModel::Model> CM;$/;"	m	class:llvm::orc::JITTargetMachineBuilder	typeref:typename:std::optional<CodeModel::Model>
 CMAKE_BUILD_TYPE	src/CMakeLists.txt	/^	set(CMAKE_BUILD_TYPE Debug)$/;"	v
+CMAKE_CXX_COMPILER_LAUNCHER	src/CMakeLists.txt	/^set(CMAKE_CXX_COMPILER_LAUNCHER ccache)$/;"	v
 CMAKE_CXX_FLAGS_DEBUG	src/CMakeLists.txt	/^set(CMAKE_CXX_FLAGS_DEBUG "-g")$/;"	v
 CMAKE_CXX_FLAGS_RELEASE	src/CMakeLists.txt	/^set(CMAKE_CXX_FLAGS_RELEASE "-O3")$/;"	v
 CMAKE_CXX_STANDARD	src/CMakeLists.txt	/^set (CMAKE_CXX_STANDARD 17)$/;"	v
+CMAKE_C_COMPILER_LAUNCHER	src/CMakeLists.txt	/^set(CMAKE_C_COMPILER_LAUNCHER ccache)$/;"	v
 CMLarge	src/include/llvm/Support/MSP430Attributes.h	/^enum CodeModel { CMSmall = 1, CMLarge = 2 };$/;"	e	enum:llvm::MSP430Attrs::CodeModel
 CMModel	src/include/llvm/ExecutionEngine/ExecutionEngine.h	/^  std::optional<CodeModel::Model> CMModel;$/;"	m	class:llvm::EngineBuilder	typeref:typename:std::optional<CodeModel::Model>
 CMModel	src/include/llvm/Target/TargetMachine.h	/^  CodeModel::Model CMModel = CodeModel::Small;$/;"	m	class:llvm::TargetMachine	typeref:typename:CodeModel::Model
@@ -6168,6 +6171,7 @@ Char8	src/include/llvm/Demangle/MicrosoftDemangleNodes.h	/^  Char8,$/;"	e	enum:l
 CharKind	src/include/llvm/ADT/Twine.h	/^      CharKind,$/;"	e	enum:llvm::Twine::NodeKind
 CharKind	src/include/llvm/Demangle/MicrosoftDemangleNodes.h	/^enum class CharKind {$/;"	g	namespace:llvm::ms_demangle
 CharRanges	src/include/llvm/Support/UnicodeCharRanges.h	/^  typedef ArrayRef<UnicodeCharRange> CharRanges;$/;"	t	class:llvm::sys::UnicodeCharSet	typeref:typename:ArrayRef<UnicodeCharRange>
+CharStrStartsWith	src/strops.cpp	/^bool CharStrStartsWith(unsigned char* str, char* substr, int len)$/;"	f	typeref:typename:bool
 Character16	src/include/llvm/DebugInfo/CodeView/TypeIndex.h	/^  Character16 = 0x007a,       \/\/ char16_t$/;"	e	enum:llvm::codeview::SimpleTypeKind
 Character32	src/include/llvm/DebugInfo/CodeView/TypeIndex.h	/^  Character32 = 0x007b,       \/\/ char32_t$/;"	e	enum:llvm::codeview::SimpleTypeKind
 Character8	src/include/llvm/DebugInfo/CodeView/TypeIndex.h	/^  Character8 = 0x007c,        \/\/ char8_t$/;"	e	enum:llvm::codeview::SimpleTypeKind
@@ -6757,6 +6761,10 @@ Comma	src/include/llvm/Demangle/MicrosoftDemangleNodes.h	/^  Comma,             
 Comma	src/include/llvm/MC/MCAsmMacro.h	/^    Question, Star, Dot, Comma, Dollar, Equal, EqualEqual,$/;"	e	enum:llvm::AsmToken::TokenKind
 Comma	src/tokenizer.h	/^	Comma,$/;"	e	enum:TokenType
 CommaJoinedClass	src/include/llvm/Option/Option.h	/^    CommaJoinedClass,$/;"	e	enum:llvm::opt::Option::OptionClass
+CommaLargeNumber	src/strops.cpp	/^std::string CommaLargeNumber(long num)$/;"	f	typeref:typename:std::string
+CommaLargeNumber	src/strops.cpp	/^std::string CommaLargeNumber(unsigned long long int num)$/;"	f	typeref:typename:std::string
+CommaLargeNumberF	src/strops.cpp	/^std::string CommaLargeNumberF(double num)$/;"	f	typeref:typename:std::string
+CommaLargeNumberF	src/strops.cpp	/^std::string CommaLargeNumberF(float num)$/;"	f	typeref:typename:std::string
 CommaSeparated	src/include/llvm/Support/CommandLine.h	/^  CommaSeparated = 0x01,     \/\/ Should this cl::list split between commas?$/;"	e	enum:llvm::cl::MiscFlags
 CommandLine	src/include/llvm/DebugInfo/CodeView/TypeRecord.h	/^    CommandLine,      \/\/\/< Full canonical command line (maybe -cc1)$/;"	e	enum:llvm::codeview::BuildInfoRecord::BuildInfoArg
 CommandlineArgs	src/include/llvm/MC/MCTargetOptions.h	/^  std::string CommandlineArgs;$/;"	m	class:llvm::MCTargetOptions	typeref:typename:std::string
@@ -6809,6 +6817,7 @@ Compare	src/include/llvm/DebugInfo/LogicalView/Core/LVOptions.h	/^  LVCompare Co
 Compare	src/include/llvm/Frontend/OpenMP/OMPIRBuilder.h	/^  enum AtomicKind { Read, Write, Update, Capture, Compare };$/;"	e	enum:llvm::OpenMPIRBuilder::AtomicKind
 Compare	src/include/llvm/MC/MCInstrDesc.h	/^  Compare,$/;"	e	enum:llvm::MCID::Flag
 Compare	src/include/llvm/Support/GenericDomTreeConstruction.h	/^    struct Compare {$/;"	s	struct:llvm::DomTreeBuilder::SemiNCAInfo::InsertionInfo
+CompareCharNumbers	src/strops.cpp	/^bool CompareCharNumbers(const unsigned char* number1, const unsigned char* number2)$/;"	f	typeref:typename:bool
 CompareIgnoringAlignment	src/include/llvm/IR/Instruction.h	/^    CompareIgnoringAlignment = 1 << 0,$/;"	e	enum:llvm::Instruction::OperationEquivalenceFlags
 CompareOp_match	src/include/llvm/CodeGen/GlobalISel/MIPatternMatch.h	/^  CompareOp_match(const Pred_P &Pred, const LHS_P &LHS, const RHS_P &RHS)$/;"	f	struct:llvm::MIPatternMatch::CompareOp_match
 CompareOp_match	src/include/llvm/CodeGen/GlobalISel/MIPatternMatch.h	/^struct CompareOp_match {$/;"	s	namespace:llvm::MIPatternMatch
@@ -6874,6 +6883,7 @@ CompileUnits	src/include/llvm/DWARFLinker/Classic/DWARFLinker.h	/^    std::vecto
 CompileUnits	src/include/llvm/DebugInfo/LogicalView/Core/LVReader.h	/^  LVCompileUnits CompileUnits;$/;"	m	class:llvm::logicalview::LVReader	typeref:typename:LVCompileUnits
 Compile_Time_Directive	src/parser.h	/^	Compile_Time_Directive,$/;"	e	enum:ASTNodeType
 CompiledModel	src/include/llvm/Analysis/ReleaseModeModelRunner.h	/^  std::unique_ptr<TGen> CompiledModel;$/;"	m	class:llvm::ReleaseModeModelRunner	typeref:typename:std::unique_ptr<TGen>
+CompilerErrorPrint	src/console.cpp	/^	void CompilerErrorPrint()$/;"	f	namespace:console	typeref:typename:void
 CompilerGenerated	src/include/llvm/DebugInfo/CodeView/CodeView.h	/^  CompilerGenerated = 0x0100,$/;"	e	enum:llvm::codeview::MethodOptions
 CompilerGenerated	src/include/llvm/IR/DebugLoc.h	/^    CompilerGenerated,$/;"	e	enum:llvm::DebugLocKind
 CompilerVersion	src/include/llvm/MC/MCObjectWriter.h	/^  std::string CompilerVersion;$/;"	m	class:llvm::MCObjectWriter	typeref:typename:std::string
@@ -7038,6 +7048,7 @@ ConnectedVNInfoEqClasses	src/include/llvm/CodeGen/LiveInterval.h	/^    explicit 
 ConnectedVNInfoEqClasses	src/include/llvm/CodeGen/LiveInterval.h	/^  class ConnectedVNInfoEqClasses {$/;"	c	namespace:llvm
 Connection	src/include/llvm/CodeGen/ScheduleDFS.h	/^    Connection(unsigned tree, unsigned level): TreeID(tree), Level(level) {}$/;"	f	struct:llvm::SchedDFSResult::Connection
 Connection	src/include/llvm/CodeGen/ScheduleDFS.h	/^  struct Connection {$/;"	s	class:llvm::SchedDFSResult
+ConnectionError	src/console.cpp	/^	void ConnectionError()$/;"	f	namespace:console	typeref:typename:void
 ConservativelyAllocatableNodes	src/include/llvm/CodeGen/RegAllocPBQP.h	/^  NodeSet ConservativelyAllocatableNodes;$/;"	m	class:llvm::PBQP::RegAlloc::RegAllocSolverImpl	typeref:typename:NodeSet
 Consistent	src/include/llvm/Analysis/DependenceAnalysis.h	/^    bool Consistent; \/\/ Init to true, then refine.$/;"	m	class:llvm::FullDependence	typeref:typename:bool
 Const	src/include/llvm/DebugInfo/CodeView/CodeView.h	/^  Const = 0x00000400,$/;"	e	enum:llvm::codeview::PointerOptions
@@ -7309,6 +7320,7 @@ Container	src/include/llvm/Transforms/Scalar/GVNExpression.h	/^  using Container
 ContainerLayout	src/include/llvm/DebugInfo/PDB/Native/PDBFile.h	/^  msf::MSFLayout ContainerLayout;$/;"	m	class:llvm::pdb::PDBFile	typeref:typename:msf::MSFLayout
 ContainerMagic	src/include/llvm/ProfileData/PGOCtxProfWriter.h	/^  static constexpr StringRef ContainerMagic = "CTXP";$/;"	m	class:llvm::PGOCtxProfileWriter	typeref:typename:StringRef
 ContainerMagic	src/include/llvm/Remarks/BitstreamRemarkContainer.h	/^constexpr StringLiteral ContainerMagic("RMRK");$/;"	v	namespace:llvm::remarks	typeref:typename:StringLiteral
+ContainerManagerPrint	src/console.cpp	/^	void ContainerManagerPrint()$/;"	f	namespace:console	typeref:typename:void
 ContainerTy	src/include/llvm/Transforms/Vectorize/SandboxVectorizer/Scheduler.h	/^  using ContainerTy = SmallVector<DGNode *, 4>;$/;"	t	class:llvm::sandboxir::SchedBundle	typeref:typename:SmallVector<DGNode *,4>
 ContainerType	src/include/llvm/Remarks/BitstreamRemarkParser.h	/^  std::optional<uint8_t> ContainerType;$/;"	m	struct:llvm::remarks::BitstreamMetaParserHelper	typeref:typename:std::optional<uint8_t>
 ContainerType	src/include/llvm/Remarks/BitstreamRemarkSerializer.h	/^  BitstreamRemarkContainerType ContainerType;$/;"	m	struct:llvm::remarks::BitstreamRemarkSerializerHelper	typeref:typename:BitstreamRemarkContainerType
@@ -9903,6 +9915,7 @@ DebugPM	src/include/llvm/Target/CGPassBuilderOption.h	/^  bool DebugPM = false;$
 DebugPassManager	src/include/llvm/LTO/Config.h	/^  bool DebugPassManager = false;$/;"	m	struct:llvm::lto::Config	typeref:typename:bool
 DebugPassManager	src/include/llvm/LTO/legacy/ThinLTOCodeGenerator.h	/^  bool DebugPassManager = false;$/;"	m	class:llvm::ThinLTOCodeGenerator	typeref:typename:bool
 DebugPrefixMap	src/include/llvm/MC/MCContext.h	/^  SmallVector<std::pair<std::string, std::string>, 0> DebugPrefixMap;$/;"	m	class:llvm::MCContext	typeref:typename:SmallVector<std::pair<std::string,std::string>,0>
+DebugPrint	src/console.cpp	/^	void DebugPrint()$/;"	f	namespace:console	typeref:typename:void
 DebugProps	src/include/llvm/Support/AMDGPUMetadata.h	/^constexpr char DebugProps[] = "DebugProps";$/;"	v	namespace:llvm::AMDGPU::HSAMD::Kernel::Key	typeref:typename:char[]
 DebugProps	src/include/llvm/Support/AMDGPUMetadata.h	/^namespace DebugProps {$/;"	n	namespace:llvm::AMDGPU::HSAMD::Kernel
 DebugPubNames	src/include/llvm/DWARFLinker/DWARFLinkerBase.h	/^  DebugPubNames,$/;"	e	enum:llvm::dwarf_linker::DebugSectionKind
@@ -12218,7 +12231,7 @@ EQ	src/include/llvm/Analysis/DependenceAnalysis.h	/^        EQ = 2,$/;"	e	enum:l
 EQ	src/include/llvm/Frontend/OpenMP/OMPConstants.h	/^enum class OMPAtomicCompareOp : unsigned { EQ, MIN, MAX };$/;"	e	enum:llvm::omp::OMPAtomicCompareOp
 EQ	src/include/llvm/MC/MCExpr.h	/^    EQ,   \/\/\/< Equality comparison.$/;"	e	enum:llvm::MCBinaryExpr::Opcode
 EQ	src/include/llvm/TableGen/Record.h	/^    EQ,$/;"	e	enum:llvm::BinOpInit::BinaryOp
-ERROR	src/console.h	/^#define ERROR(/;"	d
+ERRORMSG	src/strops.h	/^#define ERRORMSG(/;"	d
 ES	src/include/llvm/CodeGen/PseudoSourceValue.h	/^  const char *ES;$/;"	m	class:llvm::ExternalSymbolPseudoSourceValue	typeref:typename:const char *
 ES	src/include/llvm/ExecutionEngine/Orc/COFFPlatform.h	/^  ExecutionSession &ES;$/;"	m	class:llvm::orc::COFFPlatform	typeref:typename:ExecutionSession &
 ES	src/include/llvm/ExecutionEngine/Orc/COFFVCRuntimeSupport.h	/^  ExecutionSession &ES;$/;"	m	class:llvm::orc::COFFVCRuntimeBootstrapper	typeref:typename:ExecutionSession &
@@ -13420,6 +13433,7 @@ ErrorOr	src/include/llvm/Support/ErrorOr.h	/^  ErrorOr(std::error_code EC) : Has
 ErrorOr	src/include/llvm/Support/ErrorOr.h	/^  explicit ErrorOr($/;"	f	class:llvm::ErrorOr
 ErrorOr	src/include/llvm/Support/ErrorOr.h	/^class ErrorOr {$/;"	c	namespace:llvm
 ErrorPath	src/include/llvm/Support/JSON.h	/^  std::vector<Path::Segment> ErrorPath; \/\/ Only valid in error state. Reversed.$/;"	m	class:llvm::json::Path::Root	typeref:typename:std::vector<Path::Segment>
+ErrorPrint	src/console.cpp	/^	void ErrorPrint()$/;"	f	namespace:console	typeref:typename:void
 ErrorPriority	src/include/llvm/AsmParser/LLLexer.h	/^    enum class ErrorPriority {$/;"	g	class:llvm::LLLexer
 ErrorReporter	src/include/llvm/ExecutionEngine/Orc/Core.h	/^  using ErrorReporter = unique_function<void(Error)>;$/;"	t	class:llvm::orc::ExecutionSession
 ErrorStorage	src/include/llvm/Support/Error.h	/^    error_type ErrorStorage;$/;"	m	union:llvm::Expected::__anon0386eac5010a	typeref:typename:error_type
@@ -13590,6 +13604,7 @@ ExitBranch	src/include/llvm/Analysis/TargetTransformInfo.h	/^  BranchInst *ExitB
 ExitCount	src/include/llvm/Analysis/TargetTransformInfo.h	/^  const SCEV *ExitCount = nullptr;$/;"	m	struct:llvm::HardwareLoopInfo	typeref:typename:const SCEV *
 ExitCountKind	src/include/llvm/Analysis/ScalarEvolution.h	/^  enum ExitCountKind {$/;"	g	class:llvm::ScalarEvolution
 ExitCountTy	src/include/llvm/Transforms/Utils/LoopConstrainer.h	/^  IntegerType *ExitCountTy = nullptr;$/;"	m	struct:llvm::LoopStructure	typeref:typename:IntegerType *
+ExitError	src/console.cpp	/^	void ExitError(std::string errMessage)$/;"	f	namespace:console	typeref:typename:void
 ExitForPath	src/include/llvm/Transforms/Utils/LoopUtils.h	/^  BasicBlock *ExitForPath = nullptr;$/;"	m	struct:llvm::IVConditionInfo	typeref:typename:BasicBlock *
 ExitFunction	src/include/llvm/ADT/ScopeExit.h	/^  Callable ExitFunction;$/;"	m	class:llvm::detail::scope_exit	typeref:typename:Callable
 ExitIfTrue	src/include/llvm/Analysis/ScalarEvolution.h	/^    bool ExitIfTrue;$/;"	m	class:llvm::ScalarEvolution::ExitLimitCache	typeref:typename:bool
@@ -13882,6 +13897,7 @@ ExtractElementInst	src/include/llvm/SandboxIR/Instruction.h	/^class ExtractEleme
 ExtractGVPass	src/include/llvm/Transforms/IPO/ExtractGV.h	/^class ExtractGVPass : public PassInfoMixin<ExtractGVPass> {$/;"	c	namespace:llvm
 ExtractIdx	src/include/llvm/Transforms/Vectorize/SandboxVectorizer/Legality.h	/^    int ExtractIdx = 0;$/;"	m	class:llvm::sandboxir::CollectDescr::ExtractElementDescr	typeref:typename:int
 ExtractMainPartition	src/include/llvm/ObjCopy/CommonConfig.h	/^  bool ExtractMainPartition = false;$/;"	m	struct:llvm::objcopy::CommonConfig	typeref:typename:bool
+ExtractPaddedChars	src/strops.cpp	/^std::string ExtractPaddedChars(const std::string& input, char padChar)$/;"	f	typeref:typename:std::string
 ExtractPartition	src/include/llvm/ObjCopy/CommonConfig.h	/^  std::optional<StringRef> ExtractPartition;$/;"	m	struct:llvm::objcopy::CommonConfig	typeref:typename:std::optional<StringRef>
 ExtractSecondType	src/include/llvm/Support/TrailingObjects.h	/^template <typename Ty1, typename Ty2> struct ExtractSecondType {$/;"	s	namespace:llvm::trailing_objects_internal
 ExtractState	src/include/llvm/DebugInfo/DWARF/DWARFAbbreviationDeclaration.h	/^  enum class ExtractState { Complete, MoreItems };$/;"	g	class:llvm::DWARFAbbreviationDeclaration
@@ -15607,6 +15623,7 @@ FormatAdapter	src/include/llvm/Support/FormatAdapters.h	/^class FormatAdapter : 
 FormatStr	src/include/llvm/MC/LaneBitmask.h	/^    constexpr static const char *const FormatStr = "%016llX";$/;"	m	struct:llvm::LaneBitmask	typeref:typename:const char * const
 FormatVersion	src/include/llvm/ProfileData/InstrProfReader.h	/^  uint64_t FormatVersion;$/;"	m	class:llvm::InstrProfReaderIndex	typeref:typename:uint64_t
 FormatVersion	src/include/llvm/ProfileData/InstrProfReader.h	/^  unsigned FormatVersion;$/;"	m	class:llvm::InstrProfLookupTrait	typeref:typename:unsigned
+FormatWithCommas	src/strops.h	/^std::string FormatWithCommas(T value)$/;"	f	typeref:typename:std::string
 Format_Version	src/include/llvm/Support/ELFAttributes.h	/^enum AttrMagic { Format_Version = 0x41 };$/;"	e	enum:llvm::ELFAttrs::AttrMagic
 FormattedBytes	src/include/llvm/Support/Format.h	/^  FormattedBytes(ArrayRef<uint8_t> B, uint32_t IL, std::optional<uint64_t> O,$/;"	f	class:llvm::FormattedBytes
 FormattedBytes	src/include/llvm/Support/Format.h	/^class FormattedBytes {$/;"	c	namespace:llvm
@@ -21630,6 +21647,7 @@ IsVectorized	src/include/llvm/Transforms/Vectorize/LoopVectorizationLegality.h	/
 IsVerDef	src/include/llvm/Object/ELF.h	/^  bool IsVerDef;$/;"	m	struct:llvm::object::VersionEntry	typeref:typename:bool
 IsVerbose	src/include/llvm/IR/DiagnosticInfo.h	/^  bool IsVerbose = false;$/;"	m	class:llvm::DiagnosticInfoOptimizationBase	typeref:typename:bool
 IsVerbose	src/include/llvm/WindowsResource/ResourceProcessor.h	/^  bool IsVerbose, AppendNull;$/;"	m	class:llvm::WindowsResourceProcessor	typeref:typename:bool
+IsVersionGreaterOrEqual	src/strops.cpp	/^bool IsVersionGreaterOrEqual(std::string a, std::string b)$/;"	f	typeref:typename:bool
 IsVirtual	src/include/llvm/DebugInfo/PDB/Native/RawTypes.h	/^  uint8_t IsVirtual;             \/\/ Is this a virtual file (injected)?$/;"	m	struct:llvm::pdb::SrcHeaderBlockEntry	typeref:typename:uint8_t
 IsVirtual	src/include/llvm/MC/MCSection.h	/^  bool IsVirtual : 1;$/;"	m	class:llvm::MCSection	typeref:typename:bool:1
 IsVirtualBase	src/include/llvm/DebugInfo/PDB/UDTLayout.h	/^  bool IsVirtualBase;$/;"	m	class:llvm::pdb::BaseClassLayout	typeref:typename:bool
@@ -21855,6 +21873,7 @@ JamCRC	src/include/llvm/Support/CRC.h	/^  JamCRC(uint32_t Init = 0xFFFFFFFFU) : 
 JamCRC	src/include/llvm/Support/CRC.h	/^class JamCRC {$/;"	c	namespace:llvm
 Java	src/include/llvm/BinaryFormat/XCOFF.h	/^    Java,$/;"	e	enum:llvm::XCOFF::TracebackTable::LanguageID
 JobHandleTraits	src/include/llvm/Support/Windows/WindowsSupport.h	/^struct JobHandleTraits : CommonHandleTraits {$/;"	s	namespace:llvm
+JoinArrayPieces	src/strops.cpp	/^std::string JoinArrayPieces(std::vector<std::string>& input)$/;"	f	typeref:typename:std::string
 JoinDivBlocks	src/include/llvm/ADT/GenericUniformityImpl.h	/^    ConstBlockSet JoinDivBlocks;$/;"	m	struct:llvm::GenericSyncDependenceAnalysis::DivergenceDescriptor	typeref:typename:ConstBlockSet
 JoinIslands	src/include/llvm/Transforms/Utils/SampleProfileInference.h	/^  bool JoinIslands{false};$/;"	m	struct:llvm::ProfiParams	typeref:typename:bool
 JoinedAndSeparateClass	src/include/llvm/Option/Option.h	/^    JoinedAndSeparateClass$/;"	e	enum:llvm::opt::Option::OptionClass
@@ -27850,6 +27869,7 @@ MUL	src/include/llvm/CodeGen/ISDOpcodes.h	/^  MUL,$/;"	e	enum:llvm::ISD::NodeTyp
 MUL	src/include/llvm/TableGen/Record.h	/^    MUL,$/;"	e	enum:llvm::BinOpInit::BinaryOp
 MULHS	src/include/llvm/CodeGen/ISDOpcodes.h	/^  MULHS,$/;"	e	enum:llvm::ISD::NodeType
 MULHU	src/include/llvm/CodeGen/ISDOpcodes.h	/^  MULHU,$/;"	e	enum:llvm::ISD::NodeType
+MULTITHREADED_SAFE	src/console.cpp	/^#define MULTITHREADED_SAFE /;"	d	file:
 MUResources	src/include/llvm/ExecutionEngine/Orc/ReOptimizeLayer.h	/^  DenseMap<ResourceKey, DenseSet<ReOptMaterializationUnitID>> MUResources;$/;"	m	class:llvm::orc::ReOptimizeLayer	typeref:typename:DenseMap<ResourceKey,DenseSet<ReOptMaterializationUnitID>>
 MUStates	src/include/llvm/ExecutionEngine/Orc/ReOptimizeLayer.h	/^  std::map<ReOptMaterializationUnitID, ReOptMaterializationUnitState> MUStates;$/;"	m	class:llvm::orc::ReOptimizeLayer	typeref:typename:std::map<ReOptMaterializationUnitID,ReOptMaterializationUnitState>
 MVE_arch	src/include/llvm/Support/ARMBuildAttributes.h	/^  MVE_arch = 48,$/;"	e	enum:llvm::ARMBuildAttrs::AttrType
@@ -29479,6 +29499,8 @@ MinimumExtraParagraphs	src/include/llvm/BinaryFormat/COFF.h	/^  uint16_t Minimum
 MinimumExtraParagraphs	src/include/llvm/Object/COFF.h	/^  support::ulittle16_t MinimumExtraParagraphs;$/;"	m	struct:llvm::object::dos_header	typeref:typename:support::ulittle16_t
 MinimumSupportedVersion	src/include/llvm/ProfileData/MemProf.h	/^constexpr uint64_t MinimumSupportedVersion = Version2;$/;"	v	namespace:llvm::memprof	typeref:typename:uint64_t
 MinimumWaveLaneCount	src/include/llvm/BinaryFormat/DXContainer.h	/^  uint32_t MinimumWaveLaneCount; \/\/ minimum lane count required, 0 if unused$/;"	m	struct:llvm::dxbc::PSV::v0::RuntimeInfo	typeref:typename:uint32_t
+MiningErrorPrint	src/console.cpp	/^	void MiningErrorPrint()$/;"	f	namespace:console	typeref:typename:void
+MiningPrint	src/console.cpp	/^	void MiningPrint()$/;"	f	namespace:console	typeref:typename:void
 Minor	src/include/llvm/BinaryFormat/DXContainer.h	/^  uint16_t Minor;$/;"	m	struct:llvm::dxbc::ContainerVersion	typeref:typename:uint16_t
 Minor	src/include/llvm/DebugInfo/PDB/PDBTypes.h	/^  uint32_t Minor;$/;"	m	struct:llvm::pdb::VersionInfo	typeref:typename:uint32_t
 Minor	src/include/llvm/MC/MCSPIRVObjectWriter.h	/^    unsigned Minor = 0;$/;"	m	struct:llvm::SPIRVObjectWriter::VersionInfoType	typeref:typename:unsigned
@@ -30703,6 +30725,8 @@ NestedTypeRecord	src/include/llvm/DebugInfo/CodeView/TypeRecord.h	/^  NestedType
 NestedTypeRecord	src/include/llvm/DebugInfo/CodeView/TypeRecord.h	/^  explicit NestedTypeRecord(TypeRecordKind Kind) : TypeRecord(Kind) {}$/;"	f	class:llvm::codeview::NestedTypeRecord
 NestedTypeRecord	src/include/llvm/DebugInfo/CodeView/TypeRecord.h	/^class NestedTypeRecord : public TypeRecord {$/;"	c	namespace:llvm::codeview
 NetBSD	src/include/llvm/TargetParser/Triple.h	/^    NetBSD,$/;"	e	enum:llvm::Triple::OSType
+NetworkErrorPrint	src/console.cpp	/^	void NetworkErrorPrint()$/;"	f	namespace:console	typeref:typename:void
+NetworkPrint	src/console.cpp	/^	void NetworkPrint()$/;"	f	namespace:console	typeref:typename:void
 Neutral	src/include/llvm/CodeGen/TargetLowering.h	/^    Neutral = 1,    \/\/ Negated expression has the same cost.$/;"	e	enum:llvm::TargetLoweringBase::NegatibleCost
 Never	src/include/llvm/Analysis/InlineAdvisor.h	/^  enum class MandatoryInliningKind { NotMandatory, Always, Never };$/;"	e	enum:llvm::InlineAdvisor::MandatoryInliningKind
 Never	src/include/llvm/ExecutionEngine/Orc/LoadLinkableFile.h	/^  Never,   \/\/ Linkable file must not be an archive.$/;"	e	enum:llvm::orc::LoadArchives
@@ -34456,6 +34480,8 @@ Pad1	src/include/llvm/Object/XCOFFObjectFile.h	/^  uint8_t Pad1[4];$/;"	m	struct
 Pad2	src/include/llvm/Object/XCOFFObjectFile.h	/^  uint8_t Pad2[6];$/;"	m	struct:llvm::object::XCOFFSectAuxEntForDWARF32	typeref:typename:uint8_t[6]
 PadAdapter	src/include/llvm/Support/FormatAdapters.h	/^  PadAdapter(T &&Item, size_t Left, size_t Right)$/;"	f	class:llvm::support::detail::PadAdapter
 PadAdapter	src/include/llvm/Support/FormatAdapters.h	/^template <typename T> class PadAdapter final : public FormatAdapter<T> {$/;"	c	namespace:llvm::support::detail
+PadString	src/strops.cpp	/^std::string PadString(const std::string& input, char padChar, size_t desiredLength)$/;"	f	typeref:typename:std::string
+PadStringRight	src/strops.cpp	/^std::string PadStringRight(const std::string& input, char padChar, size_t desiredLength)$/;"	f	typeref:typename:std::string
 PadTo	src/include/llvm/ObjCopy/CommonConfig.h	/^  uint64_t PadTo = 0;$/;"	m	struct:llvm::objcopy::CommonConfig	typeref:typename:uint64_t
 Padding	src/include/llvm/DebugInfo/PDB/Native/LinePrinter.h	/^  Padding,$/;"	e	enum:llvm::pdb::PDB_ColorItem
 Padding	src/include/llvm/DebugInfo/PDB/Native/RawTypes.h	/^  char Padding[2];$/;"	m	struct:llvm::pdb::PublicsStreamHeader	typeref:typename:char[2]
@@ -35803,10 +35829,12 @@ PrintBB	src/include/llvm/Analysis/RegionInfo.h	/^  enum PrintStyle { PrintNone, 
 PrintBranchImmAsAddress	src/include/llvm/MC/MCInstPrinter.h	/^  bool PrintBranchImmAsAddress = false;$/;"	m	class:llvm::MCInstPrinter	typeref:typename:bool
 PrintChangedDiff	src/include/llvm/Passes/StandardInstrumentations.h	/^  InLineChangePrinter PrintChangedDiff;$/;"	m	class:llvm::StandardInstrumentations	typeref:typename:InLineChangePrinter
 PrintChangedIR	src/include/llvm/Passes/StandardInstrumentations.h	/^  IRChangedPrinter PrintChangedIR;$/;"	m	class:llvm::StandardInstrumentations	typeref:typename:IRChangedPrinter
+PrintColored	src/console.cpp	/^	void PrintColored(std::string text, std::string fgColor, std::string bgColor)$/;"	f	namespace:console	typeref:typename:void
 PrintCrashIR	src/include/llvm/Passes/StandardInstrumentations.h	/^  PrintCrashIRInstrumentation PrintCrashIR;$/;"	m	class:llvm::StandardInstrumentations	typeref:typename:PrintCrashIRInstrumentation
 PrintCrashIRInstrumentation	src/include/llvm/Passes/StandardInstrumentations.h	/^  PrintCrashIRInstrumentation()$/;"	f	class:llvm::PrintCrashIRInstrumentation
 PrintCrashIRInstrumentation	src/include/llvm/Passes/StandardInstrumentations.h	/^class PrintCrashIRInstrumentation {$/;"	c	namespace:llvm
 PrintDomTree	src/include/llvm/Support/GenericDomTree.h	/^void PrintDomTree(const DomTreeNodeBase<NodeT> *N, raw_ostream &O,$/;"	f	namespace:llvm	typeref:typename:void
+PrintError	src/console.cpp	/^	void PrintError(std::string s, int lineNumber, std::string fileName)$/;"	f	namespace:console	typeref:typename:void
 PrintFunctionPass	src/include/llvm/IRPrinter/IRPrintingPasses.h	/^class PrintFunctionPass : public PassInfoMixin<PrintFunctionPass> {$/;"	c	namespace:llvm
 PrintFunctions	src/include/llvm/DebugInfo/Symbolize/DIPrinter.h	/^  bool PrintFunctions;$/;"	m	struct:llvm::symbolize::PrinterConfig	typeref:typename:bool
 PrintFunctions	src/include/llvm/DebugInfo/Symbolize/Symbolize.h	/^    FunctionNameKind PrintFunctions = FunctionNameKind::LinkageName;$/;"	m	struct:llvm::symbolize::LLVMSymbolizer::Options	typeref:typename:FunctionNameKind
@@ -35864,6 +35892,7 @@ PrintTo	src/include/llvm/Testing/Support/SupportHelpers.h	/^inline void PrintTo(
 PrintTo	src/include/llvm/Testing/Support/SupportHelpers.h	/^void PrintTo(const ExpectedHolder<T> &Item, std::ostream *Out) {$/;"	f	namespace:llvm::detail	typeref:typename:void
 PrintType	src/include/llvm/Support/VirtualFileSystem.h	/^  enum class PrintType { Summary, Contents, RecursiveContents };$/;"	g	class:llvm::vfs::FileSystem
 PrintTypes	src/include/llvm/DebugInfo/LogicalView/Core/LVCompare.h	/^  bool PrintTypes = false;$/;"	m	class:llvm::logicalview::LVCompare	typeref:typename:bool
+PrintWarning	src/console.cpp	/^	void PrintWarning(std::string s, int lineNumber, std::string fileName)$/;"	f	namespace:console	typeref:typename:void
 Printable	src/include/llvm/Support/Printable.h	/^  Printable(std::function<void(raw_ostream &OS)> Print)$/;"	f	class:llvm::Printable
 Printable	src/include/llvm/Support/Printable.h	/^class Printable {$/;"	c	namespace:llvm
 Printed	src/include/llvm/DebugInfo/LogicalView/Core/LVScope.h	/^  LVCounter Printed;$/;"	m	class:llvm::logicalview::LVScopeCompileUnit	typeref:typename:LVCounter
@@ -37052,6 +37081,7 @@ ReadKeyDataLength	src/include/llvm/ProfileData/InstrProfReader.h	/^  ReadKeyData
 ReadKeyDataLength	src/include/llvm/ProfileData/MemProf.h	/^  ReadKeyDataLength(const unsigned char *&D) {$/;"	f	class:llvm::memprof::CallStackLookupTrait	typeref:typename:std::pair<offset_type,offset_type>
 ReadKeyDataLength	src/include/llvm/ProfileData/MemProf.h	/^  ReadKeyDataLength(const unsigned char *&D) {$/;"	f	class:llvm::memprof::FrameLookupTrait	typeref:typename:std::pair<offset_type,offset_type>
 ReadKeyDataLength	src/include/llvm/ProfileData/MemProf.h	/^  ReadKeyDataLength(const unsigned char *&D) {$/;"	f	class:llvm::memprof::RecordLookupTrait	typeref:typename:std::pair<offset_type,offset_type>
+ReadLine	src/console.cpp	/^	std::string ReadLine()$/;"	f	namespace:console	typeref:typename:std::string
 ReadMem	src/include/llvm/Analysis/TargetTransformInfo.h	/^  bool ReadMem = false;$/;"	m	struct:llvm::MemIntrinsicInfo	typeref:typename:bool
 ReadNone	src/include/llvm/IR/ModuleSummaryIndex.h	/^    unsigned ReadNone : 1;$/;"	m	struct:llvm::FunctionSummary::FFlags	typeref:typename:unsigned:1
 ReadOnly	src/include/llvm/IR/ModuleSummaryIndex.h	/^    unsigned ReadOnly : 1;$/;"	m	struct:llvm::FunctionSummary::FFlags	typeref:typename:unsigned:1
@@ -38160,6 +38190,7 @@ RepeatedInstrs	src/include/llvm/Transforms/Vectorize/SandboxVectorizer/Legality.
 RepeatedSubstring	src/include/llvm/Support/SuffixTree.h	/^  struct RepeatedSubstring {$/;"	s	class:llvm::SuffixTree
 RepeatedSubstringIterator	src/include/llvm/Support/SuffixTree.h	/^    RepeatedSubstringIterator($/;"	f	struct:llvm::SuffixTree::RepeatedSubstringIterator
 RepeatedSubstringIterator	src/include/llvm/Support/SuffixTree.h	/^  struct RepeatedSubstringIterator {$/;"	s	class:llvm::SuffixTree
+ReplaceEscapeSymbols	src/strops.cpp	/^std::string ReplaceEscapeSymbols(std::string s)$/;"	f	typeref:typename:std::string
 ReplaceExitVal	src/include/llvm/Transforms/Utils/LoopUtils.h	/^enum ReplaceExitVal {$/;"	g	namespace:llvm
 ReplaceLastInlinedAt	src/include/llvm/IR/DebugLoc.h	/^    enum { ReplaceLastInlinedAt = true };$/;"	e	enum:llvm::DebugLoc::__anon401c083e0103
 ReplaceMachineInstrInMaps	src/include/llvm/CodeGen/LiveIntervals.h	/^  SlotIndex ReplaceMachineInstrInMaps(MachineInstr &MI, MachineInstr &NewMI) {$/;"	f	class:llvm::LiveIntervals	typeref:typename:SlotIndex
@@ -38368,6 +38399,7 @@ Reset	src/include/llvm/CodeGen/ScheduleHazardRecognizer.h	/^  virtual void Reset
 Reset	src/include/llvm/Support/Allocator.h	/^  void Reset() {$/;"	f	class:llvm::BumpPtrAllocatorImpl	typeref:typename:void
 Reset	src/include/llvm/Support/AllocatorBase.h	/^  void Reset() {}$/;"	f	class:llvm::MallocAllocator	typeref:typename:void
 Reset	src/include/llvm/Support/PerThreadBumpPtrAllocator.h	/^  void Reset() {$/;"	f	class:llvm::parallel::PerThreadAllocator	typeref:typename:void
+ResetColor	src/console.cpp	/^	void ResetColor()$/;"	f	namespace:console	typeref:typename:void
 ResolutionFile	src/include/llvm/LTO/Config.h	/^  std::unique_ptr<raw_ostream> ResolutionFile;$/;"	m	struct:llvm::lto::Config	typeref:typename:std::unique_ptr<raw_ostream>
 ResolveLanding	src/include/llvm/ExecutionEngine/Orc/IndirectionUtils.h	/^  ResolveLandingFunction ResolveLanding;$/;"	m	class:llvm::orc::LocalTrampolinePool	typeref:typename:ResolveLandingFunction
 ResolveLandingFunction	src/include/llvm/ExecutionEngine/Orc/IndirectionUtils.h	/^  using ResolveLandingFunction = unique_function<void($/;"	t	class:llvm::orc::TrampolinePool
@@ -41198,6 +41230,7 @@ Set	src/include/llvm/Transforms/IPO/Attributor.h	/^    DenseSet<BaseTy> Set;$/;"
 Set	src/include/llvm/Transforms/IPO/Attributor.h	/^  SetTy Set;$/;"	m	struct:llvm::PotentialValuesState	typeref:typename:SetTy
 SetBuffer	src/include/llvm/Support/raw_ostream.h	/^  void SetBuffer(char *BufferStart, size_t Size) {$/;"	f	class:llvm::raw_ostream	typeref:typename:void
 SetBufferSize	src/include/llvm/Support/raw_ostream.h	/^  void SetBufferSize(size_t Size) {$/;"	f	class:llvm::raw_ostream	typeref:typename:void
+SetColor	src/console.cpp	/^	void SetColor(std::string fgColor)$/;"	f	namespace:console	typeref:typename:void
 SetContents	src/include/llvm/Transforms/IPO/Attributor.h	/^    SetContents(bool Universal) : Universal(Universal) {}$/;"	f	struct:llvm::SetState::SetContents
 SetContents	src/include/llvm/Transforms/IPO/Attributor.h	/^    SetContents(bool Universal, const DenseSet<BaseTy> &Assumptions)$/;"	f	struct:llvm::SetState::SetContents
 SetContents	src/include/llvm/Transforms/IPO/Attributor.h	/^    SetContents(const DenseSet<BaseTy> &Assumptions)$/;"	f	struct:llvm::SetState::SetContents
@@ -42262,7 +42295,9 @@ SplitDwarfFile	src/include/llvm/LTO/Config.h	/^  std::string SplitDwarfFile;$/;"
 SplitDwarfFile	src/include/llvm/MC/MCTargetOptions.h	/^  std::string SplitDwarfFile;$/;"	m	class:llvm::MCTargetOptions	typeref:typename:std::string
 SplitDwarfOutput	src/include/llvm/LTO/Config.h	/^  std::string SplitDwarfOutput;$/;"	m	struct:llvm::lto::Config	typeref:typename:std::string
 SplitFooterBB	src/include/llvm/Transforms/Scalar/MergedLoadStoreMotion.h	/^  bool SplitFooterBB;$/;"	m	struct:llvm::MergedLoadStoreMotionOptions	typeref:typename:bool
+SplitGetLastAfterChar	src/strops.cpp	/^std::string SplitGetLastAfterChar(const std::string& str, std::string delim)$/;"	f	typeref:typename:std::string
 SplitHalf	src/include/llvm/Analysis/TargetTransformInfo.h	/^  enum struct ReductionShuffle { SplitHalf, Pairwise };$/;"	e	enum:llvm::TargetTransformInfo::ReductionShuffle
+SplitString	src/strops.cpp	/^std::vector<std::string> SplitString(std::string& str, std::string delim)$/;"	f	typeref:typename:std::vector<std::string>
 SplitVector	src/include/llvm/CodeGen/SelectionDAG.h	/^  std::pair<SDValue, SDValue> SplitVector(const SDValue &N, const SDLoc &DL) {$/;"	f	class:llvm::SelectionDAG	typeref:typename:std::pair<SDValue,SDValue>
 SplitVectorOperand	src/include/llvm/CodeGen/SelectionDAG.h	/^  std::pair<SDValue, SDValue> SplitVectorOperand(const SDNode *N, unsigned OpNo)$/;"	f	class:llvm::SelectionDAG	typeref:typename:std::pair<SDValue,SDValue>
 SplitWorkItemInfo	src/include/llvm/CodeGen/SwitchLoweringUtils.h	/^  struct SplitWorkItemInfo {$/;"	s	class:llvm::SwitchCG::SwitchLowering
@@ -42882,6 +42917,8 @@ StringAllocator	src/include/llvm/Support/YAMLTraits.h	/^  BumpPtrAllocator      
 StringAllocator	src/include/llvm/TextAPI/RecordsSlice.h	/^  llvm::BumpPtrAllocator StringAllocator;$/;"	m	class:llvm::MachO::RecordsSlice	typeref:typename:llvm::BumpPtrAllocator
 StringChildren	src/include/llvm/Object/WindowsResource.h	/^    Children<std::string> StringChildren;$/;"	m	class:llvm::object::WindowsResourceParser::TreeNode	typeref:typename:Children<std::string>
 StringConstant	src/include/llvm/AsmParser/LLToken.h	/^  StringConstant,   \/\/ "foo"$/;"	e	enum:llvm::lltok::Kind
+StringContains	src/strops.cpp	/^bool StringContains(std::string& str, char check)$/;"	f	typeref:typename:bool
+StringContains	src/strops.cpp	/^bool StringContains(std::string& str, std::string check)$/;"	f	typeref:typename:bool
 StringData	src/include/llvm/Object/OffloadBinary.h	/^    MapVector<StringRef, StringRef> StringData;$/;"	m	struct:llvm::object::OffloadBinary::OffloadingImage	typeref:typename:MapVector<StringRef,StringRef>
 StringData	src/include/llvm/Object/OffloadBinary.h	/^  MapVector<StringRef, StringRef> StringData;$/;"	m	class:llvm::object::OffloadBinary	typeref:typename:MapVector<StringRef,StringRef>
 StringEntries	src/include/llvm/CodeGen/AccelTable.h	/^  using StringEntries = MapVector<StringRef, HashData>;$/;"	t	class:llvm::AccelTableBase	typeref:typename:MapVector<StringRef,HashData>
@@ -42985,6 +43022,7 @@ StringSet	src/include/llvm/ADT/StringSet.h	/^  explicit StringSet(AllocatorTy a)
 StringSet	src/include/llvm/ADT/StringSet.h	/^  template <typename Range> StringSet(llvm::from_range_t, Range &&R) {$/;"	f	class:llvm::StringSet
 StringSet	src/include/llvm/ADT/StringSet.h	/^class StringSet : public StringMap<std::nullopt_t, AllocatorTy> {$/;"	c	namespace:llvm
 StringSize	src/include/llvm/DebugInfo/CodeView/DebugStringTableSubsection.h	/^  uint32_t StringSize = 1;$/;"	m	class:llvm::codeview::DebugStringTableSubsection	typeref:typename:uint32_t
+StringStartsWith	src/strops.cpp	/^bool StringStartsWith(std::string str, std::string substr)$/;"	f	typeref:typename:bool
 StringStorage	src/include/llvm/DebugInfo/GSYM/GsymCreator.h	/^  StringSet<> StringStorage;$/;"	m	class:llvm::gsym::GsymCreator	typeref:typename:StringSet<>
 StringSwitch	src/include/llvm/ADT/StringSwitch.h	/^  StringSwitch(StringSwitch &&other)$/;"	f	class:llvm::StringSwitch
 StringSwitch	src/include/llvm/ADT/StringSwitch.h	/^  explicit StringSwitch(StringRef S)$/;"	f	class:llvm::StringSwitch
@@ -43873,6 +43911,7 @@ SystemInfo	src/include/llvm/ObjectYAML/MinidumpYAML.h	/^    SystemInfo,$/;"	e	en
 SystemInfoStream	src/include/llvm/ObjectYAML/MinidumpYAML.h	/^  SystemInfoStream()$/;"	f	struct:llvm::MinidumpYAML::SystemInfoStream
 SystemInfoStream	src/include/llvm/ObjectYAML/MinidumpYAML.h	/^  explicit SystemInfoStream(const minidump::SystemInfo &Info,$/;"	f	struct:llvm::MinidumpYAML::SystemInfoStream
 SystemInfoStream	src/include/llvm/ObjectYAML/MinidumpYAML.h	/^struct SystemInfoStream : public Stream {$/;"	s	namespace:llvm::MinidumpYAML
+SystemPrint	src/console.cpp	/^	void SystemPrint()$/;"	f	namespace:console	typeref:typename:void
 SystemProfile	src/include/llvm/Support/ARMBuildAttributes.h	/^  SystemProfile           = (0x53)  \/\/ 'S' Application or real-time profile$/;"	e	enum:llvm::ARMBuildAttrs::CPUArchProfile
 SystemTime	src/include/llvm/Support/Timer.h	/^  double SystemTime = 0.0;           \/\/\/< System time elapsed.$/;"	m	class:llvm::TimeRecord	typeref:typename:double
 SystemValue	src/include/llvm/BinaryFormat/DXContainer.h	/^  D3DSystemValue SystemValue; \/\/ Semantic type. Similar to PSV::SemanticKind.$/;"	m	struct:llvm::dxbc::ProgramSignatureElement	typeref:typename:D3DSystemValue
@@ -45099,6 +45138,7 @@ ToBeDeletedInsts	src/include/llvm/Transforms/IPO/Attributor.h	/^  SmallSetVector
 ToCompress	src/include/llvm/ProfileData/SampleProf.h	/^  bool ToCompress = false;$/;"	m	class:llvm::sampleprof::ProfileSymbolList	typeref:typename:bool
 ToDfaState	src/include/llvm/Support/Automaton.h	/^  uint64_t FromDfaState, ToDfaState;$/;"	m	struct:llvm::NfaStatePair	typeref:typename:uint64_t
 ToFree	src/include/llvm/PassRegistry.h	/^  std::vector<std::unique_ptr<const PassInfo>> ToFree;$/;"	m	class:llvm::PassRegistry	typeref:typename:std::vector<std::unique_ptr<const PassInfo>>
+ToLower	src/strops.cpp	/^std::string ToLower(std::string s)$/;"	f	typeref:typename:std::string
 ToReg	src/include/llvm/MC/MCRegisterInfo.h	/^    unsigned ToReg;$/;"	m	struct:llvm::MCRegisterInfo::DwarfLLVMRegPair	typeref:typename:unsigned
 ToRemove	src/include/llvm/ObjCopy/CommonConfig.h	/^  NameMatcher ToRemove;$/;"	m	struct:llvm::objcopy::CommonConfig	typeref:typename:NameMatcher
 ToShrinkSet	src/include/llvm/CodeGen/LiveRangeEdit.h	/^  using ToShrinkSet = SmallSetVector<LiveInterval *, 8>;$/;"	t	class:llvm::LiveRangeEdit	typeref:typename:SmallSetVector<LiveInterval *,8>
@@ -45107,6 +45147,7 @@ ToState	src/include/llvm/CodeGen/WinEHFuncInfo.h	/^  int ToState = -1;$/;"	m	str
 ToState	src/include/llvm/CodeGen/WinEHFuncInfo.h	/^  int ToState;$/;"	m	struct:llvm::CxxUnwindMapEntry	typeref:typename:int
 ToStr	src/include/llvm/Transforms/Vectorize/SandboxVectorizer/Legality.h	/^struct ToStr {$/;"	s	namespace:llvm::sandboxir
 ToT	src/include/llvm/Frontend/OpenMP/ClauseT.h	/^struct ToT {$/;"	s	namespace:tomp::clause
+ToUpper	src/strops.cpp	/^std::string ToUpper(std::string s)$/;"	f	typeref:typename:std::string
 TodoList	src/include/llvm/CodeGen/SpillPlacement.h	/^  SparseSet<unsigned> TodoList;$/;"	m	class:llvm::SpillPlacement	typeref:typename:SparseSet<unsigned>
 TokError	src/include/llvm/MC/MCParser/MCAsmParserExtension.h	/^  bool TokError(const Twine &Msg) {$/;"	f	class:llvm::MCAsmParserExtension	typeref:typename:bool
 TokStart	src/include/llvm/AsmParser/LLLexer.h	/^    const char *TokStart;$/;"	m	class:llvm::LLLexer	typeref:typename:const char *
@@ -45358,6 +45399,7 @@ TrieContentBaseSize	src/include/llvm/ADT/TrieRawHashMap.h	/^  static constexpr s
 TrieHashIndexGenerator	src/include/llvm/ADT/TrieHashIndexGenerator.h	/^struct TrieHashIndexGenerator {$/;"	s	namespace:llvm
 TrieNode	src/include/llvm/XRay/Profile.h	/^  struct TrieNode {$/;"	s	class:llvm::xray::Profile
 Triggered	src/include/llvm/Support/Timer.h	/^  bool Triggered = false;   \/\/\/< Has the timer ever been triggered?$/;"	m	class:llvm::Timer	typeref:typename:bool
+TrimString	src/strops.cpp	/^std::string TrimString(std::string s)$/;"	f	typeref:typename:std::string
 TripCount	src/include/llvm/Analysis/HashRecognize.h	/^  unsigned TripCount;$/;"	m	struct:llvm::PolynomialInfo	typeref:typename:unsigned
 TripCountMap	src/include/llvm/Analysis/ScalarEvolution.h	/^    SmallDenseMap<PointerIntPair<Value *, 1>, ExitLimit> TripCountMap;$/;"	m	class:llvm::ScalarEvolution::ExitLimitCache	typeref:typename:SmallDenseMap<PointerIntPair<Value *,1>,ExitLimit>
 TripCounts	src/include/llvm/Analysis/LoopCacheAnalysis.h	/^  SmallVector<LoopTripCountTy, 3> TripCounts;$/;"	m	class:llvm::CacheCost	typeref:typename:SmallVector<LoopTripCountTy,3>
@@ -46025,6 +46067,7 @@ UNALIGNED_ACCESS	src/include/llvm/Support/RISCVAttributes.h	/^  UNALIGNED_ACCESS
 UNCHANGED	src/include/llvm/Transforms/IPO/Attributor.h	/^  UNCHANGED,$/;"	e	enum:llvm::ChangeStatus
 UNDEF	src/include/llvm/CodeGen/ISDOpcodes.h	/^  UNDEF,$/;"	e	enum:llvm::ISD::NodeType
 UNINDEXED	src/include/llvm/CodeGen/ISDOpcodes.h	/^enum MemIndexedMode { UNINDEXED = 0, PRE_INC, PRE_DEC, POST_INC, POST_DEC };$/;"	e	enum:llvm::ISD::MemIndexedMode
+UNIX	src/console.cpp	/^	#define UNIX /;"	d	file:
 UNI_MAX_BMP	src/include/llvm/Support/ConvertUTF.h	/^#define UNI_MAX_BMP /;"	d
 UNI_MAX_LEGAL_UTF32	src/include/llvm/Support/ConvertUTF.h	/^#define UNI_MAX_LEGAL_UTF32 /;"	d
 UNI_MAX_UTF16	src/include/llvm/Support/ConvertUTF.h	/^#define UNI_MAX_UTF16 /;"	d
@@ -48470,6 +48513,7 @@ WFMP	src/include/llvm/CodeGen/FaultMaps.h	/^  static const char *WFMP;$/;"	m	cla
 WHITE	src/include/llvm/Support/raw_ostream.h	/^    WHITE,$/;"	e	enum:llvm::raw_ostream::Colors
 WHITE	src/include/llvm/Support/raw_ostream.h	/^  static constexpr Colors WHITE = Colors::WHITE;$/;"	m	class:llvm::raw_ostream	typeref:typename:Colors
 WIN32_LEAN_AND_MEAN	src/include/llvm/Support/Windows/WindowsSupport.h	/^#define WIN32_LEAN_AND_MEAN$/;"	d
+WINDOWS	src/console.cpp	/^	#define WINDOWS /;"	d	file:
 WINVER	src/include/llvm/DebugInfo/PDB/DIA/DIASupport.h	/^#define WINVER /;"	d
 WIN_RES_DATA_ALIGNMENT	src/include/llvm/Object/WindowsResource.h	/^const uint32_t WIN_RES_DATA_ALIGNMENT = 4;$/;"	v	namespace:llvm::object	typeref:typename:const uint32_t
 WIN_RES_HEADER_ALIGNMENT	src/include/llvm/Object/WindowsResource.h	/^const uint32_t WIN_RES_HEADER_ALIGNMENT = 4;$/;"	v	namespace:llvm::object	typeref:typename:const uint32_t
@@ -48885,6 +48929,10 @@ WritableBinaryStreamRef	src/include/llvm/Support/BinaryStreamRef.h	/^  WritableB
 WritableBinaryStreamRef	src/include/llvm/Support/BinaryStreamRef.h	/^class WritableBinaryStreamRef$/;"	c	namespace:llvm
 WritableMappedBlockStream	src/include/llvm/DebugInfo/MSF/MappedBlockStream.h	/^class LLVM_ABI WritableMappedBlockStream : public WritableBinaryStream {$/;"	c	namespace:llvm::msf
 WritableMemoryBuffer	src/include/llvm/Support/MemoryBuffer.h	/^class WritableMemoryBuffer : public MemoryBuffer {$/;"	c	namespace:llvm
+Write	src/console.cpp	/^	void Write()$/;"	f	namespace:console	typeref:typename:void
+Write	src/console.cpp	/^	void Write(std::string message)$/;"	f	namespace:console	typeref:typename:void
+Write	src/console.cpp	/^	void Write(std::string message, std::string color)$/;"	f	namespace:console	typeref:typename:void
+Write	src/console.cpp	/^	void Write(std::string message, std::string fgColor, std::string bgColor)$/;"	f	namespace:console	typeref:typename:void
 Write	src/include/llvm/CGData/CodeGenData.h	/^  Write,$/;"	e	enum:llvm::CGDataMode
 Write	src/include/llvm/DebugInfo/PDB/Native/RawConstants.h	/^  Write = 1 << 1,             \/\/ Segment is writable.$/;"	e	enum:llvm::pdb::OMFSegDescFlags
 Write	src/include/llvm/ExecutionEngine/Orc/Shared/MemoryFlags.h	/^  Write = 1U << 1,$/;"	e	enum:llvm::orc::MemProt
@@ -48896,6 +48944,10 @@ WriteAfterWrite	src/include/llvm/Transforms/Vectorize/SandboxVectorizer/Dependen
 WriteBackCycle	src/include/llvm/MCA/HardwareUnits/RegisterFile.h	/^  unsigned WriteBackCycle;$/;"	m	class:llvm::mca::WriteRef	typeref:typename:unsigned
 WriteBit	src/include/llvm/ExecutionEngine/Orc/Shared/TargetProcessControlTypes.h	/^    WriteBit = 1 << 1,$/;"	e	enum:llvm::orc::shared::SPSSerializationTraits::WireBits
 WriteBuffers	src/include/llvm/ExecutionEngine/Orc/EPCGenericMemoryAccess.h	/^    ExecutorAddr WriteBuffers;$/;"	m	struct:llvm::orc::EPCGenericMemoryAccess::FuncAddrs	typeref:typename:ExecutorAddr
+WriteBulleted	src/console.cpp	/^	void WriteBulleted(std::string message, int indents)$/;"	f	namespace:console	typeref:typename:void
+WriteBulleted	src/console.cpp	/^	void WriteBulleted(std::string message, int indents, std::string bullet)$/;"	f	namespace:console	typeref:typename:void
+WriteBulleted	src/console.cpp	/^	void WriteBulleted(std::string message, std::string fgColor, std::string bgColor, int indents)$/;"	f	namespace:console	typeref:typename:void
+WriteBulleted	src/console.cpp	/^	void WriteBulleted(std::string message, std::string fgColor, std::string bgColor, int indents, /;"	f	namespace:console	typeref:typename:void
 WriteDOTGraphToFile	src/include/llvm/Analysis/DOTGraphTraitsPass.h	/^void WriteDOTGraphToFile(Function &F, GraphT &&Graph,$/;"	f	namespace:llvm	typeref:typename:void
 WriteDebugLineInfoFunc	src/include/llvm/ExecutionEngine/OProfileWrapper.h	/^  op_write_debug_line_info_ptr_t  WriteDebugLineInfoFunc;$/;"	m	class:llvm::OProfileWrapper	typeref:typename:op_write_debug_line_info_ptr_t
 WriteDefaultValues	src/include/llvm/Support/YAMLTraits.h	/^  bool WriteDefaultValues = false;$/;"	m	class:llvm::yaml::Output	typeref:typename:bool
@@ -48904,9 +48956,15 @@ WriteFn	src/include/llvm/DebugInfo/PDB/Native/DbiStreamBuilder.h	/^    std::func
 WriteGraph	src/include/llvm/Support/GraphWriter.h	/^raw_ostream &WriteGraph(raw_ostream &O, const GraphType &G,$/;"	f	namespace:llvm	typeref:typename:raw_ostream &
 WriteGraph	src/include/llvm/Support/GraphWriter.h	/^std::string WriteGraph(const GraphType &G, const Twine &Name,$/;"	f	namespace:llvm	typeref:typename:std::string
 WriteI	src/include/llvm/CodeGen/LiveInterval.h	/^    LiveRange::iterator WriteI;$/;"	m	class:llvm::LiveRangeUpdater	typeref:typename:LiveRange::iterator
+WriteIndented	src/console.cpp	/^	void WriteIndented(std::string message, std::string fgColor, std::string bgColor, int indents)$/;"	f	namespace:console	typeref:typename:void
 WriteInterface	src/include/llvm/DebugInfo/MSF/MappedBlockStream.h	/^  WritableBinaryStreamRef WriteInterface;$/;"	m	class:llvm::msf::WritableMappedBlockStream	typeref:typename:WritableBinaryStreamRef
 WriteLatencyIdx	src/include/llvm/MC/MCSchedule.h	/^  uint16_t WriteLatencyIdx; \/\/ First index into WriteLatencyTable.$/;"	m	struct:llvm::MCSchedClassDesc	typeref:typename:uint16_t
 WriteLatencyTable	src/include/llvm/MC/MCSubtargetInfo.h	/^  const MCWriteLatencyEntry *WriteLatencyTable;$/;"	m	class:llvm::MCSubtargetInfo	typeref:typename:const MCWriteLatencyEntry *
+WriteLine	src/console.cpp	/^	void WriteLine()$/;"	f	namespace:console	typeref:typename:void
+WriteLine	src/console.cpp	/^	void WriteLine(std::string message)$/;"	f	namespace:console	typeref:typename:void
+WriteLine	src/console.cpp	/^	void WriteLine(std::string message, std::string fgColor, std::string bgColor)$/;"	f	namespace:console	typeref:typename:void
+WriteLineCharArrayOfLen	src/console.cpp	/^	void WriteLineCharArrayOfLen(char* message, int len)$/;"	f	namespace:console	typeref:typename:void
+WriteLineIndented	src/console.cpp	/^	void WriteLineIndented(std::string message, std::string fgColor, std::string bgColor, int inden/;"	f	namespace:console	typeref:typename:void
 WriteMem	src/include/llvm/Analysis/TargetTransformInfo.h	/^  bool WriteMem = false;$/;"	m	struct:llvm::MemIntrinsicInfo	typeref:typename:bool
 WriteMutex	src/include/llvm/DebugInfo/DWARF/DWARFVerifier.h	/^  std::mutex WriteMutex;$/;"	m	class:llvm::OutputCategoryAggregator	typeref:typename:std::mutex
 WriteNativeCodeFunc	src/include/llvm/ExecutionEngine/OProfileWrapper.h	/^  op_write_native_code_ptr_t      WriteNativeCodeFunc;$/;"	m	class:llvm::OProfileWrapper	typeref:typename:op_write_native_code_ptr_t
@@ -49774,6 +49832,8 @@ __anona80e92530a02	src/include/llvm/Support/GenericDomTreeConstruction.h	/^     
 __anona80e92530b02	src/include/llvm/Support/GenericDomTreeConstruction.h	/^          const TreeNodePtr FirstCh, const TreeNodePtr SecondCh) {$/;"	f	function:llvm::DomTreeBuilder::SemiNCAInfo::VerifyDFSNumbers	file:
 __anona80e92530c02	src/include/llvm/Support/GenericDomTreeConstruction.h	/^      doFullDFSWalk(DT, [BB](NodePtr From, NodePtr To) {$/;"	f	function:llvm::DomTreeBuilder::SemiNCAInfo::verifyParentProperty	file:
 __anona80e92530d02	src/include/llvm/Support/GenericDomTreeConstruction.h	/^        doFullDFSWalk(DT, [BBN](NodePtr From, NodePtr To) {$/;"	f	function:llvm::DomTreeBuilder::SemiNCAInfo::verifySiblingProperty	file:
+__anona925bbf80102	src/strops.cpp	/^	s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char ch) {$/;"	f	function:ltrim	file:
+__anona925bbf80202	src/strops.cpp	/^	s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char ch) {$/;"	f	function:rtrim	file:
 __anona963a47a0103	src/include/llvm/CodeGen/MIRParser/MIParser.h	/^  enum : uint8_t { UNKNOWN, NORMAL, GENERIC, REGBANK } Kind = UNKNOWN;$/;"	g	struct:llvm::VRegInfo	typeref:typename:uint8_t
 __anona963a47a020a	src/include/llvm/CodeGen/MIRParser/MIParser.h	/^  union {$/;"	u	struct:llvm::VRegInfo
 __anonab584c440102	src/include/llvm/ExecutionEngine/Orc/IndirectionUtils.h	/^                                   [&](ExecutorAddr LandingAddress) {$/;"	f	function:llvm::orc::LocalTrampolinePool::reenter	file:
@@ -50484,6 +50544,8 @@ addObjectFile	src/include/llvm/ExecutionEngine/Orc/LLJIT.h	/^  Error addObjectFi
 addObserver	src/include/llvm/CodeGen/GlobalISel/GISelChangeObserver.h	/^  void addObserver(GISelChangeObserver *O) { Observers.push_back(O); }$/;"	f	class:llvm::GISelObserverWrapper	typeref:typename:void
 addOccurrence	src/include/llvm/Support/CommandLine.h	/^  bool addOccurrence(unsigned pos, StringRef \/*ArgName*\/, StringRef Value,$/;"	f	class:llvm::cl::alias	typeref:typename:bool
 addOffset	src/include/llvm/Transforms/IPO/LowerTypeTests.h	/^  void addOffset(uint64_t Offset) {$/;"	f	struct:llvm::lowertypetests::BitSetBuilder	typeref:typename:void
+addOneToHexStr	src/strops.cpp	/^void addOneToHexStr(char* num, int len)$/;"	f	typeref:typename:void
+addOneToHexStrInRange	src/strops.cpp	/^void addOneToHexStrInRange(char* num, int start, int len)$/;"	f	typeref:typename:void
 addOperand	src/include/llvm/MC/MCInst.h	/^  void addOperand(const MCOperand Op) { Operands.push_back(Op); }$/;"	f	class:llvm::MCInst	typeref:typename:void
 addOperand	src/include/llvm/MC/MCInstBuilder.h	/^  MCInstBuilder &addOperand(const MCOperand &Op) {$/;"	f	class:llvm::MCInstBuilder	typeref:typename:MCInstBuilder &
 addOperand	src/include/llvm/MCA/Instruction.h	/^  void addOperand(const MCAOperand Op) { Operands.push_back(Op); }$/;"	f	class:llvm::mca::InstructionBase	typeref:typename:void
@@ -51800,6 +51862,8 @@ bits_storage	src/include/llvm/Support/CommandLine.h	/^template <class DataType, 
 bits_storage	src/include/llvm/Support/CommandLine.h	/^template <class DataType> class bits_storage<DataType, bool> {$/;"	c	namespace:llvm::cl
 bitset	src/include/llvm/Support/YAMLTraits.h	/^  static void bitset(IO &io, endian_type &E) {$/;"	f	struct:llvm::yaml::ScalarBitSetTraits	typeref:typename:void
 bitwiseIsEqual	src/include/llvm/ADT/APFloat.h	/^  bool bitwiseIsEqual(const APFloat &RHS) const {$/;"	f	class:llvm::APFloat	typeref:typename:bool
+blackBGColor	src/console.h	/^	const std::string blackBGColor = "\\x1B[40m";$/;"	v	namespace:console	typeref:typename:const std::string
+blackFGColor	src/console.h	/^	const std::string blackFGColor = "\\x1B[30m";$/;"	v	namespace:console	typeref:typename:const std::string
 block	src/include/llvm/Support/MD5.h	/^    MD5_u32plus block[16];$/;"	m	struct:llvm::MD5::__anon1acb7b610108	typeref:typename:MD5_u32plus[16]
 blockToIndex	src/include/llvm/Transforms/Coroutines/SuspendCrossingInfo.h	/^  size_t blockToIndex(BasicBlock const *BB) const {$/;"	f	class:llvm::BlockToIndexMapping	typeref:typename:size_t
 blockToOffset	src/include/llvm/DebugInfo/MSF/MSFCommon.h	/^inline uint64_t blockToOffset(uint64_t BlockNumber, uint64_t BlockSize) {$/;"	f	namespace:llvm::msf	typeref:typename:uint64_t
@@ -51847,6 +51911,8 @@ blocks	src/include/llvm/SandboxIR/Instruction.h	/^  iterator_range<const_block_i
 blocks	src/include/llvm/Support/GenericLoopInfo.h	/^  inline iterator_range<block_iterator> blocks() const {$/;"	f	class:llvm::LoopBase	typeref:typename:iterator_range<block_iterator>
 blocksRange	src/include/llvm/ProfileData/GCOV.h	/^  iterator_range<BlockIterator> blocksRange() const {$/;"	f	class:llvm::GCOVFunction	typeref:typename:iterator_range<BlockIterator>
 blocks_size	src/include/llvm/ExecutionEngine/JITLink/JITLink.h	/^  BlockSet::size_type blocks_size() const { return Blocks.size(); }$/;"	f	class:llvm::jitlink::Section	typeref:typename:BlockSet::size_type
+blueBGColor	src/console.h	/^	const std::string blueBGColor = "\\x1B[44m";$/;"	v	namespace:console	typeref:typename:const std::string
+blueFGColor	src/console.h	/^	const std::string blueFGColor = "\\x1B[34m";$/;"	v	namespace:console	typeref:typename:const std::string
 boilerPlate	src/output_builder.cpp	/^std::vector<std::string> boilerPlate = std::vector<std::string>();$/;"	v	typeref:typename:std::vector<std::string>
 bonusInstThreshold	src/include/llvm/Transforms/Utils/SimplifyCFGOptions.h	/^  SimplifyCFGOptions &bonusInstThreshold(int I) {$/;"	f	struct:llvm::SimplifyCFGOptions	typeref:typename:SimplifyCFGOptions &
 boolOrDefault	src/include/llvm/Support/CommandLine.h	/^enum boolOrDefault { BOU_UNSET, BOU_TRUE, BOU_FALSE };$/;"	g	namespace:llvm::cl
@@ -51870,6 +51936,22 @@ brc_match	src/include/llvm/IR/PatternMatch.h	/^  brc_match(const Cond_t &C, cons
 brc_match	src/include/llvm/IR/PatternMatch.h	/^struct brc_match {$/;"	s	namespace:llvm::PatternMatch
 breadth_first	src/include/llvm/ADT/BreadthFirstIterator.h	/^template <class T> iterator_range<bf_iterator<T>> breadth_first(const T &G) {$/;"	f	namespace:llvm	typeref:typename:iterator_range<bf_iterator<T>>
 breakPartialRegDependency	src/include/llvm/CodeGen/TargetInstrInfo.h	/^  virtual void breakPartialRegDependency(MachineInstr &MI, unsigned OpNum,$/;"	f	class:llvm::TargetInstrInfo	typeref:typename:void
+brightBlackBGColor	src/console.h	/^	const std::string brightBlackBGColor = "\\x1B[100m";$/;"	v	namespace:console	typeref:typename:const std::string
+brightBlackFGColor	src/console.h	/^	const std::string brightBlackFGColor = "\\x1B[90m";$/;"	v	namespace:console	typeref:typename:const std::string
+brightBlueBGColor	src/console.h	/^	const std::string brightBlueBGColor = "\\x1B[104m";$/;"	v	namespace:console	typeref:typename:const std::string
+brightBlueFGColor	src/console.h	/^	const std::string brightBlueFGColor = "\\x1B[94m";$/;"	v	namespace:console	typeref:typename:const std::string
+brightCyanBGColor	src/console.h	/^	const std::string brightCyanBGColor = "\\x1B[106m";$/;"	v	namespace:console	typeref:typename:const std::string
+brightCyanFGColor	src/console.h	/^	const std::string brightCyanFGColor = "\\x1B[96m";$/;"	v	namespace:console	typeref:typename:const std::string
+brightGreenBGColor	src/console.h	/^	const std::string brightGreenBGColor = "\\x1B[102m";$/;"	v	namespace:console	typeref:typename:const std::string
+brightGreenFGColor	src/console.h	/^	const std::string brightGreenFGColor = "\\x1B[92m";$/;"	v	namespace:console	typeref:typename:const std::string
+brightMagentaBGColor	src/console.h	/^	const std::string brightMagentaBGColor = "\\x1B[105m";$/;"	v	namespace:console	typeref:typename:const std::string
+brightMagentaFGColor	src/console.h	/^	const std::string brightMagentaFGColor = "\\x1B[95m";$/;"	v	namespace:console	typeref:typename:const std::string
+brightRedBGColor	src/console.h	/^	const std::string brightRedBGColor = "\\x1B[101m";$/;"	v	namespace:console	typeref:typename:const std::string
+brightRedFGColor	src/console.h	/^	const std::string brightRedFGColor = "\\x1B[91m";$/;"	v	namespace:console	typeref:typename:const std::string
+brightWhiteBGColor	src/console.h	/^	const std::string brightWhiteBGColor = "\\x1B[107m";$/;"	v	namespace:console	typeref:typename:const std::string
+brightWhiteFGColor	src/console.h	/^	const std::string brightWhiteFGColor = "\\x1B[97m";$/;"	v	namespace:console	typeref:typename:const std::string
+brightYellowBGColor	src/console.h	/^	const std::string brightYellowBGColor = "\\x1B[103m";$/;"	v	namespace:console	typeref:typename:const std::string
+brightYellowFGColor	src/console.h	/^	const std::string brightYellowFGColor = "\\x1B[93m";$/;"	v	namespace:console	typeref:typename:const std::string
 broken_pipe	src/include/llvm/Support/Errc.h	/^  broken_pipe = int(std::errc::broken_pipe),$/;"	e	enum:llvm::errc
 bucket_begin	src/include/llvm/ADT/FoldingSet.h	/^  bucket_iterator bucket_begin(unsigned hash) {$/;"	f	class:llvm::FoldingSetImpl	typeref:typename:bucket_iterator
 bucket_end	src/include/llvm/ADT/FoldingSet.h	/^  bucket_iterator bucket_end(unsigned hash) {$/;"	f	class:llvm::FoldingSetImpl	typeref:typename:bucket_iterator
@@ -52067,6 +52149,7 @@ c0	src/include/llvm/BinaryFormat/MachO.h	/^      precis : 1, stkflt : 1, errsumm
 c1	src/include/llvm/BinaryFormat/MachO.h	/^      precis : 1, stkflt : 1, errsumm : 1, c0 : 1, c1 : 1, c2 : 1, tos : 3,$/;"	m	struct:llvm::MachO::fp_status_t	typeref:typename:unsigned short:1
 c2	src/include/llvm/BinaryFormat/MachO.h	/^      precis : 1, stkflt : 1, errsumm : 1, c0 : 1, c1 : 1, c2 : 1, tos : 3,$/;"	m	struct:llvm::MachO::fp_status_t	typeref:typename:unsigned short:1
 c3	src/include/llvm/BinaryFormat/MachO.h	/^      c3 : 1, busy : 1;$/;"	m	struct:llvm::MachO::fp_status_t	typeref:typename:unsigned short:1
+cConcatInt	src/strops.cpp	/^void cConcatInt(char* arr, char* outArr, int len, int x)$/;"	f	typeref:typename:void
 cString	src/include/llvm/ADT/Twine.h	/^      const char *cString;$/;"	m	union:llvm::Twine::Child	typeref:typename:const char *
 c_str	src/include/llvm/ADT/SmallString.h	/^  const char* c_str() {$/;"	f	class:llvm::SmallString	typeref:typename:const char *
 c_str	src/include/llvm/Support/Windows/WindowsSupport.h	/^c_str(SmallVectorImpl<T> &str) {$/;"	f	namespace:llvm	typeref:typename:SmallVectorImpl<T>::const_pointer
@@ -52504,6 +52587,7 @@ clampScalar	src/include/llvm/CodeGen/GlobalISel/LegalizerInfo.h	/^  LegalizeRule
 clampScalar	src/include/llvm/CodeGen/GlobalISel/LegalizerInfo.h	/^  LegalizeRuleSet &clampScalar(unsigned TypeIdx, const LLT MinTy,$/;"	f	class:llvm::LegalizeRuleSet	typeref:typename:LegalizeRuleSet &
 clampScalarOrElt	src/include/llvm/CodeGen/GlobalISel/LegalizerInfo.h	/^  LegalizeRuleSet &clampScalarOrElt(unsigned TypeIdx, const LLT MinTy,$/;"	f	class:llvm::LegalizeRuleSet	typeref:typename:LegalizeRuleSet &
 clampStateAndIndicateChange	src/include/llvm/Transforms/IPO/Attributor.h	/^ChangeStatus clampStateAndIndicateChange(StateType &S, const StateType &R) {$/;"	f	namespace:llvm	typeref:typename:ChangeStatus
+clampf	src/strops.cpp	/^float clampf(float x, float min, float max)$/;"	f	typeref:typename:float
 clang	src/include/llvm/ADT/RewriteBuffer.h	/^namespace clang {$/;"	n
 clang_ast	src/include/llvm/BinaryFormat/Magic.h	/^    clang_ast,         \/\/\/< Clang PCH or PCM$/;"	e	enum:llvm::file_magic::Impl
 classID	src/include/llvm/Support/Error.h	/^  static const void *classID() { return &ID; }$/;"	f	class:llvm::ErrorInfoBase	typeref:typename:const void *
@@ -53989,7 +54073,11 @@ collectFuncsFromModule	src/include/llvm/ProfileData/SampleProfReader.h	/^  virtu
 collectKernelLaunchBounds	src/include/llvm/Analysis/TargetTransformInfoImpl.h	/^  virtual void collectKernelLaunchBounds($/;"	f	class:llvm::TargetTransformInfoImplBase	typeref:typename:void
 collectLeaves	src/include/llvm/CodeGen/SDPatternMatch.h	/^  void collectLeaves(SDValue V, SmallVector<SDValue> &Leaves) {$/;"	f	struct:llvm::SDPatternMatch::ReassociatableOpc_match	typeref:typename:void
 colon	src/include/llvm/AsmParser/LLToken.h	/^  colon,   \/\/ :$/;"	e	enum:llvm::lltok::Kind
+color	src/console.h	/^		std::string color = "";$/;"	m	struct:console::colorstr	typeref:typename:std::string
+colorText	src/console.cpp	/^	std::string colorText(std::string name, std::string color)$/;"	f	namespace:console	typeref:typename:std::string
+colorText	src/console.cpp	/^	std::string colorText(std::string name, std::string fgColor, std::string bgColor)$/;"	f	namespace:console	typeref:typename:std::string
 colors_enabled	src/include/llvm/Support/raw_ostream.h	/^  bool colors_enabled() const { return ColorEnabled; }$/;"	f	class:llvm::raw_ostream	typeref:typename:bool
+colorstr	src/console.h	/^	struct colorstr {$/;"	s	namespace:console
 combine	src/include/llvm/ADT/Hashing.h	/^  hash_code combine(size_t length, char *buffer_ptr, char *buffer_end) {$/;"	f	struct:llvm::hashing::detail::hash_combine_recursive_helper	typeref:typename:hash_code
 combine	src/include/llvm/ADT/Hashing.h	/^  hash_code combine(size_t length, char *buffer_ptr, char *buffer_end,$/;"	f	struct:llvm::hashing::detail::hash_combine_recursive_helper	typeref:typename:hash_code
 combineHashValue	src/include/llvm/ADT/DenseMapInfo.h	/^inline unsigned combineHashValue(unsigned a, unsigned b) {$/;"	f	namespace:llvm::detail	typeref:typename:unsigned
@@ -54129,6 +54217,10 @@ conformance	src/include/llvm/Support/ARMBuildAttributes.h	/^  conformance = 67,$
 connect	src/include/llvm/ADT/DirectedGraph.h	/^  bool connect(NodeType &Src, NodeType &Dst, EdgeType &E) {$/;"	f	class:llvm::DirectedGraph	typeref:typename:bool
 connect	src/include/llvm/CodeGen/PBQP/Graph.h	/^      void connect(Graph &G, EdgeId ThisEdgeId) {$/;"	f	class:llvm::PBQP::Graph::EdgeEntry	typeref:typename:void
 connectToN	src/include/llvm/CodeGen/PBQP/Graph.h	/^      void connectToN(Graph &G, EdgeId ThisEdgeId, unsigned NIdx) {$/;"	f	class:llvm::PBQP::Graph::EdgeEntry	typeref:typename:void
+console	src/console.cpp	/^namespace console {$/;"	n	file:
+console	src/console.h	/^namespace console {$/;"	n
+consoleSupportsColor	src/console.cpp	/^	bool consoleSupportsColor()$/;"	f	namespace:console	typeref:typename:bool
+console_h	src/console.h	/^#define console_h$/;"	d
 const_alias_iterator	src/include/llvm/IR/Module.h	/^  using const_alias_iterator = AliasListType::const_iterator;$/;"	t	class:llvm::Module	typeref:typename:AliasListType::const_iterator
 const_arg_iterator	src/include/llvm/IR/Function.h	/^  using const_arg_iterator = const Argument *;$/;"	t	class:llvm::Function	typeref:typename:const Argument *
 const_arg_iterator	src/include/llvm/TableGen/Record.h	/^  using const_arg_iterator = SmallVectorImpl<const Init *>::const_iterator;$/;"	t	class:llvm::DagInit	typeref:typename:SmallVectorImpl<const Init * >::const_iterator
@@ -55000,6 +55092,7 @@ cst_pred_ty	src/include/llvm/IR/PatternMatch.h	/^using cst_pred_ty = cstval_pred
 cstfp_pred_ty	src/include/llvm/IR/PatternMatch.h	/^using cstfp_pred_ty = cstval_pred_ty<Predicate, ConstantFP,$/;"	t	namespace:llvm::PatternMatch	typeref:typename:cstval_pred_ty<Predicate,ConstantFP,true>
 cstr	src/include/llvm/DebugInfo/DWARF/DWARFFormValue.h	/^      const char *cstr;$/;"	m	union:llvm::DWARFFormValue::ValueType::__anonee9acb99010a	typeref:typename:const char *
 cstval_pred_ty	src/include/llvm/IR/PatternMatch.h	/^struct cstval_pred_ty : public Predicate {$/;"	s	namespace:llvm::PatternMatch
+csubstr	src/strops.cpp	/^void csubstr(char* arr, char* outArr, int begin, int len, int totalLen, int& actualSize)$/;"	f	typeref:typename:void
 ct	src/include/llvm/BinaryFormat/MachO.h	/^  uint32_t ct;$/;"	m	struct:llvm::MachO::ppc_thread_state32_t	typeref:typename:uint32_t
 ctr	src/include/llvm/BinaryFormat/MachO.h	/^  uint32_t ctr;$/;"	m	struct:llvm::MachO::ppc_thread_state32_t	typeref:typename:uint32_t
 ctx_profile	src/include/llvm/ProfileData/CtxInstrContextNode.h	/^namespace ctx_profile {$/;"	n	namespace:llvm
@@ -55033,6 +55126,8 @@ cutoffs	src/include/llvm/Transforms/Instrumentation/LowerAllowCheckPass.h	/^    
 cv	src/include/llvm/Support/BalancedPartitioning.h	/^    std::condition_variable cv;$/;"	m	struct:llvm::BalancedPartitioning::BPThreadPool	typeref:typename:std::condition_variable
 cv_error_code	src/include/llvm/DebugInfo/CodeView/CodeViewError.h	/^enum class cv_error_code {$/;"	g	namespace:llvm::codeview
 cwd	src/include/llvm/ProfileData/GCOV.h	/^  StringRef cwd;$/;"	m	class:llvm::GCOVFile	typeref:typename:StringRef
+cyanBGColor	src/console.h	/^	const std::string cyanBGColor = "\\x1B[46m";$/;"	v	namespace:console	typeref:typename:const std::string
+cyanFGColor	src/console.h	/^	const std::string cyanFGColor = "\\x1B[36m";$/;"	v	namespace:console	typeref:typename:const std::string
 cycleCount	src/include/llvm/ProfileData/GCOV.h	/^  uint64_t cycleCount = 0;$/;"	m	struct:llvm::GCOVArc	typeref:typename:uint64_t
 cycleEnd	src/include/llvm/MCA/HardwareUnits/RegisterFile.h	/^  void cycleEnd() { ++CurrentCycle; }$/;"	f	class:llvm::mca::RegisterFile	typeref:typename:void
 cycleEnd	src/include/llvm/MCA/Stages/Stage.h	/^  virtual Error cycleEnd() { return ErrorSuccess(); }$/;"	f	class:llvm::mca::Stage	typeref:typename:Error
@@ -55042,6 +55137,7 @@ cycleScheduled	src/include/llvm/CodeGen/MachinePipeliner.h	/^  unsigned cycleSch
 cycleStart	src/include/llvm/MCA/Stages/Stage.h	/^  virtual Error cycleStart() { return ErrorSuccess(); }$/;"	f	class:llvm::mca::Stage	typeref:typename:Error
 d	src/include/llvm/Object/SymbolicFile.h	/^  } d;$/;"	m	union:llvm::object::DataRefImpl	typeref:struct:llvm::object::DataRefImpl::__anon7cfe42d70108
 d	src/include/llvm/Support/MD5.h	/^    MD5_u32plus d = 0x10325476;$/;"	m	struct:llvm::MD5::__anon1acb7b610108	typeref:typename:MD5_u32plus
+d	src/strops.cpp	/^char d[30];	 \/\/ Buffer for the CharStrStartsWith() function check$/;"	v	typeref:typename:char[30]
 d_ptr	src/include/llvm/BinaryFormat/ELF.h	/^    Elf32_Addr d_ptr; \/\/ Pointer value of entry.$/;"	m	union:llvm::ELF::Elf32_Dyn::__anond1405423400a	typeref:typename:Elf32_Addr
 d_ptr	src/include/llvm/BinaryFormat/ELF.h	/^    Elf64_Addr d_ptr;  \/\/ Pointer value of entry.$/;"	m	union:llvm::ELF::Elf64_Dyn::__anond1405423410a	typeref:typename:Elf64_Addr
 d_ptr	src/include/llvm/Object/ELFTypes.h	/^    Elf_Addr d_ptr;$/;"	m	union:llvm::object::Elf_Dyn_Base::__anon249357e1010a	typeref:typename:Elf_Addr
@@ -57776,6 +57872,7 @@ generateCast	src/codegen.cpp	/^void* ASTNode::generateCast(int pass)$/;"	f	class
 generateCodeForModule	src/include/llvm/ExecutionEngine/ExecutionEngine.h	/^  virtual void generateCodeForModule(Module *M) {}$/;"	f	class:llvm::ExecutionEngine	typeref:typename:void
 generateCompactUnwindEncoding	src/include/llvm/MC/MCAsmBackend.h	/^  virtual uint64_t generateCompactUnwindEncoding(const MCDwarfFrameInfo *FI,$/;"	f	class:llvm::MCAsmBackend	typeref:typename:uint64_t
 generateConstant	src/codegen.cpp	/^void* ASTNode::generateConstant(int pass)$/;"	f	class:ASTNode	typeref:typename:void *
+generateExecutable	src/codegen.cpp	/^int generateExecutable(const std::string& objectFilePath, const std::string& exeFilePath)$/;"	f	typeref:typename:int
 generateExpression	src/codegen.cpp	/^void* ASTNode::generateExpression(int pass)$/;"	f	class:ASTNode	typeref:typename:void *
 generateExpressionStatement	src/codegen.cpp	/^void* ASTNode::generateExpressionStatement(int pass)$/;"	f	class:ASTNode	typeref:typename:void *
 generateFMAsInMachineCombiner	src/include/llvm/CodeGen/TargetLowering.h	/^  virtual bool generateFMAsInMachineCombiner(EVT VT,$/;"	f	class:llvm::TargetLoweringBase	typeref:typename:bool
@@ -66930,6 +67027,8 @@ goToEnd	src/include/llvm/ADT/IntervalMap.h	/^  void goToEnd() {$/;"	f	class:llvm
 goff_object	src/include/llvm/BinaryFormat/Magic.h	/^    goff_object,       \/\/\/< GOFF object file$/;"	e	enum:llvm::file_magic::Impl
 gpr_size	src/include/llvm/Object/ELFTypes.h	/^  uint8_t gpr_size;  \/\/ General purpose registers size$/;"	m	struct:llvm::object::Elf_Mips_ABIFlags	typeref:typename:uint8_t
 greater	src/include/llvm/AsmParser/LLToken.h	/^  greater, \/\/ <  >$/;"	e	enum:llvm::lltok::Kind
+greenBGColor	src/console.h	/^	const std::string greenBGColor = "\\x1B[42m";$/;"	v	namespace:console	typeref:typename:const std::string
+greenFGColor	src/console.h	/^	const std::string greenFGColor = "\\x1B[32m";$/;"	v	namespace:console	typeref:typename:const std::string
 group_all	src/include/llvm/Support/FileSystem.h	/^  group_all = group_read | group_write | group_exe,$/;"	e	enum:llvm::sys::fs::perms
 group_exe	src/include/llvm/Support/FileSystem.h	/^  group_exe = 010,$/;"	e	enum:llvm::sys::fs::perms
 group_read	src/include/llvm/Support/FileSystem.h	/^  group_read = 040,$/;"	e	enum:llvm::sys::fs::perms
@@ -75039,6 +75138,7 @@ logicalview	src/include/llvm/DebugInfo/LogicalView/Readers/LVBinaryReader.h	/^na
 logicalview	src/include/llvm/DebugInfo/LogicalView/Readers/LVCodeViewReader.h	/^namespace logicalview {$/;"	n	namespace:llvm
 logicalview	src/include/llvm/DebugInfo/LogicalView/Readers/LVCodeViewVisitor.h	/^namespace logicalview {$/;"	n	namespace:llvm
 logicalview	src/include/llvm/DebugInfo/LogicalView/Readers/LVDWARFReader.h	/^namespace logicalview {$/;"	n	namespace:llvm
+longDivision	src/strops.cpp	/^std::string longDivision(const std::string& number, uint32_t divisor)$/;"	f	typeref:typename:std::string
 longestCommonSequence	src/include/llvm/Transforms/Utils/LongestCommonSequence.h	/^void longestCommonSequence($/;"	f	namespace:llvm	typeref:typename:void
 look	src/include/llvm/Demangle/ItaniumDemangle.h	/^  char look(unsigned Lookahead = 0) const {$/;"	f	struct:AbstractManglingParser	typeref:typename:char
 lookThroughCopyInstrs	src/include/llvm/CodeGen/GlobalISel/LegalizationArtifactCombiner.h	/^  Register lookThroughCopyInstrs(Register Reg) {$/;"	f	class:llvm::LegalizationArtifactCombiner	typeref:typename:Register
@@ -75125,6 +75225,7 @@ lto	src/include/llvm/LTO/LTO.h	/^namespace lto {$/;"	n	namespace:llvm
 lto	src/include/llvm/LTO/LTOBackend.h	/^namespace lto {$/;"	n	namespace:llvm
 ltrim	src/include/llvm/ADT/StringRef.h	/^    [[nodiscard]] StringRef ltrim(StringRef Chars = " \\t\\n\\v\\f\\r") const {$/;"	f	class:llvm::StringRef	typeref:typename:StringRef
 ltrim	src/include/llvm/ADT/StringRef.h	/^    [[nodiscard]] StringRef ltrim(char Char) const {$/;"	f	class:llvm::StringRef	typeref:typename:StringRef
+ltrim	src/strops.cpp	/^void ltrim(std::string& s)$/;"	f	typeref:typename:void
 m	src/include/llvm/IR/InlineAsm.h	/^    m,$/;"	e	enum:llvm::InlineAsm::ConstraintCode
 m68k	src/include/llvm/TargetParser/Triple.h	/^    m68k,           \/\/ M68k: Motorola 680x0 family$/;"	e	enum:llvm::Triple::ArchType
 mAccQual	src/include/llvm/Support/AMDGPUMetadata.h	/^  AccessQualifier mAccQual = AccessQualifier::Unknown;$/;"	m	struct:llvm::AMDGPU::HSAMD::Kernel::Arg::Metadata	typeref:typename:AccessQualifier
@@ -75705,6 +75806,8 @@ macho_load_command	src/include/llvm/BinaryFormat/MachO.h	/^union alignas(4) mach
 macho_object	src/include/llvm/BinaryFormat/Magic.h	/^    macho_object,      \/\/\/< Mach-O Object file$/;"	e	enum:llvm::file_magic::Impl
 macho_preload_executable	src/include/llvm/BinaryFormat/Magic.h	/^    macho_preload_executable,                 \/\/\/< Mach-O Preloaded Executable$/;"	e	enum:llvm::file_magic::Impl
 macho_universal_binary	src/include/llvm/BinaryFormat/Magic.h	/^    macho_universal_binary,                   \/\/\/< Mach-O universal binary$/;"	e	enum:llvm::file_magic::Impl
+magentaBGColor	src/console.h	/^	const std::string magentaBGColor = "\\x1B[45m";$/;"	v	namespace:console	typeref:typename:const std::string
+magentaFGColor	src/console.h	/^	const std::string magentaFGColor = "\\x1B[35m";$/;"	v	namespace:console	typeref:typename:const std::string
 magic	src/include/llvm/BinaryFormat/MachO.h	/^  uint32_t magic;         \/* magic number (CSMAGIC_CODEDIRECTORY) *\/$/;"	m	struct:llvm::MachO::CS_CodeDirectory	typeref:typename:uint32_t
 magic	src/include/llvm/BinaryFormat/MachO.h	/^  uint32_t magic;  \/* magic number *\/$/;"	m	struct:llvm::MachO::CS_SuperBlob	typeref:typename:uint32_t
 magic	src/include/llvm/BinaryFormat/MachO.h	/^  uint32_t magic;$/;"	m	struct:llvm::MachO::fat_header	typeref:typename:uint32_t
@@ -76530,6 +76633,7 @@ multipleAlternatives	src/include/llvm/IR/InlineAsm.h	/^    SubConstraintInfoVect
 multiply	src/include/llvm/ADT/APFloat.h	/^  opStatus multiply(const APFloat &RHS, roundingMode RM) {$/;"	f	class:llvm::APFloat	typeref:typename:opStatus
 multiplyCoefficientBy	src/include/llvm/Support/TypeSize.h	/^  constexpr LeafTy multiplyCoefficientBy(ScalarTy RHS) const {$/;"	f	class:llvm::details::FixedOrScalableQuantity	typeref:typename:LeafTy
 multiplyElements	src/include/llvm/CodeGenTypes/LowLevelType.h	/^  constexpr LLT multiplyElements(int Factor) const {$/;"	f	class:llvm::LLT	typeref:typename:LLT
+multiplyHexByInteger	src/strops.cpp	/^std::string multiplyHexByInteger(const std::string& hexNumber, int multiplier)$/;"	f	typeref:typename:std::string
 mustProgress	src/include/llvm/IR/Function.h	/^  bool mustProgress() const {$/;"	f	class:llvm::Function	typeref:typename:bool
 mustQuote	src/include/llvm/CodeGen/MIRYamlMapping.h	/^  static QuotingType mustQuote(StringRef S) { return needsQuotes(S); }$/;"	f	struct:llvm::yaml::ScalarTraits	typeref:typename:QuotingType
 mustQuote	src/include/llvm/CodeGen/MIRYamlMapping.h	/^  static QuotingType mustQuote(StringRef Scalar) {$/;"	f	struct:llvm::yaml::ScalarTraits	typeref:typename:QuotingType
@@ -80169,6 +80273,7 @@ outputCode	src/output_builder.cpp	/^std::vector<std::string> outputCode = std::v
 outputColumn	src/include/llvm/Analysis/ReplayInlineAdvisor.h	/^  bool outputColumn() const {$/;"	f	struct:llvm::CallSiteFormat	typeref:typename:bool
 outputDiscriminator	src/include/llvm/Analysis/ReplayInlineAdvisor.h	/^  bool outputDiscriminator() const {$/;"	f	struct:llvm::CallSiteFormat	typeref:typename:bool
 outputFilename	src/include/llvm/Support/ToolOutputFile.h	/^  const std::string &outputFilename() { return Installer.Filename; }$/;"	f	class:llvm::ToolOutputFile	typeref:typename:const std::string &
+outputObjectFile	src/codegen.cpp	/^int outputObjectFile()$/;"	f	typeref:typename:int
 outputPost	src/include/llvm/Demangle/MicrosoftDemangleNodes.h	/^  void outputPost(OutputBuffer &OB, OutputFlags Flags) const override {}$/;"	f	struct:llvm::ms_demangle::PrimitiveTypeNode	typeref:typename:void
 outputStream	src/include/llvm/DebugInfo/LogicalView/Core/LVReader.h	/^  raw_ostream &outputStream() { return OS; }$/;"	f	class:llvm::logicalview::LVReader	typeref:typename:raw_ostream &
 outputsAreZero	src/include/llvm/ADT/FloatingPointMode.h	/^  constexpr bool outputsAreZero() const {$/;"	f	struct:llvm::DenormalMode	typeref:typename:bool
@@ -80960,7 +81065,6 @@ printEdgeWeight	src/include/llvm/Transforms/Utils/SampleProfileLoaderBaseImpl.h	
 printEntries	src/include/llvm/ADT/GenericCycleInfo.h	/^  Printable printEntries(const ContextT &Ctx) const {$/;"	f	class:llvm::GenericCycle	typeref:typename:Printable
 printEntriesAsURI	src/include/llvm/Object/OffloadBundle.h	/^  void printEntriesAsURI() {$/;"	f	class:llvm::object::OffloadBundleFatBin	typeref:typename:void
 printEnum	src/include/llvm/Support/ScopedPrinter.h	/^  void printEnum(StringRef Label, T Value,$/;"	f	class:llvm::ScopedPrinter	typeref:typename:void
-printError	src/console.cpp	/^void printError(std::string s, int lineNumber, std::string fileName)$/;"	f	typeref:typename:void
 printExtra	src/include/llvm/DebugInfo/LogicalView/Core/LVLine.h	/^  void printExtra(raw_ostream &OS, bool Full = true) const override {}$/;"	f	class:llvm::logicalview::LVLine	typeref:typename:void
 printExtra	src/include/llvm/DebugInfo/LogicalView/Core/LVObject.h	/^  virtual void printExtra(raw_ostream &OS, bool Full = true) const {}$/;"	f	class:llvm::logicalview::LVObject	typeref:typename:void
 printExtra	src/include/llvm/DebugInfo/LogicalView/Core/LVRange.h	/^  void printExtra(raw_ostream &OS, bool Full = true) const override {}$/;"	f	class:llvm::logicalview::LVRange	typeref:typename:void
@@ -81217,6 +81321,7 @@ printSymbolOffset	src/include/llvm/Support/ScopedPrinter.h	/^  void printSymbolO
 printSymbolOffsetImpl	src/include/llvm/Support/ScopedPrinter.h	/^  virtual void printSymbolOffsetImpl(StringRef Label, StringRef Symbol,$/;"	f	class:llvm::ScopedPrinter	typeref:typename:void
 printSymbolOffsetImpl	src/include/llvm/Support/ScopedPrinter.h	/^  void printSymbolOffsetImpl(StringRef Label, StringRef Symbol,$/;"	f	class:llvm::JSONScopedPrinter	typeref:typename:void
 printTokenError	src/parser.cpp	/^void printTokenError(tokenPair& token, std::string errorString, int sourceLineNumber, const char/;"	f	typeref:typename:void
+printTokenWarning	src/parser.cpp	/^void printTokenWarning(tokenPair& token, std::string errorString, int sourceLineNumber, const ch/;"	f	typeref:typename:void
 printTree	src/include/llvm/ADT/IntervalTree.h	/^  void printTree(raw_ostream &OS, unsigned Level, IntervalNode *Node,$/;"	f	class:llvm::IntervalTree	typeref:typename:void
 printVersion	src/include/llvm/Support/ScopedPrinter.h	/^  template <typename... T> void printVersion(StringRef Label, T... Version) {$/;"	f	class:llvm::ScopedPrinter	typeref:typename:void
 printVersionInternal	src/include/llvm/Support/ScopedPrinter.h	/^  template <typename T> void printVersionInternal(T Value) {$/;"	f	class:llvm::ScopedPrinter	typeref:typename:void
@@ -81649,6 +81754,8 @@ recoverResources	src/include/llvm/Support/CrashRecoveryContext.h	/^  void recove
 recursive_directory_iterator	src/include/llvm/Support/FileSystem.h	/^  explicit recursive_directory_iterator(const Twine &path, std::error_code &ec,$/;"	f	class:llvm::sys::fs::recursive_directory_iterator
 recursive_directory_iterator	src/include/llvm/Support/FileSystem.h	/^class recursive_directory_iterator {$/;"	c	namespace:llvm::sys::fs
 recursive_directory_iterator	src/include/llvm/Support/VirtualFileSystem.h	/^class recursive_directory_iterator {$/;"	c	namespace:llvm::vfs
+redBGColor	src/console.h	/^	const std::string redBGColor = "\\x1B[41m";$/;"	v	namespace:console	typeref:typename:const std::string
+redFGColor	src/console.h	/^	const std::string redFGColor = "\\x1B[31m";$/;"	v	namespace:console	typeref:typename:const std::string
 redefineIfPossible	src/include/llvm/MC/MCSymbol.h	/^  void redefineIfPossible() {$/;"	f	class:llvm::MCSymbol	typeref:typename:void
 redirect	src/include/llvm/ExecutionEngine/Orc/RedirectionManager.h	/^  Error redirect(JITDylib &JD, SymbolStringPtr Symbol,$/;"	f	class:llvm::orc::RedirectionManager	typeref:typename:Error
 reduce	src/include/llvm/CodeGen/RegAllocPBQP.h	/^  std::vector<GraphBase::NodeId> reduce() {$/;"	f	class:llvm::PBQP::RegAlloc::RegAllocSolverImpl	typeref:typename:std::vector<GraphBase::NodeId>
@@ -82350,6 +82457,7 @@ resetAlloc	src/include/llvm/ADT/AllocatorList.h	/^  void resetAlloc() {$/;"	f	cl
 resetCFIToInitialState	src/include/llvm/CodeGen/TargetFrameLowering.h	/^  virtual void resetCFIToInitialState(MachineBasicBlock &MBB) const {}$/;"	f	class:llvm::TargetFrameLowering	typeref:typename:void
 resetCache	src/include/llvm/ADT/CoalescingBitVector.h	/^    void resetCache() {$/;"	f	class:llvm::CoalescingBitVector::const_iterator	typeref:typename:void
 resetCheckedFlag	src/include/llvm/ADT/fallible_iterator.h	/^  void resetCheckedFlag() {$/;"	f	class:llvm::fallible_iterator	typeref:typename:void
+resetColor	src/console.h	/^	const std::string resetColor = "\\033[0m";$/;"	v	namespace:console	typeref:typename:const std::string
 resetColor	src/include/llvm/Support/FormattedStream.h	/^  raw_ostream &resetColor() override {$/;"	f	class:llvm::formatted_raw_ostream	typeref:typename:raw_ostream &
 resetDebugValue	src/include/llvm/IR/Metadata.h	/^  void resetDebugValue(size_t Idx, Metadata *DebugValue) {$/;"	f	class:llvm::DebugValueUser	typeref:typename:void
 resetDebugValues	src/include/llvm/IR/Metadata.h	/^  void resetDebugValues() {$/;"	f	class:llvm::DebugValueUser	typeref:typename:void
@@ -82571,6 +82679,8 @@ rootsig	src/include/llvm/Frontend/HLSL/RootSignatureValidations.h	/^namespace ro
 rotate	src/include/llvm/ADT/Hashing.h	/^inline uint64_t rotate(uint64_t val, size_t shift) {$/;"	f	namespace:llvm::hashing::detail	typeref:typename:uint64_t
 rotl	src/include/llvm/ADT/bit.h	/^[[nodiscard]] constexpr T rotl(T V, int R) {$/;"	f	namespace:llvm	typeref:typename:T
 rotr	src/include/llvm/ADT/bit.h	/^template <typename T, typename> [[nodiscard]] constexpr T rotr(T V, int R) {$/;"	f	namespace:llvm	typeref:typename:T
+round	src/strops.cpp	/^double round(float value, int decimal_places)$/;"	f	typeref:typename:double
+roundFloat	src/strops.cpp	/^inline static const std::string roundFloat(const double input, const int decimal_places)$/;"	f	typeref:typename:const std::string	file:
 roundToDouble	src/include/llvm/ADT/APInt.h	/^  double roundToDouble() const { return roundToDouble(false); }$/;"	f	class:llvm::APInt	typeref:typename:double
 roundToIntegral	src/include/llvm/ADT/APFloat.h	/^  opStatus roundToIntegral(roundingMode RM) {$/;"	f	class:llvm::APFloat	typeref:typename:opStatus
 roundingMode	src/include/llvm/ADT/APFloat.h	/^  using roundingMode = llvm::RoundingMode;$/;"	t	struct:llvm::APFloatBase	typeref:typename:llvm::RoundingMode
@@ -82596,6 +82706,7 @@ rt_bootstrap	src/include/llvm/ExecutionEngine/Orc/TargetProcess/SimpleExecutorDy
 rt_bootstrap	src/include/llvm/ExecutionEngine/Orc/TargetProcess/SimpleExecutorMemoryManager.h	/^namespace rt_bootstrap {$/;"	n	namespace:llvm::orc
 rtrim	src/include/llvm/ADT/StringRef.h	/^    [[nodiscard]] StringRef rtrim(StringRef Chars = " \\t\\n\\v\\f\\r") const {$/;"	f	class:llvm::StringRef	typeref:typename:StringRef
 rtrim	src/include/llvm/ADT/StringRef.h	/^    [[nodiscard]] StringRef rtrim(char Char) const {$/;"	f	class:llvm::StringRef	typeref:typename:StringRef
+rtrim	src/strops.cpp	/^void rtrim(std::string& s)$/;"	f	typeref:typename:void
 run	src/include/llvm/ADT/GenericCycleImpl.h	/^void GenericCycleInfoCompute<ContextT>::run(BlockT *EntryBlock) {$/;"	f	class:llvm::GenericCycleInfoCompute	typeref:typename:void
 run	src/include/llvm/Analysis/CGSCCPassManager.h	/^  PreservedAnalyses run(LazyCallGraph::SCC &C, CGSCCAnalysisManager &AM,$/;"	f	struct:llvm::RequireAnalysisPass	typeref:typename:PreservedAnalyses
 run	src/include/llvm/Analysis/CGSCCPassManager.h	/^  Result run(Function &F, FunctionAnalysisManager &FAM) { return Result(); }$/;"	f	class:llvm::ShouldNotRunFunctionPassesAnalysis	typeref:typename:Result
@@ -82680,19 +82791,20 @@ runWithSPSRetErrorMerged	src/include/llvm/ExecutionEngine/Orc/Shared/WrapperFunc
 runtime_check	src/include/llvm/Transforms/Instrumentation/LowerAllowCheckPass.h	/^    unsigned int runtime_check = 0;$/;"	m	struct:llvm::LowerAllowCheckPass::Options	typeref:typename:unsigned int
 s:l	src/Session.vim	/^let s:l = 1 - ((0 * winheight(0) + 26) \/ 53)$/;"	v
 s:l	src/Session.vim	/^let s:l = 10026 - ((25 * winheight(0) + 13) \/ 26)$/;"	v
-s:l	src/Session.vim	/^let s:l = 151 - ((12 * winheight(0) + 13) \/ 26)$/;"	v
 s:l	src/Session.vim	/^let s:l = 16 - ((15 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 166 - ((14 * winheight(0) + 26) \/ 53)$/;"	v
 s:l	src/Session.vim	/^let s:l = 173 - ((40 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 177 - ((42 * winheight(0) + 26) \/ 53)$/;"	v
 s:l	src/Session.vim	/^let s:l = 20 - ((19 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 279 - ((42 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 249 - ((42 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 255 - ((49 * winheight(0) + 26) \/ 53)$/;"	v
 s:l	src/Session.vim	/^let s:l = 280 - ((40 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 36 - ((35 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 403 - ((10 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 58 - ((13 * winheight(0) + 13) \/ 26)$/;"	v
-s:l	src/Session.vim	/^let s:l = 75 - ((12 * winheight(0) + 13) \/ 26)$/;"	v
-s:l	src/Session.vim	/^let s:l = 8 - ((7 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 3 - ((2 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 36 - ((12 * winheight(0) + 13) \/ 26)$/;"	v
+s:l	src/Session.vim	/^let s:l = 37 - ((36 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 456 - ((28 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 67 - ((43 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 793 - ((26 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 9 - ((8 * winheight(0) + 13) \/ 26)$/;"	v
+s:l	src/Session.vim	/^let s:l = 92 - ((14 * winheight(0) + 13) \/ 26)$/;"	v
 s:save_splitbelow	src/Session.vim	/^let s:save_splitbelow = &splitbelow$/;"	v
 s:save_splitright	src/Session.vim	/^let s:save_splitright = &splitright$/;"	v
 s:save_winminheight	src/Session.vim	/^let s:save_winminheight = &winminheight$/;"	v
@@ -85432,6 +85544,7 @@ strictConversion	src/include/llvm/Support/ConvertUTF.h	/^  strictConversion = 0,
 string	src/include/llvm/CGData/CodeGenDataWriter.h	/^    string,$/;"	e	enum:llvm::CGDataOStream::OStreamKind
 string	src/include/llvm/Demangle/ItaniumDemangle.h	/^  string,$/;"	e	enum:SpecialSubKind
 stringRef	src/include/llvm/ProfileData/FunctionId.h	/^  StringRef stringRef() const {$/;"	f	class:llvm::sampleprof::FunctionId	typeref:typename:StringRef
+stringToHex	src/strops.cpp	/^void stringToHex(char* input, char* output, int len)$/;"	f	typeref:typename:void
 string_iterator	src/include/llvm/Object/OffloadBinary.h	/^  using string_iterator = MapVector<StringRef, StringRef>::const_iterator;$/;"	t	class:llvm::object::OffloadBinary	typeref:typename:MapVector<StringRef,StringRef>::const_iterator
 string_iterator_range	src/include/llvm/Object/OffloadBinary.h	/^  using string_iterator_range = iterator_range<string_iterator>;$/;"	t	class:llvm::object::OffloadBinary	typeref:typename:iterator_range<string_iterator>
 string_table_non_null_end	src/include/llvm/Object/Error.h	/^  string_table_non_null_end,$/;"	e	enum:llvm::object::object_error
@@ -85452,6 +85565,7 @@ stripPointerCastsForAliasAnalysis	src/include/llvm/IR/Value.h	/^  Value *stripPo
 stripPointerCastsSameRepresentation	src/include/llvm/IR/Value.h	/^  Value *stripPointerCastsSameRepresentation() {$/;"	f	class:llvm::Value	typeref:typename:Value *
 strnlen	src/include/llvm/Support/SystemZ/zOSSupport.h	/^inline std::size_t strnlen(const char *S, std::size_t MaxLen) {$/;"	f	typeref:typename:std::size_t
 stroff	src/include/llvm/BinaryFormat/MachO.h	/^  uint32_t stroff;$/;"	m	struct:llvm::MachO::symtab_command	typeref:typename:uint32_t
+strops_h	src/strops.h	/^#define strops_h$/;"	d
 strsignal	src/include/llvm/Support/SystemZ/zOSSupport.h	/^inline char *strsignal(int sig) {$/;"	f	typeref:typename:char *
 strsize	src/include/llvm/BinaryFormat/MachO.h	/^  uint32_t strsize;$/;"	m	struct:llvm::MachO::symtab_command	typeref:typename:uint32_t
 sub	src/include/llvm/Support/CommandLine.h	/^  sub(SubCommand &S) : Sub(&S) {}$/;"	f	struct:llvm::cl::sub
@@ -85460,6 +85574,7 @@ sub	src/include/llvm/Support/CommandLine.h	/^struct sub {$/;"	s	namespace:llvm::
 sub	src/include/llvm/Support/KnownBits.h	/^  static KnownBits sub(const KnownBits &LHS, const KnownBits &RHS,$/;"	f	struct:llvm::KnownBits	typeref:typename:KnownBits
 subContexts	src/include/llvm/ProfileData/CtxInstrContextNode.h	/^  ContextNode **subContexts() {$/;"	f	class:llvm::ctx_profile::ContextNode	typeref:typename:ContextNode **
 subContexts	src/include/llvm/ProfileData/CtxInstrContextNode.h	/^  ContextNode *const *subContexts() const {$/;"	f	class:llvm::ctx_profile::ContextNode	typeref:typename:ContextNode * const *
+subOneFromHex	src/strops.cpp	/^void subOneFromHex(std::string& hexNumber, int index)$/;"	f	typeref:typename:void
 subRegLivenessEnabled	src/include/llvm/CodeGen/MachineRegisterInfo.h	/^  bool subRegLivenessEnabled() const {$/;"	f	class:llvm::MachineRegisterInfo	typeref:typename:bool
 subTokenTypes	src/tokenizer.cpp	/^std::map<const std::string, const TokenType> subTokenTypes = {$/;"	v	typeref:typename:std::map<const std::string,const TokenType>
 sub_and_superregs_inclusive	src/include/llvm/MC/MCRegisterInfo.h	/^MCRegisterInfo::sub_and_superregs_inclusive(MCRegister Reg) const {$/;"	f	class:llvm::MCRegisterInfo	typeref:typename:detail::concat_range<const MCPhysReg,iterator_range<MCSubRegIterator>,iterator_range<MCSuperRegIterator>>
@@ -86038,6 +86153,7 @@ toFILETIME	src/include/llvm/Support/Windows/WindowsSupport.h	/^inline FILETIME t
 toHex	src/include/llvm/ADT/StringExtras.h	/^inline std::string toHex(ArrayRef<uint8_t> Input, bool LowerCase = false) {$/;"	f	namespace:llvm	typeref:typename:std::string
 toHex	src/include/llvm/ADT/StringExtras.h	/^inline std::string toHex(StringRef Input, bool LowerCase = false) {$/;"	f	namespace:llvm	typeref:typename:std::string
 toHex	src/include/llvm/ADT/StringExtras.h	/^inline void toHex(ArrayRef<uint8_t> Input, bool LowerCase,$/;"	f	namespace:llvm	typeref:typename:void
+toHexChar	src/strops.cpp	/^char toHexChar(int value)$/;"	f	typeref:typename:char
 toIRString	src/include/llvm/Support/AtomicOrdering.h	/^inline const char *toIRString(AtomicOrdering ao) {$/;"	f	namespace:llvm	typeref:typename:const char *
 toIdx	src/include/llvm/CodeGen/RDFRegisters.h	/^  static constexpr unsigned toIdx(RegisterId Id) {$/;"	f	struct:llvm::rdf::RegisterRef	typeref:typename:unsigned
 toIndex_	src/include/llvm/ADT/IndexedMap.h	/^    ToIndexT toIndex_;$/;"	m	class:llvm::IndexedMap	typeref:typename:ToIndexT
@@ -86263,6 +86379,7 @@ trivial_helper	src/include/llvm/Support/type_traits.h	/^union trivial_helper {$/
 trunc	src/include/llvm/ADT/APSInt.h	/^  APSInt trunc(uint32_t width) const {$/;"	f	class:llvm::APSInt	typeref:typename:APSInt
 trunc	src/include/llvm/Support/KnownBits.h	/^  KnownBits trunc(unsigned BitWidth) const {$/;"	f	struct:llvm::KnownBits	typeref:typename:KnownBits
 truncate	src/include/llvm/ADT/SmallVector.h	/^  void truncate(size_type N) {$/;"	f	class:llvm::SmallVectorImpl	typeref:typename:void
+truncateMetricNum	src/strops.cpp	/^std::string truncateMetricNum(double x)$/;"	f	typeref:typename:std::string
 truncated	src/include/llvm/ProfileData/Coverage/CoverageMapping.h	/^  truncated,$/;"	e	enum:llvm::coverage::coveragemap_error
 truncated	src/include/llvm/ProfileData/InstrProf.h	/^  truncated,$/;"	e	enum:llvm::instrprof_error
 truncated	src/include/llvm/ProfileData/SampleProf.h	/^  truncated,$/;"	e	enum:llvm::sampleprof_error
@@ -86681,6 +86798,7 @@ useCodeAlign	src/include/llvm/MC/MCSectionDXContainer.h	/^  bool useCodeAlign() 
 useCodeAlign	src/include/llvm/MC/MCSectionGOFF.h	/^  bool useCodeAlign() const override { return false; }$/;"	f	class:llvm::MCSectionGOFF	typeref:typename:bool
 useCodeAlign	src/include/llvm/MC/MCSectionSPIRV.h	/^  bool useCodeAlign() const override { return false; }$/;"	f	class:llvm::MCSectionSPIRV	typeref:typename:bool
 useColdCCForColdCall	src/include/llvm/Analysis/TargetTransformInfoImpl.h	/^  virtual bool useColdCCForColdCall(Function &F) const { return false; }$/;"	f	class:llvm::TargetTransformInfoImplBase	typeref:typename:bool
+useColor	src/console.cpp	/^	bool useColor = true;$/;"	v	namespace:console	typeref:typename:bool
 useCount	src/include/llvm/ADT/IntrusiveRefCntPtr.h	/^  static unsigned useCount(const T *obj) { return obj->UseCount(); }$/;"	f	struct:llvm::IntrusiveRefCntPtrInfo	typeref:typename:unsigned
 useCount	src/include/llvm/ADT/IntrusiveRefCntPtr.h	/^  unsigned useCount() const {$/;"	f	class:llvm::IntrusiveRefCntPtr	typeref:typename:unsigned
 useDFAforSMS	src/include/llvm/CodeGen/TargetSubtargetInfo.h	/^  virtual bool useDFAforSMS() const { return true; }$/;"	f	class:llvm::TargetSubtargetInfo	typeref:typename:bool
@@ -86929,6 +87047,7 @@ validate_format_parameters	src/include/llvm/Support/Format.h	/^template <> struc
 validatedMappingTraits	src/include/llvm/Support/YAMLTraits.h	/^struct validatedMappingTraits$/;"	s	namespace:llvm::yaml
 valno	src/include/llvm/CodeGen/LiveInterval.h	/^      VNInfo *valno = nullptr; \/\/ identifier for the value contained in this$/;"	m	struct:llvm::LiveRange::Segment	typeref:typename:VNInfo *
 valnos	src/include/llvm/CodeGen/LiveInterval.h	/^    VNInfoList valnos;   \/\/ value#'s$/;"	m	class:llvm::LiveRange	typeref:typename:VNInfoList
+value	src/console.h	/^		std::string value = "";$/;"	m	struct:console::colorstr	typeref:typename:std::string
 value	src/include/llvm/ADT/BitmaskEnum.h	/^  static constexpr UnderlyingTy value =$/;"	m	struct:llvm::largest_bitmask_enum_bit	typeref:typename:UnderlyingTy
 value	src/include/llvm/ADT/GenericUniformityImpl.h	/^    ConstValueRefT value;$/;"	m	struct:llvm::GenericUniformityAnalysisImpl::PhiInput	typeref:typename:ConstValueRefT
 value	src/include/llvm/ADT/Hashing.h	/^  size_t value;$/;"	m	class:llvm::hash_code	typeref:typename:size_t
@@ -87548,6 +87667,8 @@ weak_import	src/include/llvm/BinaryFormat/MachO.h	/^  uint64_t weak_import : 1;$
 weight	src/include/llvm/CodeGen/LiveInterval.h	/^    float weight() const { return Weight; }$/;"	f	class:llvm::LiveInterval	typeref:typename:float
 whichBit	src/include/llvm/ADT/APInt.h	/^  static unsigned whichBit(unsigned bitPosition) {$/;"	f	class:llvm::APInt	typeref:typename:unsigned
 whichWord	src/include/llvm/ADT/APInt.h	/^  static unsigned whichWord(unsigned bitPosition) {$/;"	f	class:llvm::APInt	typeref:typename:unsigned
+whiteBGColor	src/console.h	/^	const std::string whiteBGColor = "\\x1B[47m";$/;"	v	namespace:console	typeref:typename:const std::string
+whiteFGColor	src/console.h	/^	const std::string whiteFGColor = "\\x1B[37m";$/;"	v	namespace:console	typeref:typename:const std::string
 wholeprogramdevirt	src/include/llvm/Transforms/IPO/WholeProgramDevirt.h	/^namespace wholeprogramdevirt {$/;"	n	namespace:llvm
 widenIntegerVectorElementType	src/include/llvm/CodeGen/ValueTypes.h	/^    EVT widenIntegerVectorElementType(LLVMContext &Context) const {$/;"	f	struct:llvm::EVT	typeref:typename:EVT
 widenScalarIf	src/include/llvm/CodeGen/GlobalISel/LegalizerInfo.h	/^  LegalizeRuleSet &widenScalarIf(LegalityPredicate Predicate,$/;"	f	class:llvm::LegalizeRuleSet	typeref:typename:LegalizeRuleSet &
@@ -87814,6 +87935,8 @@ yamlize	src/include/llvm/Support/YAMLTraits.h	/^yamlize(IO &io, T &Val, bool, Em
 yamlize	src/include/llvm/Support/YAMLTraits.h	/^yamlize(IO &io, T &Val, bool, EmptyContext &Ctx) {$/;"	f	namespace:llvm::yaml	typeref:typename:std::enable_if_t<has_TaggedScalarTraits<T>::value,void>
 yamlize	src/include/llvm/Support/YAMLTraits.h	/^yamlize(IO &io, T &Val, bool, EmptyContext &Ctx) {$/;"	f	namespace:llvm::yaml	typeref:typename:std::enable_if_t<missingTraits<T,EmptyContext>::value,void>
 yamlizeMappingEnumInput	src/include/llvm/Support/YAMLTraits.h	/^bool yamlizeMappingEnumInput(IO &io, T &Val) {$/;"	f	namespace:llvm::yaml	typeref:typename:bool
+yellowBGColor	src/console.h	/^	const std::string yellowBGColor = "\\x1B[43m";$/;"	v	namespace:console	typeref:typename:const std::string
+yellowFGColor	src/console.h	/^	const std::string yellowFGColor = "\\x1B[33m";$/;"	v	namespace:console	typeref:typename:const std::string
 zap	src/include/llvm/Transforms/Utils/InstructionWorklist.h	/^  void zap() {$/;"	f	class:llvm::InstructionWorklist	typeref:typename:void
 zdiv	src/include/llvm/BinaryFormat/MachO.h	/^  unsigned short invalid : 1, denorm : 1, zdiv : 1, ovrfl : 1, undfl : 1,$/;"	m	struct:llvm::MachO::fp_control_t	typeref:typename:unsigned short:1
 zdiv	src/include/llvm/BinaryFormat/MachO.h	/^  unsigned short invalid : 1, denorm : 1, zdiv : 1, ovrfl : 1, undfl : 1,$/;"	m	struct:llvm::MachO::fp_status_t	typeref:typename:unsigned short:1

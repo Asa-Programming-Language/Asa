@@ -251,26 +251,32 @@ void runTests()
 {
 	printf("Running tests...\n");
 
+	// Set verbosity to 0 temporarily
+	int lastVerbosity = verbosity;
+	verbosity = 0;
+
 	for (int i = 0; i < tests.size(); i++) {
 		try {
+			console::Write(PadStringRight("Test " + std::to_string(i + 1), '.', 60));
+
 			Test& t = tests[i];
 			std::vector<tokenPair> localTokens = std::vector<tokenPair>();
 
 			// Begin tokenizing file
 			int e = tokenize(t.code, localTokens);
 			if (e != 0) {
-				printError("Invalid tokens met", __LINE__, __FILE__);
+				console::PrintError("Invalid tokens met", __LINE__, __FILE__);
 				goto testFailed;
 			}
 			// Now change any tokens to their subtoken type if applicable
 			e = labelSubTokens(localTokens);
 			if (e != 0) {
-				printError("Invalid tokens met", __LINE__, __FILE__);
+				console::PrintError("Invalid tokens met", __LINE__, __FILE__);
 				goto testFailed;
 			}
 			e = joinCommentTokens(localTokens);
 			if (e != 0) {
-				printError("Invalid tokens met", __LINE__, __FILE__);
+				console::PrintError("Invalid tokens met", __LINE__, __FILE__);
 				goto testFailed;
 			}
 			e = removeCommentTokens(localTokens);
@@ -330,17 +336,24 @@ void runTests()
 		catch (...) {
 			goto fail;
 		}
+		console::WriteLine("ok", console::greenFGColor);
 		continue;
 	fail:
-		printError("Test [" + std::to_string(i) + "] failed", __LINE__, __FILE__);
+		console::WriteLine("failed", console::redFGColor);
+		console::PrintError("Test [" + std::to_string(i) + "] failed", __LINE__, __FILE__);
 		goto testFailed;
 	}
 
-	printf("All tests passed ✔  \n");
+	verbosity = lastVerbosity;
+
+	console::WriteLine("All tests passed ✔  \n", console::greenFGColor);
 	return;
 
 testFailed:
-	printError("A test failed ❌ \n\n");
+	verbosity = lastVerbosity;
+
+	console::PrintError("");
+	console::WriteLine("A test failed ❌ \n", console::redFGColor);
 	//throw;
 }
 #endif

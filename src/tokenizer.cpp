@@ -277,8 +277,10 @@ int joinCommentTokens(std::vector<tokenPair>& tokens)
 			//tokens.erase(tokens.begin() + i);
 			// If end of comment, combine all parts into single token and delete others
 			if (multiLineComment) {
-				if (t.first.substr(0, 2) == "*/")
+				if (t.first.substr(0, 2) == "*/") {
+					i++;
 					goto endComment;
+				}
 			}
 			else if (t.second == EndOfLine)
 				goto endComment;
