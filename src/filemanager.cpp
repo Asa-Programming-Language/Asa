@@ -4,6 +4,7 @@ std::string initialFileString;
 std::string executableDirectory;
 std::string projectDirectory;
 std::string baseFileName;
+std::string outputFileName = "";
 
 int loadFile(const std::string& fileName, std::string& outStr)
 {

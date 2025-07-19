@@ -15,7 +15,24 @@ Or individual components:
 #import "Rendering/Window";
 */
 
-//TEST_MACRO :: {printl("Macro works!")};
+//string :: struct {
+//	int c;
+//}
+
+or :: bool(bool a, bool b) #inline {
+//unary|| :: bool(bool a, bool b) #inline {
+	if(a){
+		return true;
+	}
+	else if(b){
+		return true;
+	}
+	else{
+		return false;
+	}
+}
+
+TEST_MACRO :: {printl("Macro works!")};
 //
 //customObject :: struct{
 //	int a = 5;
@@ -29,11 +46,33 @@ cast:: int(float x) #inline {
 	return #cast int x;
 }
 
+printint:: (int n) {
+	putchar(48+n);
+}
+
+#extern printf::(...);
+#extern putchar::(int c);
 
 main :: (){
 	//printf("Hello World!");
 	i = 2+2;
+
+	if(or(1, 0)){
+		putchar(72);
+	}
+	if(or(1, 1)){
+		putchar(73);
+	}
+	if(or(0, 0)){
+		putchar(72);
+	}
 	
+	for (i:0..3){
+		putchar(32);
+		for (j:0..(i+1)){
+			printint(j);
+		}
+	}
 	//for (i : 0..100){  // for(<range>){} automatically iterates through range type
 	//	printl("%\n", i);
 	//}
@@ -61,7 +100,7 @@ main :: (){
 
 	//// Test the functionality of redefining a function at runtime.
 	//testRedefineFunction();
-	return 1;
+	return;
 }
 
 //multiply :: float (int x, float y){

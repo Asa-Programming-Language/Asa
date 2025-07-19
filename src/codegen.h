@@ -18,4 +18,5 @@ extern std::map<std::string, Value*> NamedValues;
 
 
 void initializeCodeGenerator();
-int outputObjectFile();
+int outputObjectFile(std::string& objectFilePath);
+int generateExecutable(const std::string& objectFilePath, const std::string& exeFilePath);

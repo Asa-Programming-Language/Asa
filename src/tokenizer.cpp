@@ -45,9 +45,16 @@ const std::map<const char*, const char*> tokenEscapeCancels = {
 	{"+-*:^|!&~<>=", "="},
 	{"+-", "+-"},
 	{"/", "/*"},
-	{"*", "/"},
+	{"*", "*/"},
 	{":", ":"},
 	{".", "."},
+	{"|", "|"},
+	{"&", "&"},
+	{"~", "~"},
+	{"^", "^"},
+	{"%", "%"},
+	{"@", "@"},
+	{"!", "!"},
 };
 
 // If this and the following character match for the specific token type, immediately end
@@ -76,11 +83,13 @@ std::map<const std::string, const TokenType> subTokenTypes = {
 	{"-", Minus},
 	{"/", Slash},
 	{"*", Star},
+	{"**", Star_Star},
 	{"#", Hash},
 	{":", Colon},
 	{"::", Colon_Colon},
 	{";", Semi_Colon},
 	{"!", Bang},
+	{"!!", Bang_Bang},
 	{"!=", Bang_Equal},
 	{"+=", Plus_Equal},
 	{"++", Plus_Plus},
@@ -94,9 +103,22 @@ std::map<const std::string, const TokenType> subTokenTypes = {
 	{"<=", Less_Equal},
 	{">", Greater},
 	{">=", Greater_Equal},
+	{"|", Bar},
+	{"||", Bar_Bar},
+	{"&", Ampersand},
+	{"&&", Ampersand_Ampersand},
+	{"~", Tilde},
+	{"~~", Tilde_Tilde},
+	{"^", Caret},
+	{"^^", Caret_Caret},
+	{"%", Percent},
+	{"%%", Percent_Percent},
+	{"@", At},
+	{"@@", At_At},
 
 	// Keywords
 	{"if", If_Statement},
+	{"else", Else_Statement},
 	{"for", For_Statement},
 	{"while", While_Statement},
 	{"return", Return_Statement},
@@ -105,6 +127,8 @@ std::map<const std::string, const TokenType> subTokenTypes = {
 	{"goto", Goto_Statement},
 	{"struct", Struct_Define},
 	{"module", Module_Define},
+	{"unary", Unary},
+	{"binary", Binary},
 	//{"switch", },
 	//{"case", },
 	//{"constant", },
@@ -256,6 +280,7 @@ int labelSubTokens(std::vector<tokenPair>& tokens)
 
 int joinCommentTokens(std::vector<tokenPair>& tokens)
 {
+	tokens.insert(tokens.begin(), tokenPair());
 	int i = 0;
 	bool inComment = false;
 	bool multiLineComment = false;
@@ -269,6 +294,7 @@ int joinCommentTokens(std::vector<tokenPair>& tokens)
 				if (t.first.substr(0, 2) == "/*")
 					multiLineComment = true;
 				startIndex = i;
+				tokens[startIndex].second = Comment;
 				newTokenContents = t.first + " ";
 			}
 		}
@@ -295,7 +321,6 @@ int joinCommentTokens(std::vector<tokenPair>& tokens)
 			inComment = false;
 			multiLineComment = false;
 			tokens[startIndex].first = newTokenContents;
-			tokens[startIndex].second = Comment;
 			tokens.erase(tokens.begin() + startIndex + 1, tokens.begin() + i);
 			i = startIndex + 1;
 		}

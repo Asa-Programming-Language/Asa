@@ -10,6 +10,7 @@ extern std::string initialFileString;
 extern std::string executableDirectory;
 extern std::string projectDirectory;
 extern std::string baseFileName;
+extern std::string outputFileName;
 
 int loadFile(const std::string& fileName, std::string& outStr);
 int saveStringToFile(const std::string& fileName, std::string& s);

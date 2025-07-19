@@ -4,8 +4,13 @@
 std::unique_ptr<LLVMContext> TheContext;
 std::unique_ptr<Module> TheModule;
 std::unique_ptr<IRBuilder<>> Builder;
-std::map<std::string, Value*> NamedValues;
-BasicBlock* prototypesBlock;
+static std::unique_ptr<FunctionPassManager> TheFPM;
+static std::unique_ptr<LoopAnalysisManager> TheLAM;
+static std::unique_ptr<FunctionAnalysisManager> TheFAM;
+static std::unique_ptr<CGSCCAnalysisManager> TheCGAM;
+static std::unique_ptr<ModuleAnalysisManager> TheMAM;
+static std::unique_ptr<PassInstrumentationCallbacks> ThePIC;
+static std::unique_ptr<StandardInstrumentations> TheSI;
 
 Value* LogErrorV(const char* Str)
 {
@@ -22,7 +27,32 @@ void initializeCodeGenerator()
 	// Create a new builder for the module.
 	Builder = std::make_unique<IRBuilder<>>(*TheContext);
 
-	prototypesBlock = BasicBlock::Create(*TheContext, "prototypes");
+	// Create new pass and analysis managers.
+	TheFPM = std::make_unique<FunctionPassManager>();
+	TheLAM = std::make_unique<LoopAnalysisManager>();
+	TheFAM = std::make_unique<FunctionAnalysisManager>();
+	TheCGAM = std::make_unique<CGSCCAnalysisManager>();
+	TheMAM = std::make_unique<ModuleAnalysisManager>();
+	ThePIC = std::make_unique<PassInstrumentationCallbacks>();
+	TheSI = std::make_unique<StandardInstrumentations>(*TheContext,
+		/*DebugLogging*/ true);
+	TheSI->registerCallbacks(*ThePIC, TheMAM.get());
+
+	// Add transform passes.
+	// Do simple "peephole" optimizations and bit-twiddling optzns.
+	TheFPM->addPass(InstCombinePass());
+	// Reassociate expressions.
+	TheFPM->addPass(ReassociatePass());
+	// Eliminate Common SubExpressions.
+	TheFPM->addPass(GVNPass());
+	// Simplify the control flow graph (deleting unreachable blocks, etc).
+	TheFPM->addPass(SimplifyCFGPass());
+
+	// Register analysis passes used in these transform passes.
+	PassBuilder PB;
+	PB.registerModuleAnalyses(*TheMAM);
+	PB.registerFunctionAnalyses(*TheFAM);
+	PB.crossRegisterProxies(*TheLAM, *TheFAM, *TheCGAM, *TheMAM);
 }
 
 Value* findNamedValue(ASTNode* node, ASTNode* childNode, std::string& identifier)
@@ -65,7 +95,7 @@ void* ASTNode::generateConstant(int pass)
 	if (nodeType == Integer_Node)
 		return ConstantInt::get(*TheContext, APInt(32, stoi(token.first), true));
 	else if (nodeType == Boolean_Node)
-		return ConstantInt::get(*TheContext, APInt(1, stoi(token.first), false));
+		return ConstantInt::get(*TheContext, APInt(1, token.first == "true" ? 1 : 0, false));
 	else if (nodeType == Float_Node)
 		return ConstantFP::get(*TheContext, APFloat(stod(token.first)));
 
@@ -124,7 +154,6 @@ void* ASTNode::generateExpressionStatement(int pass)
 		return nullptr;
 	}
 	Value* var = findNamedValue(parentNode, this, token.first);
-	//Value* var = NamedValues[token.first];
 	if (!var) {
 		// Allocate memory TODO: Expand for any type
 		Type* type = llvm::Type::getInt32Ty(*TheContext);
@@ -138,6 +167,18 @@ void* ASTNode::generateExpressionStatement(int pass)
 	}
 	Builder->CreateStore(exprVal, var);
 	return exprVal;
+}
+
+// Value*
+void* ASTNode::generateIterator(int pass)
+{
+	ASTNode* identifierNode = childNodes[0];
+	Value* var = findNamedValue(parentNode, this, token.first);
+	if (!var) {
+		Type* type = llvm::Type::getInt32Ty(*TheContext);
+		var = Builder->CreateAlloca(type, nullptr, identifierNode->token.first);
+	}
+	return var;
 }
 
 // Value*
@@ -178,7 +219,8 @@ void* ASTNode::generateBinaryExpression(int pass)
 				case Compare_Less:
 					return Builder->CreateICmpULT(L, R, "cmptmp");
 				default:
-					return LogErrorV("Invalid binary operator");
+					printTokenError(childNodes[0]->token, "Unknown binary operator \"" + childNodes[0]->token.first + "\"");
+					exit(1);
 			}
 
 		case Float_Node:
@@ -192,7 +234,8 @@ void* ASTNode::generateBinaryExpression(int pass)
 				case Compare_Less:
 					return Builder->CreateFCmpULT(L, R, "cmptmp");
 				default:
-					return LogErrorV("Invalid binary operator");
+					printTokenError(childNodes[0]->token, "Unknown binary operator \"" + childNodes[0]->token.first + "\"");
+					exit(1);
 			}
 
 		default:
@@ -206,7 +249,8 @@ void* ASTNode::generateBinaryExpression(int pass)
 				case Compare_Less:
 					return Builder->CreateICmpULT(L, R, "cmptmp");
 				default:
-					return LogErrorV("Invalid binary operator");
+					printTokenError(childNodes[0]->token, "Unknown binary operator \"" + childNodes[0]->token.first + "\"");
+					exit(1);
 			}
 	}
 
@@ -301,6 +345,238 @@ void* ASTNode::generateCallExpression(int pass)
 	return Builder->CreateCall(CalleeF, ArgsV, "calltmp");
 }
 
+// Value*
+void* ASTNode::generateIf(int pass)
+{
+	ASTNode* condExpr = childNodes[0];
+	if (condExpr->childNodes.size() == 0) {
+		printTokenError(condExpr->token, "Expected condition expression");
+		exit(1);
+	}
+	condExpr = condExpr->childNodes[0];
+
+	if (condExpr->codegen == nullptr) {
+		printTokenError(condExpr->token, "Node `" + ASTNodeTypeAsString(condExpr->nodeType) + "` does not have a code generator");
+		return nullptr;
+	}
+
+	Value* CondV = (Value*)(condExpr->*(condExpr->codegen))(pass);
+	if (!CondV)
+		return nullptr;
+
+	// Convert condition to a bool by comparing non-equal to i1 1.
+	CondV = Builder->CreateICmpNE(CondV, ConstantInt::get(*TheContext, APInt(1, 0)), "ifcond");
+
+	Function* TheFunction = Builder->GetInsertBlock()->getParent();
+
+	// Create blocks for the then and else cases.  Insert the 'then' block at the
+	// end of the function.
+	BasicBlock* ThenBB =
+		BasicBlock::Create(*TheContext, "then", TheFunction);
+	BasicBlock* ElseBB = BasicBlock::Create(*TheContext, "else");
+	BasicBlock* MergeBB = BasicBlock::Create(*TheContext, "ifcont");
+
+	Builder->CreateCondBr(CondV, ThenBB, ElseBB);
+
+	// Emit if body
+	Builder->SetInsertPoint(ThenBB);
+
+	ASTNode* scopeBody = childNodes[1];
+
+	if (scopeBody->codegen == nullptr) {
+		printTokenError(scopeBody->token, "Node `" + ASTNodeTypeAsString(scopeBody->nodeType) + "` does not have a code generator");
+		return nullptr;
+	}
+
+	Value* ThenV = (Value*)(scopeBody->*(scopeBody->codegen))(pass);
+
+	Builder->CreateBr(MergeBB);
+	// Codegen of 'scopeBody' can change the current block, update ThenBB for the PHI.
+	ThenBB = Builder->GetInsertBlock();
+
+
+	// Emit else block.
+	TheFunction->insert(TheFunction->end(), ElseBB);
+	Builder->SetInsertPoint(ElseBB);
+
+	ASTNode* elseBody = childNodes[2];
+
+	if (elseBody->codegen == nullptr) {
+		printTokenError(token, "Node `" + ASTNodeTypeAsString(elseBody->nodeType) + "` does not have a code generator");
+		return nullptr;
+	}
+
+	Value* ElseV = (Value*)(elseBody->*(elseBody->codegen))(pass);
+
+	Builder->CreateBr(MergeBB);
+	// codegen of 'Else' can change the current block, update ElseBB for the PHI.
+	ElseBB = Builder->GetInsertBlock();
+
+
+	// Emit merge block.
+	TheFunction->insert(TheFunction->end(), MergeBB);
+	Builder->SetInsertPoint(MergeBB);
+	//PHINode* PN =
+	//	Builder->CreatePHI(Type::getDoubleTy(*TheContext), 2, "iftmp");
+
+	//PN->addIncoming(ThenV, ThenBB);
+	//PN->addIncoming(ElseV, ElseBB);
+	//return PN;
+	return nullptr;
+}
+
+// Value*
+void* ASTNode::generateStruct(int pass)
+{
+
+	std::string structName = token.first;
+
+	std::vector<Type*> fieldTypes;
+	std::vector<std::string> fieldNames;
+	for (auto& fieldNode : childNodes[0]->childNodes) {
+		// fieldNode->childNodes[0]: type (as string or as node)
+		// fieldNode->childNodes[1]: name
+		std::string typeName = fieldNode->childNodes[0]->token.first;
+		Type* fieldType = nullptr;
+		if (typeName == "int") {
+			fieldType = Type::getInt32Ty(*TheContext);
+		}
+		else if (typeName == "float") {
+			fieldType = Type::getFloatTy(*TheContext);
+		}
+		else if (typeName == "double") {
+			fieldType = Type::getDoubleTy(*TheContext);
+		}
+		else if (typeName == "bool") {
+			fieldType = Type::getInt1Ty(*TheContext);
+		}
+		else {
+			//// Could be a named struct, lookup here if you support nested structs
+			//fieldType = TheModule->getTypeByName(typeName);
+			//if (!fieldType) {
+			//	printTokenError(fieldNode->token, "Unknown struct or type: " + typeName);
+			//	return nullptr;
+			//}
+		}
+		fieldTypes.push_back(fieldType);
+		fieldNames.push_back(fieldNode->token.first);
+	}
+
+	// 3. Create struct type
+	StructType* structType = StructType::create(*TheContext, fieldTypes, structName);
+
+	//// (Optional) Register type in a map for future lookup
+	//NamedValues[structName] = structType;
+
+	// (Optional) Store field names somewhere for member access
+	// You could maintain a separate map: structFieldNames[structName] = fieldNames;
+
+	return structType;
+}
+
+// Value*
+void* ASTNode::generateFor(int pass)
+{
+	std::string varName = "_iterator";
+
+	if (childNodes[0]->nodeType == Iterator) {
+		varName = childNodes[0]->childNodes[0]->token.first;
+	}
+
+	ASTNode* rangeStart = childNodes[1]->childNodes[0];
+
+	// Compute the start value.
+	if (rangeStart->codegen == nullptr) {
+		printTokenError(rangeStart->token, "Node `" + ASTNodeTypeAsString(rangeStart->nodeType) + "` does not have a code generator");
+		return nullptr;
+	}
+	Value* StartVal = (Value*)(rangeStart->*(rangeStart->codegen))(pass);
+	if (!StartVal)
+		return nullptr;
+
+
+	// Make the new basic block for the loop header, inserting after current
+	// block.
+	Function* TheFunction = Builder->GetInsertBlock()->getParent();
+	BasicBlock* PreheaderBB = Builder->GetInsertBlock();
+	BasicBlock* LoopCondBB = BasicBlock::Create(*TheContext, "loopcond", TheFunction);
+	BasicBlock* LoopBB = BasicBlock::Create(*TheContext, "loop", TheFunction);
+	BasicBlock* AfterBB = BasicBlock::Create(*TheContext, "afterloop", TheFunction);
+
+	// Branch to loop condition check
+	Builder->CreateBr(LoopCondBB);
+
+	Builder->SetInsertPoint(LoopCondBB);
+
+	// PHI for the loop variable
+	PHINode* Variable = Builder->CreatePHI(Type::getInt32Ty(*TheContext), 2, varName);
+	Variable->addIncoming(StartVal, PreheaderBB);
+
+	// Get loop limit
+	ASTNode* rangeEnd = childNodes[1]->childNodes[1];
+	Value* EndVal = (Value*)(rangeEnd->*(rangeEnd->codegen))(pass);
+
+	// Compare: exclusive (i < N)
+	Value* Cond = Builder->CreateICmpSLT(Variable, EndVal, "loopcond");
+
+	// Conditional branch
+	Builder->CreateCondBr(Cond, LoopBB, AfterBB);
+
+
+	// Start insertion in LoopBB.
+	Builder->SetInsertPoint(LoopBB);
+
+	// Within the loop, the variable is defined equal to the PHI node.  If it
+	// shadows an existing variable, we have to restore it, so save it now.
+	Value* OldVal = namedValues[varName];
+	namedValues[varName] = Variable;
+
+	// Emit the body of the loop
+	ASTNode* scopeBody = childNodes[2];
+
+	if (scopeBody->codegen == nullptr) {
+		printTokenError(scopeBody->token, "Node `" + ASTNodeTypeAsString(scopeBody->nodeType) + "` does not have a code generator");
+		return nullptr;
+	}
+	(scopeBody->*(scopeBody->codegen))(pass);
+
+	// Emit the step value.
+	Value* StepVal = nullptr;
+	//if (Step) {
+	//	StepVal = (Value*)(Step->*(Step->codegen))(pass);
+	//	if (!StepVal)
+	//		return nullptr;
+	//}
+	//else {
+	// If not specified, use 1
+	StepVal = ConstantInt::get(*TheContext, APInt(32, 1));
+	//}
+
+	Value* NextVar = Builder->CreateAdd(Variable, StepVal, "nextvar");
+
+	// Add incoming for PHI: from loopbody to next iteration
+	Variable->addIncoming(NextVar, Builder->GetInsertBlock());
+
+	// Jump back to condition
+	Builder->CreateBr(LoopCondBB);
+
+
+	// After loop
+	Builder->SetInsertPoint(AfterBB);
+
+	// Create the "after loop" block and insert it.
+	BasicBlock* LoopEndBB = Builder->GetInsertBlock();
+
+	//// Restore the unshadowed variable.
+	//if (OldVal)
+	//	namedValues[varName] = OldVal;
+	//else
+	//	namedValues.erase(varName);
+
+
+	return nullptr;
+}
+
 // Function*
 void* ASTNode::generatePrototype(int pass)
 {
@@ -327,6 +603,8 @@ void* ASTNode::generatePrototype(int pass)
 					aType = Type::getFloatTy(*TheContext);
 				else if (typeName == "double")
 					aType = Type::getDoubleTy(*TheContext);
+				else if (typeName == "bool")
+					aType = Type::getInt1Ty(*TheContext);
 				else
 					goto invalidArgument;
 				//else if (typeName == "string")
@@ -416,24 +694,28 @@ void* ASTNode::generateFunction(int pass)
 	}
 
 	(body->*(body->codegen))(pass);
-	//else if (Value* RetVal = (Value*)(body->*(body->codegen))()) {
-	//	// Finish off the function.
-	//	Builder->CreateRet(RetVal);
+
+	// Ensure there is always a return
+	// TODO: Add check for return directly in current scope
+	Builder->CreateRet(nullptr);
 
 	// Validate the generated code, checking for consistency.
 	verifyFunction(*theFunction);
 
+	// Optimize the function.
+	if (optimizationLevel >= 1)
+		TheFPM->run(*theFunction, *TheFAM);
+
 	return theFunction;
-	//}
 
-	// Error reading body, remove function.
-	theFunction->eraseFromParent();
-	printTokenError(token, "Function is missing a return statement");
+	//// Error reading body, remove function.
+	//theFunction->eraseFromParent();
+	//printTokenError(token, "Function is missing a return statement");
 
-	return nullptr;
+	//return nullptr;
 }
 
-int outputObjectFile()
+int outputObjectFile(std::string& objectFilePath)
 {
 
 	// Initialize the target registry etc.
@@ -444,7 +726,7 @@ int outputObjectFile()
 	InitializeAllAsmPrinters();
 
 	auto TargetTriple = sys::getDefaultTargetTriple();
-	TheModule->setTargetTriple(TargetTriple);
+	TheModule->setTargetTriple(Triple(TargetTriple));
 
 	std::string Error;
 	auto Target = TargetRegistry::lookupTarget(TargetTriple, Error);
@@ -461,13 +743,13 @@ int outputObjectFile()
 	auto Features = "";
 
 	TargetOptions opt;
-	auto TheTargetMachine = Target->createTargetMachine(TargetTriple, CPU, Features, opt, Reloc::PIC_);
+	auto TheTargetMachine = Target->createTargetMachine(Triple(TargetTriple), CPU, Features, opt, Reloc::PIC_);
 
 	TheModule->setDataLayout(TheTargetMachine->createDataLayout());
 
-	std::string Filename = projectDirectory + baseFileName + ".o";
+	//std::string objectFilePath = projectDirectory + "build/" + baseFileName + ".o";
 	std::error_code EC;
-	raw_fd_ostream dest(Filename, EC, sys::fs::OF_None);
+	raw_fd_ostream dest(objectFilePath, EC, sys::fs::OF_None);
 
 	if (EC) {
 		errs() << "Could not open file: " << EC.message();

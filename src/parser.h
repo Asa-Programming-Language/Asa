@@ -13,7 +13,7 @@
 #include "settings.h"
 #include "tokenizer.h"
 
-#define MAX_AST_DEPTH -1
+#define MAX_AST_DEPTH 20
 
 #define PRINT_SUBTOKENS(subTokens)                  \
 	for (int ST = 0; ST < subTokens.size(); ST++)   \
@@ -38,6 +38,7 @@ enum ASTNodeType {
 
 	Module_Scope,
 
+	Operator_Type_Node,
 	Expression_Term,
 	Expression_Paren_Term,
 	Expression_Statement,
@@ -54,6 +55,8 @@ enum ASTNodeType {
 
 	If_Statement_Node,
 
+	Else_Statement_Node,
+
 	For_Statement_Node,
 
 	While_Statement_Node,
@@ -61,6 +64,8 @@ enum ASTNodeType {
 	Struct_Define_Node,
 
 	Module_Define_Node,
+
+	Operator_Overload_Node,
 
 	Return_Node,
 	Continue_Node,
@@ -81,6 +86,7 @@ enum ASTNodeType {
 	Compiler_Define,
 	Compiler_Define_Function,
 	Compiler_Define_Cast,
+	Compiler_Define_Struct,
 	Compile_Time_Directive,
 	Arguments,
 	Compiler_Modifiers,
@@ -103,6 +109,7 @@ const std::string ASTNodeTypeStrings[] = {
 
 	"Module_Scope",
 
+	"Operator_Type_Node",
 	"Expression_Term",
 	"Expression_Paren_Term",
 	"Expression_Statement",
@@ -119,6 +126,8 @@ const std::string ASTNodeTypeStrings[] = {
 
 	"If_Statement_Node",
 
+	"Else_Statement_Node",
+
 	"For_Statement_Node",
 
 	"While_Statement_Node",
@@ -126,6 +135,8 @@ const std::string ASTNodeTypeStrings[] = {
 	"Struct_Define_Node",
 
 	"Module_Define_Node",
+
+	"Operator_Overload_Node",
 
 	"Return_Node",
 	"Continue_Node",
@@ -146,6 +157,7 @@ const std::string ASTNodeTypeStrings[] = {
 	"Compiler_Define",
 	"Compiler_Define_Function",
 	"Compiler_Define_Cast",
+	"Compiler_Define_Struct",
 	"Compile_Time_Directive",
 	"Arguments",
 	"Compiler_Modifiers",
@@ -171,8 +183,12 @@ struct ASTNode {
 	void* generateReturn(int pass = 0);
 	void* generateExpression(int pass = 0);
 	void* generateExpressionStatement(int pass = 0);
+	void* generateIterator(int pass = 0);
 	void* generateBinaryExpression(int pass = 0);
 	void* generateScopeBody(int pass = 0);
+	void* generateIf(int pass = 0);
+	void* generateStruct(int pass);
+	void* generateFor(int pass = 0);
 	void* generatePrototype(int pass = 0);
 	void* generateFunction(int pass = 0);
 	void* generateCast(int pass = 0);
@@ -248,6 +264,7 @@ void orderASTOperations(ASTNode* startNode);
 const std::string ASTNodeTypeAsString(ASTNodeType t);
 int printAST(ASTNode* startNode, int depth = 0);
 void fixPrecedence(ASTNode*& node);
+void unifyNodes(ASTNode*& node);
 void optimizeASTNode(ASTNode*& node);
 void addFileIncludes(ASTNode*& node);
 void addModuleImports(ASTNode*& node);

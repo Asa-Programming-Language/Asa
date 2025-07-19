@@ -13,5 +13,6 @@
 #include "tokenizer.h"
 
 int verbosity = 2;
+int optimizationLevel = 0;
 
 #endif

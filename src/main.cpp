@@ -31,9 +31,11 @@ int main(int argc, char** argv)
 			{"verbose", no_argument, 0, 'v'},
 			{"quiet", no_argument, 0, 'q'},
 			{"file", required_argument, 0, 'f'},
+			{"output", required_argument, 0, 'o'},
+			{"optimize", required_argument, 0, 'O'},
 			{0, 0, 0, 0}};
 
-		c = getopt_long(argc, argv, "cvqf:0",
+		c = getopt_long(argc, argv, "cvqf:o:O:0",
 			long_options, &option_index);
 		if (c == -1)
 			break;
@@ -73,6 +75,14 @@ int main(int argc, char** argv)
 				//printf("fileName is %s\n", fileName.c_str());
 				break;
 
+			case 'o':
+				outputFileName = std::filesystem::weakly_canonical(std::filesystem::path(std::string(optarg))).string();
+				break;
+
+			case 'O':
+				optimizationLevel = std::stoi(optarg);
+				break;
+
 			case '?':
 				console::ResetColor();
 				exit(1);
@@ -99,6 +109,12 @@ int main(int argc, char** argv)
 	projectDirectory = std::filesystem::weakly_canonical(std::filesystem::path(fileName)).parent_path().string() + "/";
 	baseFileName = std::filesystem::path(fileName).filename();
 
+
+	// If output name not provided, create
+	if (outputFileName == "")
+		outputFileName = std::filesystem::weakly_canonical(std::filesystem::path(std::string(projectDirectory + "build/" + SplitString(baseFileName, ".")[0]))).string();
+
+
 	// Begin tokenizing file
 	int e = tokenize(initialFileString, allTokens);
 	if (e != 0) {
@@ -122,8 +138,8 @@ int main(int argc, char** argv)
 		for (int i = 0; i < allTokens.size(); i++) {
 			if (allTokens[i].second != EndOfLine) {
 				console::Write(std::to_string(i) + "T:" + std::to_string(allTokens[i].lineNumber) + "L: ", console::yellowFGColor);
-				//if (allTokens[i].lineValue != nullptr)
-				printf("[%s]\t[%s]\t[%s]\n", allTokens[i].first.c_str(), tokenAsString(allTokens[i].second).c_str(), allTokens[i].lineValue->c_str());
+				if (allTokens[i].lineValue != nullptr)
+					printf("[%s]\t[%s]\t[%s]\n", allTokens[i].first.c_str(), tokenAsString(allTokens[i].second).c_str(), allTokens[i].lineValue->c_str());
 			}
 		}
 	}
@@ -160,6 +176,8 @@ int main(int argc, char** argv)
 	//optimizeASTNode(rootNode);
 	// Assign parent nodes
 	assignParentNodes(rootNode);
+	// Unify nested nodes
+	unifyNodes(rootNode);
 
 	// Print AST
 	if (verbosity >= 4) {
@@ -175,7 +193,6 @@ int main(int argc, char** argv)
 
 	// Create build directory
 	std::filesystem::create_directory(projectDirectory + "build");
-	//buildOutput(rootNode);
 
 	// Generate the IR LLVM Code:
 	initializeCodeGenerator();
@@ -190,13 +207,12 @@ int main(int argc, char** argv)
 	console::WriteLine("\n\nOutput IR Code:", console::greenFGColor);
 	TheModule->print(errs(), nullptr);
 
-	// Output the object file in project directory
-	outputObjectFile();
+	// Output the object file in project's build directory
+	std::string objectFilePath = outputFileName + ".o";
+	outputObjectFile(objectFilePath);
 
-	if (optind < argc) {
-		printf("non-option ARGV-elements: ");
-		while (optind < argc)
-			printf("%s ", argv[optind++]);
-		printf("\n");
-	}
+	// Link the object file into executable
+	generateExecutable(objectFilePath, outputFileName);
+	if (verbosity >= 1)
+		console::WriteLine("\n\nWrote executable to " + outputFileName);
 }
