@@ -31,6 +31,17 @@ enum ASTNodeType {
 
 	Identifier_Node,
 	Integer_Node,
+	SInt128_Type,
+	UInt128_Type,
+	SInt64_Type,
+	UInt64_Type,
+	SInt32_Type,
+	UInt32_Type,
+	SInt16_Type,
+	UInt16_Type,
+	SInt8_Type,
+	UInt8_Type,
+	Char_Type,
 	Float_Node,
 	Boolean_Node,
 	String_Node,
@@ -38,6 +49,7 @@ enum ASTNodeType {
 
 	Module_Scope,
 
+	Redefined_Operator_Expr,
 	Operator_Type_Node,
 	Expression_Term,
 	Expression_Paren_Term,
@@ -102,6 +114,17 @@ const std::string ASTNodeTypeStrings[] = {
 
 	"Identifier_Node",
 	"Integer_Node",
+	"SInt128_Type",
+	"UInt128_Type",
+	"SInt64_Type",
+	"UInt64_Type",
+	"SInt32_Type",
+	"UInt32_Type",
+	"SInt16_Type",
+	"UInt16_Type",
+	"SInt8_Type",
+	"UInt8_Type",
+	"Char_Type",
 	"Float_Node",
 	"Boolean_Node",
 	"String_node",
@@ -109,6 +132,7 @@ const std::string ASTNodeTypeStrings[] = {
 
 	"Module_Scope",
 
+	"Redefined_Operator_Expr",
 	"Operator_Type_Node",
 	"Expression_Term",
 	"Expression_Paren_Term",

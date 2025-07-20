@@ -1,0 +1,22 @@
+
+Print :: module {
+	
+	//#library "libc";
+	//print :: {#foreign "printf"};
+	#extern printf:: (...);
+
+	print:: (...){
+		//printf();
+		return;
+	}
+
+	printl:: (...){
+		return;
+	}
+}
+
+main ::(){
+//tests
+}
+
+#run init();

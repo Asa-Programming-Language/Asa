@@ -6191,6 +6191,7 @@ CharKind	src/include/llvm/ADT/Twine.h	/^      CharKind,$/;"	e	enum:llvm::Twine::
 CharKind	src/include/llvm/Demangle/MicrosoftDemangleNodes.h	/^enum class CharKind {$/;"	g	namespace:llvm::ms_demangle
 CharRanges	src/include/llvm/Support/UnicodeCharRanges.h	/^  typedef ArrayRef<UnicodeCharRange> CharRanges;$/;"	t	class:llvm::sys::UnicodeCharSet	typeref:typename:ArrayRef<UnicodeCharRange>
 CharStrStartsWith	src/strops.cpp	/^bool CharStrStartsWith(unsigned char* str, char* substr, int len)$/;"	f	typeref:typename:bool
+Char_Type	src/parser.h	/^	Char_Type,$/;"	e	enum:ASTNodeType
 Character16	src/include/llvm/DebugInfo/CodeView/TypeIndex.h	/^  Character16 = 0x007a,       \/\/ char16_t$/;"	e	enum:llvm::codeview::SimpleTypeKind
 Character32	src/include/llvm/DebugInfo/CodeView/TypeIndex.h	/^  Character32 = 0x007b,       \/\/ char32_t$/;"	e	enum:llvm::codeview::SimpleTypeKind
 Character8	src/include/llvm/DebugInfo/CodeView/TypeIndex.h	/^  Character8 = 0x007c,        \/\/ char8_t$/;"	e	enum:llvm::codeview::SimpleTypeKind
@@ -37446,6 +37447,7 @@ RecyclerCapacity	src/include/llvm/Transforms/Scalar/GVNExpression.h	/^  using Re
 RecyclerType	src/include/llvm/Transforms/Scalar/GVNExpression.h	/^  using RecyclerType = ArrayRecycler<Value *>;$/;"	t	class:llvm::GVNExpression::BasicExpression	typeref:typename:ArrayRecycler<Value * >
 RecyclingAllocator	src/include/llvm/Support/RecyclingAllocator.h	/^class RecyclingAllocator {$/;"	c	namespace:llvm
 RedZoneSize	src/include/llvm/Support/Allocator.h	/^  size_t RedZoneSize = 1;$/;"	m	class:llvm::BumpPtrAllocatorImpl	typeref:typename:size_t
+Redefined_Operator_Expr	src/parser.h	/^	Redefined_Operator_Expr,$/;"	e	enum:ASTNodeType
 RedirectKind	src/include/llvm/Support/VirtualFileSystem.h	/^  enum class RedirectKind {$/;"	g	class:llvm::vfs::RedirectingFileSystem
 RedirectOnly	src/include/llvm/Support/VirtualFileSystem.h	/^    RedirectOnly$/;"	e	enum:llvm::vfs::RedirectingFileSystem::RedirectKind
 RedirectableMaterializationUnit	src/include/llvm/ExecutionEngine/Orc/RedirectionManager.h	/^  RedirectableMaterializationUnit(RedirectableSymbolManager &RM,$/;"	f	class:llvm::orc::RedirectableMaterializationUnit
@@ -39629,6 +39631,11 @@ SIToFPInst	src/include/llvm/IR/Instructions.h	/^class SIToFPInst : public CastIn
 SIToFPInst	src/include/llvm/SandboxIR/Instruction.h	/^class SIToFPInst final : public CastInstImpl<Instruction::Opcode::SIToFP> {};$/;"	c	namespace:llvm::sandboxir
 SIV	src/include/llvm/Analysis/DependenceAnalysis.h	/^      enum ClassificationKind { ZIV, SIV, RDIV, MIV, NonLinear } Classification;$/;"	e	enum:llvm::DependenceInfo::Subscript::ClassificationKind
 SIZE	src/include/llvm/TableGen/Record.h	/^    SIZE,$/;"	e	enum:llvm::UnOpInit::UnaryOp
+SInt128_Type	src/parser.h	/^	SInt128_Type,$/;"	e	enum:ASTNodeType
+SInt16_Type	src/parser.h	/^	SInt16_Type,$/;"	e	enum:ASTNodeType
+SInt32_Type	src/parser.h	/^	SInt32_Type,$/;"	e	enum:ASTNodeType
+SInt64_Type	src/parser.h	/^	SInt64_Type,$/;"	e	enum:ASTNodeType
+SInt8_Type	src/parser.h	/^	SInt8_Type,$/;"	e	enum:ASTNodeType
 SK	src/include/llvm/IR/Comdat.h	/^  SelectionKind SK = Any;$/;"	m	class:llvm::Comdat	typeref:typename:SelectionKind
 SK_Broadcast	src/include/llvm/Analysis/TargetTransformInfo.h	/^    SK_Broadcast,        \/\/\/< Broadcast element 0 to all other elements.$/;"	e	enum:llvm::TargetTransformInfo::ShuffleKind
 SK_ExtractSubvector	src/include/llvm/Analysis/TargetTransformInfo.h	/^    SK_ExtractSubvector, \/\/\/< ExtractSubvector Index indicates start offset.$/;"	e	enum:llvm::TargetTransformInfo::ShuffleKind
@@ -46124,6 +46131,7 @@ UInt	src/include/llvm/BinaryFormat/MsgPackReader.h	/^  UInt,$/;"	e	enum:llvm::ms
 UInt	src/include/llvm/DebugInfo/PDB/PDBTypes.h	/^  UInt = 7,$/;"	e	enum:llvm::pdb::PDB_BuiltinType
 UInt128	src/include/llvm/DebugInfo/CodeView/TypeIndex.h	/^  UInt128 = 0x0079,     \/\/ 128 bit unsigned int$/;"	e	enum:llvm::codeview::SimpleTypeKind
 UInt128Oct	src/include/llvm/DebugInfo/CodeView/TypeIndex.h	/^  UInt128Oct = 0x0024,  \/\/ 128 bit unsigned int$/;"	e	enum:llvm::codeview::SimpleTypeKind
+UInt128_Type	src/parser.h	/^	UInt128_Type,$/;"	e	enum:ASTNodeType
 UInt16	src/include/llvm/DebugInfo/CodeView/CodeView.h	/^  UInt16 = 3,$/;"	e	enum:llvm::codeview::JumpTableEntrySize
 UInt16	src/include/llvm/DebugInfo/CodeView/TypeIndex.h	/^  UInt16 = 0x0073,      \/\/ 16 bit unsigned int$/;"	e	enum:llvm::codeview::SimpleTypeKind
 UInt16	src/include/llvm/DebugInfo/PDB/PDBTypes.h	/^    uint16_t UInt16;$/;"	m	union:llvm::pdb::Variant::__anon56c09c21020a	typeref:typename:uint16_t
@@ -46132,6 +46140,7 @@ UInt16ShiftLeft	src/include/llvm/DebugInfo/CodeView/CodeView.h	/^  UInt16ShiftLe
 UInt16Short	src/include/llvm/DebugInfo/CodeView/TypeIndex.h	/^  UInt16Short = 0x0021, \/\/ 16 bit unsigned$/;"	e	enum:llvm::codeview::SimpleTypeKind
 UInt16Short	src/include/llvm/DebugInfo/CodeView/TypeIndex.h	/^  static TypeIndex UInt16Short() {$/;"	f	class:llvm::codeview::TypeIndex	typeref:typename:TypeIndex
 UInt16Write	src/include/llvm/ExecutionEngine/Orc/Shared/TargetProcessControlTypes.h	/^using UInt16Write = UIntWrite<uint16_t>;$/;"	t	namespace:llvm::orc::tpctypes	typeref:typename:UIntWrite<uint16_t>
+UInt16_Type	src/parser.h	/^	UInt16_Type,$/;"	e	enum:ASTNodeType
 UInt32	src/include/llvm/DebugInfo/CodeView/CodeView.h	/^  UInt32 = 5,$/;"	e	enum:llvm::codeview::JumpTableEntrySize
 UInt32	src/include/llvm/DebugInfo/CodeView/TypeIndex.h	/^  UInt32 = 0x0075,      \/\/ 32 bit unsigned int$/;"	e	enum:llvm::codeview::SimpleTypeKind
 UInt32	src/include/llvm/DebugInfo/CodeView/TypeIndex.h	/^  static TypeIndex UInt32() { return TypeIndex(SimpleTypeKind::UInt32); }$/;"	f	class:llvm::codeview::TypeIndex	typeref:typename:TypeIndex
@@ -46141,6 +46150,7 @@ UInt32	src/include/llvm/ObjectYAML/COFFYAML.h	/^  std::optional<uint32_t> UInt32
 UInt32Long	src/include/llvm/DebugInfo/CodeView/TypeIndex.h	/^  UInt32Long = 0x0022,  \/\/ 32 bit unsigned$/;"	e	enum:llvm::codeview::SimpleTypeKind
 UInt32Long	src/include/llvm/DebugInfo/CodeView/TypeIndex.h	/^  static TypeIndex UInt32Long() {$/;"	f	class:llvm::codeview::TypeIndex	typeref:typename:TypeIndex
 UInt32Write	src/include/llvm/ExecutionEngine/Orc/Shared/TargetProcessControlTypes.h	/^using UInt32Write = UIntWrite<uint32_t>;$/;"	t	namespace:llvm::orc::tpctypes	typeref:typename:UIntWrite<uint32_t>
+UInt32_Type	src/parser.h	/^	UInt32_Type,$/;"	e	enum:ASTNodeType
 UInt64	src/include/llvm/DebugInfo/CodeView/TypeIndex.h	/^  UInt64 = 0x0077,      \/\/ 64 bit unsigned int$/;"	e	enum:llvm::codeview::SimpleTypeKind
 UInt64	src/include/llvm/DebugInfo/CodeView/TypeIndex.h	/^  static TypeIndex UInt64() { return TypeIndex(SimpleTypeKind::UInt64); }$/;"	f	class:llvm::codeview::TypeIndex	typeref:typename:TypeIndex
 UInt64	src/include/llvm/DebugInfo/PDB/PDBTypes.h	/^    uint64_t UInt64;$/;"	m	union:llvm::pdb::Variant::__anon56c09c21020a	typeref:typename:uint64_t
@@ -46148,11 +46158,13 @@ UInt64	src/include/llvm/DebugInfo/PDB/PDBTypes.h	/^  UInt64,$/;"	e	enum:llvm::pd
 UInt64Quad	src/include/llvm/DebugInfo/CodeView/TypeIndex.h	/^  UInt64Quad = 0x0023,  \/\/ 64 bit unsigned$/;"	e	enum:llvm::codeview::SimpleTypeKind
 UInt64Quad	src/include/llvm/DebugInfo/CodeView/TypeIndex.h	/^  static TypeIndex UInt64Quad() {$/;"	f	class:llvm::codeview::TypeIndex	typeref:typename:TypeIndex
 UInt64Write	src/include/llvm/ExecutionEngine/Orc/Shared/TargetProcessControlTypes.h	/^using UInt64Write = UIntWrite<uint64_t>;$/;"	t	namespace:llvm::orc::tpctypes	typeref:typename:UIntWrite<uint64_t>
+UInt64_Type	src/parser.h	/^	UInt64_Type,$/;"	e	enum:ASTNodeType
 UInt8	src/include/llvm/DebugInfo/CodeView/CodeView.h	/^  UInt8 = 1,$/;"	e	enum:llvm::codeview::JumpTableEntrySize
 UInt8	src/include/llvm/DebugInfo/PDB/PDBTypes.h	/^    uint8_t UInt8;$/;"	m	union:llvm::pdb::Variant::__anon56c09c21020a	typeref:typename:uint8_t
 UInt8	src/include/llvm/DebugInfo/PDB/PDBTypes.h	/^  UInt8,$/;"	e	enum:llvm::pdb::PDB_VariantType
 UInt8ShiftLeft	src/include/llvm/DebugInfo/CodeView/CodeView.h	/^  UInt8ShiftLeft = 7,$/;"	e	enum:llvm::codeview::JumpTableEntrySize
 UInt8Write	src/include/llvm/ExecutionEngine/Orc/Shared/TargetProcessControlTypes.h	/^using UInt8Write = UIntWrite<uint8_t>;$/;"	t	namespace:llvm::orc::tpctypes	typeref:typename:UIntWrite<uint8_t>
+UInt8_Type	src/parser.h	/^	UInt8_Type,$/;"	e	enum:ASTNodeType
 UIntPairVal	src/include/llvm/ExecutionEngine/GenericValue.h	/^    struct IntPair UIntPairVal;$/;"	m	union:llvm::GenericValue::__anon3fb382c2010a	typeref:struct:IntPair
 UIntPtr	src/include/llvm/ExecutionEngine/Orc/MachOBuilder.h	/^  using UIntPtr = uint64_t;$/;"	t	struct:llvm::orc::MachO64LE	typeref:typename:uint64_t
 UIntVal	src/include/llvm/AsmParser/LLLexer.h	/^    unsigned UIntVal = 0;$/;"	m	class:llvm::LLLexer	typeref:typename:unsigned
@@ -51953,7 +51965,6 @@ big16_t	src/include/llvm/Support/Endian.h	/^using big16_t =$/;"	t	namespace:llvm
 big32_t	src/include/llvm/Support/Endian.h	/^using big32_t =$/;"	t	namespace:llvm::support	typeref:typename:detail::packed_endian_specific_integral<int32_t,llvm::endianness::big,unaligned>
 big64_t	src/include/llvm/Support/Endian.h	/^using big64_t =$/;"	t	namespace:llvm::support	typeref:typename:detail::packed_endian_specific_integral<int64_t,llvm::endianness::big,unaligned>
 big_t	src/include/llvm/Support/Endian.h	/^using big_t = detail::packed_endian_specific_integral<T, llvm::endianness::big,$/;"	t	namespace:llvm::support	typeref:typename:detail::packed_endian_specific_integral<T,llvm::endianness::big,unaligned>
-binaryOperatorExType	src/parser.cpp	/^std::map<TokenType, ASTNodeType> binaryOperatorExType = {$/;"	v	typeref:typename:std::map<TokenType,ASTNodeType>
 binary_search	src/include/llvm/ADT/STLExtras.h	/^auto binary_search(R &&Range, T &&Value, Compare C) {$/;"	f	namespace:llvm	typeref:typename:auto
 binary_search	src/include/llvm/ADT/STLExtras.h	/^template <typename R, typename T> auto binary_search(R &&Range, T &&Value) {$/;"	f	namespace:llvm	typeref:typename:auto
 binary_size	src/include/llvm/ObjectYAML/YAML.h	/^  ArrayRef<uint8_t>::size_type binary_size() const {$/;"	f	class:llvm::yaml::BinaryRef	typeref:typename:ArrayRef<uint8_t>::size_type
@@ -80843,6 +80854,7 @@ operator ~	src/include/llvm/ADT/SmallBitVector.h	/^  SmallBitVector operator~() 
 operator ~	src/include/llvm/MC/LaneBitmask.h	/^    constexpr LaneBitmask operator~() const {$/;"	f	struct:llvm::LaneBitmask	typeref:typename:LaneBitmask
 operator ~	src/include/llvm/Support/FileSystem.h	/^inline perms operator~(perms x) {$/;"	f	namespace:llvm::sys::fs	typeref:typename:perms
 operator ~	src/include/llvm/TargetParser/SubtargetFeature.h	/^  constexpr FeatureBitset operator~() const {$/;"	f	class:llvm::FeatureBitset	typeref:typename:FeatureBitset
+operatorDefaultNodeType	src/parser.cpp	/^std::map<TokenType, ASTNodeType> operatorDefaultNodeType = {$/;"	v	typeref:typename:std::map<TokenType,ASTNodeType>
 operatorPrecedence	src/parser.cpp	/^std::map<ASTNodeType, int> operatorPrecedence = {$/;"	v	typeref:typename:std::map<ASTNodeType,int>
 ops	src/include/llvm/CodeGen/SelectionDAGNodes.h	/^  ArrayRef<SDUse> ops() const { return ArrayRef(op_begin(), op_end()); }$/;"	f	class:llvm::SDNode	typeref:typename:ArrayRef<SDUse>
 opt	src/include/llvm/Option/Arg.h	/^namespace opt {$/;"	n	namespace:llvm

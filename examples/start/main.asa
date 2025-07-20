@@ -1,4 +1,4 @@
-//#import Basic.Print;
+#import Basic.Print;
 //#import Rendering.Window;
 
 //#import GameLogic;
@@ -9,18 +9,18 @@
 
 /*
 You can import the full library like:
-#import "Rendering";
+#import Rendering;
 
 Or individual components:
-#import "Rendering/Window";
+#import Rendering.Window;
 */
 
 //string :: struct {
 //	int c;
 //}
 
-or :: bool(bool a, bool b) #inline {
-//unary|| :: bool(bool a, bool b) #inline {
+//or :: bool(bool a, bool b) #inline {
+unary|| :: bool(bool a, bool b) #inline {
 	if(a){
 		return true;
 	}
@@ -57,15 +57,15 @@ main :: (){
 	//printf("Hello World!");
 	i = 2+2;
 
-	if(or(1, 0)){
+	if(1|| 0){
 		putchar(72);
 	}
-	if(or(1, 1)){
-		putchar(73);
-	}
-	if(or(0, 0)){
-		putchar(72);
-	}
+	//if(or(1, 1)){
+	//	putchar(73);
+	//}
+	//if(or(0, 0)){
+	//	putchar(72);
+	//}
 	
 	for (i:0..3){
 		putchar(32);

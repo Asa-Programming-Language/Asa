@@ -340,7 +340,7 @@ int beginParse(const std::vector<std::pair<std::string, TokenType>>& tokens)
 
 std::vector<ASTNode*> ASTNodes = std::vector<ASTNode*>();
 
-std::map<TokenType, ASTNodeType> binaryOperatorExType = {
+std::map<TokenType, ASTNodeType> operatorDefaultNodeType = {
 	{Dot_Dot, Range_Node},
 	{Dot, Module_Scope},
 	{Bang_Equal, Compare_Not},
@@ -503,58 +503,31 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 					if (nextToken.second == Else_Statement) {
 						int sI2 = i;
 						tokenPair nextToken2 = getNextNonNothingToken(tokens, i);  // Gets the { or if
-						printf("token: %s\n", nextToken2.first.c_str());
-						//tokenPair nextToken = NEXT_TOKEN(tokens, i);  // Gets the { or if
 						// Else If
 						if (nextToken2.second == If_Statement) {
 							// Parse as regular if
 							subTokens.push_back(nextToken2);  // add `if`
 							GATHER_PAREN_EXPRESSION(tokens, subTokens, 0, i, true);
 							GATHER_SCOPE_BODY_APPEND(tokens, subTokens, 0, i, true);
-							//subTokens.pop_back();
-							//i++;
-							printf("gathered else if:\n");
-							for (const auto& s : subTokens)
-								printf("%s", s.first.c_str());
-							printf("\n");
 							ASTNode* elseNode = generateAST(subTokens, depth + 1)->childNodes[0];
-							//elseNode->nodeType = Else_Statement_Node;
-							//elseNode->codegen = &ASTNode::generateScopeBody;
 							prevNode->childNodes[2] = elseNode;
-							printf("new prevNode:\n");
-							printAST(prevNode);
 							prevNode = elseNode;
 							continue;
 						}
 						// Regular Else
 						else {
-							//i--;
 							i = sI2;
-							//// Otherwise, gather the else-body block
-							//subTokens.push_back(tokens[i]);
 							GATHER_SCOPE_BODY(tokens, subTokens, 0, i, true);
-							printf("gathered else:\n");
-							for (const auto& s : subTokens)
-								printf("%s", s.first.c_str());
-							printf("\n");
 							ASTNode* elseNode = generateAST(subTokens, depth + 1);
 							elseNode->nodeType = Else_Statement_Node;
 							elseNode->codegen = &ASTNode::generateScopeBody;
 							prevNode->childNodes[2] = elseNode;
-							printf("new prevNode:\n");
-							printAST(prevNode);
 							prevNode = elseNode;
 							break;	// else must be the end of chain
 						}
 					}
 					else {
 						i = sI;
-						//i--;
-						//ASTNode* elseNode = new ASTNode();	// No else
-						//elseNode->nodeType = Else_Statement_Node;
-						//elseNode->codegen = &ASTNode::generateScopeBody;
-						//prevNode->childNodes[2] = elseNode;
-						//prevNode = elseNode;
 						break;
 					}
 				}
@@ -693,7 +666,8 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 				break;
 			}
 
-			// Two component operations
+			// Operators:
+			// builtin:
 			case Dot_Dot:
 			case Dot:
 			case Bang_Equal:
@@ -705,21 +679,47 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 			case Plus:
 			case Minus:
 			case Star:
-			case Slash: {
-				node->nodeType = binaryOperatorExType[tokenType];
-				node->codegen = &ASTNode::generateBinaryExpression;
+			case Slash:
+			// general:
+			case Bar:
+			case Bar_Bar:
+			case Ampersand:
+			case Ampersand_Ampersand:
+			case Tilde:
+			case Tilde_Tilde:
+			case Caret:
+			case Caret_Caret:
+			case Percent:
+			case Percent_Percent:
+			case At:
+			case At_At: {
+				bool isUnary = false;
+				bool isGeneralOperator = false;
+				if (operatorDefaultNodeType.find(tokenType) != operatorDefaultNodeType.end()) {
+					node->nodeType = operatorDefaultNodeType[tokenType];
+					node->codegen = &ASTNode::generateBinaryExpression;
+				}
+				else {
+					isGeneralOperator = true;
+					node->nodeType = Redefined_Operator_Expr;
+					node->codegen = &ASTNode::generateUnaryExpression;
+				}
 
 				ASTNode* firstTerm = new ASTNode();
 				ASTNode* secondTerm = new ASTNode();
 				bool isLeaf = true;
 
-				// Instead of backtracking to get the first term, pop the leafNodes vector =)
+				// Instead of backtracking to get the first term, pop the leafNodes vector
 				if (parentNode->leafNodes.size() == 0) {
-					printTokenError(token, "Binary operator expected left argument");
-					exit(1);
+					// if there are no leaf nodes, then assume this is a unary operator on R
+					//printTokenError(token, "Binary operator expected left argument");
+					//exit(1);
+					isUnary = true;
 				}
-				firstTerm = parentNode->leafNodes.back();
-				parentNode->leafNodes.pop_back();
+				else {
+					firstTerm = parentNode->leafNodes.back();
+					parentNode->leafNodes.pop_back();
+				}
 				//firstTerm->nodeType = Expression_Term;
 
 				// Step through all following tokens until parens are closed
@@ -745,13 +745,14 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 					subTokens.push_back(t);
 				}
 				if (subTokens.size() == 0) {
-					printTokenError(token, "Binary operator expected right argument");
+					printTokenError(token, "Operator expected right argument");
 					exit(1);
 				}
 				secondTerm = generateAST(subTokens, depth + 1)->childNodes[0];
 				//secondTerm->nodeType = Expression_Term;
 
-				node->childNodes.push_back(firstTerm);
+				if (!isUnary)
+					node->childNodes.push_back(firstTerm);
 				node->childNodes.push_back(secondTerm);
 				if (isLeaf)
 					goto addNodeAsLeaf;

@@ -593,35 +593,56 @@ void* ASTNode::generatePrototype(int pass)
 	bool variableNumArguments = false;
 	for (auto& a : argsNode->childNodes) {
 		if (a->childNodes.size() > 0) {
+			if (variableNumArguments)
+				goto invalidArgument;
 			if (a->childNodes[0]->nodeType != Argument_List) {
 				std::string typeName = a->childNodes[0]->childNodes[0]->token.first;
 				Type* aType = nullptr;
-				if (typeName == "int")
+
+				// Integer types
+				if (typeName == "int" || typeName == "int32" || typeName == "uint" || typeName == "uint32")
 					aType = Type::getInt32Ty(*TheContext);
-				//aType = Type::getPrimitiveType(*TheContext, Type::IntegerTyID);
+				else if (typeName == "int16" || typeName == "uint16")
+					aType = Type::getInt16Ty(*TheContext);
+				else if (typeName == "int8" || typeName == "uint8" || typeName == "uchar" || typeName == "char")
+					aType = Type::getInt8Ty(*TheContext);
+				else if (typeName == "int64" || typeName == "uint64")
+					aType = Type::getInt64Ty(*TheContext);
+				else if (typeName == "int128" || typeName == "uint128")
+					aType = Type::getInt128Ty(*TheContext);
+
+				// Floats
 				else if (typeName == "float")
 					aType = Type::getFloatTy(*TheContext);
+				else if (typeName == "half")
+					aType = Type::getHalfTy(*TheContext);
 				else if (typeName == "double")
 					aType = Type::getDoubleTy(*TheContext);
+
+				// Bool
 				else if (typeName == "bool")
 					aType = Type::getInt1Ty(*TheContext);
+
+				// Unknown type name
+				// TODO: Add handling for custom structs as well
 				else
 					goto invalidArgument;
+
 				//else if (typeName == "string")
 				//Type::getStringTy(*TheContext);
 				argTypes.push_back(aType);
 				argNames.push_back(a->childNodes[0]->token.first);
-				std::cout << "Arg added: '" << a->childNodes[0]->token.first << "' of type: '" << typeName << "'\n";
-				continue;
-			invalidArgument:
-				printTokenError(a->token, "Invalid argument given");
-				exit(1);
+				//std::cout << "Arg added: '" << a->childNodes[0]->token.first << "' of type: '" << typeName << "'\n";
 			}
 			// Handle ellipses ...
 			else if (a->childNodes[0]->nodeType == Argument_List) {
 				//std::string typeName = a->childNodes[0]->childNodes[0]->token.first;
 				variableNumArguments = true;
 			}
+			continue;
+		invalidArgument:
+			printTokenError(a->token, "Invalid argument type given");
+			exit(1);
 		}
 	}
 	bool isAlwaysInline = false;
