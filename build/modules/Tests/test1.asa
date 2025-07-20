@@ -1,6 +1,0 @@
-
-Test1 :: module {
-	x :: (){
-		return 1;
-	}
-}
