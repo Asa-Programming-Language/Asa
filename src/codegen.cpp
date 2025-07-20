@@ -12,6 +12,152 @@ static std::unique_ptr<ModuleAnalysisManager> TheMAM;
 static std::unique_ptr<PassInstrumentationCallbacks> ThePIC;
 static std::unique_ptr<StandardInstrumentations> TheSI;
 
+typedef std::vector<std::pair<std::string, ASTNodeType>> argumentList;
+
+struct functionID {
+	std::string name = "";
+	std::string mangledName = "";
+	std::string returnType = "";
+	argumentList arguments = argumentList();
+	Function* fnValue = nullptr;
+	functionID() {}
+	functionID(std::string n, std::string mN, std::string r, argumentList a, Function* f)
+	{
+		name = n;
+		mangledName = mN;
+		returnType = r;
+		arguments = a;
+		fnValue = f;
+	}
+	uint16_t compareMatch(std::string n, argumentList a)
+	{
+		uint16_t differences = 0;
+		if (n != name)
+			return 1000;
+		if (arguments.size() != a.size())
+			return 1000 - 1;
+		for (int i = 0; i < arguments.size(); i++) {
+			ASTNodeType t1 = arguments[i].second;
+			ASTNodeType t2 = a[i].second;
+			// If t1 is an integer type, make sure t2 is also
+			// Difference points are given the further the types are
+			if (t1 >= Integer_Node && t1 <= Boolean_Node) {
+				if (t2 >= Integer_Node && t2 <= Boolean_Node)  // If similar type
+					differences += abs(t1 - t2);
+				else
+					differences += Boolean_Node - Integer_Node;
+				// TODO: also give points if there exists a cast function
+			}
+			else if (t1 >= Float_Node && t1 <= Half_Type) {
+				if (t2 >= Float_Node && t2 <= Half_Type)  // If similar type
+					differences += abs(t1 - t2);
+				else
+					differences += Half_Type - Float_Node;
+				// TODO: also give points if there exists a cast function
+			}
+			else if (t1 == t2)
+				differences += 0;
+		}
+		return differences;
+	}
+	uint16_t compareMatch(std::string n, std::vector<ASTNode*> a)
+	{
+		uint16_t differences = 0;
+		if (n != name)
+			return 1000;
+		if (arguments.size() != a.size())
+			return 1000 - 1;
+		//for (int i = 0; i < arguments.size(); i++) {
+		//	ASTNodeType t1 = arguments[i].second;
+		//	ASTNodeType t2 = a[i].second;
+		//	// If t1 is an integer type, make sure t2 is also
+		//	// more points for similarity are given the closer the types are
+		//	if (t1 >= Integer_Node && t1 <= Boolean_Node) {
+		//		if (t2 >= Integer_Node && t2 <= Boolean_Node)
+		//			total += (Boolean_Node - Integer_Node) - abs(t1 - t2);
+		//		// TODO: also give points if there exists a cast function
+		//	}
+		//	else if (t1 >= Float_Node && t1 <= Half_Type) {
+		//		if (t2 >= Float_Node && t2 <= Half_Type)
+		//			total += (Half_Type - Float_Node) - abs(t1 - t2);
+		//	}
+		//	else if (t1 == t2)
+		//		total += 1;
+		//}
+		return differences;
+	}
+	uint16_t compareMatch(std::string n)
+	{
+		uint16_t differences = 0;
+		if (n != name)
+			return 1000;
+		return 1000 - 1;
+	}
+};
+
+std::vector<functionID> functionIDs = std::vector<functionID>();
+
+Function* getFunctionFromID(std::string& name, argumentList& arguments)
+{
+	functionID best;
+	int bestScore = 1000;
+	for (auto& f : functionIDs) {
+		uint16_t score = f.compareMatch(name, arguments);
+		if (score < bestScore) {
+			best = f;
+			bestScore = score;
+		}
+	}
+	if (bestScore < 1000)
+		return best.fnValue;
+	return nullptr;
+}
+Function* getExactFunctionFromID(std::string& name, argumentList& arguments)
+{
+	functionID best;
+	int bestScore = 1000;
+	for (auto& f : functionIDs) {
+		uint16_t score = f.compareMatch(name, arguments);
+		if (score < bestScore) {
+			best = f;
+			bestScore = score;
+		}
+	}
+	if (bestScore == 0)
+		return best.fnValue;
+	return nullptr;
+}
+Function* getFunctionFromID(std::string& name, std::vector<ASTNode*>& argValues)
+{
+	functionID best;
+	int bestScore = 1000;
+	for (auto& f : functionIDs) {
+		uint16_t score = f.compareMatch(name, argValues);
+		if (score < bestScore) {
+			best = f;
+			bestScore = score;
+		}
+	}
+	if (bestScore < 1000)
+		return best.fnValue;
+	return nullptr;
+}
+Function* getFunctionFromID(std::string& name)
+{
+	functionID best;
+	int bestScore = 1000;
+	for (auto& f : functionIDs) {
+		uint16_t score = f.compareMatch(name);
+		if (score < bestScore) {
+			best = f;
+			bestScore = score;
+		}
+	}
+	if (bestScore < 1000)
+		return best.fnValue;
+	return nullptr;
+}
+
 Value* LogErrorV(const char* Str)
 {
 	console::PrintError(Str);
@@ -34,8 +180,7 @@ void initializeCodeGenerator()
 	TheCGAM = std::make_unique<CGSCCAnalysisManager>();
 	TheMAM = std::make_unique<ModuleAnalysisManager>();
 	ThePIC = std::make_unique<PassInstrumentationCallbacks>();
-	TheSI = std::make_unique<StandardInstrumentations>(*TheContext,
-		/*DebugLogging*/ true);
+	TheSI = std::make_unique<StandardInstrumentations>(*TheContext, /*DebugLogging*/ true);
 	TheSI->registerCallbacks(*ThePIC, TheMAM.get());
 
 	// Add transform passes.
@@ -182,6 +327,73 @@ void* ASTNode::generateIterator(int pass)
 }
 
 // Value*
+void* ASTNode::generateUnaryExpression(int pass)
+{
+	if (childNodes.size() == 0) {
+		printTokenError(token, "Unary expression reqires a right argument");
+		return nullptr;
+	}
+	if (childNodes[0]->codegen == nullptr) {
+		printTokenError(childNodes[0]->token, "Node `" + ASTNodeTypeAsString(childNodes[0]->nodeType) + "` does not have a code generator");
+		return nullptr;
+	}
+	Value* R = (Value*)(childNodes[0]->*(childNodes[0]->codegen))(pass);
+	if (!R)
+		return nullptr;
+
+	ASTNodeType t = childNodes[0]->nodeType;
+
+	switch (t) {
+		//	case Integer_Node:
+		//		switch (nodeType) {
+		//			case Expression_Plus:
+		//				return Builder->CreateAdd(L, R, "addtmp");
+		//			case Expression_Minus:
+		//				return Builder->CreateSub(L, R, "subtmp");
+		//			case Expression_Times:
+		//				return Builder->CreateMul(L, R, "multmp");
+		//			case Compare_Less:
+		//				return Builder->CreateICmpULT(L, R, "cmptmp");
+		//			default:
+		//				printTokenError(childNodes[0]->token, "Unknown unary operator \"" + childNodes[0]->token.first + "\"");
+		//				exit(1);
+		//		}
+
+		//	case Float_Node:
+		//		switch (nodeType) {
+		//			case Expression_Plus:
+		//				return Builder->CreateFAdd(L, R, "addtmp");
+		//			case Expression_Minus:
+		//				return Builder->CreateFSub(L, R, "subtmp");
+		//			case Expression_Times:
+		//				return Builder->CreateFMul(L, R, "multmp");
+		//			case Compare_Less:
+		//				return Builder->CreateFCmpULT(L, R, "cmptmp");
+		//			default:
+		//				printTokenError(childNodes[0]->token, "Unknown unary operator \"" + childNodes[0]->token.first + "\"");
+		//				exit(1);
+		//		}
+
+		//	default:
+		//		switch (nodeType) {
+		//			case Expression_Plus:
+		//				return Builder->CreateAdd(L, R, "addtmp");
+		//			case Expression_Minus:
+		//				return Builder->CreateSub(L, R, "subtmp");
+		//			case Expression_Times:
+		//				return Builder->CreateMul(L, R, "multmp");
+		//			case Compare_Less:
+		//				return Builder->CreateICmpULT(L, R, "cmptmp");
+		//			default:
+		//				printTokenError(childNodes[0]->token, "Unknown unary operator \"" + childNodes[0]->token.first + "\"");
+		//				exit(1);
+		//		}
+	}
+
+	return nullptr;
+}
+
+// Value*
 void* ASTNode::generateBinaryExpression(int pass)
 {
 	if (childNodes.size() == 0) {
@@ -207,52 +419,80 @@ void* ASTNode::generateBinaryExpression(int pass)
 
 	ASTNodeType t = childNodes[0]->nodeType;
 
-	switch (t) {
-		case Integer_Node:
-			switch (nodeType) {
-				case Expression_Plus:
-					return Builder->CreateAdd(L, R, "addtmp");
-				case Expression_Minus:
-					return Builder->CreateSub(L, R, "subtmp");
-				case Expression_Times:
-					return Builder->CreateMul(L, R, "multmp");
-				case Compare_Less:
-					return Builder->CreateICmpULT(L, R, "cmptmp");
-				default:
-					printTokenError(childNodes[0]->token, "Unknown binary operator \"" + childNodes[0]->token.first + "\"");
-					exit(1);
-			}
+	bool operatorOverloaded = nodeType == Redefined_Operator_Expr;
+	std::string operatorOverloadName = "binary." + tokenAsString(token.second);
+	Function* CalleeF = nullptr;
+	//argumentList argList = {{L->getTypeName(), llvmTypeToName(L->getTypeName())}, {R->getTypeName(), llvmTypeToName(R->getTypeName())}};
 
-		case Float_Node:
-			switch (nodeType) {
-				case Expression_Plus:
-					return Builder->CreateFAdd(L, R, "addtmp");
-				case Expression_Minus:
-					return Builder->CreateFSub(L, R, "subtmp");
-				case Expression_Times:
-					return Builder->CreateFMul(L, R, "multmp");
-				case Compare_Less:
-					return Builder->CreateFCmpULT(L, R, "cmptmp");
-				default:
-					printTokenError(childNodes[0]->token, "Unknown binary operator \"" + childNodes[0]->token.first + "\"");
-					exit(1);
-			}
-
-		default:
-			switch (nodeType) {
-				case Expression_Plus:
-					return Builder->CreateAdd(L, R, "addtmp");
-				case Expression_Minus:
-					return Builder->CreateSub(L, R, "subtmp");
-				case Expression_Times:
-					return Builder->CreateMul(L, R, "multmp");
-				case Compare_Less:
-					return Builder->CreateICmpULT(L, R, "cmptmp");
-				default:
-					printTokenError(childNodes[0]->token, "Unknown binary operator \"" + childNodes[0]->token.first + "\"");
-					exit(1);
-			}
+	// Check to see if the operator actually has an overload
+	if ((CalleeF = getFunctionFromID(operatorOverloadName)) != nullptr)
+		operatorOverloaded = true;
+	else if (operatorOverloaded) {	// If it was expected to,
+		printTokenError(token, "Binary operator \"" + token.first + "\" between values");
+		exit(1);
 	}
+
+	// If this is an operator overload, create function call to it
+	if (operatorOverloaded) {
+		if (!CalleeF) {
+			printTokenError(token, "Undefined function");
+			return nullptr;
+		}
+
+		std::vector<Value*> ArgsV;
+		ArgsV.push_back(L);
+		ArgsV.push_back(R);
+
+		return Builder->CreateCall(CalleeF, ArgsV, "calltmp");
+	}
+	// Otherwise, it is a regular builtin operator
+	else
+		switch (t) {
+			case Integer_Node:
+				switch (nodeType) {
+					case Expression_Plus:
+						return Builder->CreateAdd(L, R, "addtmp");
+					case Expression_Minus:
+						return Builder->CreateSub(L, R, "subtmp");
+					case Expression_Times:
+						return Builder->CreateMul(L, R, "multmp");
+					case Compare_Less:
+						return Builder->CreateICmpULT(L, R, "cmptmp");
+					default:
+						printTokenError(childNodes[0]->token, "Unknown binary operator \"" + childNodes[0]->token.first + "\"");
+						exit(1);
+				}
+
+			case Float_Node:
+				switch (nodeType) {
+					case Expression_Plus:
+						return Builder->CreateFAdd(L, R, "addtmp");
+					case Expression_Minus:
+						return Builder->CreateFSub(L, R, "subtmp");
+					case Expression_Times:
+						return Builder->CreateFMul(L, R, "multmp");
+					case Compare_Less:
+						return Builder->CreateFCmpULT(L, R, "cmptmp");
+					default:
+						printTokenError(childNodes[0]->token, "Unknown binary operator \"" + childNodes[0]->token.first + "\"");
+						exit(1);
+				}
+
+			default:
+				switch (nodeType) {
+					case Expression_Plus:
+						return Builder->CreateAdd(L, R, "addtmp");
+					case Expression_Minus:
+						return Builder->CreateSub(L, R, "subtmp");
+					case Expression_Times:
+						return Builder->CreateMul(L, R, "multmp");
+					case Compare_Less:
+						return Builder->CreateICmpULT(L, R, "cmptmp");
+					default:
+						printTokenError(childNodes[0]->token, "Unknown binary operator \"" + childNodes[0]->token.first + "\"");
+						exit(1);
+				}
+		}
 
 	return nullptr;
 }
@@ -316,18 +556,22 @@ void* ASTNode::generateCast(int pass)
 // Value*
 void* ASTNode::generateCallExpression(int pass)
 {
-	// Look up the name in the global module table.
-	Function* CalleeF = TheModule->getFunction(token.first);
-	if (!CalleeF) {
-		printTokenError(token, "Undefined function");
-		return nullptr;
-	}
 
 	ASTNode* argsNode = childNodes[0];
 	std::vector<ASTNode*> args = std::vector<ASTNode*>();
 	for (auto& a : argsNode->childNodes)
-		if (a->childNodes.size() > 0)
+		if (a->childNodes.size() > 0) {
 			args.push_back(a);
+			//aList.push_back(std::make_pair());
+		}
+
+	// Look up the id in the global module table.
+	Function* CalleeF = getFunctionFromID(token.first, args);
+	//Function* CalleeF = TheModule->getFunction(token.first);
+	if (!CalleeF) {
+		printTokenError(token, "Undefined function");
+		return nullptr;
+	}
 
 	// If argument mismatch error.
 	if (CalleeF->arg_size() != args.size()) {
@@ -371,8 +615,7 @@ void* ASTNode::generateIf(int pass)
 
 	// Create blocks for the then and else cases.  Insert the 'then' block at the
 	// end of the function.
-	BasicBlock* ThenBB =
-		BasicBlock::Create(*TheContext, "then", TheFunction);
+	BasicBlock* ThenBB = BasicBlock::Create(*TheContext, "then", TheFunction);
 	BasicBlock* ElseBB = BasicBlock::Create(*TheContext, "else");
 	BasicBlock* MergeBB = BasicBlock::Create(*TheContext, "ifcont");
 
@@ -580,24 +823,49 @@ void* ASTNode::generateFor(int pass)
 // Function*
 void* ASTNode::generatePrototype(int pass)
 {
-	// Don't add another prototype if already defined
-	Function* theFunction = TheModule->getFunction(token.first);
-	if (theFunction)
-		return theFunction;
 
+	argumentList argList = argumentList();
 	std::vector<Type*> argTypes = std::vector<Type*>();
 	ASTNode* argsNode = childNodes[2];
 	ASTNode* modifiersNode = childNodes[3];
 	std::vector<std::string> argNames = std::vector<std::string>();
 	std::string fnName = token.first;
+	std::string mangledName = token.first;
+
+	if (fnName == "binary" || fnName == "unary") {
+		fnName = fnName + "." + tokenAsString(childNodes[0]->childNodes[0]->token.second);
+		mangledName = fnName + "." + tokenAsString(childNodes[0]->childNodes[0]->token.second);
+	}
+	//else
+	//	fnName = fnName;
+
+	// Get return type
+	Type* retType = Type::getVoidTy(*TheContext);
+	std::string rTypeString = "";
+	ASTNode* typeNode = childNodes[1];
+	if (typeNode->childNodes.size() > 0) {
+		typeNode = typeNode->childNodes[0];
+		mangledName += "." + typeNode->token.first;
+		rTypeString = typeNode->token.first;
+		if (typeNode->token.first == "int")
+			retType = Type::getInt32Ty(*TheContext);
+		else if (typeNode->token.first == "float")
+			retType = Type::getFloatTy(*TheContext);
+		else if (typeNode->token.first == "bool")
+			retType = Type::getInt1Ty(*TheContext);
+	}
+
+	// Get function arguments
 	bool variableNumArguments = false;
 	for (auto& a : argsNode->childNodes) {
 		if (a->childNodes.size() > 0) {
-			if (variableNumArguments)
+			if (variableNumArguments)  // If there is a named argument after ... then it is invalid
 				goto invalidArgument;
 			if (a->childNodes[0]->nodeType != Argument_List) {
 				std::string typeName = a->childNodes[0]->childNodes[0]->token.first;
+				mangledName += "." + typeName;
 				Type* aType = nullptr;
+				argList.push_back(std::make_pair(typeName, a->childNodes[0]->childNodes[0]->nodeType));
 
 				// Integer types
 				if (typeName == "int" || typeName == "int32" || typeName == "uint" || typeName == "uint32")
@@ -650,17 +918,15 @@ void* ASTNode::generatePrototype(int pass)
 		if (m->token.first == "#inline")
 			isAlwaysInline = true;
 	}
-	Type* retType = Type::getVoidTy(*TheContext);
-	ASTNode* typeNode = childNodes[1];
-	if (typeNode->childNodes.size() > 0) {
-		typeNode = typeNode->childNodes[0];
-		if (typeNode->token.first == "int")
-			retType = Type::getInt32Ty(*TheContext);
-		else if (typeNode->token.first == "float")
-			retType = Type::getFloatTy(*TheContext);
-		else if (typeNode->token.first == "bool")
-			retType = Type::getInt1Ty(*TheContext);
-	}
+
+
+	// Don't add another prototype if the exact same one is already defined
+	//Function* theFunction = TheModule->getFunction(token.first);
+	Function* theFunction = getExactFunctionFromID(fnName, argList);
+	if (theFunction)
+		return theFunction;
+
+
 	FunctionType* FT = FunctionType::get(retType, argTypes, variableNumArguments);
 
 	Function* fn = Function::Create(FT, Function::ExternalLinkage, fnName, TheModule.get());
@@ -673,14 +939,17 @@ void* ASTNode::generatePrototype(int pass)
 		namedValues[std::string(arg.getName())] = &arg;
 	}
 
+	functionIDs.emplace_back(fnName, mangledName, rTypeString, argList, fn);
+
 	return fn;
 }
 
 // Function*
 void* ASTNode::generateFunction(int pass)
 {
-	// First, check for an existing function from a previous 'extern' declaration.
-	Function* theFunction = TheModule->getFunction(token.first);
+	// First, check for an existing function from a previous declaration.
+	//Function* theFunction = TheModule->getFunction(token.first);
+	Function* theFunction = getFunctionFromID(token.first);
 
 	if (!theFunction)
 		theFunction = (Function*)generatePrototype();

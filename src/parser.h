@@ -42,8 +42,10 @@ enum ASTNodeType {
 	SInt8_Type,
 	UInt8_Type,
 	Char_Type,
-	Float_Node,
 	Boolean_Node,
+	Float_Node,
+	Double_Type,
+	Half_Type,
 	String_Node,
 	Type_Node,
 
@@ -78,6 +80,8 @@ enum ASTNodeType {
 	Module_Define_Node,
 
 	Operator_Overload_Node,
+
+	Dereference_Operation,
 
 	Return_Node,
 	Continue_Node,
@@ -125,8 +129,10 @@ const std::string ASTNodeTypeStrings[] = {
 	"SInt8_Type",
 	"UInt8_Type",
 	"Char_Type",
-	"Float_Node",
 	"Boolean_Node",
+	"Float_Node",
+	"Double_Type",
+	"Half_Type",
 	"String_node",
 	"Type_Node",
 
@@ -161,6 +167,8 @@ const std::string ASTNodeTypeStrings[] = {
 	"Module_Define_Node",
 
 	"Operator_Overload_Node",
+
+	"Dereference_Operation",
 
 	"Return_Node",
 	"Continue_Node",
@@ -208,6 +216,7 @@ struct ASTNode {
 	void* generateExpression(int pass = 0);
 	void* generateExpressionStatement(int pass = 0);
 	void* generateIterator(int pass = 0);
+	void* generateUnaryExpression(int pass = 0);
 	void* generateBinaryExpression(int pass = 0);
 	void* generateScopeBody(int pass = 0);
 	void* generateIf(int pass = 0);

@@ -10592,6 +10592,7 @@ DerefIterator	src/include/llvm/ProfileData/MemProfRadixTree.h	/^value_type Deref
 DerefState	src/include/llvm/Transforms/IPO/Attributor.h	/^struct DerefState : AbstractState {$/;"	s	namespace:llvm
 Dereference	src/include/llvm/DebugInfo/DWARF/LowLevel/DWARFUnwindTable.h	/^  bool Dereference; \/\/\/ If true, the resulting location must be dereferenced$/;"	m	class:llvm::dwarf::UnwindLocation	typeref:typename:bool
 Dereference	src/include/llvm/Demangle/MicrosoftDemangleNodes.h	/^  Dereference,                \/\/ ?D # operator*$/;"	e	enum:llvm::ms_demangle::IntrinsicFunctionKind
+Dereference_Operation	src/parser.h	/^	Dereference_Operation,$/;"	e	enum:ASTNodeType
 Deregister	src/include/llvm/ExecutionEngine/Orc/UnwindInfoRegistrationPlugin.h	/^  ExecutorAddr Register, Deregister;$/;"	m	class:llvm::orc::UnwindInfoRegistrationPlugin	typeref:typename:ExecutorAddr
 DeregisterEHFrame	src/include/llvm/ExecutionEngine/Orc/EHFrameRegistrationPlugin.h	/^  ExecutorAddr DeregisterEHFrame;$/;"	m	class:llvm::orc::EHFrameRegistrationPlugin	typeref:typename:ExecutorAddr
 DeregisterEHFrame	src/include/llvm/ExecutionEngine/Orc/EPCGenericRTDyldMemoryManager.h	/^    ExecutorAddr DeregisterEHFrame;$/;"	m	struct:llvm::orc::EPCGenericRTDyldMemoryManager::SymbolAddrs	typeref:typename:ExecutorAddr
@@ -11202,6 +11203,7 @@ DoubleLiteral	src/include/llvm/Demangle/ItaniumDemangle.h	/^using DoubleLiteral 
 DoubleTyID	src/include/llvm/IR/Type.h	/^    DoubleTyID,    \/\/\/< 64-bit floating point type$/;"	e	enum:llvm::Type::TypeID
 DoubleUnder	src/include/llvm/Demangle/MicrosoftDemangle.h	/^enum class FunctionIdentifierCodeGroup { Basic, Under, DoubleUnder };$/;"	e	enum:llvm::ms_demangle::FunctionIdentifierCodeGroup
 DoubleVal	src/include/llvm/ExecutionEngine/GenericValue.h	/^    double DoubleVal;$/;"	m	union:llvm::GenericValue::__anon3fb382c2010a	typeref:typename:double
+Double_Type	src/parser.h	/^	Double_Type,$/;"	e	enum:ASTNodeType
 Downward	src/include/llvm/ExecutionEngine/Orc/SpeculateAnalyses.h	/^    bool Upward = true, Downward = true;$/;"	m	struct:llvm::orc::SequenceBBQuery::WalkDirection	typeref:typename:bool
 DragonFly	src/include/llvm/TargetParser/Triple.h	/^    DragonFly,$/;"	e	enum:llvm::Triple::OSType
 DrectveSection	src/include/llvm/MC/MCObjectFileInfo.h	/^  MCSection *DrectveSection = nullptr;$/;"	m	class:llvm::MCObjectFileInfo	typeref:typename:MCSection *
@@ -17636,6 +17638,7 @@ HalfTyID	src/include/llvm/IR/Type.h	/^    HalfTyID = 0,  \/\/\/< 16-bit floating
 HalfWords	src/include/llvm/ExecutionEngine/JITLink/aarch32.h	/^  constexpr HalfWords() : Hi(0), Lo(0) {}$/;"	f	struct:llvm::jitlink::aarch32::HalfWords
 HalfWords	src/include/llvm/ExecutionEngine/JITLink/aarch32.h	/^  constexpr HalfWords(uint32_t Hi, uint32_t Lo) : Hi(Hi), Lo(Lo) {$/;"	f	struct:llvm::jitlink::aarch32::HalfWords
 HalfWords	src/include/llvm/ExecutionEngine/JITLink/aarch32.h	/^struct HalfWords {$/;"	s	namespace:llvm::jitlink::aarch32
+Half_Type	src/parser.h	/^	Half_Type,$/;"	e	enum:ASTNodeType
 Handle	src/include/llvm/ExecutionEngine/Orc/DylibManager.h	/^    tpctypes::DylibHandle Handle;$/;"	m	struct:llvm::orc::DylibManager::LookupRequest	typeref:typename:tpctypes::DylibHandle
 Handle	src/include/llvm/Frontend/HLSL/CBuffer.h	/^  GlobalVariable *Handle;$/;"	m	struct:llvm::hlsl::CBufferMapping	typeref:typename:GlobalVariable *
 Handle	src/include/llvm/Support/Windows/WindowsSupport.h	/^  handle_type Handle;$/;"	m	class:llvm::ScopedHandle	typeref:typename:handle_type
@@ -51396,6 +51399,7 @@ args_end	src/include/llvm/IR/DebugInfoMetadata.h	/^  iterator args_end() { retur
 args_end	src/include/llvm/TableGen/Record.h	/^  const_iterator args_end() const { return args().end(); }$/;"	f	class:llvm::VarDefInit	typeref:typename:const_iterator
 args_size	src/include/llvm/TableGen/Record.h	/^  size_t         args_size () const { return NumArgs; }$/;"	f	class:llvm::VarDefInit	typeref:typename:size_t
 argument	src/include/llvm/Transforms/IPO/Attributor.h	/^  static const IRPosition argument(const Argument &Arg,$/;"	f	struct:llvm::IRPosition	typeref:typename:const IRPosition
+argumentList	src/codegen.cpp	/^typedef std::vector<std::pair<std::string, ASTNodeType>> argumentList;$/;"	t	typeref:typename:std::vector<std::pair<std::string,ASTNodeType>>	file:
 argumentOrErrnoMemOnly	src/include/llvm/Support/ModRef.h	/^  argumentOrErrnoMemOnly(ModRefInfo ArgMR = ModRefInfo::ModRef,$/;"	f	class:llvm::MemoryEffectsBase	typeref:typename:MemoryEffectsBase
 argument_list_too_long	src/include/llvm/Support/Errc.h	/^  argument_list_too_long = int(std::errc::argument_list_too_long),$/;"	e	enum:llvm::errc
 argument_out_of_domain	src/include/llvm/Support/Errc.h	/^  argument_out_of_domain = int(std::errc::argument_out_of_domain),$/;"	e	enum:llvm::errc
@@ -51403,6 +51407,7 @@ argument_type	src/include/llvm/ADT/identity.h	/^  using argument_type = Ty;$/;"	
 argument_type	src/include/llvm/CodeGen/MachineBasicBlock.h	/^  using argument_type = const MachineBasicBlock *;$/;"	t	struct:llvm::MBB2NumberFunctor	typeref:typename:const MachineBasicBlock *
 argument_type	src/include/llvm/CodeGen/TargetRegisterInfo.h	/^  using argument_type = Register;$/;"	t	struct:llvm::VirtReg2IndexFunctor	typeref:typename:Register
 argument_type	src/include/llvm/DebugInfo/PDB/PDBTypes.h	/^  using argument_type = llvm::pdb::PDB_SymType;$/;"	t	struct:std::hash	typeref:typename:llvm::pdb::PDB_SymType
+arguments	src/codegen.cpp	/^	argumentList arguments = argumentList();$/;"	m	struct:functionID	typeref:typename:argumentList	file:
 arm	src/include/llvm/TargetParser/Triple.h	/^    arm,            \/\/ ARM (little endian): arm, armv.*, xscale$/;"	e	enum:llvm::Triple::ArchType
 arm64x_reloc_iterator	src/include/llvm/Object/COFF.h	/^using arm64x_reloc_iterator = content_iterator<Arm64XRelocRef>;$/;"	t	namespace:llvm::object	typeref:typename:content_iterator<Arm64XRelocRef>
 arm_state_hdr_t	src/include/llvm/BinaryFormat/MachO.h	/^struct arm_state_hdr_t {$/;"	s	namespace:llvm::MachO
@@ -54415,6 +54420,9 @@ compare	src/include/llvm/Support/ScaledNumber.h	/^int compare(DigitsT LDigits, i
 compareAbsoluteValue	src/include/llvm/ADT/APFloat.h	/^  cmpResult compareAbsoluteValue(const APFloat &RHS) const {$/;"	f	class:llvm::APFloat	typeref:typename:cmpResult
 compareKey	src/include/llvm/ExecutionEngine/Orc/Shared/MemoryFlags.h	/^  static bool compareKey(const ElemT &E, const AllocGroup &G) {$/;"	f	class:llvm::orc::AllocGroupSmallMap	typeref:typename:bool
 compareLoops	src/include/llvm/Support/GenericLoopInfoImpl.h	/^static void compareLoops(const LoopT *L, const LoopT *OtherL,$/;"	f	namespace:llvm	typeref:typename:void
+compareMatch	src/codegen.cpp	/^	uint16_t compareMatch(std::string n)$/;"	f	struct:functionID	typeref:typename:uint16_t	file:
+compareMatch	src/codegen.cpp	/^	uint16_t compareMatch(std::string n, argumentList a)$/;"	f	struct:functionID	typeref:typename:uint16_t	file:
+compareMatch	src/codegen.cpp	/^	uint16_t compareMatch(std::string n, std::vector<ASTNode*> a)$/;"	f	struct:functionID	typeref:typename:uint16_t	file:
 compareMemory	src/include/llvm/ADT/StringRef.h	/^    static int compareMemory(const char *Lhs, const char *Rhs, size_t Length) {$/;"	f	class:llvm::StringRef	typeref:typename:int
 compareMemory	src/include/llvm/ProfileData/FunctionId.h	/^  static int compareMemory(const char *Lhs, const char *Rhs, uint64_t Length) {$/;"	f	class:llvm::sampleprof::FunctionId	typeref:typename:int
 compareRawBits	src/include/llvm/CodeGen/ValueTypes.h	/^    struct compareRawBits {$/;"	s	struct:llvm::EVT
@@ -57900,6 +57908,7 @@ fmt_pad	src/include/llvm/Support/FormatAdapters.h	/^support::detail::PadAdapter<
 fmt_repeat	src/include/llvm/Support/FormatAdapters.h	/^support::detail::RepeatAdapter<T> fmt_repeat(T &&Item, size_t Count) {$/;"	f	namespace:llvm	typeref:typename:support::detail::RepeatAdapter<T>
 fmtle	src/include/llvm/DebugInfo/PDB/Native/FormatUtil.h	/^detail::EndianAdapter<T> fmtle(support::detail::packed_endian_specific_integral<$/;"	f	namespace:llvm::pdb	typeref:typename:detail::EndianAdapter<T>
 fnPointers	src/output_builder.cpp	/^std::vector<std::string> fnPointers = std::vector<std::string>();$/;"	v	typeref:typename:std::vector<std::string>
+fnValue	src/codegen.cpp	/^	Function* fnValue = nullptr;$/;"	m	struct:functionID	typeref:typename:Function *	file:
 fneg	src/include/llvm/Support/KnownFPClass.h	/^  void fneg() {$/;"	f	struct:llvm::KnownFPClass	typeref:typename:void
 foldImmediate	src/include/llvm/CodeGen/TargetInstrInfo.h	/^  virtual bool foldImmediate(MachineInstr &UseMI, MachineInstr &DefMI,$/;"	f	class:llvm::TargetInstrInfo	typeref:typename:bool
 foldMemoryOperandImpl	src/include/llvm/CodeGen/TargetInstrInfo.h	/^  foldMemoryOperandImpl(MachineFunction &MF, MachineInstr &MI,$/;"	f	class:llvm::TargetInstrInfo	typeref:typename:MachineInstr *
@@ -58155,6 +58164,10 @@ functionEntryOnly	src/include/llvm/ProfileData/InstrProfReader.h	/^  bool functi
 functionEntryOnly	src/include/llvm/ProfileData/InstrProfReader.h	/^  bool functionEntryOnly() const override {$/;"	f	class:llvm::InstrProfReaderIndex	typeref:typename:bool
 functionEntryOnly	src/include/llvm/ProfileData/InstrProfReader.h	/^  bool functionEntryOnly() const override {$/;"	f	class:llvm::RawInstrProfReader	typeref:typename:bool
 functionEntryOnly	src/include/llvm/ProfileData/InstrProfReader.h	/^  bool functionEntryOnly() const override {$/;"	f	class:llvm::TextInstrProfReader	typeref:typename:bool
+functionID	src/codegen.cpp	/^	functionID() {}$/;"	f	struct:functionID	file:
+functionID	src/codegen.cpp	/^	functionID(std::string n, std::string mN, std::string r, argumentList a, Function* f)$/;"	f	struct:functionID	file:
+functionID	src/codegen.cpp	/^struct functionID {$/;"	s	file:
+functionIDs	src/codegen.cpp	/^std::vector<functionID> functionIDs = std::vector<functionID>();$/;"	v	typeref:typename:std::vector<functionID>
 functionId	src/include/llvm/XRay/FDRRecords.h	/^  int32_t functionId() const { return FuncId; }$/;"	f	class:llvm::xray::FunctionRecord	typeref:typename:int32_t
 functionSamplesAt	src/include/llvm/ProfileData/SampleProf.h	/^  FunctionSamplesMap &functionSamplesAt(const LineLocation &Loc) {$/;"	f	class:llvm::sampleprof::FunctionSamples	typeref:typename:FunctionSamplesMap &
 function_iterator	src/include/llvm/Object/StackMapParser.h	/^  using function_iterator = AccessorIterator<FunctionAccessor>;$/;"	t	class:llvm::StackMapParser	typeref:typename:AccessorIterator<FunctionAccessor>
@@ -58217,6 +58230,7 @@ generatePrototype	src/codegen.cpp	/^void* ASTNode::generatePrototype(int pass)$/
 generateReturn	src/codegen.cpp	/^void* ASTNode::generateReturn(int pass)$/;"	f	class:ASTNode	typeref:typename:void *
 generateScopeBody	src/codegen.cpp	/^void* ASTNode::generateScopeBody(int pass)$/;"	f	class:ASTNode	typeref:typename:void *
 generateStruct	src/codegen.cpp	/^void* ASTNode::generateStruct(int pass)$/;"	f	class:ASTNode	typeref:typename:void *
+generateUnaryExpression	src/codegen.cpp	/^void* ASTNode::generateUnaryExpression(int pass)$/;"	f	class:ASTNode	typeref:typename:void *
 generateVariableExpression	src/codegen.cpp	/^void* ASTNode::generateVariableExpression(int pass)$/;"	f	class:ASTNode	typeref:typename:void *
 generate_vcs_version_script	src/include/llvm/Support/CMakeLists.txt	/^set(generate_vcs_version_script "${LLVM_CMAKE_DIR}\/GenerateVersionFromVCS.cmake")$/;"	v
 generated_files	src/include/llvm/Support/CMakeLists.txt	/^set(generated_files "${version_inc}")$/;"	v
@@ -60707,6 +60721,7 @@ getExactFPInst	src/include/llvm/Transforms/Vectorize/LoopVectorizationLegality.h
 getExactFPMathInst	src/include/llvm/Analysis/IVDescriptors.h	/^    Instruction *getExactFPMathInst() const { return ExactFPMathInst; }$/;"	f	class:llvm::RecurrenceDescriptor::InstDesc	typeref:typename:Instruction *
 getExactFPMathInst	src/include/llvm/Analysis/IVDescriptors.h	/^  Instruction *getExactFPMathInst() const { return ExactFPMathInst; }$/;"	f	class:llvm::RecurrenceDescriptor	typeref:typename:Instruction *
 getExactFPMathInst	src/include/llvm/Analysis/IVDescriptors.h	/^  Instruction *getExactFPMathInst() {$/;"	f	class:llvm::InductionDescriptor	typeref:typename:Instruction *
+getExactFunctionFromID	src/codegen.cpp	/^Function* getExactFunctionFromID(std::string& name, argumentList& arguments)$/;"	f	typeref:typename:Function *
 getExactInverse	src/include/llvm/ADT/APFloat.h	/^  bool getExactInverse(APFloat *inv) const {$/;"	f	class:llvm::APFloat	typeref:typename:bool
 getExactLog2	src/include/llvm/ADT/APFloat.h	/^  int getExactLog2() const {$/;"	f	class:llvm::APFloat	typeref:typename:LLVM_READONLY int
 getExactLog2	src/include/llvm/ADT/APFloat.h	/^  int getExactLog2() const {$/;"	f	class:llvm::detail::IEEEFloat	typeref:typename:LLVM_READONLY int
@@ -61245,6 +61260,9 @@ getFunctionEnd	src/include/llvm/CodeGen/AsmPrinter.h	/^  MCSymbol *getFunctionEn
 getFunctionEntryPointSymbol	src/include/llvm/Target/TargetLoweringObjectFile.h	/^  virtual MCSymbol *getFunctionEntryPointSymbol(const GlobalValue *Func,$/;"	f	class:llvm::TargetLoweringObjectFile	typeref:typename:MCSymbol *
 getFunctionFaultInfoAt	src/include/llvm/Object/FaultMapParser.h	/^    FunctionFaultInfoAccessor getFunctionFaultInfoAt(uint32_t Index) const {$/;"	f	class:llvm::FaultMapParser::FunctionInfoAccessor	typeref:typename:FunctionFaultInfoAccessor
 getFunctionFrameSymbol	src/include/llvm/CodeGen/AsmPrinter.h	/^  virtual const MCSymbol *getFunctionFrameSymbol() const { return nullptr; }$/;"	f	class:llvm::AsmPrinter	typeref:typename:const MCSymbol *
+getFunctionFromID	src/codegen.cpp	/^Function* getFunctionFromID(std::string& name)$/;"	f	typeref:typename:Function *
+getFunctionFromID	src/codegen.cpp	/^Function* getFunctionFromID(std::string& name, argumentList& arguments)$/;"	f	typeref:typename:Function *
+getFunctionFromID	src/codegen.cpp	/^Function* getFunctionFromID(std::string& name, std::vector<ASTNode*>& argValues)$/;"	f	typeref:typename:Function *
 getFunctionGUID	src/include/llvm/IR/PseudoProbe.h	/^  uint64_t getFunctionGUID() const { return FunctionGUID; }$/;"	f	class:llvm::PseudoProbeDescriptor	typeref:typename:uint64_t
 getFunctionHash	src/include/llvm/IR/PseudoProbe.h	/^  uint64_t getFunctionHash() const { return FunctionHash; }$/;"	f	class:llvm::PseudoProbeDescriptor	typeref:typename:uint64_t
 getFunctionHash	src/include/llvm/ProfileData/SampleProf.h	/^  uint64_t getFunctionHash() const { return FunctionHash; }$/;"	f	class:llvm::sampleprof::FunctionSamples	typeref:typename:uint64_t
@@ -76594,6 +76612,7 @@ malformed	src/include/llvm/ProfileData/InstrProf.h	/^  malformed,$/;"	e	enum:llv
 malformed	src/include/llvm/ProfileData/SampleProf.h	/^  malformed,$/;"	e	enum:llvm::sampleprof_error
 mallocForGrow	src/include/llvm/ADT/SmallVector.h	/^T *SmallVectorTemplateBase<T, TriviallyCopyable>::mallocForGrow($/;"	f	class:llvm::SmallVectorTemplateBase	typeref:typename:T *
 mangleAndIntern	src/include/llvm/ExecutionEngine/Orc/LLJIT.h	/^  SymbolStringPtr mangleAndIntern(StringRef UnmangledName) const {$/;"	f	class:llvm::orc::LLJIT	typeref:typename:SymbolStringPtr
+mangledName	src/codegen.cpp	/^	std::string mangledName = "";$/;"	m	struct:functionID	typeref:typename:std::string	file:
 mangled_size	src/include/llvm/Demangle/ItaniumDemangle.h	/^    static const size_t mangled_size = 16;$/;"	m	struct:FloatData	typeref:typename:const size_t
 mangled_size	src/include/llvm/Demangle/ItaniumDemangle.h	/^    static const size_t mangled_size = 8;$/;"	m	struct:FloatData	typeref:typename:const size_t
 mangled_size	src/include/llvm/Demangle/ItaniumDemangle.h	/^  static const size_t mangled_size = 32;$/;"	m	struct:FloatData	typeref:typename:const size_t
@@ -77394,6 +77413,7 @@ n_type	src/include/llvm/ObjectYAML/MachOYAML.h	/^  llvm::yaml::Hex8 n_type;$/;"	
 n_value	src/include/llvm/BinaryFormat/MachO.h	/^  uint32_t n_value;$/;"	m	struct:llvm::MachO::nlist	typeref:typename:uint32_t
 n_value	src/include/llvm/BinaryFormat/MachO.h	/^  uint64_t n_value;$/;"	m	struct:llvm::MachO::nlist_64	typeref:typename:uint64_t
 n_value	src/include/llvm/ObjectYAML/MachOYAML.h	/^  uint64_t n_value;$/;"	m	struct:llvm::MachOYAML::NListEntry	typeref:typename:uint64_t
+name	src/codegen.cpp	/^	std::string name = "";$/;"	m	struct:functionID	typeref:typename:std::string	file:
 name	src/include/llvm/Analysis/TensorSpec.h	/^  const std::string &name() const { return Name; }$/;"	f	class:llvm::TensorSpec	typeref:typename:const std::string &
 name	src/include/llvm/BinaryFormat/MachO.h	/^  uint32_t name;$/;"	m	struct:llvm::MachO::dyld_env_command	typeref:typename:uint32_t
 name	src/include/llvm/BinaryFormat/MachO.h	/^  uint32_t name;$/;"	m	struct:llvm::MachO::dylib	typeref:typename:uint32_t
@@ -83423,6 +83443,7 @@ retrack	src/include/llvm/IR/Metadata.h	/^  static bool retrack(Metadata *&MD, Me
 retrack	src/include/llvm/IR/TrackingMDRef.h	/^  void retrack(TrackingMDRef &X) {$/;"	f	class:llvm::TrackingMDRef	typeref:typename:void
 returnDoesNotAlias	src/include/llvm/IR/Function.h	/^  bool returnDoesNotAlias() const {$/;"	f	class:llvm::Function	typeref:typename:bool
 returnDoesNotAlias	src/include/llvm/IR/InstrTypes.h	/^  bool returnDoesNotAlias() const {$/;"	f	class:llvm::CallBase	typeref:typename:bool
+returnType	src/codegen.cpp	/^	std::string returnType = "";$/;"	m	struct:functionID	typeref:typename:std::string	file:
 return_values	src/include/llvm/Transforms/Coroutines/CoroInstr.h	/^  iterator_range<const_op_iterator> return_values() const {$/;"	f	class:llvm::CoroEndResults	typeref:typename:iterator_range<const_op_iterator>
 return_values	src/include/llvm/Transforms/Coroutines/CoroInstr.h	/^  iterator_range<op_iterator> return_values() {$/;"	f	class:llvm::CoroEndResults	typeref:typename:iterator_range<op_iterator>
 returned	src/include/llvm/Transforms/IPO/Attributor.h	/^  static const IRPosition returned(const Function &F,$/;"	f	struct:llvm::IRPosition	typeref:typename:const IRPosition
@@ -83655,20 +83676,21 @@ runWithSPSRet	src/include/llvm/ExecutionEngine/Orc/Shared/WrapperFunctionUtils.h
 runWithSPSRetErrorMerged	src/include/llvm/ExecutionEngine/Orc/Shared/WrapperFunctionUtils.h	/^  Error runWithSPSRetErrorMerged() const {$/;"	f	class:llvm::orc::shared::WrapperFunctionCall	typeref:typename:Error
 runtime_check	src/include/llvm/Transforms/Instrumentation/LowerAllowCheckPass.h	/^    unsigned int runtime_check = 0;$/;"	m	struct:llvm::LowerAllowCheckPass::Options	typeref:typename:unsigned int
 s:l	src/Session.vim	/^let s:l = 1 - ((0 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 10026 - ((25 * winheight(0) + 13) \/ 26)$/;"	v
-s:l	src/Session.vim	/^let s:l = 106 - ((62 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 129 - ((39 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 102 - ((52 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 108 - ((31 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 135 - ((30 * winheight(0) + 26) \/ 53)$/;"	v
 s:l	src/Session.vim	/^let s:l = 16 - ((15 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 186 - ((15 * winheight(0) + 13) \/ 26)$/;"	v
+s:l	src/Session.vim	/^let s:l = 184 - ((10 * winheight(0) + 26) \/ 53)$/;"	v
 s:l	src/Session.vim	/^let s:l = 20 - ((19 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 22 - ((21 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 44 - ((11 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 204 - ((10 * winheight(0) + 13) \/ 26)$/;"	v
+s:l	src/Session.vim	/^let s:l = 21 - ((20 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 34 - ((28 * winheight(0) + 26) \/ 53)$/;"	v
 s:l	src/Session.vim	/^let s:l = 44 - ((26 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 524 - ((38 * winheight(0) + 26) \/ 53)$/;"	v
 s:l	src/Session.vim	/^let s:l = 57 - ((19 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 60 - ((13 * winheight(0) + 13) \/ 26)$/;"	v
-s:l	src/Session.vim	/^let s:l = 607 - ((18 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 60 - ((11 * winheight(0) + 13) \/ 26)$/;"	v
+s:l	src/Session.vim	/^let s:l = 668 - ((10 * winheight(0) + 26) \/ 53)$/;"	v
 s:l	src/Session.vim	/^let s:l = 9 - ((8 * winheight(0) + 13) \/ 26)$/;"	v
+s:l	src/Session.vim	/^let s:l = 9932 - ((10 * winheight(0) + 13) \/ 26)$/;"	v
 s:save_splitbelow	src/Session.vim	/^let s:save_splitbelow = &splitbelow$/;"	v
 s:save_splitright	src/Session.vim	/^let s:save_splitright = &splitright$/;"	v
 s:save_winminheight	src/Session.vim	/^let s:save_winminheight = &winminheight$/;"	v

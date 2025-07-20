@@ -355,17 +355,19 @@ std::map<TokenType, ASTNodeType> operatorDefaultNodeType = {
 };
 
 std::map<ASTNodeType, int> operatorPrecedence = {
-	{Expression_Paren_Term, 5},	 // ()
-	{Expression_Times, 4},		 // *
-	{Expression_Divided, 4},	 // /
-	{Expression_Plus, 3},		 // +
-	{Expression_Minus, 3},		 // -
-	{Compare_Equal, 2},			 // ==
-	{Compare_Not, 2},			 // !=
-	{Compare_Less, 2},			 // <
-	{Compare_LessEqual, 2},		 // <=
-	{Compare_Greater, 2},		 // >
-	{Compare_GreaterEqual, 2},	 // >=
+	{Operator_Overload_Node, 100},	// anything else
+	{Expression_Paren_Term, 50},	// ()
+	{Dereference_Operation, 5},		// &
+	{Expression_Times, 4},			// *
+	{Expression_Divided, 4},		// /
+	{Expression_Plus, 3},			// +
+	{Expression_Minus, 3},			// -
+	{Compare_Equal, 2},				// ==
+	{Compare_Not, 2},				// !=
+	{Compare_Less, 2},				// <
+	{Compare_LessEqual, 2},			// <=
+	{Compare_Greater, 2},			// >
+	{Compare_GreaterEqual, 2},		// >=
 };
 
 std::unordered_set<ASTNodeType> literals = {
@@ -697,12 +699,10 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 				bool isGeneralOperator = false;
 				if (operatorDefaultNodeType.find(tokenType) != operatorDefaultNodeType.end()) {
 					node->nodeType = operatorDefaultNodeType[tokenType];
-					node->codegen = &ASTNode::generateBinaryExpression;
 				}
 				else {
 					isGeneralOperator = true;
 					node->nodeType = Redefined_Operator_Expr;
-					node->codegen = &ASTNode::generateUnaryExpression;
 				}
 
 				ASTNode* firstTerm = new ASTNode();
@@ -715,12 +715,16 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 					//printTokenError(token, "Binary operator expected left argument");
 					//exit(1);
 					isUnary = true;
+					node->codegen = &ASTNode::generateUnaryExpression;
 				}
 				else {
 					firstTerm = parentNode->leafNodes.back();
 					parentNode->leafNodes.pop_back();
+					node->codegen = &ASTNode::generateBinaryExpression;
 				}
-				//firstTerm->nodeType = Expression_Term;
+
+				if (isUnary && tokenType == Ampersand)
+					node->nodeType = Dereference_Operation;
 
 				// Step through all following tokens until parens are closed
 				int parenLevel = 1;
