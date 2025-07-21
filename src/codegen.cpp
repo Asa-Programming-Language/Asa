@@ -314,12 +314,15 @@ llvm::Value* castValue(llvm::Value* value, llvm::Type* destType, bool isSrcSigne
 	if (srcType->isIntegerTy() && destType->isPointerTy())
 		return Builder->CreateIntToPtr(value, destType);
 
-	//// Use bitcast only if size matches and none of the above applies
-	//if (llvm::CastInst::isBitOrNoopPointerCastable(srcType, destType, TheModule->getDataLayout()))
-	//	return Builder->CreateBitCast(value, destType);
+	// Use bitcast only if size matches and none of the above applies
+	if (llvm::CastInst::isBitOrNoopPointerCastable(srcType, destType, TheModule->getDataLayout()))
+		return Builder->CreateBitCast(value, destType);
 
 
 	printTokenError(token, "Unsupported cast");
+
+	srcType->print(llvm::outs());
+	destType->print(llvm::outs());
 	exit(1);
 }
 
@@ -976,9 +979,14 @@ void* ASTNode::generatePrototype(int pass)
 	std::string rTypeString = "";
 	ASTNode* typeNode = childNodes[1];
 	if (typeNode->childNodes.size() > 0) {
+	recurseAddPointer:
 		typeNode = typeNode->childNodes[0];
 		mangledName += "." + typeNode->token.first;
-		rTypeString = typeNode->token.first;
+		rTypeString += typeNode->token.first;
+
+		if (typeNode->token.first == "*") {
+			goto recurseAddPointer;
+		}
 
 		retType = getLLVMTypeFromString(typeNode->token.first);
 	}

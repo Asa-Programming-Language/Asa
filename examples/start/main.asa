@@ -53,6 +53,7 @@ newline::(){
 
 #extern printf::(...);
 #extern putchar::(c : int);
+#extern malloc::*int(b : int);
 
 main :: (){
 	//printf("Hello World!");
@@ -65,6 +66,8 @@ main :: (){
 	x = x+1;
 	putchar(*x_ptr);
 	putchar(32);
+
+	arr : *int = malloc(8);
 
 
 	newline();

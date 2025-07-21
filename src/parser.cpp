@@ -933,10 +933,31 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 
 				// Based on the next token, decide what this compiler define does
 				// (if function, or if/for/while etc. or any line of code)
+				bool nonFunction = false;
+				bool lParenReached = false;
+				for (int j = 0; j < tokens.size() - i; j++) {
+					if (tokens[i + j].second == Left_Paren)
+						lParenReached = true;
+					else if (tokens[i + j].second == Left_Brace) {
+						if (lParenReached) {  // If first ( then {, this is a function
+							nonFunction = false;
+							break;
+						}
+						else {
+							nonFunction = true;
+							break;
+						}
+					}
+					// If semicolon, function prototype
+					else if (tokens[i + j].second == Semi_Colon) {
+						nonFunction = false;
+						break;
+					}
+				}
 
 				// If the first token after :: is not a paren, or the token is in the map of non-function compiler defines
 				tokenPair tt = NEXT_TOKEN(tokens, i);
-				if (tt.second != Left_Paren && tokens[i + 1].second != Left_Paren || compileTimeDefinable.find(tt.second) != compileTimeDefinable.end()) {
+				if (nonFunction || compileTimeDefinable.find(tt.second) != compileTimeDefinable.end()) {
 					i--;  // NEXT_TOKEN==tt starts on first token after :: <here>
 					bool isCompileTimeDefinableKeyword = compileTimeDefinable.find(tt.second) != compileTimeDefinable.end();
 					// Step through all following tokens until parens start OR braces start
@@ -967,6 +988,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 					tokenNum = 0;
 					for (;;) {
 						if (i >= tokens.size() - 1) {
+							break;
 							printTokenError(tt, "Unmatched brace", __LINE__);
 							exit(1);
 						}
