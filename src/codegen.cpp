@@ -12,6 +12,30 @@ static std::unique_ptr<ModuleAnalysisManager> TheMAM;
 static std::unique_ptr<PassInstrumentationCallbacks> ThePIC;
 static std::unique_ptr<StandardInstrumentations> TheSI;
 
+std::unordered_map<std::string, bool> typeSigns = {
+	{"int128", true},
+	{"int64", true},
+	{"int32", true},
+	{"int", true},
+	{"int16", true},
+	{"int8", true},
+
+	{"uint128", false},
+	{"uint64", false},
+	{"uint32", false},
+	{"uint", false},
+	{"uint16", false},
+	{"uint8", false},
+
+	{"char", false},
+	{"uchar", false},
+	{"bool", false},
+
+	{"double", false},
+	{"float", false},
+	{"half", false},
+};
+
 typedef std::vector<std::pair<std::string, ASTNodeType>> argumentList;
 
 struct functionID {
@@ -164,6 +188,47 @@ Value* LogErrorV(const char* Str)
 	return nullptr;
 }
 
+/// CreateEntryBlockAlloca - Create an alloca instruction in the entry block of
+/// the function.  This is used for mutable variables etc.
+static AllocaInst* CreateEntryBlockAlloca(Function* TheFunction, Type* t, StringRef VarName)
+{
+	IRBuilder<> TmpB(&TheFunction->getEntryBlock(), TheFunction->getEntryBlock().begin());
+	return TmpB.CreateAlloca(t, nullptr, VarName);
+}
+
+Type* getLLVMTypeFromString(std::string typeName)
+{
+	Type* aType;
+	// Integer types
+	if (typeName == "int" || typeName == "int32" || typeName == "uint" || typeName == "uint32")
+		aType = Type::getInt32Ty(*TheContext);
+	else if (typeName == "int16" || typeName == "uint16")
+		aType = Type::getInt16Ty(*TheContext);
+	else if (typeName == "int8" || typeName == "uint8" || typeName == "uchar" || typeName == "char")
+		aType = Type::getInt8Ty(*TheContext);
+	else if (typeName == "int64" || typeName == "uint64")
+		aType = Type::getInt64Ty(*TheContext);
+	else if (typeName == "int128" || typeName == "uint128")
+		aType = Type::getInt128Ty(*TheContext);
+
+	// Floats
+	else if (typeName == "float")
+		aType = Type::getFloatTy(*TheContext);
+	else if (typeName == "half")
+		aType = Type::getHalfTy(*TheContext);
+	else if (typeName == "double")
+		aType = Type::getDoubleTy(*TheContext);
+
+	// Bool
+	else if (typeName == "bool")
+		aType = Type::getInt1Ty(*TheContext);
+
+	else {
+		throw 1;
+	}
+	return aType;
+}
+
 void initializeCodeGenerator()
 {
 	// Open a new context and module.
@@ -205,17 +270,57 @@ Value* findNamedValue(ASTNode* node, ASTNode* childNode, std::string& identifier
 	// First look in self
 	if (node->namedValues.find(identifier) != node->namedValues.end())
 		return node->namedValues[identifier];
-	for (auto& c : node->childNodes) {
-		if (node->depth > 0)	 // only go past use if in global scope
-			if (c == childNode)	 // dont go past the node where it is used
-				break;
-		if (c->namedValues.find(identifier) != c->namedValues.end())
-			return c->namedValues[identifier];
-	}
-	if (node->depth > 0)  // search the parent recursively until found or end of global scope is reached
+	if (node->depth > 0)  // Dont look in child nodes of global TODO: organize vars better than this
+		for (auto& c : node->childNodes) {
+			if (node->depth > 0)	 // only go past position it is used if in global scope
+				if (c == childNode)	 // otherwise dont go past the node where it is used
+					break;
+			if (c->namedValues.find(identifier) != c->namedValues.end())
+				return c->namedValues[identifier];
+		}
+	if (node->depth > 0)  // search recursively upward until found or end of global scope is reached
 		return findNamedValue(node->parentNode, node, identifier);
 
 	return nullptr;
+}
+
+
+llvm::Value* castValue(llvm::Value* value, llvm::Type* destType, bool isSrcSigned, bool isToSigned, tokenPair& token)
+{
+	llvm::Type* srcType = value->getType();
+	if (srcType == destType)
+		return value;
+
+	if (srcType->isIntegerTy() && destType->isIntegerTy())
+		return Builder->CreateIntCast(value, destType, isSrcSigned);
+
+	if (srcType->isIntegerTy() && destType->isFloatingPointTy())
+		return isSrcSigned ? Builder->CreateSIToFP(value, destType)
+						   : Builder->CreateUIToFP(value, destType);
+
+	if (srcType->isFloatingPointTy() && destType->isIntegerTy())
+		return isToSigned ? Builder->CreateFPToSI(value, destType)
+						  : Builder->CreateFPToUI(value, destType);
+
+	if (srcType->isFloatingPointTy() && destType->isFloatingPointTy())
+		return Builder->CreateFPCast(value, destType);
+
+	if (srcType->isPointerTy() && destType->isPointerTy())
+		return Builder->CreatePointerCast(value, destType);
+
+	if (srcType->isPointerTy() && destType->isIntegerTy())
+		return Builder->CreatePtrToInt(value, destType);
+
+	if (srcType->isIntegerTy() && destType->isPointerTy())
+		return Builder->CreateIntToPtr(value, destType);
+
+	//// Use bitcast only if size matches and none of the above applies
+	//if (llvm::CastInst::isBitOrNoopPointerCastable(srcType, destType, TheModule->getDataLayout()))
+	//	return Builder->CreateBitCast(value, destType);
+
+
+	printTokenError(token, "Unsupported cast");
+	exit(1);
 }
 
 //bool findVariableDeclaration(ASTNode*& node, ASTNode*& childNode, std::string& identifier)
@@ -252,13 +357,13 @@ void* ASTNode::generateConstant(int pass)
 void* ASTNode::generateVariableExpression(int pass)
 {
 	// Look this variable up in the function.
-	Value* V = findNamedValue(parentNode, this, token.first);
-	//Value* V = NamedValues[token.first];
-	if (!V) {
+	AllocaInst* A = (AllocaInst*)findNamedValue(parentNode, this, token.first);
+	if (!A) {
 		printTokenError(token, "Undefined variable name");
-		return nullptr;
+		exit(1);
 	}
-	return V;
+
+	return Builder->CreateLoad(A->getAllocatedType(), A, token.first + "_load");
 }
 
 void* ASTNode::generateReturn(int pass)
@@ -294,23 +399,57 @@ void* ASTNode::generateExpressionStatement(int pass)
 {
 	ASTNode* identifierNode = childNodes[0];
 	ASTNode* exprNode = childNodes[1];
+	Function* theFunction = Builder->GetInsertBlock()->getParent();
 	if (exprNode->codegen == nullptr) {
 		printTokenError(exprNode->token, "Node `" + ASTNodeTypeAsString(exprNode->nodeType) + "` does not have a code generator");
 		return nullptr;
 	}
-	Value* var = findNamedValue(parentNode, this, token.first);
-	if (!var) {
-		// Allocate memory TODO: Expand for any type
-		Type* type = llvm::Type::getInt32Ty(*TheContext);
-		var = Builder->CreateAlloca(type, nullptr, identifierNode->token.first);
+	Value* var = findNamedValue(parentNode, this, identifierNode->token.first);
+
+	ASTNode* typeNode;
+	Type* type = nullptr;
+	int pointerLevel = 0;
+	if (identifierNode->childNodes.size() > 0) {
+		typeNode = identifierNode->childNodes[0];
+		if (typeNode->token.first == "*") {
+			pointerLevel = typeNode->token.first.size();
+			typeNode = typeNode->childNodes[0];
+		}
+		type = getLLVMTypeFromString(typeNode->token.first);
+		for (int pL = 0; pL < pointerLevel; pL++)
+			type = type->getPointerTo();
 	}
-	// Set the value
+
+	// Get the value
 	Value* exprVal = (Value*)(exprNode->*(exprNode->codegen))(pass);
 	if (!exprVal) {
 		printTokenError(token, "Set expression requires right argument");
-		return nullptr;
+		exit(1);
 	}
-	Builder->CreateStore(exprVal, var);
+	// Automatically resolve type from expression if not already set
+	if (type == nullptr) {
+		type = exprVal->getType();
+	}
+	// Otherwise, the type is explicit, and builtin types should be cast automatically
+	else {
+		exprVal = castValue(exprVal, type, true, typeSigns[typeNode->token.first], exprNode->token);
+	}
+
+	if (exprVal->getType() != type) {
+		printTokenError(token, "Type mismatch in set expression");
+		exprVal->getType()->print(llvm::outs());
+		type->print(llvm::outs());
+		//printTokenError(token, "Type mismatch in set expression.\nTypes are \"" + exprVal->getType()->getAsString() + "\" and \"" + type->getAsString() + "\"");
+		exit(1);
+	}
+	if (!var) {
+		AllocaInst* Alloca = CreateEntryBlockAlloca(theFunction, type, identifierNode->token.first);
+		Builder->CreateStore(exprVal, Alloca);
+		namedValues[identifierNode->token.first] = Alloca;
+	}
+	else
+		Builder->CreateStore(exprVal, var);
+	//Builder->CreateStore(exprVal, var);
 	return exprVal;
 }
 
@@ -330,7 +469,7 @@ void* ASTNode::generateIterator(int pass)
 void* ASTNode::generateUnaryExpression(int pass)
 {
 	if (childNodes.size() == 0) {
-		printTokenError(token, "Unary expression reqires a right argument");
+		printTokenError(token, "Unary expression reqires an argument");
 		return nullptr;
 	}
 	if (childNodes[0]->codegen == nullptr) {
@@ -342,6 +481,34 @@ void* ASTNode::generateUnaryExpression(int pass)
 		return nullptr;
 
 	ASTNodeType t = childNodes[0]->nodeType;
+
+	switch (nodeType) {
+		case Address_Of_Operation: {
+			ASTNode* varNode = childNodes[0];
+			Value* var = findNamedValue(parentNode, this, varNode->token.first);
+			if (!var) {
+				printTokenError(token, "Unknown variable name for address-of");
+				exit(1);
+			}
+			return var;
+		}
+
+		case Dereference_Operation: {
+			ASTNode* ptrNode = childNodes[0];
+			Value* ptrVal = (Value*)(ptrNode->*(ptrNode->codegen))(pass);
+			if (!ptrVal) {
+				printTokenError(token, "Dereference of null pointer");
+				exit(1);
+			}
+			// Load the value from the pointer
+			Type* elementType = Type::getInt32Ty(*TheContext);	// TODO: whatever type is appropriate
+			return Builder->CreateLoad(elementType, ptrVal, "deref_tmp");
+		}
+
+		default:
+			printTokenError(token, "Unknown or undefined operator");
+			exit(1);
+	}
 
 	switch (t) {
 		//	case Integer_Node:
@@ -422,7 +589,6 @@ void* ASTNode::generateBinaryExpression(int pass)
 	bool operatorOverloaded = nodeType == Redefined_Operator_Expr;
 	std::string operatorOverloadName = "binary." + tokenAsString(token.second);
 	Function* CalleeF = nullptr;
-	//argumentList argList = {{L->getTypeName(), llvmTypeToName(L->getTypeName())}, {R->getTypeName(), llvmTypeToName(R->getTypeName())}};
 
 	// Check to see if the operator actually has an overload
 	if ((CalleeF = getFunctionFromID(operatorOverloadName)) != nullptr)
@@ -514,43 +680,25 @@ void* ASTNode::generateScopeBody(int pass)
 void* ASTNode::generateCast(int pass)
 {
 	if (childNodes.size() < 2 || childNodes[1]->childNodes.size() == 0 || childNodes[1]->childNodes[0]->childNodes.size() == 0) {
-		printTokenError(token, "Cast expression expected new type followed by name like: #cast float x;");
+		printTokenError(token, "Cast expression expected name followed by new type like: #cast x : float;");
 		exit(1);
 	}
-	Value* var = findNamedValue(parentNode, this, childNodes[1]->childNodes[0]->token.first);
+	std::string varName = childNodes[1]->childNodes[0]->token.first;
+	AllocaInst* var = (AllocaInst*)findNamedValue(parentNode, this, varName);
 	if (!var) {
 		printTokenError(childNodes[1]->childNodes[0]->token, "Unknown variable name used");
 		exit(1);
 	}
-	ASTNodeType oldType;
-	switch (var->getType()->getTypeID()) {
-		case Type::IntegerTyID:
-			oldType = Integer_Node;
-			break;
-		case Type::FloatTyID:
-			oldType = Float_Node;
-			break;
-		default:
-			break;
-	}
-	ASTNodeType newType;
+
+	Value* value = Builder->CreateLoad(var->getAllocatedType(), var, varName + "_load");
+
 	std::string tyVal = childNodes[1]->childNodes[0]->childNodes[0]->token.first;
-	if (tyVal == "int")
-		newType = Integer_Node;
-	else if (tyVal == "float")
-		newType = Float_Node;
 
+	Type* toType = getLLVMTypeFromString(tyVal);
 
-	if (oldType == Integer_Node && newType == Float_Node)
-		return Builder->CreateSIToFP(var, Builder->getDoubleTy());
-	else if (oldType == Float_Node && newType == Integer_Node)
-		return Builder->CreateFPToSI(var, Builder->getInt32Ty());
-	else {
-		printTokenError(childNodes[1]->childNodes[0]->token, "This compiler expression only works for builtin types.");
-		exit(1);
-	}
+	return castValue(value, toType, true, typeSigns[tyVal], token);
 
-	return nullptr;
+	//return Builder->CreateStore(castedValue, var);
 }
 
 // Value*
@@ -680,27 +828,9 @@ void* ASTNode::generateStruct(int pass)
 		// fieldNode->childNodes[0]: type (as string or as node)
 		// fieldNode->childNodes[1]: name
 		std::string typeName = fieldNode->childNodes[0]->token.first;
-		Type* fieldType = nullptr;
-		if (typeName == "int") {
-			fieldType = Type::getInt32Ty(*TheContext);
-		}
-		else if (typeName == "float") {
-			fieldType = Type::getFloatTy(*TheContext);
-		}
-		else if (typeName == "double") {
-			fieldType = Type::getDoubleTy(*TheContext);
-		}
-		else if (typeName == "bool") {
-			fieldType = Type::getInt1Ty(*TheContext);
-		}
-		else {
-			//// Could be a named struct, lookup here if you support nested structs
-			//fieldType = TheModule->getTypeByName(typeName);
-			//if (!fieldType) {
-			//	printTokenError(fieldNode->token, "Unknown struct or type: " + typeName);
-			//	return nullptr;
-			//}
-		}
+
+		Type* fieldType = getLLVMTypeFromString(typeName);
+
 		fieldTypes.push_back(fieldType);
 		fieldNames.push_back(fieldNode->token.first);
 	}
@@ -746,21 +876,23 @@ void* ASTNode::generateFor(int pass)
 	BasicBlock* LoopBB = BasicBlock::Create(*TheContext, "loop", TheFunction);
 	BasicBlock* AfterBB = BasicBlock::Create(*TheContext, "afterloop", TheFunction);
 
+	AllocaInst* Alloca = CreateEntryBlockAlloca(TheFunction, Type::getInt32Ty(*TheContext), varName);
+	// Store the value into the alloca.
+	Builder->CreateStore(StartVal, Alloca);
+
 	// Branch to loop condition check
 	Builder->CreateBr(LoopCondBB);
 
 	Builder->SetInsertPoint(LoopCondBB);
 
-	// PHI for the loop variable
-	PHINode* Variable = Builder->CreatePHI(Type::getInt32Ty(*TheContext), 2, varName);
-	Variable->addIncoming(StartVal, PreheaderBB);
-
 	// Get loop limit
 	ASTNode* rangeEnd = childNodes[1]->childNodes[1];
 	Value* EndVal = (Value*)(rangeEnd->*(rangeEnd->codegen))(pass);
 
+	Value* CurVar = Builder->CreateLoad(Alloca->getAllocatedType(), Alloca, varName.c_str());
+
 	// Compare: exclusive (i < N)
-	Value* Cond = Builder->CreateICmpSLT(Variable, EndVal, "loopcond");
+	Value* Cond = Builder->CreateICmpSLT(CurVar, EndVal, "loopcond");
 
 	// Conditional branch
 	Builder->CreateCondBr(Cond, LoopBB, AfterBB);
@@ -769,10 +901,10 @@ void* ASTNode::generateFor(int pass)
 	// Start insertion in LoopBB.
 	Builder->SetInsertPoint(LoopBB);
 
-	// Within the loop, the variable is defined equal to the PHI node.  If it
-	// shadows an existing variable, we have to restore it, so save it now.
-	Value* OldVal = namedValues[varName];
-	namedValues[varName] = Variable;
+	//// Within the loop, the variable is defined equal to the PHI node.  If it
+	//// shadows an existing variable, we have to restore it, so save it now.
+	//Value* OldVal = namedValues[varName];
+	namedValues[varName] = Alloca;
 
 	// Emit the body of the loop
 	ASTNode* scopeBody = childNodes[2];
@@ -795,10 +927,11 @@ void* ASTNode::generateFor(int pass)
 	StepVal = ConstantInt::get(*TheContext, APInt(32, 1));
 	//}
 
-	Value* NextVar = Builder->CreateAdd(Variable, StepVal, "nextvar");
+	Value* NextVar = Builder->CreateAdd(CurVar, StepVal, "nextvar");
+	Builder->CreateStore(NextVar, Alloca);
 
-	// Add incoming for PHI: from loopbody to next iteration
-	Variable->addIncoming(NextVar, Builder->GetInsertBlock());
+	//// Add incoming for PHI: from loopbody to next iteration
+	//Variable->addIncoming(NextVar, Builder->GetInsertBlock());
 
 	// Jump back to condition
 	Builder->CreateBr(LoopCondBB);
@@ -823,7 +956,6 @@ void* ASTNode::generateFor(int pass)
 // Function*
 void* ASTNode::generatePrototype(int pass)
 {
-
 	argumentList argList = argumentList();
 	std::vector<Type*> argTypes = std::vector<Type*>();
 	ASTNode* argsNode = childNodes[2];
@@ -847,12 +979,8 @@ void* ASTNode::generatePrototype(int pass)
 		typeNode = typeNode->childNodes[0];
 		mangledName += "." + typeNode->token.first;
 		rTypeString = typeNode->token.first;
-		if (typeNode->token.first == "int")
-			retType = Type::getInt32Ty(*TheContext);
-		else if (typeNode->token.first == "float")
-			retType = Type::getFloatTy(*TheContext);
-		else if (typeNode->token.first == "bool")
-			retType = Type::getInt1Ty(*TheContext);
+
+		retType = getLLVMTypeFromString(typeNode->token.first);
 	}
 
 	// Get function arguments
@@ -867,34 +995,15 @@ void* ASTNode::generatePrototype(int pass)
 				Type* aType = nullptr;
 				argList.push_back(std::make_pair(typeName, a->childNodes[0]->childNodes[0]->nodeType));
 
-				// Integer types
-				if (typeName == "int" || typeName == "int32" || typeName == "uint" || typeName == "uint32")
-					aType = Type::getInt32Ty(*TheContext);
-				else if (typeName == "int16" || typeName == "uint16")
-					aType = Type::getInt16Ty(*TheContext);
-				else if (typeName == "int8" || typeName == "uint8" || typeName == "uchar" || typeName == "char")
-					aType = Type::getInt8Ty(*TheContext);
-				else if (typeName == "int64" || typeName == "uint64")
-					aType = Type::getInt64Ty(*TheContext);
-				else if (typeName == "int128" || typeName == "uint128")
-					aType = Type::getInt128Ty(*TheContext);
-
-				// Floats
-				else if (typeName == "float")
-					aType = Type::getFloatTy(*TheContext);
-				else if (typeName == "half")
-					aType = Type::getHalfTy(*TheContext);
-				else if (typeName == "double")
-					aType = Type::getDoubleTy(*TheContext);
-
-				// Bool
-				else if (typeName == "bool")
-					aType = Type::getInt1Ty(*TheContext);
+				try {
+					aType = getLLVMTypeFromString(typeName);
+				}
+				catch (...) {
+					goto invalidArgument;
+				}
 
 				// Unknown type name
 				// TODO: Add handling for custom structs as well
-				else
-					goto invalidArgument;
 
 				//else if (typeName == "string")
 				//Type::getStringTy(*TheContext);
@@ -936,7 +1045,7 @@ void* ASTNode::generatePrototype(int pass)
 	unsigned Idx = 0;
 	for (auto& arg : fn->args()) {
 		arg.setName(argNames[Idx++]);
-		namedValues[std::string(arg.getName())] = &arg;
+		//namedValues[std::string(arg.getName())] = &arg;
 	}
 
 	functionIDs.emplace_back(fnName, mangledName, rTypeString, argList, fn);
@@ -967,11 +1076,15 @@ void* ASTNode::generateFunction(int pass)
 	BasicBlock* fnBlock = BasicBlock::Create(*TheContext, "entry", theFunction);
 	Builder->SetInsertPoint(fnBlock);
 
-	//// Record the function arguments in the NamedValues map.
-	////NamedValues.clear();
-	//for (auto& arg : theFunction->args())
-	//	namedValues[std::string(arg.getName())] = &arg;
-	////NamedValues[std::string(Arg.getName())] = &Arg;
+	// Record the function arguments in the NamedValues map.
+	for (auto& arg : theFunction->args()) {
+		AllocaInst* Alloca = CreateEntryBlockAlloca(theFunction, arg.getType(), arg.getName());
+		// Store the initial value into the alloca.
+		Builder->CreateStore(&arg, Alloca);
+
+		namedValues[std::string(arg.getName())] = Alloca;
+	}
+	//NamedValues[std::string(Arg.getName())] = &Arg;
 
 	ASTNode* body;
 	for (auto& n : childNodes)

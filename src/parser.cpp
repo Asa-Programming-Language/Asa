@@ -352,12 +352,13 @@ std::map<TokenType, ASTNodeType> operatorDefaultNodeType = {
 	{Minus, Expression_Minus},
 	{Star, Expression_Times},
 	{Slash, Expression_Divided},
+	{Ampersand, Address_Of_Operation},
 };
 
 std::map<ASTNodeType, int> operatorPrecedence = {
 	{Operator_Overload_Node, 100},	// anything else
 	{Expression_Paren_Term, 50},	// ()
-	{Dereference_Operation, 5},		// &
+	{Address_Of_Operation, 5},		// &
 	{Expression_Times, 4},			// *
 	{Expression_Divided, 4},		// /
 	{Expression_Plus, 3},			// +
@@ -368,6 +369,7 @@ std::map<ASTNodeType, int> operatorPrecedence = {
 	{Compare_LessEqual, 2},			// <=
 	{Compare_Greater, 2},			// >
 	{Compare_GreaterEqual, 2},		// >=
+	{Range_Node, 1},				// ..
 };
 
 std::unordered_set<ASTNodeType> literals = {
@@ -668,6 +670,60 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 				break;
 			}
 
+			case Colon: {
+				ASTNode* firstTerm = new ASTNode();
+				ASTNode* secondTerm = new ASTNode();
+
+				// Instead of backtracking to get the first term, pop the leafNodes vector
+				if (parentNode->leafNodes.size() == 0) {
+					printTokenError(token, "Binary operator expected left argument");
+					exit(1);
+				}
+				else {
+					firstTerm = parentNode->leafNodes.back();
+					parentNode->leafNodes.pop_back();
+					node = firstTerm;
+					node->nodeType = Identifier_Node;
+				}
+
+				// Step through all following tokens until parens are closed
+				int parenLevel = 1;
+				std::vector<tokenPair> subTokens = std::vector<tokenPair>();
+				for (;;) {
+					if (i >= tokens.size() - 1)
+						break;
+					tokenPair t = NEXT_TOKEN(tokens, i);
+
+					if (t.second == Left_Paren)
+						parenLevel++;
+					if (t.second == Right_Paren)
+						parenLevel--;
+
+					if (parenLevel == 0)
+						break;
+					if (t.second == Equal) {
+						i--;
+						break;
+					}
+					if (t.second == EndOfLine || t.second == Semi_Colon || t.second == Equal) {
+						break;
+					}
+
+					subTokens.push_back(t);
+				}
+				if (subTokens.size() == 0) {
+					printTokenError(token, "Operator expected right argument");
+					exit(1);
+				}
+				secondTerm = generateAST(subTokens, depth + 1)->childNodes[0];
+				secondTerm->nodeType = Type_Node;
+
+				node->childNodes.push_back(secondTerm);
+
+				goto addNodeAsLeaf;
+				break;
+			}
+
 			// Operators:
 			// builtin:
 			case Dot_Dot:
@@ -695,7 +751,8 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 			case Percent_Percent:
 			case At:
 			case At_At: {
-				bool isUnary = false;
+				bool isUnaryR = false;	// Operates on right
+				bool isUnaryL = false;	// Left
 				bool isGeneralOperator = false;
 				if (operatorDefaultNodeType.find(tokenType) != operatorDefaultNodeType.end()) {
 					node->nodeType = operatorDefaultNodeType[tokenType];
@@ -714,7 +771,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 					// if there are no leaf nodes, then assume this is a unary operator on R
 					//printTokenError(token, "Binary operator expected left argument");
 					//exit(1);
-					isUnary = true;
+					isUnaryR = true;
 					node->codegen = &ASTNode::generateUnaryExpression;
 				}
 				else {
@@ -723,11 +780,15 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 					node->codegen = &ASTNode::generateBinaryExpression;
 				}
 
-				if (isUnary && tokenType == Ampersand)
+				if (isUnaryR && tokenType == Ampersand)
+					node->nodeType = Address_Of_Operation;
+				else if (isUnaryR && tokenType == Star)
 					node->nodeType = Dereference_Operation;
 
 				// Step through all following tokens until parens are closed
 				int parenLevel = 1;
+				int braceLevel = 1;
+				int bracketLevel = 1;
 				std::vector<tokenPair> subTokens = std::vector<tokenPair>();
 				for (;;) {
 					if (i >= tokens.size() - 1)
@@ -738,9 +799,21 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 						parenLevel++;
 					if (t.second == Right_Paren)
 						parenLevel--;
+					if (t.second == Left_Brace)
+						braceLevel++;
+					if (t.second == Right_Brace)
+						braceLevel--;
+					if (t.second == Left_Bracket)
+						bracketLevel++;
+					if (t.second == Right_Bracket)
+						bracketLevel--;
 
-					if (parenLevel == 0)
+					if (parenLevel == 0 && braceLevel == 0 && bracketLevel == 0)
 						break;
+					if (parenLevel == 1 && braceLevel == 1 && bracketLevel == 1 && t.second == Equal) {
+						i--;
+						break;
+					}
 					if (t.second == EndOfLine || t.second == Semi_Colon) {
 						isLeaf = false;
 						break;
@@ -749,15 +822,23 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 					subTokens.push_back(t);
 				}
 				if (subTokens.size() == 0) {
-					printTokenError(token, "Operator expected right argument");
-					exit(1);
+					if (!isUnaryR && tokenType == Star) {
+						node->nodeType = Pointer_Node;
+						isUnaryL = true;
+					}
+					else {
+						printTokenError(token, "Operator expected right argument");
+						exit(1);
+					}
 				}
-				secondTerm = generateAST(subTokens, depth + 1)->childNodes[0];
+				else
+					secondTerm = generateAST(subTokens, depth + 1)->childNodes[0];
 				//secondTerm->nodeType = Expression_Term;
 
-				if (!isUnary)
+				if (!isUnaryR)
 					node->childNodes.push_back(firstTerm);
-				node->childNodes.push_back(secondTerm);
+				if (!isUnaryL)
+					node->childNodes.push_back(secondTerm);
 				if (isLeaf)
 					goto addNodeAsLeaf;
 				break;
@@ -1195,16 +1276,16 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 				node->nodeType = Identifier_Node;
 				node->codegen = &ASTNode::generateVariableExpression;
 
-				// If this is identifer, and is preceded by identifier, then that one is type, and this is name
-				if (parentNode->leafNodes.size() >= 1) {
-					if (parentNode->leafNodes.back()->nodeType == Identifier_Node) {
-						ASTNode* typeNode = parentNode->leafNodes.back();
-						parentNode->leafNodes.pop_back();
-						typeNode->nodeType = Type_Node;
-						typeNode->codegen = nullptr;
-						node->childNodes.push_back(typeNode);
-					}
-				}
+				//// If this is identifer, and is preceded by identifier, then that one is type, and this is name
+				//if (parentNode->leafNodes.size() >= 1) {
+				//	if (parentNode->leafNodes.back()->nodeType == Identifier_Node) {
+				//		ASTNode* typeNode = parentNode->leafNodes.back();
+				//		parentNode->leafNodes.pop_back();
+				//		typeNode->nodeType = Type_Node;
+				//		typeNode->codegen = nullptr;
+				//		node->childNodes.push_back(typeNode);
+				//	}
+				//}
 				parentNode->leafNodes.push_back(node);
 				goto dontAddNode;
 			}

@@ -19,7 +19,7 @@ Or individual components:
 //	int c;
 //}
 
-binary|| :: bool(bool a, bool b) #inline {
+binary|| :: bool(a : bool, b : bool) #inline {
 	if(a){
 		return true;
 	}
@@ -35,34 +35,46 @@ TEST_MACRO :: {printl("Macro works!")};
 //	int a = 5;
 //	int b = 1;
 //}
-//
-cast:: float(int x) #inline {
-	return #cast float x;
+
+cast:: float(x : int) #inline {
+	return #cast x : float;
 }
-cast:: int(float x) #inline {
-	return #cast int x;
+cast:: int(x : float) #inline {
+	return #cast x : int;
 }
 
-printint:: (int n) {
+printint:: (n : int) {
 	putchar(48+n);
 }
 
+newline::(){
+	putchar(10);
+}
+
 #extern printf::(...);
-#extern putchar::(int c);
+#extern putchar::(c : int);
 
 main :: (){
 	//printf("Hello World!");
-	i = 2+2;
+	x = 70+2;
+	y : uint16 = 4;
 
-	//int* i_ptr = &i;
+	x_ptr : *int = &x;
 
-	if(1|| 0){
+	putchar(x);
+	x = x+1;
+	putchar(*x_ptr);
+	putchar(32);
+
+
+	newline();
+	if(1 || 0){
 		putchar(72);
 	}
-	if(1|| 1){
+	if(1 || 1){
 		putchar(73);
 	}
-	if(0||0){
+	if(0 || 0){
 		putchar(72);
 	}
 	
@@ -72,6 +84,8 @@ main :: (){
 			printint(j);
 		}
 	}
+
+	newline();
 	//for (i : 0..100){  // for(<range>){} automatically iterates through range type
 	//	printl("%\n", i);
 	//}

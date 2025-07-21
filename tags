@@ -1377,6 +1377,7 @@ AddressV	src/include/llvm/ObjectYAML/DXContainerYAML.h	/^  uint32_t AddressV = l
 AddressW	src/include/llvm/BinaryFormat/DXContainer.h	/^  uint32_t AddressW;$/;"	m	struct:llvm::dxbc::RTS0::v1::StaticSampler	typeref:typename:uint32_t
 AddressW	src/include/llvm/Frontend/HLSL/HLSLRootSignature.h	/^  dxbc::TextureAddressMode AddressW = dxbc::TextureAddressMode::Wrap;$/;"	m	struct:llvm::hlsl::rootsig::StaticSampler	typeref:typename:dxbc::TextureAddressMode
 AddressW	src/include/llvm/ObjectYAML/DXContainerYAML.h	/^  uint32_t AddressW = llvm::to_underlying(dxbc::TextureAddressMode::Wrap);$/;"	m	struct:llvm::DXContainerYAML::StaticSamplerYamlDesc	typeref:typename:uint32_t
+Address_Of_Operation	src/parser.h	/^	Address_Of_Operation,$/;"	e	enum:ASTNodeType
 Addressable	src/include/llvm/ExecutionEngine/JITLink/JITLink.h	/^  Addressable(orc::ExecutorAddr Address)$/;"	f	class:llvm::jitlink::Addressable
 Addressable	src/include/llvm/ExecutionEngine/JITLink/JITLink.h	/^  Addressable(orc::ExecutorAddr Address, bool IsDefined)$/;"	f	class:llvm::jitlink::Addressable
 Addressable	src/include/llvm/ExecutionEngine/JITLink/JITLink.h	/^class Addressable {$/;"	c	namespace:llvm::jitlink
@@ -7897,6 +7898,7 @@ CreateDiv	src/include/llvm/IR/FixedPointBuilder.h	/^  Value *CreateDiv(Value *LH
 CreateEQ	src/include/llvm/IR/FixedPointBuilder.h	/^  Value *CreateEQ(Value *LHS, const FixedPointSemantics &LHSSema,$/;"	f	class:llvm::FixedPointBuilder	typeref:typename:Value *
 CreateES	src/include/llvm/CodeGen/MachineOperand.h	/^  static MachineOperand CreateES(const char *SymName,$/;"	f	class:llvm::MachineOperand	typeref:typename:MachineOperand
 CreateElementUnorderedAtomicMemSet	src/include/llvm/IR/IRBuilder.h	/^  CreateElementUnorderedAtomicMemSet(Value *Ptr, Value *Val, uint64_t Size,$/;"	f	class:llvm::IRBuilderBase	typeref:typename:CallInst *
+CreateEntryBlockAlloca	src/codegen.cpp	/^static AllocaInst* CreateEntryBlockAlloca(Function* TheFunction, Type* t, StringRef VarName)$/;"	f	typeref:typename:AllocaInst *	file:
 CreateExact	src/include/llvm/IR/InstrTypes.h	/^  static BinaryOperator *CreateExact(BinaryOps Opc, Value *V1, Value *V2,$/;"	f	class:llvm::BinaryOperator	typeref:typename:BinaryOperator *
 CreateExactSDiv	src/include/llvm/IR/IRBuilder.h	/^  Value *CreateExactSDiv(Value *LHS, Value *RHS, const Twine &Name = "") {$/;"	f	class:llvm::IRBuilderBase	typeref:typename:Value *
 CreateExactUDiv	src/include/llvm/IR/IRBuilder.h	/^  Value *CreateExactUDiv(Value *LHS, Value *RHS, const Twine &Name = "") {$/;"	f	class:llvm::IRBuilderBase	typeref:typename:Value *
@@ -35478,6 +35480,7 @@ PointerVector	src/include/llvm/Analysis/AliasSetTracker.h	/^  using PointerVecto
 PointerWrite	src/include/llvm/ExecutionEngine/Orc/Shared/TargetProcessControlTypes.h	/^  PointerWrite(ExecutorAddr Addr, ExecutorAddr Value)$/;"	f	struct:llvm::orc::tpctypes::PointerWrite
 PointerWrite	src/include/llvm/ExecutionEngine/Orc/Shared/TargetProcessControlTypes.h	/^struct PointerWrite {$/;"	s	namespace:llvm::orc::tpctypes
 Pointer_AddressSpace	src/include/llvm/IR/Intrinsics.h	/^      unsigned Pointer_AddressSpace;$/;"	m	union:llvm::Intrinsic::IITDescriptor::__anon6329595f010a	typeref:typename:unsigned
+Pointer_Node	src/parser.h	/^	Pointer_Node,$/;"	e	enum:ASTNodeType
 Pointers	src/include/llvm/Analysis/LoopAccessAnalysis.h	/^  SmallVector<PointerInfo, 2> Pointers;$/;"	m	class:llvm::RuntimePointerChecking	typeref:typename:SmallVector<PointerInfo,2>
 Pointers	src/include/llvm/Frontend/OpenMP/OMPIRBuilder.h	/^    MapValuesArrayTy Pointers;$/;"	m	struct:llvm::OpenMPIRBuilder::MapInfosTy	typeref:typename:MapValuesArrayTy
 PointersArray	src/include/llvm/Frontend/OpenMP/OMPIRBuilder.h	/^    Value *PointersArray = nullptr;$/;"	m	struct:llvm::OpenMPIRBuilder::TargetDataRTArgs	typeref:typename:Value *
@@ -52629,6 +52632,7 @@ castFailed	src/include/llvm/Support/Casting.h	/^  static inline decltype(auto) c
 castFailed	src/include/llvm/Support/Casting.h	/^  static inline std::optional<To> castFailed() { return std::optional<To>{}; }$/;"	f	struct:llvm::OptionalValueCast	typeref:typename:std::optional<To>
 castIsValid	src/include/llvm/IR/InstrTypes.h	/^  static bool castIsValid(Instruction::CastOps op, Value *S, Type *DstTy) {$/;"	f	class:llvm::CastInst	typeref:typename:bool
 castToAtomicIntPointer	src/include/llvm/Frontend/Atomic/Atomic.h	/^  Value *castToAtomicIntPointer(Value *addr) const {$/;"	f	class:llvm::AtomicInfo	typeref:typename:Value *
+castValue	src/codegen.cpp	/^llvm::Value* castValue(llvm::Value* value, llvm::Type* destType, bool isSrcSigned, bool isToSign/;"	f	typeref:typename:llvm::Value *
 castValue	src/include/llvm/ADT/TypeSwitch.h	/^  static decltype(auto) castValue(ValueT &&value) {$/;"	f	class:llvm::detail::TypeSwitchBase	typeref:typename:decltype(auto)
 cast_convert_val	src/include/llvm/Support/Casting.h	/^struct cast_convert_val<To, FromTy *, FromTy *> {$/;"	s	namespace:llvm
 cast_convert_val	src/include/llvm/Support/Casting.h	/^template <class To, class From, class SimpleFrom> struct cast_convert_val {$/;"	s	namespace:llvm
@@ -62261,6 +62265,7 @@ getLLVMContext	src/include/llvm/Frontend/Atomic/Atomic.h	/^  LLVMContext &getLLV
 getLLVMIRBuilder	src/include/llvm/SandboxIR/Context.h	/^  auto &getLLVMIRBuilder() { return LLVMIRBuilder; }$/;"	f	class:llvm::sandboxir::Context	typeref:typename:auto &
 getLLVMInstrs	src/include/llvm/SandboxIR/Instruction.h	/^  SmallVector<llvm::Instruction *, 1> getLLVMInstrs() const final {$/;"	f	class:llvm::sandboxir::SingleLLVMInstructionImpl	typeref:typename:SmallVector<llvm::Instruction *,1>
 getLLVMInstrs	src/include/llvm/SandboxIR/Instruction.h	/^  SmallVector<llvm::Instruction *, 1> getLLVMInstrs() const final {$/;"	f	class:llvm::sandboxir::UnreachableInst	typeref:typename:SmallVector<llvm::Instruction *,1>
+getLLVMTypeFromString	src/codegen.cpp	/^Type* getLLVMTypeFromString(std::string typeName)$/;"	f	typeref:typename:Type *
 getLOHContainer	src/include/llvm/MC/MCMachObjectWriter.h	/^  MCLOHContainer &getLOHContainer() { return LOHContainer; }$/;"	f	class:llvm::MachObjectWriter	typeref:typename:MCLOHContainer &
 getLRM	src/include/llvm/CodeGen/LiveRegMatrix.h	/^  LiveRegMatrix &getLRM() { return LRM; }$/;"	f	class:llvm::LiveRegMatrixWrapperLegacy	typeref:typename:LiveRegMatrix &
 getLRM	src/include/llvm/CodeGen/LiveRegMatrix.h	/^  const LiveRegMatrix &getLRM() const { return LRM; }$/;"	f	class:llvm::LiveRegMatrixWrapperLegacy	typeref:typename:const LiveRegMatrix &
@@ -75742,6 +75747,7 @@ llvm	src/include/llvm/XRay/RecordPrinter.h	/^namespace llvm {$/;"	n
 llvm	src/include/llvm/XRay/Trace.h	/^namespace llvm {$/;"	n
 llvm	src/include/llvm/XRay/XRayRecord.h	/^namespace llvm {$/;"	n
 llvm	src/include/llvm/XRay/YAMLXRayRecord.h	/^namespace llvm {$/;"	n
+llvmType	src/parser.h	/^	Type* llvmType;$/;"	m	struct:ASTNode	typeref:typename:Type *
 llvm_is_multithreaded	src/include/llvm/Support/Threading.h	/^constexpr bool llvm_is_multithreaded() { return LLVM_ENABLE_THREADS; }$/;"	f	namespace:llvm	typeref:typename:bool
 llvm_shutdown_obj	src/include/llvm/Support/ManagedStatic.h	/^struct llvm_shutdown_obj {$/;"	s	namespace:llvm
 llvm_source_dir	src/include/llvm/Support/CMakeLists.txt	/^  set(llvm_source_dir ${LLVM_MAIN_SRC_DIR})$/;"	v
@@ -87463,6 +87469,7 @@ typeIdCompatibleVtableMap	src/include/llvm/IR/ModuleSummaryIndex.h	/^  const aut
 typeIds	src/include/llvm/IR/ModuleSummaryIndex.h	/^  const TypeIdSummaryMapTy &typeIds() const { return TypeIdMap; }$/;"	f	class:llvm::ModuleSummaryIndex	typeref:typename:const TypeIdSummaryMapTy &
 typeIdx	src/include/llvm/CodeGen/GlobalISel/LegalizerInfo.h	/^  unsigned typeIdx(unsigned TypeIdx) {$/;"	f	class:llvm::LegalizeRuleSet	typeref:typename:unsigned
 typeIsNot	src/include/llvm/CodeGen/GlobalISel/LegalizerInfo.h	/^inline LegalityPredicate typeIsNot(unsigned TypeIdx, LLT Type) {$/;"	f	namespace:llvm::LegalityPredicates	typeref:typename:LegalityPredicate
+typeSigns	src/codegen.cpp	/^std::unordered_map<std::string, bool> typeSigns = {$/;"	v	typeref:typename:std::unordered_map<std::string,bool>
 typeSizeEqualsStoreSize	src/include/llvm/IR/DataLayout.h	/^  bool typeSizeEqualsStoreSize(Type *Ty) const {$/;"	f	class:llvm::DataLayout	typeref:typename:bool
 typeToStr	src/include/llvm/Remarks/Remark.h	/^inline StringRef typeToStr(Type Ty) {$/;"	f	namespace:llvm::remarks	typeref:typename:StringRef
 type_checked_load_const_vcalls	src/include/llvm/IR/ModuleSummaryIndex.h	/^  ArrayRef<ConstVCall> type_checked_load_const_vcalls() const {$/;"	f	class:llvm::FunctionSummary	typeref:typename:ArrayRef<ConstVCall>

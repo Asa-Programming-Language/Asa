@@ -81,7 +81,9 @@ enum ASTNodeType {
 
 	Operator_Overload_Node,
 
+	Address_Of_Operation,
 	Dereference_Operation,
+	Pointer_Node,
 
 	Return_Node,
 	Continue_Node,
@@ -168,7 +170,9 @@ const std::string ASTNodeTypeStrings[] = {
 
 	"Operator_Overload_Node",
 
+	"Address_Of_Operation",
 	"Dereference_Operation",
+	"Pointer_Node",
 
 	"Return_Node",
 	"Continue_Node",
@@ -205,6 +209,8 @@ struct ASTNode {
 	uint16_t depth = 0;
 	// Add leaf nodes here as they are still yet to be used.
 	std::vector<ASTNode*> leafNodes = std::vector<ASTNode*>();
+
+	Type* llvmType;
 
 	std::map<std::string, Value*> namedValues = std::map<std::string, Value*>();
 

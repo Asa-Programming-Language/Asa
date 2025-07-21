@@ -207,6 +207,12 @@ int main(int argc, char** argv)
 	console::WriteLine("\n\nOutput IR Code:", console::greenFGColor);
 	TheModule->print(errs(), nullptr);
 
+	//// Verify the module
+	//if (llvm::verifyModule(*TheModule, &llvm::errs())) {
+	//	std::cerr << "Module verification failed!\n";
+	//	abort();
+	//}
+
 	// Output the object file in project's build directory
 	std::string objectFilePath = outputFileName + ".o";
 	outputObjectFile(objectFilePath);
