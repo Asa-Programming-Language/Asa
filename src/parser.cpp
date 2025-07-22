@@ -353,6 +353,8 @@ std::map<TokenType, ASTNodeType> operatorDefaultNodeType = {
 	{Star, Expression_Times},
 	{Slash, Expression_Divided},
 	{Ampersand, Address_Of_Operation},
+	{Ref, Reference_Operation},
+	{Left_Bracket, Access_Operation},
 };
 
 std::map<ASTNodeType, int> operatorPrecedence = {
@@ -738,6 +740,8 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 			case Minus:
 			case Star:
 			case Slash:
+			case Ref:
+			case Left_Bracket:
 			// general:
 			case Bar:
 			case Bar_Bar:
@@ -765,6 +769,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 				ASTNode* firstTerm = new ASTNode();
 				ASTNode* secondTerm = new ASTNode();
 				bool isLeaf = true;
+				bool isAccessOperation = node->nodeType == Access_Operation;
 
 				// Instead of backtracking to get the first term, pop the leafNodes vector
 				if (parentNode->leafNodes.size() == 0) {
@@ -790,36 +795,68 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 				int braceLevel = 1;
 				int bracketLevel = 1;
 				std::vector<tokenPair> subTokens = std::vector<tokenPair>();
-				for (;;) {
-					if (i >= tokens.size() - 1)
-						break;
-					tokenPair t = NEXT_TOKEN(tokens, i);
+				if (!(isUnaryL == false && isUnaryR == false && isAccessOperation))
+					for (;;) {
+						if (i >= tokens.size() - 1)
+							break;
+						tokenPair t = NEXT_TOKEN(tokens, i);
 
-					if (t.second == Left_Paren)
-						parenLevel++;
-					if (t.second == Right_Paren)
-						parenLevel--;
-					if (t.second == Left_Brace)
-						braceLevel++;
-					if (t.second == Right_Brace)
-						braceLevel--;
-					if (t.second == Left_Bracket)
-						bracketLevel++;
-					if (t.second == Right_Bracket)
-						bracketLevel--;
+						if (t.second == Left_Paren)
+							parenLevel++;
+						if (t.second == Right_Paren)
+							parenLevel--;
+						if (t.second == Left_Brace)
+							braceLevel++;
+						if (t.second == Right_Brace)
+							braceLevel--;
+						if (t.second == Left_Bracket)
+							bracketLevel++;
+						if (t.second == Right_Bracket)
+							bracketLevel--;
 
-					if (parenLevel == 0 && braceLevel == 0 && bracketLevel == 0)
-						break;
-					if (parenLevel == 1 && braceLevel == 1 && bracketLevel == 1 && t.second == Equal) {
-						i--;
-						break;
+						if (parenLevel == 0 && braceLevel == 0 && bracketLevel == 0)
+							break;
+						if (parenLevel == 1 && braceLevel == 1 && bracketLevel == 1 && t.second == Equal) {
+							i--;
+							break;
+						}
+						if (t.second == EndOfLine || t.second == Semi_Colon) {
+							isLeaf = false;
+							break;
+						}
+
+						subTokens.push_back(t);
 					}
-					if (t.second == EndOfLine || t.second == Semi_Colon) {
-						isLeaf = false;
-						break;
-					}
+				// If an access operation with brackets like: arr[i]
+				else {
+					node->codegen = &ASTNode::generateAccessOperation;
+					for (;;) {
+						if (i >= tokens.size() - 1)
+							break;
+						tokenPair t = NEXT_TOKEN(tokens, i);
 
-					subTokens.push_back(t);
+						if (t.second == Left_Paren)
+							parenLevel++;
+						if (t.second == Right_Paren)
+							parenLevel--;
+						if (t.second == Left_Brace)
+							braceLevel++;
+						if (t.second == Right_Brace)
+							braceLevel--;
+						if (t.second == Left_Bracket)
+							bracketLevel++;
+						if (t.second == Right_Bracket)
+							bracketLevel--;
+
+						if (bracketLevel == 0)
+							break;
+						if (parenLevel == 1 && braceLevel == 1 && bracketLevel == 1 && t.second == Equal) {
+							printTokenError(token, "Missing closing bracket");
+							exit(1);
+						}
+
+						subTokens.push_back(t);
+					}
 				}
 				if (subTokens.size() == 0) {
 					if (!isUnaryR && tokenType == Star) {
@@ -984,6 +1021,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 						if (tt.second != EndOfLine)
 							tokenNum++;
 					}
+
 					// Step through all following tokens until braces start
 					tokenNum = 0;
 					for (;;) {
@@ -1160,6 +1198,8 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 				tokenPair t = NEXT_TOKEN(tokens, i);
 
 				ASTNode* operatorNode = new ASTNode(Operator_Type_Node, {}, t);
+
+				node->token.first = node->token.first + "." + tokenAsString(t.second);
 
 				node->childNodes.push_back(operatorNode);
 				goto addNodeAsLeaf;
@@ -1975,12 +2015,6 @@ void assignParentNodes(ASTNode*& node, int depth)
 //	}
 //}
 
-inline void printIndent(int& depth)
-{
-	for (int i = 0; i < depth; i++)
-		printf("    ");
-}
-
 //std::vector<tokenPair> GATHER_SCOPE_BODY(int brLevel, int& i)
 //{
 //	int braceLevel = brLevel;
@@ -2021,7 +2055,7 @@ int printAST(ASTNode* startNode, int depth)
 {
 	// Print each node
 
-	printIndent(depth);
+	console::printIndent(depth);
 
 	console::Write(startNode->token.first, console::greenFGColor);
 	if (verbosity >= 5)
@@ -2041,18 +2075,18 @@ int printAST(ASTNode* startNode, int depth)
 	// Print unused leaf nodes
 	depth++;
 	if (startNode->leafNodes.size() > 0) {
-		printIndent(depth);
+		console::printIndent(depth);
 		printf("!unusedLeafNodes!:{\n");
 		for (int c = 0; c < startNode->leafNodes.size(); c++) {
 			printAST(startNode->leafNodes[c], depth + 1);
 		}
-		printIndent(depth);
+		console::printIndent(depth);
 		printf("}\n");
 	}
 	depth--;
 
 	if (startNode->childNodes.size() > 0 || startNode->leafNodes.size() > 0)
-		printIndent(depth);
+		console::printIndent(depth);
 	printf("}\n");
 
 
@@ -2065,6 +2099,7 @@ void generateOutputCode(ASTNode*& node, int depth, int pass)
 	switch (node->nodeType) {
 		case Compiler_Define_Cast:
 		case Compiler_Define_Function: {
+			console::printIndent(1);
 			console::Write("pass ");
 			console::Write(std::to_string(pass), console::greenFGColor);
 			console::Write(": generating for: ");

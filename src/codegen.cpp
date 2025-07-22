@@ -36,7 +36,22 @@ std::unordered_map<std::string, bool> typeSigns = {
 	{"half", false},
 };
 
-typedef std::vector<std::pair<std::string, ASTNodeType>> argumentList;
+
+struct argType {
+	std::string typeString;
+	ASTNodeType baseASTType;
+	uint8_t pointerLevel = 0;
+	bool isReference = false;
+	argType(std::string ts, ASTNodeType bT, uint8_t pL = 0, bool r = false)
+	{
+		typeString = ts;
+		baseASTType = bT;
+		pointerLevel = pL;
+		isReference = r;
+	}
+};
+
+typedef std::vector<argType> argumentList;
 
 struct functionID {
 	std::string name = "";
@@ -61,8 +76,8 @@ struct functionID {
 		if (arguments.size() != a.size())
 			return 1000 - 1;
 		for (int i = 0; i < arguments.size(); i++) {
-			ASTNodeType t1 = arguments[i].second;
-			ASTNodeType t2 = a[i].second;
+			ASTNodeType t1 = arguments[i].baseASTType;
+			ASTNodeType t2 = a[i].baseASTType;
 			// If t1 is an integer type, make sure t2 is also
 			// Difference points are given the further the types are
 			if (t1 >= Integer_Node && t1 <= Boolean_Node) {
@@ -121,64 +136,64 @@ struct functionID {
 
 std::vector<functionID> functionIDs = std::vector<functionID>();
 
-Function* getFunctionFromID(std::string& name, argumentList& arguments)
+functionID* getFunctionFromID(std::string& name, argumentList& arguments)
 {
-	functionID best;
+	functionID* best;
 	int bestScore = 1000;
 	for (auto& f : functionIDs) {
 		uint16_t score = f.compareMatch(name, arguments);
 		if (score < bestScore) {
-			best = f;
+			best = &f;
 			bestScore = score;
 		}
 	}
 	if (bestScore < 1000)
-		return best.fnValue;
+		return best;
 	return nullptr;
 }
-Function* getExactFunctionFromID(std::string& name, argumentList& arguments)
+functionID* getExactFunctionFromID(std::string& name, argumentList& arguments)
 {
-	functionID best;
+	functionID* best;
 	int bestScore = 1000;
 	for (auto& f : functionIDs) {
 		uint16_t score = f.compareMatch(name, arguments);
 		if (score < bestScore) {
-			best = f;
+			best = &f;
 			bestScore = score;
 		}
 	}
 	if (bestScore == 0)
-		return best.fnValue;
+		return best;
 	return nullptr;
 }
-Function* getFunctionFromID(std::string& name, std::vector<ASTNode*>& argValues)
+functionID* getFunctionFromID(std::string& name, std::vector<ASTNode*>& argValues)
 {
-	functionID best;
+	functionID* best;
 	int bestScore = 1000;
 	for (auto& f : functionIDs) {
 		uint16_t score = f.compareMatch(name, argValues);
 		if (score < bestScore) {
-			best = f;
+			best = &f;
 			bestScore = score;
 		}
 	}
 	if (bestScore < 1000)
-		return best.fnValue;
+		return best;
 	return nullptr;
 }
-Function* getFunctionFromID(std::string& name)
+functionID* getFunctionFromID(std::string& name)
 {
-	functionID best;
+	functionID* best;
 	int bestScore = 1000;
 	for (auto& f : functionIDs) {
 		uint16_t score = f.compareMatch(name);
 		if (score < bestScore) {
-			best = f;
+			best = &f;
 			bestScore = score;
 		}
 	}
 	if (bestScore < 1000)
-		return best.fnValue;
+		return best;
 	return nullptr;
 }
 
@@ -366,7 +381,10 @@ void* ASTNode::generateVariableExpression(int pass)
 		exit(1);
 	}
 
-	return Builder->CreateLoad(A->getAllocatedType(), A, token.first + "_load");
+	if (isRef)
+		return A;
+	else
+		return Builder->CreateLoad(A->getAllocatedType(), A, token.first + "_load");
 }
 
 void* ASTNode::generateReturn(int pass)
@@ -400,35 +418,60 @@ void* ASTNode::generateExpression(int pass)
 // Value*
 void* ASTNode::generateExpressionStatement(int pass)
 {
-	ASTNode* identifierNode = childNodes[0];
+	ASTNode* leftNode = childNodes[0];
 	ASTNode* exprNode = childNodes[1];
 	Function* theFunction = Builder->GetInsertBlock()->getParent();
+
 	if (exprNode->codegen == nullptr) {
 		printTokenError(exprNode->token, "Node `" + ASTNodeTypeAsString(exprNode->nodeType) + "` does not have a code generator");
 		return nullptr;
 	}
-	Value* var = findNamedValue(parentNode, this, identifierNode->token.first);
 
-	ASTNode* typeNode;
-	Type* type = nullptr;
-	int pointerLevel = 0;
-	if (identifierNode->childNodes.size() > 0) {
-		typeNode = identifierNode->childNodes[0];
-		if (typeNode->token.first == "*") {
-			pointerLevel = typeNode->token.first.size();
-			typeNode = typeNode->childNodes[0];
-		}
-		type = getLLVMTypeFromString(typeNode->token.first);
-		for (int pL = 0; pL < pointerLevel; pL++)
-			type = type->getPointerTo();
-	}
-
-	// Get the value
+	// Evaluate right side (rvalue)
 	Value* exprVal = (Value*)(exprNode->*(exprNode->codegen))(pass);
 	if (!exprVal) {
 		printTokenError(token, "Set expression requires right argument");
 		exit(1);
 	}
+
+	Value* targetPtr = nullptr;
+	Type* targetType = nullptr;
+	bool isLValue = false;
+
+	// If the left side is a pointer
+	if (leftNode->nodeType != Identifier_Node) {
+		// Otherwise left side is an expression, evaluate to pointer (lvalue address)
+		if (leftNode->codegen == nullptr) {
+			printTokenError(leftNode->token, "Node `" + ASTNodeTypeAsString(leftNode->nodeType) + "` does not have a code generator");
+			return nullptr;
+		}
+		targetPtr = (Value*)(leftNode->*(leftNode->codegen))(pass);
+		if (!targetPtr || !targetPtr->getType()->isPointerTy()) {
+			printTokenError(token, "Left side must evaluate to a pointer for assignment");
+			exit(1);
+		}
+		//targetType = cast<PointerType>(targetPtr->getType())->getElementType();
+		isLValue = true;
+	}
+
+	ASTNode* typeNode;
+	Type* type = nullptr;
+	int pointerLevel = 0;
+	if (!isLValue) {
+		if (leftNode->childNodes.size() > 0) {
+			typeNode = leftNode->childNodes[0];
+			if (typeNode->token.first == "*") {
+				pointerLevel = typeNode->token.first.size();
+				typeNode = typeNode->childNodes[0];
+			}
+			type = getLLVMTypeFromString(typeNode->token.first);
+			for (int pL = 0; pL < pointerLevel; pL++)
+				type = type->getPointerTo();
+		}
+	}
+	//else
+	//		type = var->getType();
+
 	// Automatically resolve type from expression if not already set
 	if (type == nullptr) {
 		type = exprVal->getType();
@@ -438,6 +481,17 @@ void* ASTNode::generateExpressionStatement(int pass)
 		exprVal = castValue(exprVal, type, true, typeSigns[typeNode->token.first], exprNode->token);
 	}
 
+	// If the left side is an identifier
+	if (leftNode->nodeType == Identifier_Node) {
+		// Simple variable: find alloca and use it as targetPtr
+		targetPtr = (AllocaInst*)findNamedValue(parentNode, this, leftNode->token.first);
+		if (!targetPtr) {
+			targetPtr = CreateEntryBlockAlloca(theFunction, type, leftNode->token.first);
+			namedValues[leftNode->token.first] = targetPtr;
+		}
+		targetType = ((AllocaInst*)targetPtr)->getAllocatedType();
+	}
+
 	if (exprVal->getType() != type) {
 		printTokenError(token, "Type mismatch in set expression");
 		exprVal->getType()->print(llvm::outs());
@@ -445,14 +499,9 @@ void* ASTNode::generateExpressionStatement(int pass)
 		//printTokenError(token, "Type mismatch in set expression.\nTypes are \"" + exprVal->getType()->getAsString() + "\" and \"" + type->getAsString() + "\"");
 		exit(1);
 	}
-	if (!var) {
-		AllocaInst* Alloca = CreateEntryBlockAlloca(theFunction, type, identifierNode->token.first);
-		Builder->CreateStore(exprVal, Alloca);
-		namedValues[identifierNode->token.first] = Alloca;
-	}
-	else
-		Builder->CreateStore(exprVal, var);
-	//Builder->CreateStore(exprVal, var);
+
+	Builder->CreateStore(exprVal, targetPtr);
+
 	return exprVal;
 }
 
@@ -592,10 +641,13 @@ void* ASTNode::generateBinaryExpression(int pass)
 	bool operatorOverloaded = nodeType == Redefined_Operator_Expr;
 	std::string operatorOverloadName = "binary." + tokenAsString(token.second);
 	Function* CalleeF = nullptr;
+	functionID* calleeID = getFunctionFromID(operatorOverloadName);
 
 	// Check to see if the operator actually has an overload
-	if ((CalleeF = getFunctionFromID(operatorOverloadName)) != nullptr)
+	if (calleeID != nullptr) {
+		CalleeF = calleeID->fnValue;
 		operatorOverloaded = true;
+	}
 	else if (operatorOverloaded) {	// If it was expected to,
 		printTokenError(token, "Binary operator \"" + token.first + "\" between values");
 		exit(1);
@@ -667,6 +719,71 @@ void* ASTNode::generateBinaryExpression(int pass)
 }
 
 // Value*
+void* ASTNode::generateAccessOperation(int pass)
+{
+	if (childNodes.size() == 0) {
+		printTokenError(token, "Access operation reqires a left and right argument");
+		return nullptr;
+	}
+	if (childNodes[0]->codegen == nullptr) {
+		printTokenError(childNodes[0]->token, "Node `" + ASTNodeTypeAsString(childNodes[0]->nodeType) + "` does not have a code generator");
+		return nullptr;
+	}
+	if (childNodes[1]->codegen == nullptr) {
+		printTokenError(childNodes[0]->token, "Node `" + ASTNodeTypeAsString(childNodes[1]->nodeType) + "` does not have a code generator");
+		return nullptr;
+	}
+	Value* L = (Value*)(childNodes[0]->*(childNodes[0]->codegen))(pass);
+	Value* R = (Value*)(childNodes[1]->*(childNodes[1]->codegen))(pass);
+	if (!L || !R)
+		return nullptr;
+	if (L->getType()->isPointerTy() == false) {
+		printTokenError(token, "Left argument of access operator must be a pointer type");
+		exit(1);
+	}
+	if (R->getType()->isIntegerTy() == false) {
+		printTokenError(token, "Right argument of access operator must be an integer");
+		exit(1);
+	}
+
+	ASTNodeType t = childNodes[0]->nodeType;
+
+	bool operatorOverloaded = false;
+	std::string operatorOverloadName = "binary." + tokenAsString(token.second);
+	Function* CalleeF = nullptr;
+	// TODO: make operator overloads are for exact matches only
+	functionID* calleeID = getFunctionFromID(operatorOverloadName);
+
+	// Check to see if the operator actually has an overload
+	if (calleeID != nullptr) {
+		CalleeF = calleeID->fnValue;
+		operatorOverloaded = true;
+	}
+
+	// If this is an operator overload, create function call to it
+	if (operatorOverloaded) {
+		if (!CalleeF) {
+			printTokenError(token, "Undefined function");
+			return nullptr;
+		}
+
+		std::vector<Value*> ArgsV;
+		ArgsV.push_back(L);
+		ArgsV.push_back(R);
+
+		return Builder->CreateCall(CalleeF, ArgsV, "calltmp");
+	}
+	// Otherwise, it is a regular builtin operator
+	else {
+		Value* newAddr = Builder->CreateAdd(L, R, "ptraddtmp");
+		return newAddr;
+	}
+
+	return nullptr;
+}
+
+
+// Value*
 void* ASTNode::generateScopeBody(int pass)
 {
 	for (auto& c : childNodes) {
@@ -717,21 +834,29 @@ void* ASTNode::generateCallExpression(int pass)
 		}
 
 	// Look up the id in the global module table.
-	Function* CalleeF = getFunctionFromID(token.first, args);
+	functionID* CalleeFID = getFunctionFromID(token.first, args);
 	//Function* CalleeF = TheModule->getFunction(token.first);
-	if (!CalleeF) {
+	if (!CalleeFID) {
 		printTokenError(token, "Undefined function");
-		return nullptr;
+		exit(1);
 	}
+	Function* CalleeF = CalleeFID->fnValue;
 
 	// If argument mismatch error.
 	if (CalleeF->arg_size() != args.size()) {
 		printTokenError(token, "Incorrect number of arguments passed to function");
-		return nullptr;
+		exit(1);
 	}
 
 	std::vector<Value*> ArgsV;
-	for (unsigned i = 0, e = args.size(); i != e; ++i) {
+	for (int i = 0; i < args.size(); i++) {
+		if (CalleeFID->arguments[i].isReference) {
+			if (args[0]->childNodes.size() != 1 || args[0]->childNodes[0]->nodeType != Identifier_Node) {
+				printTokenError(token, "Cannot pass value as reference");
+				exit(1);
+			}
+			args[i]->childNodes[0]->isRef = true;
+		}
 		ArgsV.push_back((Value*)(args[i]->*(args[i]->codegen))(pass));
 		if (!ArgsV.back())
 			return nullptr;
@@ -998,13 +1123,39 @@ void* ASTNode::generatePrototype(int pass)
 			if (variableNumArguments)  // If there is a named argument after ... then it is invalid
 				goto invalidArgument;
 			if (a->childNodes[0]->nodeType != Argument_List) {
-				std::string typeName = a->childNodes[0]->childNodes[0]->token.first;
-				mangledName += "." + typeName;
+				ASTNode* typeNode = a->childNodes[0]->childNodes[0];
+				std::string typeStr = "";
+				bool isReference = false;
+				int pointerLevel = 0;
+				if (typeNode->token.first == "ref") {
+					isReference = true;
+					mangledName += ".ref";
+					typeStr += ".ref";
+					pointerLevel++;
+					typeNode = typeNode->childNodes[0];
+				}
+
+			checkPointer:
+				if (typeNode->token.first == "*") {
+					pointerLevel++;
+					mangledName += ".ptr";
+					typeStr += ".ptr";
+					typeNode = typeNode->childNodes[0];
+					goto checkPointer;
+				}
+
+				mangledName += "." + typeNode->token.first;
+				typeStr += "." + typeNode->token.first;
+
+
 				Type* aType = nullptr;
-				argList.push_back(std::make_pair(typeName, a->childNodes[0]->childNodes[0]->nodeType));
+				argList.push_back(argType(typeStr, typeNode->nodeType, pointerLevel, isReference));
 
 				try {
-					aType = getLLVMTypeFromString(typeName);
+					aType = getLLVMTypeFromString(typeNode->token.first);
+					for (int i = 0; i < pointerLevel; i++) {
+						aType = aType->getPointerTo();
+					}
 				}
 				catch (...) {
 					goto invalidArgument;
@@ -1039,9 +1190,9 @@ void* ASTNode::generatePrototype(int pass)
 
 	// Don't add another prototype if the exact same one is already defined
 	//Function* theFunction = TheModule->getFunction(token.first);
-	Function* theFunction = getExactFunctionFromID(fnName, argList);
-	if (theFunction)
-		return theFunction;
+	functionID* theFunctionID = getExactFunctionFromID(fnName, argList);
+	if (theFunctionID)
+		return theFunctionID->fnValue;
 
 
 	FunctionType* FT = FunctionType::get(retType, argTypes, variableNumArguments);
@@ -1066,10 +1217,13 @@ void* ASTNode::generateFunction(int pass)
 {
 	// First, check for an existing function from a previous declaration.
 	//Function* theFunction = TheModule->getFunction(token.first);
-	Function* theFunction = getFunctionFromID(token.first);
+	functionID* theFunctionID = getFunctionFromID(token.first);
+	Function* theFunction;
 
-	if (!theFunction)
+	if (!theFunctionID)
 		theFunction = (Function*)generatePrototype();
+	else
+		theFunction = theFunctionID->fnValue;
 
 	if (!theFunction)
 		return nullptr;
@@ -1080,17 +1234,35 @@ void* ASTNode::generateFunction(int pass)
 	if (pass == 0)
 		return theFunction;
 
+	theFunctionID = getFunctionFromID(token.first);
+	if (!theFunctionID) {
+		printTokenError(token, "There was a failure to create a function");
+		exit(1);
+	}
+
 	// Create a new basic block to start insertion into.
 	BasicBlock* fnBlock = BasicBlock::Create(*TheContext, "entry", theFunction);
 	Builder->SetInsertPoint(fnBlock);
 
 	// Record the function arguments in the NamedValues map.
+	int i = 0;
 	for (auto& arg : theFunction->args()) {
-		AllocaInst* Alloca = CreateEntryBlockAlloca(theFunction, arg.getType(), arg.getName());
-		// Store the initial value into the alloca.
-		Builder->CreateStore(&arg, Alloca);
+		if (i >= theFunctionID->arguments.size()) {
+			printTokenError(token, "Mismatch in number of arguments");
+			exit(1);
+		}
+		// If regular value, create copy
+		if (theFunctionID->arguments[i].pointerLevel == 0) {
+			AllocaInst* Alloca = CreateEntryBlockAlloca(theFunction, arg.getType(), arg.getName());
+			// Store the initial value into the alloca.
+			Builder->CreateStore(&arg, Alloca);
+			namedValues[std::string(arg.getName())] = Alloca;
+		}
+		// If a pointer/ref value, dont copy
+		else
+			namedValues[std::string(arg.getName())] = &arg;
 
-		namedValues[std::string(arg.getName())] = Alloca;
+		i++;
 	}
 	//NamedValues[std::string(Arg.getName())] = &Arg;
 

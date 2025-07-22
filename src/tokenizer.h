@@ -29,6 +29,7 @@ enum TokenType {
 	Right_Paren,
 	Left_Bracket,
 	Right_Bracket,
+	Both_Brackets,
 	Left_Brace,
 	Right_Brace,
 	Comma,
@@ -59,6 +60,10 @@ enum TokenType {
 	Percent_Percent,
 	At,
 	At_At,
+	Arrow_Left,
+	Arrow_Right,
+
+	Ref,
 
 	Bang,
 	Bang_Bang,
@@ -117,6 +122,7 @@ const std::string tokenTypeStrings[] = {
 	"Right_Paren",
 	"Left_Bracket",
 	"Right_Bracket",
+	"Both_Brackets",
 	"Left_Brace",
 	"Right_Brace",
 	"Comma",
@@ -147,6 +153,10 @@ const std::string tokenTypeStrings[] = {
 	"Percent_Percent",
 	"At",
 	"At_At",
+	"Arrow_Left",
+	"Arrow_Right",
+
+	"Ref",
 
 	"Bang",
 	"Bang_Bang",

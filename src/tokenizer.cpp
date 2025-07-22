@@ -55,6 +55,7 @@ const std::map<const char*, const char*> tokenEscapeCancels = {
 	{"%", "%"},
 	{"@", "@"},
 	{"!", "!"},
+	{"[", "]"},
 };
 
 // If this and the following character match for the specific token type, immediately end
@@ -73,6 +74,7 @@ std::map<const std::string, const TokenType> subTokenTypes = {
 	{")", Right_Paren},
 	{"[", Left_Bracket},
 	{"]", Right_Bracket},
+	{"[]", Both_Brackets},
 	{"{", Left_Brace},
 	{"}", Right_Brace},
 	{",", Comma},
@@ -129,6 +131,7 @@ std::map<const std::string, const TokenType> subTokenTypes = {
 	{"module", Module_Define},
 	{"unary", Unary},
 	{"binary", Binary},
+	{"ref", Ref},
 	//{"switch", },
 	//{"case", },
 	//{"constant", },

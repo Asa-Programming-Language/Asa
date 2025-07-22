@@ -286,6 +286,11 @@ namespace console {
 	{
 		PrintColored(message, fgColor, bgColor);
 	}
+	void printIndent(int depth)
+	{
+		for (int i = 0; i < depth; i++)
+			Write("    ");
+	}
 	void WriteIndented(std::string message, std::string fgColor, std::string bgColor, int indents)
 	{
 		std::string ind = "";

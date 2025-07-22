@@ -204,8 +204,10 @@ int main(int argc, char** argv)
 	generateOutputCode(rootNode, 0, 1);
 
 	// Print out all of the generated code.
-	console::WriteLine("\n\nOutput IR Code:", console::greenFGColor);
-	TheModule->print(errs(), nullptr);
+	if (verbosity >= 4) {
+		console::WriteLine("\n\nOutput IR Code:", console::greenFGColor);
+		TheModule->print(errs(), nullptr);
+	}
 
 	//// Verify the module
 	//if (llvm::verifyModule(*TheModule, &llvm::errs())) {

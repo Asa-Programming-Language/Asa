@@ -75,6 +75,7 @@ namespace console {
 	void Write(std::string message);
 	void Write(std::string message, std::string color);
 	void Write(std::string message, std::string fgColor, std::string bgColor);
+	void printIndent(int depth);
 	void WriteDialogueAuthor(std::string coloredType);
 	void WriteIndented(std::string message, std::string fgColor, std::string bgColor, int indents);
 	void WriteLineIndented(std::string message, std::string fgColor, std::string bgColor, int indents);

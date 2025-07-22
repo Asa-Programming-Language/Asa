@@ -29,6 +29,10 @@ binary|| :: bool(a : bool, b : bool) #inline {
 	return false;
 }
 
+//binary[] :: int(i : *int, index : int) #inline{
+//	return *(i+index);
+//}
+
 TEST_MACRO :: {printl("Macro works!")};
 //
 //customObject :: struct{
@@ -47,6 +51,10 @@ printint:: (n : int) {
 	putchar(48+n);
 }
 
+modifyReference::(n : ref int){
+	n = 4;
+}
+
 newline::(){
 	putchar(10);
 }
@@ -57,36 +65,44 @@ newline::(){
 
 main :: (){
 	//printf("Hello World!");
-	x = 70+2;
-	y : uint16 = 4;
+	//x = 70+2;
+	//y : uint16 = 4;
 
-	x_ptr : *int = &x;
+	//x_ptr : *int = &x;
+	//begin : *int = x_ptr;
 
-	putchar(x);
-	x = x+1;
-	putchar(*x_ptr);
-	putchar(32);
+	//putchar(x);
+	//x = x+1;
+	//putchar(*x_ptr);
+	//putchar(32);
 
-	arr : *int = malloc(8);
+	arr : *int = malloc(8*4);
 
+	arr[2] = 74;
+
+	//modifyReference(x);
+	//printint(x);
 
 	newline();
-	if(1 || 0){
-		putchar(72);
-	}
-	if(1 || 1){
-		putchar(73);
-	}
-	if(0 || 0){
-		putchar(72);
-	}
-	
-	for (i:0..3){
-		putchar(32);
-		for (j:0..(i+1)){
-			printint(j);
-		}
-	}
+	printint(arr[2]);
+
+	newline();
+	//if(1 || 0){
+	//	putchar(72);
+	//}
+	//if(1 || 1){
+	//	putchar(73);
+	//}
+	//if(0 || 0){
+	//	putchar(72);
+	//}
+	//
+	//for (i:0..3){
+	//	putchar(32);
+	//	for (j:0..(i+1)){
+	//		printint(j);
+	//	}
+	//}
 
 	newline();
 	//for (i : 0..100){  // for(<range>){} automatically iterates through range type

@@ -81,6 +81,8 @@ enum ASTNodeType {
 
 	Operator_Overload_Node,
 
+	Access_Operation,
+	Reference_Operation,
 	Address_Of_Operation,
 	Dereference_Operation,
 	Pointer_Node,
@@ -170,6 +172,8 @@ const std::string ASTNodeTypeStrings[] = {
 
 	"Operator_Overload_Node",
 
+	"Access_Operation",
+	"Reference_Operation",
 	"Address_Of_Operation",
 	"Dereference_Operation",
 	"Pointer_Node",
@@ -207,6 +211,7 @@ struct ASTNode {
 	tokenPair token = tokenPair();
 	int lineNumber = 0;
 	uint16_t depth = 0;
+	bool isRef = false;
 	// Add leaf nodes here as they are still yet to be used.
 	std::vector<ASTNode*> leafNodes = std::vector<ASTNode*>();
 
@@ -224,6 +229,7 @@ struct ASTNode {
 	void* generateIterator(int pass = 0);
 	void* generateUnaryExpression(int pass = 0);
 	void* generateBinaryExpression(int pass = 0);
+	void* generateAccessOperation(int pass = 0);
 	void* generateScopeBody(int pass = 0);
 	void* generateIf(int pass = 0);
 	void* generateStruct(int pass);

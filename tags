@@ -1073,6 +1073,7 @@ AccessQualifier	src/include/llvm/Support/AMDGPUMetadata.h	/^enum class AccessQua
 AccessSize	src/include/llvm/Analysis/LoopAccessAnalysis.h	/^  unsigned AccessSize;$/;"	m	struct:llvm::PointerDiffInfo	typeref:typename:unsigned
 AccessSizeIndex	src/include/llvm/Transforms/Instrumentation/AddressSanitizer.h	/^  const uint8_t AccessSizeIndex;$/;"	m	struct:llvm::ASanAccessInfo	typeref:typename:const uint8_t
 AccessSizeShift	src/include/llvm/Transforms/Instrumentation/HWAddressSanitizer.h	/^  AccessSizeShift = 0, \/\/ 4 bits$/;"	e	enum:llvm::HWASanAccessInfo::__anonc5b453ce0103
+Access_Operation	src/parser.h	/^	Access_Operation,$/;"	e	enum:ASTNodeType
 AccessedBytesMap	src/include/llvm/Transforms/IPO/Attributor.h	/^  std::map<int64_t, uint64_t> AccessedBytesMap;$/;"	m	struct:llvm::DerefState	typeref:typename:std::map<int64_t,uint64_t>
 Accesses	src/include/llvm/Analysis/LoopAccessAnalysis.h	/^  DenseMap<MemAccessInfo, std::vector<unsigned> > Accesses;$/;"	m	class:llvm::MemoryDepChecker	typeref:typename:DenseMap<MemAccessInfo,std::vector<unsigned>>
 AccessibilityCode	src/include/llvm/DebugInfo/LogicalView/Core/LVElement.h	/^  uint16_t AccessibilityCode : 2; \/\/ DW_AT_accessibility.$/;"	m	class:llvm::logicalview::LVElement	typeref:typename:uint16_t:2
@@ -2478,6 +2479,8 @@ ArrayType	src/include/llvm/Support/BinaryStreamArray.h	/^  typedef VarStreamArra
 ArrayTypeNode	src/include/llvm/Demangle/MicrosoftDemangleNodes.h	/^  ArrayTypeNode() : TypeNode(NodeKind::ArrayType) {}$/;"	f	struct:llvm::ms_demangle::ArrayTypeNode
 ArrayTypeNode	src/include/llvm/Demangle/MicrosoftDemangleNodes.h	/^struct ArrayTypeNode : public TypeNode {$/;"	s	namespace:llvm::ms_demangle
 Arrays	src/include/llvm/BinaryFormat/MsgPackDocument.h	/^  std::vector<std::unique_ptr<DocNode::ArrayTy>> Arrays;$/;"	m	class:llvm::msgpack::Document	typeref:typename:std::vector<std::unique_ptr<DocNode::ArrayTy>>
+Arrow_Left	src/tokenizer.h	/^	Arrow_Left,$/;"	e	enum:TokenType
+Arrow_Right	src/tokenizer.h	/^	Arrow_Right,$/;"	e	enum:TokenType
 ArtifactValueFinder	src/include/llvm/CodeGen/GlobalISel/LegalizationArtifactCombiner.h	/^    ArtifactValueFinder(MachineRegisterInfo &Mri, MachineIRBuilder &Builder,$/;"	f	class:llvm::LegalizationArtifactCombiner::ArtifactValueFinder
 ArtifactValueFinder	src/include/llvm/CodeGen/GlobalISel/LegalizationArtifactCombiner.h	/^  class ArtifactValueFinder {$/;"	c	class:llvm::LegalizationArtifactCombiner
 Artificial	src/include/llvm/CodeGen/ScheduleDAG.h	/^      Artificial,   \/\/\/< Arbitrary strong DAG edge (no real dependence).$/;"	e	enum:llvm::SDep::OrderKind
@@ -4223,6 +4226,7 @@ BotQID	src/include/llvm/CodeGen/MachineScheduler.h	/^    BotQID = 2,$/;"	e	enum:
 BotQID	src/include/llvm/CodeGen/VLIWMachineScheduler.h	/^  enum { TopQID = 1, BotQID = 2, LogMaxQID = 2 };$/;"	e	enum:llvm::ConvergingVLIWScheduler::__anon5fc197490103
 BotRPTracker	src/include/llvm/CodeGen/MachineScheduler.h	/^  RegPressureTracker BotRPTracker;$/;"	m	class:llvm::ScheduleDAGMILive	typeref:typename:RegPressureTracker
 BotReadyCycle	src/include/llvm/CodeGen/ScheduleDAG.h	/^    unsigned BotReadyCycle = 0; \/\/\/< Cycle relative to end when node is ready.$/;"	m	class:llvm::SUnit	typeref:typename:unsigned
+Both_Brackets	src/tokenizer.h	/^	Both_Brackets,$/;"	e	enum:TokenType
 Bottom	src/include/llvm/Transforms/Vectorize/SandboxVectorizer/Interval.h	/^  T *Bottom;$/;"	m	class:llvm::sandboxir::Interval	typeref:typename:T *
 BottomIdx	src/include/llvm/CodeGen/RegisterPressure.h	/^  SlotIndex BottomIdx;$/;"	m	struct:llvm::IntervalPressure	typeref:typename:SlotIndex
 BottomPos	src/include/llvm/CodeGen/RegisterPressure.h	/^  MachineBasicBlock::const_iterator BottomPos;$/;"	m	struct:llvm::RegionPressure	typeref:typename:MachineBasicBlock::const_iterator
@@ -37510,6 +37514,7 @@ Ref	src/include/llvm/Demangle/ItaniumDemangle.h	/^  Node *Ref = nullptr;$/;"	m	s
 Ref	src/include/llvm/IR/DebugProgramInstruction.h	/^  TrackingMDNodeRef Ref;$/;"	m	class:llvm::DbgRecordParamRef	typeref:typename:TrackingMDNodeRef
 Ref	src/include/llvm/IR/TrackingMDRef.h	/^  TrackingMDRef Ref;$/;"	m	class:llvm::TypedTrackingMDRef	typeref:typename:TrackingMDRef
 Ref	src/include/llvm/Support/ModRef.h	/^  Ref = 1,$/;"	e	enum:llvm::ModRefInfo
+Ref	src/tokenizer.h	/^	Ref,$/;"	e	enum:TokenType
 RefAccess	src/include/llvm/Analysis/AliasSetTracker.h	/^    RefAccess = 1,$/;"	e	enum:llvm::AliasSet::AccessLattice
 RefAndFlags	src/include/llvm/IR/ModuleSummaryIndex.h	/^      RefAndFlags;$/;"	m	struct:llvm::ValueInfo	typeref:typename:PointerIntPair<const GlobalValueSummaryMapTy::value_type *,3,int>
 RefClass	src/include/llvm/DebugInfo/CodeView/CodeView.h	/^  RefClass = 0x01,$/;"	e	enum:llvm::codeview::WindowsRTClassKind
@@ -37557,6 +37562,7 @@ ReferenceQualifier	src/include/llvm/Demangle/ItaniumDemangle.h	/^    FunctionRef
 ReferenceType	src/include/llvm/Analysis/WithCache.h	/^  using ReferenceType = conditionally_const_t<UnderlyingType &, IsConst>;$/;"	t	class:llvm::WithCache	typeref:typename:conditionally_const_t<UnderlyingType &,IsConst>
 ReferenceType	src/include/llvm/Demangle/ItaniumDemangle.h	/^  ReferenceType(const Node *Pointee_, ReferenceKind RK_)$/;"	f	class:ReferenceType
 ReferenceType	src/include/llvm/Demangle/ItaniumDemangle.h	/^class ReferenceType : public Node {$/;"	c
+Reference_Operation	src/parser.h	/^	Reference_Operation,$/;"	e	enum:ASTNodeType
 References	src/include/llvm/ADT/IntervalTree.h	/^  IntervalReferences References;$/;"	m	class:llvm::IntervalTree	typeref:typename:IntervalReferences
 References	src/include/llvm/DebugInfo/CodeView/DebugCrossExSubsection.h	/^  FixedStreamArray<CrossModuleExport> References;$/;"	m	class:llvm::codeview::DebugCrossModuleExportsSubsectionRef	typeref:typename:FixedStreamArray<CrossModuleExport>
 References	src/include/llvm/DebugInfo/CodeView/DebugCrossImpSubsection.h	/^  ReferenceArray References;$/;"	m	class:llvm::codeview::DebugCrossModuleImportsSubsectionRef	typeref:typename:ReferenceArray
@@ -51349,6 +51355,8 @@ are_settings	src/indicators.hpp	/^template <> struct are_settings<> : std::true_
 are_settings_from_tuple	src/indicators.hpp	/^struct are_settings_from_tuple$/;"	s	namespace:indicators::details
 arg	src/include/llvm/XRay/FDRRecords.h	/^  uint64_t arg() const { return Arg; }$/;"	f	class:llvm::xray::CallArgRecord	typeref:typename:uint64_t
 argMemOnly	src/include/llvm/Support/ModRef.h	/^  static MemoryEffectsBase argMemOnly(ModRefInfo MR = ModRefInfo::ModRef) {$/;"	f	class:llvm::MemoryEffectsBase	typeref:typename:MemoryEffectsBase
+argType	src/codegen.cpp	/^	argType(std::string ts, ASTNodeType bT, uint8_t pL = 0, bool r = false)$/;"	f	struct:argType	file:
+argType	src/codegen.cpp	/^struct argType {$/;"	s	file:
 arg_begin	src/include/llvm/IR/Function.h	/^  arg_iterator arg_begin() {$/;"	f	class:llvm::Function	typeref:typename:arg_iterator
 arg_begin	src/include/llvm/IR/Function.h	/^  const_arg_iterator arg_begin() const {$/;"	f	class:llvm::Function	typeref:typename:const_arg_iterator
 arg_begin	src/include/llvm/IR/InstrTypes.h	/^  User::const_op_iterator arg_begin() const {$/;"	f	class:llvm::CallBase	typeref:typename:User::const_op_iterator
@@ -51402,7 +51410,7 @@ args_end	src/include/llvm/IR/DebugInfoMetadata.h	/^  iterator args_end() { retur
 args_end	src/include/llvm/TableGen/Record.h	/^  const_iterator args_end() const { return args().end(); }$/;"	f	class:llvm::VarDefInit	typeref:typename:const_iterator
 args_size	src/include/llvm/TableGen/Record.h	/^  size_t         args_size () const { return NumArgs; }$/;"	f	class:llvm::VarDefInit	typeref:typename:size_t
 argument	src/include/llvm/Transforms/IPO/Attributor.h	/^  static const IRPosition argument(const Argument &Arg,$/;"	f	struct:llvm::IRPosition	typeref:typename:const IRPosition
-argumentList	src/codegen.cpp	/^typedef std::vector<std::pair<std::string, ASTNodeType>> argumentList;$/;"	t	typeref:typename:std::vector<std::pair<std::string,ASTNodeType>>	file:
+argumentList	src/codegen.cpp	/^typedef std::vector<argType> argumentList;$/;"	t	typeref:typename:std::vector<argType>	file:
 argumentOrErrnoMemOnly	src/include/llvm/Support/ModRef.h	/^  argumentOrErrnoMemOnly(ModRefInfo ArgMR = ModRefInfo::ModRef,$/;"	f	class:llvm::MemoryEffectsBase	typeref:typename:MemoryEffectsBase
 argument_list_too_long	src/include/llvm/Support/Errc.h	/^  argument_list_too_long = int(std::errc::argument_list_too_long),$/;"	e	enum:llvm::errc
 argument_out_of_domain	src/include/llvm/Support/Errc.h	/^  argument_out_of_domain = int(std::errc::argument_out_of_domain),$/;"	e	enum:llvm::errc
@@ -51625,6 +51633,7 @@ base	src/include/llvm/Object/ELF.h	/^  const uint8_t *base() const { return Buf.
 base	src/include/llvm/Object/ObjectFile.h	/^  const uint8_t *base() const {$/;"	f	class:llvm::object::ObjectFile	typeref:typename:const uint8_t *
 base	src/include/llvm/Support/Memory.h	/^    void *base() const { return Address; }$/;"	f	class:llvm::sys::MemoryBlock	typeref:typename:void *
 base	src/include/llvm/Support/Memory.h	/^    void *base() const { return M.base(); }$/;"	f	class:llvm::sys::OwningMemoryBlock	typeref:typename:void *
+baseASTType	src/codegen.cpp	/^	ASTNodeType baseASTType;$/;"	m	struct:argType	typeref:typename:ASTNodeType	file:
 baseFileName	src/filemanager.cpp	/^std::string baseFileName;$/;"	v	typeref:typename:std::string
 base_list_type	src/include/llvm/ADT/ilist.h	/^  typedef IntrusiveListT base_list_type;$/;"	t	class:llvm::iplist_impl	typeref:typename:IntrusiveListT
 base_reloc_iterator	src/include/llvm/Object/COFF.h	/^using base_reloc_iterator = content_iterator<BaseRelocRef>;$/;"	t	namespace:llvm::object	typeref:typename:content_iterator<BaseRelocRef>
@@ -58214,6 +58223,7 @@ gcd	src/include/llvm/ADT/DynamicAPInt.h	/^LLVM_ATTRIBUTE_ALWAYS_INLINE DynamicAP
 generate	src/include/llvm/ADT/CombinationGenerator.h	/^  void generate(const function_ref<bool(ArrayRef<choice_type>)> Callback) {$/;"	f	class:llvm::CombinationGenerator	typeref:typename:void
 generate	src/include/llvm/FuzzMutate/OpDescriptor.h	/^  std::vector<Constant *> generate(ArrayRef<Value *> Cur,$/;"	f	class:llvm::fuzzerop::SourcePred	typeref:typename:std::vector<Constant * >
 generateAST	src/parser.cpp	/^ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* parentNodePtr)$/;"	f	typeref:typename:ASTNode *
+generateAccessOperation	src/codegen.cpp	/^void* ASTNode::generateAccessOperation(int pass)$/;"	f	class:ASTNode	typeref:typename:void *
 generateBinaryExpression	src/codegen.cpp	/^void* ASTNode::generateBinaryExpression(int pass)$/;"	f	class:ASTNode	typeref:typename:void *
 generateCallExpression	src/codegen.cpp	/^void* ASTNode::generateCallExpression(int pass)$/;"	f	class:ASTNode	typeref:typename:void *
 generateCast	src/codegen.cpp	/^void* ASTNode::generateCast(int pass)$/;"	f	class:ASTNode	typeref:typename:void *
@@ -60725,7 +60735,7 @@ getExactFPInst	src/include/llvm/Transforms/Vectorize/LoopVectorizationLegality.h
 getExactFPMathInst	src/include/llvm/Analysis/IVDescriptors.h	/^    Instruction *getExactFPMathInst() const { return ExactFPMathInst; }$/;"	f	class:llvm::RecurrenceDescriptor::InstDesc	typeref:typename:Instruction *
 getExactFPMathInst	src/include/llvm/Analysis/IVDescriptors.h	/^  Instruction *getExactFPMathInst() const { return ExactFPMathInst; }$/;"	f	class:llvm::RecurrenceDescriptor	typeref:typename:Instruction *
 getExactFPMathInst	src/include/llvm/Analysis/IVDescriptors.h	/^  Instruction *getExactFPMathInst() {$/;"	f	class:llvm::InductionDescriptor	typeref:typename:Instruction *
-getExactFunctionFromID	src/codegen.cpp	/^Function* getExactFunctionFromID(std::string& name, argumentList& arguments)$/;"	f	typeref:typename:Function *
+getExactFunctionFromID	src/codegen.cpp	/^functionID* getExactFunctionFromID(std::string& name, argumentList& arguments)$/;"	f	typeref:typename:functionID *
 getExactInverse	src/include/llvm/ADT/APFloat.h	/^  bool getExactInverse(APFloat *inv) const {$/;"	f	class:llvm::APFloat	typeref:typename:bool
 getExactLog2	src/include/llvm/ADT/APFloat.h	/^  int getExactLog2() const {$/;"	f	class:llvm::APFloat	typeref:typename:LLVM_READONLY int
 getExactLog2	src/include/llvm/ADT/APFloat.h	/^  int getExactLog2() const {$/;"	f	class:llvm::detail::IEEEFloat	typeref:typename:LLVM_READONLY int
@@ -61264,9 +61274,9 @@ getFunctionEnd	src/include/llvm/CodeGen/AsmPrinter.h	/^  MCSymbol *getFunctionEn
 getFunctionEntryPointSymbol	src/include/llvm/Target/TargetLoweringObjectFile.h	/^  virtual MCSymbol *getFunctionEntryPointSymbol(const GlobalValue *Func,$/;"	f	class:llvm::TargetLoweringObjectFile	typeref:typename:MCSymbol *
 getFunctionFaultInfoAt	src/include/llvm/Object/FaultMapParser.h	/^    FunctionFaultInfoAccessor getFunctionFaultInfoAt(uint32_t Index) const {$/;"	f	class:llvm::FaultMapParser::FunctionInfoAccessor	typeref:typename:FunctionFaultInfoAccessor
 getFunctionFrameSymbol	src/include/llvm/CodeGen/AsmPrinter.h	/^  virtual const MCSymbol *getFunctionFrameSymbol() const { return nullptr; }$/;"	f	class:llvm::AsmPrinter	typeref:typename:const MCSymbol *
-getFunctionFromID	src/codegen.cpp	/^Function* getFunctionFromID(std::string& name)$/;"	f	typeref:typename:Function *
-getFunctionFromID	src/codegen.cpp	/^Function* getFunctionFromID(std::string& name, argumentList& arguments)$/;"	f	typeref:typename:Function *
-getFunctionFromID	src/codegen.cpp	/^Function* getFunctionFromID(std::string& name, std::vector<ASTNode*>& argValues)$/;"	f	typeref:typename:Function *
+getFunctionFromID	src/codegen.cpp	/^functionID* getFunctionFromID(std::string& name)$/;"	f	typeref:typename:functionID *
+getFunctionFromID	src/codegen.cpp	/^functionID* getFunctionFromID(std::string& name, argumentList& arguments)$/;"	f	typeref:typename:functionID *
+getFunctionFromID	src/codegen.cpp	/^functionID* getFunctionFromID(std::string& name, std::vector<ASTNode*>& argValues)$/;"	f	typeref:typename:functionID *
 getFunctionGUID	src/include/llvm/IR/PseudoProbe.h	/^  uint64_t getFunctionGUID() const { return FunctionGUID; }$/;"	f	class:llvm::PseudoProbeDescriptor	typeref:typename:uint64_t
 getFunctionHash	src/include/llvm/IR/PseudoProbe.h	/^  uint64_t getFunctionHash() const { return FunctionHash; }$/;"	f	class:llvm::PseudoProbeDescriptor	typeref:typename:uint64_t
 getFunctionHash	src/include/llvm/ProfileData/SampleProf.h	/^  uint64_t getFunctionHash() const { return FunctionHash; }$/;"	f	class:llvm::sampleprof::FunctionSamples	typeref:typename:uint64_t
@@ -71239,7 +71249,9 @@ isReexported	src/include/llvm/TextAPI/Symbol.h	/^  bool isReexported() const {$/
 isRef	src/include/llvm/Analysis/AliasSetTracker.h	/^  bool isRef() const { return Access & RefAccess; }$/;"	f	class:llvm::AliasSet	typeref:typename:bool
 isRef	src/include/llvm/Support/Error.h	/^  static constexpr bool isRef = std::is_reference_v<T>;$/;"	m	class:llvm::Expected	typeref:typename:bool
 isRef	src/include/llvm/Support/ErrorOr.h	/^  static constexpr bool isRef = std::is_reference_v<T>;$/;"	m	class:llvm::ErrorOr	typeref:typename:bool
+isRef	src/parser.h	/^	bool isRef = false;$/;"	m	struct:ASTNode	typeref:typename:bool
 isRefSet	src/include/llvm/Support/ModRef.h	/^[[nodiscard]] inline bool isRefSet(const ModRefInfo MRI) {$/;"	f	namespace:llvm	typeref:typename:bool
+isReference	src/codegen.cpp	/^	bool isReference = false;$/;"	m	struct:argType	typeref:typename:bool	file:
 isReferenceToRange	src/include/llvm/ADT/SmallVector.h	/^  bool isReferenceToRange(const void *V, const void *First, const void *Last) const {$/;"	f	class:llvm::SmallVectorTemplateCommon	typeref:typename:bool
 isReferenceToStorage	src/include/llvm/ADT/SmallVector.h	/^  bool isReferenceToStorage(const void *V) const {$/;"	f	class:llvm::SmallVectorTemplateCommon	typeref:typename:bool
 isReg	src/include/llvm/CodeGen/GlobalISel/Utils.h	/^  bool isReg() const { return IsReg; }$/;"	f	class:llvm::RegOrConstant	typeref:typename:bool
@@ -81607,6 +81619,7 @@ pointer	src/include/llvm/Transforms/Scalar/GVNExpression.h	/^  using pointer = v
 pointer	src/include/llvm/Transforms/Vectorize/SandboxVectorizer/DependencyGraph.h	/^  using pointer = value_type *;$/;"	t	class:llvm::sandboxir::PredIterator	typeref:typename:value_type *
 pointer	src/include/llvm/Transforms/Vectorize/SandboxVectorizer/Interval.h	/^  using pointer = value_type *;$/;"	t	class:llvm::sandboxir::IntervalIterator	typeref:typename:value_type *
 pointer	src/include/llvm/Transforms/Vectorize/SandboxVectorizer/SeedCollector.h	/^    using pointer = value_type *;$/;"	t	class:llvm::sandboxir::SeedContainer::iterator	typeref:typename:value_type *
+pointerLevel	src/codegen.cpp	/^	uint8_t pointerLevel = 0;$/;"	m	struct:argType	typeref:typename:uint8_t	file:
 pointerToJITTargetAddress	src/include/llvm/ExecutionEngine/JITSymbol.h	/^template <typename T> JITTargetAddress pointerToJITTargetAddress(T *Ptr) {$/;"	f	namespace:llvm	typeref:typename:JITTargetAddress
 pointerValue	src/include/llvm/Object/MachO.h	/^  uint64_t pointerValue() const { return PointerValue; }$/;"	f	class:llvm::object::MachOAbstractFixupEntry	typeref:typename:uint64_t
 pointer_format	src/include/llvm/BinaryFormat/MachO.h	/^  uint16_t pointer_format;    \/\/\/< DYLD_CHAINED_PTR*$/;"	m	struct:llvm::MachO::dyld_chained_starts_in_segment	typeref:typename:uint16_t
@@ -81887,9 +81900,9 @@ printHexListImpl	src/include/llvm/Support/ScopedPrinter.h	/^  virtual void print
 printHexListImpl	src/include/llvm/Support/ScopedPrinter.h	/^  void printHexListImpl(StringRef Label,$/;"	f	class:llvm::JSONScopedPrinter	typeref:typename:void
 printImm	src/include/llvm/CodeGen/MIRFormatter.h	/^  virtual void printImm(raw_ostream &OS, const MachineInstr &MI,$/;"	f	class:llvm::MIRFormatter	typeref:typename:void
 printImpl	src/include/llvm/Support/VirtualFileSystem.h	/^  virtual void printImpl(raw_ostream &OS, PrintType Type,$/;"	f	class:llvm::vfs::FileSystem	typeref:typename:void
+printIndent	src/console.cpp	/^	void printIndent(int depth)$/;"	f	namespace:console	typeref:typename:void
 printIndent	src/include/llvm/Support/ScopedPrinter.h	/^  void printIndent() {$/;"	f	class:llvm::ScopedPrinter	typeref:typename:void
 printIndent	src/include/llvm/Support/VirtualFileSystem.h	/^  void printIndent(raw_ostream &OS, unsigned IndentLevel) const {$/;"	f	class:llvm::vfs::FileSystem	typeref:typename:void
-printIndent	src/parser.cpp	/^inline void printIndent(int& depth)$/;"	f	typeref:typename:void
 printInfoComment	src/include/llvm/IR/AssemblyAnnotationWriter.h	/^  virtual void printInfoComment(const Value &, formatted_raw_ostream &) {}$/;"	f	class:llvm::AssemblyAnnotationWriter	typeref:typename:void
 printInitListAsType	src/include/llvm/Demangle/ItaniumDemangle.h	/^  bool printInitListAsType(OutputBuffer &OB,$/;"	f	class:ArrayType	typeref:typename:bool
 printInitListAsType	src/include/llvm/Demangle/ItaniumDemangle.h	/^  virtual bool printInitListAsType(OutputBuffer &, const NodeArray &) const {$/;"	f	class:Node	typeref:typename:bool
@@ -83682,21 +83695,22 @@ runWithSPSRet	src/include/llvm/ExecutionEngine/Orc/Shared/WrapperFunctionUtils.h
 runWithSPSRetErrorMerged	src/include/llvm/ExecutionEngine/Orc/Shared/WrapperFunctionUtils.h	/^  Error runWithSPSRetErrorMerged() const {$/;"	f	class:llvm::orc::shared::WrapperFunctionCall	typeref:typename:Error
 runtime_check	src/include/llvm/Transforms/Instrumentation/LowerAllowCheckPass.h	/^    unsigned int runtime_check = 0;$/;"	m	struct:llvm::LowerAllowCheckPass::Options	typeref:typename:unsigned int
 s:l	src/Session.vim	/^let s:l = 1 - ((0 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 102 - ((52 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 10026 - ((25 * winheight(0) + 13) \/ 26)$/;"	v
 s:l	src/Session.vim	/^let s:l = 108 - ((31 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 135 - ((30 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 118 - ((71 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 130 - ((14 * winheight(0) + 13) \/ 26)$/;"	v
 s:l	src/Session.vim	/^let s:l = 16 - ((15 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 184 - ((10 * winheight(0) + 26) \/ 53)$/;"	v
 s:l	src/Session.vim	/^let s:l = 20 - ((19 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 204 - ((10 * winheight(0) + 13) \/ 26)$/;"	v
 s:l	src/Session.vim	/^let s:l = 21 - ((20 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 34 - ((28 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 210 - ((11 * winheight(0) + 13) \/ 26)$/;"	v
+s:l	src/Session.vim	/^let s:l = 28 - ((15 * winheight(0) + 13) \/ 26)$/;"	v
+s:l	src/Session.vim	/^let s:l = 35 - ((10 * winheight(0) + 26) \/ 53)$/;"	v
 s:l	src/Session.vim	/^let s:l = 44 - ((26 * winheight(0) + 26) \/ 53)$/;"	v
 s:l	src/Session.vim	/^let s:l = 57 - ((19 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 60 - ((11 * winheight(0) + 13) \/ 26)$/;"	v
-s:l	src/Session.vim	/^let s:l = 668 - ((10 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 70 - ((15 * winheight(0) + 13) \/ 26)$/;"	v
 s:l	src/Session.vim	/^let s:l = 9 - ((8 * winheight(0) + 13) \/ 26)$/;"	v
-s:l	src/Session.vim	/^let s:l = 9932 - ((10 * winheight(0) + 13) \/ 26)$/;"	v
+s:l	src/Session.vim	/^let s:l = 982 - ((22 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 986 - ((42 * winheight(0) + 26) \/ 53)$/;"	v
 s:save_splitbelow	src/Session.vim	/^let s:save_splitbelow = &splitbelow$/;"	v
 s:save_splitright	src/Session.vim	/^let s:save_splitright = &splitright$/;"	v
 s:save_winminheight	src/Session.vim	/^let s:save_winminheight = &winminheight$/;"	v
@@ -87471,6 +87485,7 @@ typeIdx	src/include/llvm/CodeGen/GlobalISel/LegalizerInfo.h	/^  unsigned typeIdx
 typeIsNot	src/include/llvm/CodeGen/GlobalISel/LegalizerInfo.h	/^inline LegalityPredicate typeIsNot(unsigned TypeIdx, LLT Type) {$/;"	f	namespace:llvm::LegalityPredicates	typeref:typename:LegalityPredicate
 typeSigns	src/codegen.cpp	/^std::unordered_map<std::string, bool> typeSigns = {$/;"	v	typeref:typename:std::unordered_map<std::string,bool>
 typeSizeEqualsStoreSize	src/include/llvm/IR/DataLayout.h	/^  bool typeSizeEqualsStoreSize(Type *Ty) const {$/;"	f	class:llvm::DataLayout	typeref:typename:bool
+typeString	src/codegen.cpp	/^	std::string typeString;$/;"	m	struct:argType	typeref:typename:std::string	file:
 typeToStr	src/include/llvm/Remarks/Remark.h	/^inline StringRef typeToStr(Type Ty) {$/;"	f	namespace:llvm::remarks	typeref:typename:StringRef
 type_checked_load_const_vcalls	src/include/llvm/IR/ModuleSummaryIndex.h	/^  ArrayRef<ConstVCall> type_checked_load_const_vcalls() const {$/;"	f	class:llvm::FunctionSummary	typeref:typename:ArrayRef<ConstVCall>
 type_checked_load_vcalls	src/include/llvm/IR/ModuleSummaryIndex.h	/^  ArrayRef<VFuncId> type_checked_load_vcalls() const {$/;"	f	class:llvm::FunctionSummary	typeref:typename:ArrayRef<VFuncId>

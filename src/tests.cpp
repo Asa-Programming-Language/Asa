@@ -43,7 +43,7 @@ std::vector<Test> tests = {
 					A(Arguments,
 						{A(Expression_Term, {})}
 					),
-					A(Compiler_Modifiers,{}),
+					A(Compiler_Modifiers,{A(Scope_Body)}),
 					A(Scope_Body,
 						{
 						}
@@ -69,14 +69,16 @@ std::vector<Test> tests = {
 					A(Arguments,
 						{A(Expression_Term, {})}
 					),
-					A(Compiler_Modifiers,{}),
+					A(Compiler_Modifiers,{A(Scope_Body)}),
 					A(Scope_Body,
 						{
 							A(Expression_Statement,
 								{
 									A({}, Identifier_Node),
 									A(Expression_Term,
-										{A(Integer_Node, {}, tokenPair("4", Integer), true)}
+										{
+											A(Expression_Plus, {A(Integer_Node, {}, tokenPair("2", Integer), true),A(Integer_Node, {}, tokenPair("2", Integer), true)})
+										}
 									)
 								}
 							)
@@ -105,19 +107,16 @@ std::vector<Test> tests = {
 					A(Arguments,
 						{A(Expression_Term, {})}
 					),
-					A(Compiler_Modifiers,{}),
+					A(Compiler_Modifiers,{A(Scope_Body)}),
 					A(Scope_Body, // Contents of main(){
 						{
 							A(For_Statement_Node,
 								{
+									A(Nothing_Node),
 									A(Range_Node,
 										{
-											A(Range_Node,
-												{
-													A(Integer_Node, {}, tokenPair("0", Integer), true),
-													A(Integer_Node, {}, tokenPair("100", Integer), true),
-												}
-											)
+											A(Integer_Node, {}, tokenPair("0", Integer), true),
+											A(Integer_Node, {}, tokenPair("100", Integer), true),
 										}
 									),
 									A(Scope_Body, {}),
@@ -148,7 +147,7 @@ std::vector<Test> tests = {
 					A(Arguments,
 						{A(Expression_Term, {})}
 					),
-					A(Compiler_Modifiers,{}),
+					A(Compiler_Modifiers,{A(Scope_Body)}),
 					A(Scope_Body, // Contents of main(){
 						{
 							A(For_Statement_Node,
@@ -158,12 +157,8 @@ std::vector<Test> tests = {
 									),
 									A(Range_Node, // Range
 										{
-											A(Range_Node,
-												{
-													A(Integer_Node, {}, tokenPair("0", Integer), true),
-													A(Integer_Node, {}, tokenPair("100", Integer), true),
-												}
-											)
+											A(Integer_Node, {}, tokenPair("0", Integer), true),
+											A(Integer_Node, {}, tokenPair("100", Integer), true),
 										}
 									),
 									A(Scope_Body, {}),
@@ -217,21 +212,25 @@ std::vector<Test> tests = {
 					),
 				}
 			),
-			A(Compiler_Define_Function, // x
+			A(Scope_Body,
 				{
-					A(Identifier_Node,{}), // x name
-					A(Type_Node,{}),
-					A(Arguments,
-						{A(Expression_Term, {})}
-					),
-					A(Compiler_Modifiers,{}),
-					A(Scope_Body, // Contents of x(){
+					A(Compiler_Define_Function, // x
 						{
-							A(Return_Node, 
+							A(Identifier_Node,{}), // x name
+							A(Type_Node,{}),
+							A(Arguments,
+								{A(Expression_Term, {})}
+							),
+							A(Compiler_Modifiers,{A(Scope_Body)}),
+							A(Scope_Body, // Contents of x(){
 								{
-									A(Expression_Term,
+									A(Return_Node, 
 										{
-											A(Integer_Node)
+											A(Expression_Term,
+												{
+													A(Integer_Node)
+												}
+											)
 										}
 									)
 								}
@@ -257,6 +256,7 @@ void runTests()
 
 	for (int i = 0; i < tests.size(); i++) {
 		try {
+			console::printIndent(1);
 			console::Write(PadStringRight("Test " + std::to_string(i + 1), '.', 60));
 
 			Test& t = tests[i];
@@ -308,12 +308,14 @@ void runTests()
 			}
 			// Order AST operations
 			fixPrecedence(localRoot);
-			// Optimize constant AST nodes
-			optimizeASTNode(localRoot);
+			//// Optimize constant AST nodes
+			//optimizeASTNode(localRoot);
 			// Assign parent nodes
 			assignParentNodes(localRoot);
-			// Resolve dependencies
-			resolveDependencies(localRoot);
+			// Unify nested nodes
+			unifyNodes(localRoot);
+			//// Resolve dependencies
+			//resolveDependencies(localRoot);
 
 			// Do the check this test is for:
 			switch (t.testType) {
@@ -321,6 +323,7 @@ void runTests()
 					if (*(t.expectedAST) == *(localRoot)) {
 					}
 					else {
+						console::WriteLine("failed", console::redFGColor);
 						printf("Expected AST:\n");
 						printAST(t.expectedAST);
 						printf("\n\nActual AST:\n");
@@ -339,7 +342,6 @@ void runTests()
 		console::WriteLine("ok", console::greenFGColor);
 		continue;
 	fail:
-		console::WriteLine("failed", console::redFGColor);
 		console::PrintError("Test [" + std::to_string(i) + "] failed", __LINE__, __FILE__);
 		goto testFailed;
 	}
