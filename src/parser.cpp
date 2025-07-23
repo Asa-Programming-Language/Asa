@@ -795,7 +795,8 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 				int braceLevel = 1;
 				int bracketLevel = 1;
 				std::vector<tokenPair> subTokens = std::vector<tokenPair>();
-				if (!(isUnaryL == false && isUnaryR == false && isAccessOperation))
+				if (!(isUnaryL == false && isUnaryR == false && isAccessOperation)) {
+					isAccessOperation = false;
 					for (;;) {
 						if (i >= tokens.size() - 1)
 							break;
@@ -827,6 +828,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 
 						subTokens.push_back(t);
 					}
+				}
 				// If an access operation with brackets like: arr[i]
 				else {
 					node->codegen = &ASTNode::generateAccessOperation;
@@ -891,6 +893,8 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 				// Instead of backtracking to get the first term, pop the leafNodes vector =)
 				firstTerm = parentNode->leafNodes.back();
 				parentNode->leafNodes.pop_back();
+
+				//firstTerm->lvalue = true;
 
 				std::vector<tokenPair> subTokens = std::vector<tokenPair>();
 
@@ -1311,7 +1315,8 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 			}
 
 			case String: {
-				node->nodeType = String_Node;
+				node->nodeType = String_Constant_Node;
+				node->codegen = &ASTNode::generateConstant;
 				parentNode->leafNodes.push_back(node);
 				goto dontAddNode;
 			}

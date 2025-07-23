@@ -43179,6 +43179,7 @@ StringValue	src/include/llvm/CodeGen/MIRYamlMapping.h	/^  StringValue(std::strin
 StringValue	src/include/llvm/CodeGen/MIRYamlMapping.h	/^struct StringValue {$/;"	s	namespace:llvm::yaml
 StringValue	src/include/llvm/MC/MCELFStreamer.h	/^    std::string StringValue;$/;"	m	struct:llvm::MCELFStreamer::AttributeItem	typeref:typename:std::string
 StringValue	src/include/llvm/Support/ELFAttributes.h	/^  std::string StringValue;$/;"	m	struct:llvm::BuildAttributeItem	typeref:typename:std::string
+String_Constant_Node	src/parser.h	/^	String_Constant_Node,$/;"	e	enum:ASTNodeType
 String_Node	src/parser.h	/^	String_Node,$/;"	e	enum:ASTNodeType
 Strings	src/include/llvm/BinaryFormat/MsgPackDocument.h	/^  std::vector<std::unique_ptr<char[]>> Strings;$/;"	m	class:llvm::msgpack::Document	typeref:typename:std::vector<std::unique_ptr<char[]>>
 Strings	src/include/llvm/CodeGen/NonRelocatableStringpool.h	/^  MapTy Strings;$/;"	m	class:llvm::NonRelocatableStringpool	typeref:typename:MapTy
@@ -57735,7 +57736,7 @@ findLeader	src/include/llvm/ADT/EquivalenceClasses.h	/^  member_iterator findLea
 findLexicalScope	src/include/llvm/CodeGen/LexicalScopes.h	/^  LexicalScope *findLexicalScope(const DILocalScope *N) {$/;"	f	class:llvm::LexicalScopes	typeref:typename:LexicalScope *
 findList	src/include/llvm/DebugInfo/DWARF/DWARFListTable.h	/^DWARFListTableBase<DWARFListType>::findList(DWARFDataExtractor Data,$/;"	f	class:llvm::DWARFListTableBase	typeref:typename:Expected<DWARFListType>
 findMap	src/include/llvm/DebugInfo/LogicalView/Core/LVSupport.h	/^  LVSecondMapType *findMap(FirstKeyType FirstKey) const {$/;"	f	class:llvm::logicalview::LVDoubleMap	typeref:typename:LVSecondMapType *
-findNamedValue	src/codegen.cpp	/^Value* findNamedValue(ASTNode* node, ASTNode* childNode, std::string& identifier)$/;"	f	typeref:typename:Value *
+findNamedValue	src/codegen.cpp	/^valueType* findNamedValue(ASTNode* node, ASTNode* childNode, std::string& identifier)$/;"	f	typeref:typename:valueType *
 findNearestCommonDominator	src/include/llvm/Support/GenericDomTree.h	/^  NodeT *findNearestCommonDominator(NodeT *A, NodeT *B) const {$/;"	f	class:llvm::DominatorTreeBase	typeref:typename:NodeT *
 findNearestCommonDominator	src/include/llvm/Support/GenericDomTree.h	/^  NodeT *findNearestCommonDominator(iterator_range<IteratorTy> Nodes) const {$/;"	f	class:llvm::DominatorTreeBase	typeref:typename:NodeT *
 findNearestCommonDominator	src/include/llvm/Support/GenericDomTree.h	/^  const NodeT *findNearestCommonDominator(const NodeT *A,$/;"	f	class:llvm::DominatorTreeBase	typeref:typename:const NodeT *
@@ -58178,7 +58179,7 @@ functionEntryOnly	src/include/llvm/ProfileData/InstrProfReader.h	/^  bool functi
 functionEntryOnly	src/include/llvm/ProfileData/InstrProfReader.h	/^  bool functionEntryOnly() const override {$/;"	f	class:llvm::RawInstrProfReader	typeref:typename:bool
 functionEntryOnly	src/include/llvm/ProfileData/InstrProfReader.h	/^  bool functionEntryOnly() const override {$/;"	f	class:llvm::TextInstrProfReader	typeref:typename:bool
 functionID	src/codegen.cpp	/^	functionID() {}$/;"	f	struct:functionID	file:
-functionID	src/codegen.cpp	/^	functionID(std::string n, std::string mN, std::string r, argumentList a, Function* f)$/;"	f	struct:functionID	file:
+functionID	src/codegen.cpp	/^	functionID(std::string n, std::string mN, std::string r, argumentList a, Function* f, bool vA =/;"	f	struct:functionID	file:
 functionID	src/codegen.cpp	/^struct functionID {$/;"	s	file:
 functionIDs	src/codegen.cpp	/^std::vector<functionID> functionIDs = std::vector<functionID>();$/;"	v	typeref:typename:std::vector<functionID>
 functionId	src/include/llvm/XRay/FDRRecords.h	/^  int32_t functionId() const { return FuncId; }$/;"	f	class:llvm::xray::FunctionRecord	typeref:typename:int32_t
@@ -62275,7 +62276,7 @@ getLLVMContext	src/include/llvm/Frontend/Atomic/Atomic.h	/^  LLVMContext &getLLV
 getLLVMIRBuilder	src/include/llvm/SandboxIR/Context.h	/^  auto &getLLVMIRBuilder() { return LLVMIRBuilder; }$/;"	f	class:llvm::sandboxir::Context	typeref:typename:auto &
 getLLVMInstrs	src/include/llvm/SandboxIR/Instruction.h	/^  SmallVector<llvm::Instruction *, 1> getLLVMInstrs() const final {$/;"	f	class:llvm::sandboxir::SingleLLVMInstructionImpl	typeref:typename:SmallVector<llvm::Instruction *,1>
 getLLVMInstrs	src/include/llvm/SandboxIR/Instruction.h	/^  SmallVector<llvm::Instruction *, 1> getLLVMInstrs() const final {$/;"	f	class:llvm::sandboxir::UnreachableInst	typeref:typename:SmallVector<llvm::Instruction *,1>
-getLLVMTypeFromString	src/codegen.cpp	/^Type* getLLVMTypeFromString(std::string typeName)$/;"	f	typeref:typename:Type *
+getLLVMTypeFromString	src/codegen.cpp	/^Type* getLLVMTypeFromString(std::string typeName, int pointerLevelOffset = 0)$/;"	f	typeref:typename:Type *
 getLOHContainer	src/include/llvm/MC/MCMachObjectWriter.h	/^  MCLOHContainer &getLOHContainer() { return LOHContainer; }$/;"	f	class:llvm::MachObjectWriter	typeref:typename:MCLOHContainer &
 getLRM	src/include/llvm/CodeGen/LiveRegMatrix.h	/^  LiveRegMatrix &getLRM() { return LRM; }$/;"	f	class:llvm::LiveRegMatrixWrapperLegacy	typeref:typename:LiveRegMatrix &
 getLRM	src/include/llvm/CodeGen/LiveRegMatrix.h	/^  const LiveRegMatrix &getLRM() const { return LRM; }$/;"	f	class:llvm::LiveRegMatrixWrapperLegacy	typeref:typename:const LiveRegMatrix &
@@ -65997,6 +65998,7 @@ getStringTableForSymtab	src/include/llvm/Object/ELF.h	/^ELFFile<ELFT>::getString
 getStringTableForSymtab	src/include/llvm/Object/ELF.h	/^ELFFile<ELFT>::getStringTableForSymtab(const Elf_Shdr &Sec,$/;"	f	class:llvm::object::ELFFile	typeref:typename:Expected<StringRef>
 getStringTableOffset	src/include/llvm/Object/COFF.h	/^  const StringTableOffset &getStringTableOffset() const {$/;"	f	class:llvm::object::COFFSymbolRef	typeref:typename:const StringTableOffset &
 getStringTableSize	src/include/llvm/Object/COFF.h	/^  uint32_t getStringTableSize() const { return StringTableSize; }$/;"	f	class:llvm::object::COFFObjectFile	typeref:typename:uint32_t
+getStringTypeFromLLVMType	src/codegen.cpp	/^std::string getStringTypeFromLLVMType(llvm::Type* type)$/;"	f	typeref:typename:std::string
 getStrongestFailureOrdering	src/include/llvm/IR/Instructions.h	/^  getStrongestFailureOrdering(AtomicOrdering SuccessOrdering) {$/;"	f	class:llvm::AtomicCmpXchgInst	typeref:typename:AtomicOrdering
 getStrtab	src/include/llvm/Bitcode/BitcodeReader.h	/^    StringRef getStrtab() const { return Strtab; }$/;"	f	class:llvm::BitcodeModule	typeref:typename:StringRef
 getStructElementType	src/include/llvm/IR/DerivedTypes.h	/^Type *Type::getStructElementType(unsigned N) const {$/;"	f	class:llvm::Type	typeref:typename:Type *
@@ -75939,6 +75941,7 @@ lto	src/include/llvm/LTO/LTOBackend.h	/^namespace lto {$/;"	n	namespace:llvm
 ltrim	src/include/llvm/ADT/StringRef.h	/^    [[nodiscard]] StringRef ltrim(StringRef Chars = " \\t\\n\\v\\f\\r") const {$/;"	f	class:llvm::StringRef	typeref:typename:StringRef
 ltrim	src/include/llvm/ADT/StringRef.h	/^    [[nodiscard]] StringRef ltrim(char Char) const {$/;"	f	class:llvm::StringRef	typeref:typename:StringRef
 ltrim	src/strops.cpp	/^void ltrim(std::string& s)$/;"	f	typeref:typename:void
+lvalue	src/parser.h	/^	bool lvalue = false;$/;"	m	struct:ASTNode	typeref:typename:bool
 m	src/include/llvm/IR/InlineAsm.h	/^    m,$/;"	e	enum:llvm::InlineAsm::ConstraintCode
 m68k	src/include/llvm/TargetParser/Triple.h	/^    m68k,           \/\/ M68k: Motorola 680x0 family$/;"	e	enum:llvm::Triple::ArchType
 mAccQual	src/include/llvm/Support/AMDGPUMetadata.h	/^  AccessQualifier mAccQual = AccessQualifier::Unknown;$/;"	m	struct:llvm::AMDGPU::HSAMD::Kernel::Arg::Metadata	typeref:typename:AccessQualifier
@@ -77445,6 +77448,7 @@ name	src/include/llvm/IR/PassManagerInternal.h	/^  StringRef name() const overri
 name	src/include/llvm/IR/PassManagerInternal.h	/^  StringRef name() const override { return PassT::name(); }$/;"	f	struct:llvm::detail::PassModel	typeref:typename:StringRef
 name	src/include/llvm/LTO/legacy/LTOModule.h	/^    StringRef name;$/;"	m	struct:llvm::LTOModule::NameAndAttributes	typeref:typename:StringRef
 name	src/include/llvm/Transforms/Utils/LibCallsShrinkWrap.h	/^  static StringRef name() { return "LibCallsShrinkWrapPass"; }$/;"	f	class:llvm::LibCallsShrinkWrapPass	typeref:typename:StringRef
+name	src/parser.h	/^	std::string name;$/;"	m	struct:valueType	typeref:typename:std::string
 nameMatches	src/include/llvm/ObjectYAML/ELFYAML.h	/^  static bool nameMatches(StringRef Name) {$/;"	f	struct:llvm::ELFYAML::StackSizesSection	typeref:typename:bool
 nameObj	src/include/llvm/Analysis/DOTGraphTraitsPass.h	/^static std::unordered_set<std::string> nameObj;$/;"	v	typeref:typename:std::unordered_set<std::string>
 nameOffset	src/include/llvm/Object/MachO.h	/^  uint32_t nameOffset() { return NameOffset; }$/;"	f	struct:llvm::object::ChainedFixupTarget	typeref:typename:uint32_t
@@ -77455,7 +77459,7 @@ name_end	src/include/llvm/TableGen/Record.h	/^  inline const_val_iterator name_e
 name_offset	src/include/llvm/BinaryFormat/MachO.h	/^  uint32_t name_offset : 23;$/;"	m	struct:llvm::MachO::dyld_chained_import	typeref:typename:uint32_t:23
 name_offset	src/include/llvm/BinaryFormat/MachO.h	/^  uint32_t name_offset : 23;$/;"	m	struct:llvm::MachO::dyld_chained_import_addend	typeref:typename:uint32_t:23
 name_offset	src/include/llvm/BinaryFormat/MachO.h	/^  uint64_t name_offset : 32;$/;"	m	struct:llvm::MachO::dyld_chained_import_addend64	typeref:typename:uint64_t:32
-namedValues	src/parser.h	/^	std::map<std::string, Value*> namedValues = std::map<std::string, Value*>();$/;"	m	struct:ASTNode	typeref:typename:std::map<std::string,Value * >
+namedValues	src/parser.h	/^	std::map<std::string, valueType*> namedValues = std::map<std::string, valueType*>();$/;"	m	struct:ASTNode	typeref:typename:std::map<std::string,valueType * >
 named_metadata	src/include/llvm/IR/Module.h	/^  iterator_range<const_named_metadata_iterator> named_metadata() const {$/;"	f	class:llvm::Module	typeref:typename:iterator_range<const_named_metadata_iterator>
 named_metadata	src/include/llvm/IR/Module.h	/^  iterator_range<named_metadata_iterator> named_metadata() {$/;"	f	class:llvm::Module	typeref:typename:iterator_range<named_metadata_iterator>
 named_metadata_begin	src/include/llvm/IR/Module.h	/^  const_named_metadata_iterator named_metadata_begin() const {$/;"	f	class:llvm::Module	typeref:typename:const_named_metadata_iterator
@@ -83694,23 +83698,23 @@ runWithSPSRet	src/include/llvm/ExecutionEngine/Orc/Shared/WrapperFunctionUtils.h
 runWithSPSRet	src/include/llvm/ExecutionEngine/Orc/Shared/WrapperFunctionUtils.h	/^  runWithSPSRet(RetT &RetVal) const {$/;"	f	class:llvm::orc::shared::WrapperFunctionCall	typeref:typename:std::enable_if_t<!std::is_same<SPSRetT,void>::value,Error>
 runWithSPSRetErrorMerged	src/include/llvm/ExecutionEngine/Orc/Shared/WrapperFunctionUtils.h	/^  Error runWithSPSRetErrorMerged() const {$/;"	f	class:llvm::orc::shared::WrapperFunctionCall	typeref:typename:Error
 runtime_check	src/include/llvm/Transforms/Instrumentation/LowerAllowCheckPass.h	/^    unsigned int runtime_check = 0;$/;"	m	struct:llvm::LowerAllowCheckPass::Options	typeref:typename:unsigned int
+s:l	src/Session.vim	/^let s:l = 1 - ((0 * winheight(0) + 13) \/ 26)$/;"	v
 s:l	src/Session.vim	/^let s:l = 1 - ((0 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 10026 - ((25 * winheight(0) + 13) \/ 26)$/;"	v
-s:l	src/Session.vim	/^let s:l = 108 - ((31 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 118 - ((71 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 130 - ((14 * winheight(0) + 13) \/ 26)$/;"	v
+s:l	src/Session.vim	/^let s:l = 10019 - ((18 * winheight(0) + 13) \/ 26)$/;"	v
+s:l	src/Session.vim	/^let s:l = 113 - ((31 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 127 - ((28 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 134 - ((42 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 157 - ((16 * winheight(0) + 26) \/ 53)$/;"	v
 s:l	src/Session.vim	/^let s:l = 16 - ((15 * winheight(0) + 26) \/ 53)$/;"	v
 s:l	src/Session.vim	/^let s:l = 20 - ((19 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 202 - ((15 * winheight(0) + 13) \/ 26)$/;"	v
 s:l	src/Session.vim	/^let s:l = 21 - ((20 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 210 - ((11 * winheight(0) + 13) \/ 26)$/;"	v
-s:l	src/Session.vim	/^let s:l = 28 - ((15 * winheight(0) + 13) \/ 26)$/;"	v
-s:l	src/Session.vim	/^let s:l = 35 - ((10 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 44 - ((26 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 57 - ((19 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 70 - ((15 * winheight(0) + 13) \/ 26)$/;"	v
+s:l	src/Session.vim	/^let s:l = 232 - ((11 * winheight(0) + 13) \/ 26)$/;"	v
+s:l	src/Session.vim	/^let s:l = 499 - ((40 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 81 - ((10 * winheight(0) + 13) \/ 26)$/;"	v
+s:l	src/Session.vim	/^let s:l = 832 - ((42 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 84 - ((26 * winheight(0) + 26) \/ 53)$/;"	v
 s:l	src/Session.vim	/^let s:l = 9 - ((8 * winheight(0) + 13) \/ 26)$/;"	v
-s:l	src/Session.vim	/^let s:l = 982 - ((22 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 986 - ((42 * winheight(0) + 26) \/ 53)$/;"	v
 s:save_splitbelow	src/Session.vim	/^let s:save_splitbelow = &splitbelow$/;"	v
 s:save_splitright	src/Session.vim	/^let s:save_splitright = &splitright$/;"	v
 s:save_winminheight	src/Session.vim	/^let s:save_winminheight = &winminheight$/;"	v
@@ -87476,6 +87480,7 @@ type	src/indicators.hpp	/^  using type = T;$/;"	t	struct:indicators::details::Se
 type	src/indicators.hpp	/^  using type = True;$/;"	t	struct:indicators::details::if_else_type	typeref:typename:True
 type	src/indicators.hpp	/^template <> struct if_else<false> { using type = std::false_type; };$/;"	t	struct:indicators::details::if_else	typeref:typename:std::false_type
 type	src/indicators.hpp	/^template <> struct if_else<true> { using type = std::true_type; };$/;"	t	struct:indicators::details::if_else	typeref:typename:std::true_type
+type	src/parser.h	/^	std::string type;$/;"	m	struct:valueType	typeref:typename:std::string
 typeArray	src/include/llvm/DebugInfo/PDB/Native/TpiStream.h	/^  const codeview::CVTypeArray &typeArray() const { return TypeRecords; }$/;"	f	class:llvm::pdb::TpiStream	typeref:typename:const codeview::CVTypeArray &
 typeCollection	src/include/llvm/DebugInfo/PDB/Native/TpiStream.h	/^  codeview::LazyRandomTypeCollection &typeCollection() { return *Types; }$/;"	f	class:llvm::pdb::TpiStream	typeref:typename:codeview::LazyRandomTypeCollection &
 typeCount	src/include/llvm/DebugInfo/LogicalView/Core/LVScope.h	/^  size_t typeCount() const { return Types ? Types->size() : 0; }$/;"	f	class:llvm::logicalview::LVScope	typeref:typename:size_t
@@ -88003,6 +88008,7 @@ v9_A	src/include/llvm/Support/ARMBuildAttributes.h	/^  v9_A = 22,        \/\/ v9
 vTableFuncs	src/include/llvm/IR/ModuleSummaryIndex.h	/^  ArrayRef<VirtFuncOffset> vTableFuncs() const {$/;"	f	class:llvm::GlobalVarSummary	typeref:typename:ArrayRef<VirtFuncOffset>
 val	src/include/llvm/ADT/CachedHashString.h	/^  StringRef val() const { return StringRef(P, Size); }$/;"	f	class:llvm::CachedHashString	typeref:typename:StringRef
 val	src/include/llvm/ADT/CachedHashString.h	/^  StringRef val() const { return StringRef(P, Size); }$/;"	f	class:llvm::CachedHashStringRef	typeref:typename:StringRef
+val	src/parser.h	/^	Value* val;$/;"	m	struct:valueType	typeref:typename:Value *
 val_empty	src/include/llvm/TableGen/Record.h	/^  inline bool                val_empty() const { return NumConds == 0; }$/;"	f	class:llvm::CondOpInit	typeref:typename:bool
 val_size	src/include/llvm/TableGen/Record.h	/^  inline size_t              val_size () const { return NumConds; }$/;"	f	class:llvm::CondOpInit	typeref:typename:size_t
 valid	src/include/llvm/ADT/IntervalMap.h	/^  bool valid() const { return path.valid(); }$/;"	f	class:llvm::IntervalMap::const_iterator	typeref:typename:bool
@@ -88099,6 +88105,8 @@ valueInfoFromEdge	src/include/llvm/IR/ModuleSummaryIndex.h	/^  static NodeRef va
 valueOrOne	src/include/llvm/Support/Alignment.h	/^  Align valueOrOne() const { return value_or(Align()); }$/;"	f	struct:llvm::MaybeAlign	typeref:typename:Align
 valueOut	src/include/llvm/CodeGen/LiveInterval.h	/^    VNInfo *valueOut() const {$/;"	f	class:llvm::LiveQueryResult	typeref:typename:VNInfo *
 valueOutOrDead	src/include/llvm/CodeGen/LiveInterval.h	/^    VNInfo *valueOutOrDead() const {$/;"	f	class:llvm::LiveQueryResult	typeref:typename:VNInfo *
+valueType	src/parser.h	/^	valueType(std::string n, std::string t, Value* v)$/;"	f	struct:valueType
+valueType	src/parser.h	/^struct valueType {$/;"	s
 value_begin	src/include/llvm/CodeGen/SelectionDAGNodes.h	/^  value_iterator value_begin() const { return ValueList; }$/;"	f	class:llvm::SDNode	typeref:typename:value_iterator
 value_begin	src/include/llvm/Transforms/Coroutines/CoroInstr.h	/^  const_op_iterator value_begin() const { return arg_begin(); }$/;"	f	class:llvm::CoroSuspendRetconInst	typeref:typename:const_op_iterator
 value_begin	src/include/llvm/Transforms/Coroutines/CoroInstr.h	/^  op_iterator value_begin() { return arg_begin(); }$/;"	f	class:llvm::CoroSuspendRetconInst	typeref:typename:op_iterator
@@ -88279,6 +88287,7 @@ values	src/include/llvm/Object/ELFTypes.h	/^  ArrayRef<Elf_Word> values(unsigned
 values	src/include/llvm/Support/CommandLine.h	/^template <typename... OptsTy> ValuesClass values(OptsTy... Options) {$/;"	f	namespace:llvm::cl	typeref:typename:ValuesClass
 vanilla	src/include/color.hpp	/^    template<typename T> R<T> vanilla(T t) { return R<T> { S<T>(t) }; }$/;"	f	namespace:dye	typeref:typename:R<T>
 varflags	src/include/llvm/IR/ModuleSummaryIndex.h	/^  GVarFlags varflags() const { return VarFlags; }$/;"	f	class:llvm::GlobalVarSummary	typeref:typename:GVarFlags
+variableNumArguments	src/codegen.cpp	/^	bool variableNumArguments = false;$/;"	m	struct:functionID	typeref:typename:bool	file:
 variadicOpsAreDefs	src/include/llvm/MC/MCInstrDesc.h	/^  bool variadicOpsAreDefs() const {$/;"	f	class:llvm::MCInstrDesc	typeref:typename:bool
 vd_aux	src/include/llvm/Object/ELFTypes.h	/^  Elf_Word vd_aux;     \/\/ Offset to the first Verdaux entry (in bytes)$/;"	m	struct:llvm::object::Elf_Verdef_Impl	typeref:typename:Elf_Word
 vd_cnt	src/include/llvm/Object/ELFTypes.h	/^  Elf_Half vd_cnt;     \/\/ Number of Verdaux entries$/;"	m	struct:llvm::object::Elf_Verdef_Impl	typeref:typename:Elf_Half

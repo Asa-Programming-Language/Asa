@@ -46,6 +46,9 @@ cast:: float(x : int) #inline {
 cast:: int(x : float) #inline {
 	return #cast x : int;
 }
+cast:: int64(x : int32) #inline{
+	return #cast x : int64;
+}
 
 printint:: (n : int) {
 	putchar(48+n);
@@ -61,7 +64,9 @@ newline::(){
 
 #extern printf::(...);
 #extern putchar::(c : int);
-#extern malloc::*int(b : int);
+#extern puts::(str : *char);
+#extern malloc::*int(b : int64);
+#extern free::(p : *int);
 
 main :: (){
 	//printf("Hello World!");
@@ -78,15 +83,18 @@ main :: (){
 
 	arr : *int = malloc(8*4);
 
-	arr[2] = 74;
+	arr[2] = 72;
 
-	//modifyReference(x);
-	//printint(x);
+	puts("Hello World!");
+
+	////modifyReference(x);
+	////printint(x);
+
+	//newline();
+	//putchar(arr[2]);
 
 	newline();
-	printint(arr[2]);
 
-	newline();
 	//if(1 || 0){
 	//	putchar(72);
 	//}
@@ -104,7 +112,7 @@ main :: (){
 	//	}
 	//}
 
-	newline();
+	//newline();
 	//for (i : 0..100){  // for(<range>){} automatically iterates through range type
 	//	printl("%\n", i);
 	//}

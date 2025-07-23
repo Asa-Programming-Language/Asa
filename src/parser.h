@@ -47,6 +47,7 @@ enum ASTNodeType {
 	Double_Type,
 	Half_Type,
 	String_Node,
+	String_Constant_Node,
 	Type_Node,
 
 	Module_Scope,
@@ -137,7 +138,8 @@ const std::string ASTNodeTypeStrings[] = {
 	"Float_Node",
 	"Double_Type",
 	"Half_Type",
-	"String_node",
+	"String_Node",
+	"String_Constant_Node",
 	"Type_Node",
 
 	"Module_Scope",
@@ -203,6 +205,13 @@ const std::string ASTNodeTypeStrings[] = {
 	"Compiler_Modifiers",
 };
 
+struct valueType {
+	std::string name;
+	std::string type;
+	Value* val;
+	valueType(std::string n, std::string t, Value* v)
+		: name(n), type(t), val(v) {};
+};
 
 struct ASTNode {
 	ASTNode* parentNode = nullptr;
@@ -212,12 +221,13 @@ struct ASTNode {
 	int lineNumber = 0;
 	uint16_t depth = 0;
 	bool isRef = false;
+	bool lvalue = false;
 	// Add leaf nodes here as they are still yet to be used.
 	std::vector<ASTNode*> leafNodes = std::vector<ASTNode*>();
 
 	Type* llvmType;
 
-	std::map<std::string, Value*> namedValues = std::map<std::string, Value*>();
+	std::map<std::string, valueType*> namedValues = std::map<std::string, valueType*>();
 
 	bool compareTokens = false;
 

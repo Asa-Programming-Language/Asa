@@ -117,6 +117,8 @@ std::map<const std::string, const TokenType> subTokenTypes = {
 	{"%%", Percent_Percent},
 	{"@", At},
 	{"@@", At_At},
+	{"->", Arrow_Right},
+	{"<-", Arrow_Left},
 
 	// Keywords
 	{"if", If_Statement},
