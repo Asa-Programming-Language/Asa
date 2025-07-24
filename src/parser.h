@@ -32,19 +32,20 @@ enum ASTNodeType {
 	Identifier_Node,
 	Integer_Node,
 	SInt128_Type,
-	UInt128_Type,
 	SInt64_Type,
-	UInt64_Type,
 	SInt32_Type,
-	UInt32_Type,
 	SInt16_Type,
-	UInt16_Type,
 	SInt8_Type,
+	Begin_Unsigned_Integers,
+	UInt128_Type,
+	UInt64_Type,
+	UInt32_Type,
+	UInt16_Type,
 	UInt8_Type,
 	Char_Type,
 	Boolean_Node,
-	Float_Node,
 	Double_Type,
+	Float_Node,
 	Half_Type,
 	String_Node,
 	String_Constant_Node,
@@ -84,6 +85,7 @@ enum ASTNodeType {
 
 	Access_Operation,
 	Reference_Operation,
+	Exact_Type_Node,
 	Address_Of_Operation,
 	Dereference_Operation,
 	Pointer_Node,
@@ -124,19 +126,20 @@ const std::string ASTNodeTypeStrings[] = {
 	"Identifier_Node",
 	"Integer_Node",
 	"SInt128_Type",
-	"UInt128_Type",
 	"SInt64_Type",
-	"UInt64_Type",
 	"SInt32_Type",
-	"UInt32_Type",
 	"SInt16_Type",
-	"UInt16_Type",
 	"SInt8_Type",
+	"Begin_Unsigned_Integers",
+	"UInt128_Type",
+	"UInt64_Type",
+	"UInt32_Type",
+	"UInt16_Type",
 	"UInt8_Type",
 	"Char_Type",
 	"Boolean_Node",
-	"Float_Node",
 	"Double_Type",
+	"Float_Node",
 	"Half_Type",
 	"String_Node",
 	"String_Constant_Node",
@@ -176,6 +179,7 @@ const std::string ASTNodeTypeStrings[] = {
 
 	"Access_Operation",
 	"Reference_Operation",
+	"Exact_Type_Node",
 	"Address_Of_Operation",
 	"Dereference_Operation",
 	"Pointer_Node",
@@ -221,6 +225,7 @@ struct ASTNode {
 	int lineNumber = 0;
 	uint16_t depth = 0;
 	bool isRef = false;
+	bool isExtern = false;
 	bool lvalue = false;
 	// Add leaf nodes here as they are still yet to be used.
 	std::vector<ASTNode*> leafNodes = std::vector<ASTNode*>();
@@ -248,6 +253,7 @@ struct ASTNode {
 	void* generateFunction(int pass = 0);
 	void* generateCast(int pass = 0);
 	void* generateCallExpression(int pass = 0);
+	void* generateNothing(int pass = 0);
 
 	void* (ASTNode::*codegen)(int pass) = nullptr;
 

@@ -134,6 +134,7 @@ std::map<const std::string, const TokenType> subTokenTypes = {
 	{"unary", Unary},
 	{"binary", Binary},
 	{"ref", Ref},
+	{"exact", Exact},
 	//{"switch", },
 	//{"case", },
 	//{"constant", },

@@ -18,6 +18,13 @@ tokenPair getNextNonNothingToken(const std::vector<tokenPair>& tokens, int& i)
 	return t;
 }
 
+void setChildrenAsExtern(ASTNode*& node)
+{
+	for (auto& c : node->childNodes)
+		setChildrenAsExtern(c);
+	node->isExtern = true;
+}
+
 bool GATHER_SCOPE_BODY(const std::vector<tokenPair>& tokens, std::vector<tokenPair>& subTokens, int brLevel, int& i, bool preserveBraces = false)
 {
 	int braceLevel = brLevel;
@@ -354,6 +361,7 @@ std::map<TokenType, ASTNodeType> operatorDefaultNodeType = {
 	{Slash, Expression_Divided},
 	{Ampersand, Address_Of_Operation},
 	{Ref, Reference_Operation},
+	{Exact, Exact_Type_Node},
 	{Left_Bracket, Access_Operation},
 };
 
@@ -741,6 +749,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 			case Star:
 			case Slash:
 			case Ref:
+			case Exact:
 			case Left_Bracket:
 			// general:
 			case Bar:
@@ -948,6 +957,12 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 
 				if (identifier->token.first == "cast") {
 					node->codegen = &ASTNode::generateCast;
+				}
+				if (identifier->token.first == "extern") {
+					setChildrenAsExtern(bodyNode);
+					node->isExtern = true;
+					identifier->codegen = &ASTNode::generateNothing;
+					node->codegen = &ASTNode::generateScopeBody;
 				}
 
 				node->token.first = "#" + identifier->token.first;
@@ -2104,18 +2119,39 @@ void generateOutputCode(ASTNode*& node, int depth, int pass)
 	switch (node->nodeType) {
 		case Compiler_Define_Cast:
 		case Compiler_Define_Function: {
-			console::printIndent(1);
+			console::printIndent(depth + 1);
 			console::Write("pass ");
 			console::Write(std::to_string(pass), console::greenFGColor);
 			console::Write(": generating for: ");
 			console::WriteLine(node->token.first, console::yellowFGColor);
 			if (node->codegen != nullptr)
 				auto fnVal = (Function*)(node->*(node->codegen))(pass);
+			break;
+		}
+
+		case Compile_Time_Directive: {
+			console::printIndent(depth + 1);
+			console::Write("pass ");
+			console::Write(std::to_string(pass), console::greenFGColor);
+			console::Write(": generating for: ");
+			console::WriteLine(node->token.first, console::yellowFGColor);
+			if (node->codegen != nullptr)
+				auto fnVal = (Function*)(node->*(node->codegen))(pass);
+			break;
+		}
+
+		case Scope_Body: {
+			console::printIndent(depth + 1);
+			console::Write("pass ");
+			console::Write(std::to_string(pass), console::greenFGColor);
+			console::WriteLine(": generating scope body");
+			for (auto& c : node->childNodes)
+				generateOutputCode(c, depth + 1, pass);
+
+			break;
 		}
 
 		default:
 			break;
 	}
-	for (auto& c : node->childNodes)
-		generateOutputCode(c, depth + 1, pass);
 }

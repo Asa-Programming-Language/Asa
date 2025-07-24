@@ -1,5 +1,8 @@
 #import Basic.Print;
-//#import Rendering.Window;
+
+#import Builtin.Casts;
+//#import Builtin.Operators;
+#import Builtin.Memory;
 
 //#import GameLogic;
 
@@ -40,22 +43,19 @@ TEST_MACRO :: {printl("Macro works!")};
 //	int b = 1;
 //}
 
-cast:: float(x : int) #inline {
-	return #cast x : float;
-}
-cast:: int(x : float) #inline {
-	return #cast x : int;
-}
-cast:: int64(x : int32) #inline{
-	return #cast x : int64;
-}
-
-printint:: (n : int) {
+printint:: (n : uint64) {
 	putchar(48+n);
 }
 
 modifyReference::(n : ref int){
 	n = 4;
+}
+modifyReference::(n : ref float){
+	n = 4;
+}
+
+binary[] :: (x : int, y : int){
+	puts("Bracket overload works!\n");
 }
 
 newline::(){
@@ -65,33 +65,35 @@ newline::(){
 #extern printf::(...);
 #extern putchar::(c : int);
 #extern puts::(str : *char);
-#extern malloc::*int(b : int64);
-#extern free::(p : *int);
 
 main :: (){
 	//printf("Hello World!");
-	//x = 70+2;
+	x = 70+2;
 	//y : uint16 = 4;
+	f = float(1);
 
 	//x_ptr : *int = &x;
 	//begin : *int = x_ptr;
+	//i = 0;
+	//i[3];
+	puts("main function works!\n");
 
 	//putchar(x);
-	//x = x+1;
+	x = x+1;
 	//putchar(*x_ptr);
 	//putchar(32);
-
+	
 	arr : *int = malloc(8*4);
 
 	arr[2] = 72;
 
-	puts("Hello World!");
+	//puts("Hello World!");
 
 	////modifyReference(x);
-	////printint(x);
+	//printint(x);
 
 	//newline();
-	//putchar(arr[2]);
+	putchar(arr[2]);
 
 	newline();
 

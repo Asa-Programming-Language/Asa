@@ -12,6 +12,10 @@ static std::unique_ptr<ModuleAnalysisManager> TheMAM;
 static std::unique_ptr<PassInstrumentationCallbacks> ThePIC;
 static std::unique_ptr<StandardInstrumentations> TheSI;
 
+std::unordered_map<std::string, llvm::GlobalVariable*> globalStringLiteralConstants;
+
+llvm::Value* castValue(llvm::Value* value, llvm::Type* destType, bool isSrcSigned, bool isToSigned, tokenPair& token);
+
 std::unordered_map<std::string, bool> typeSigns = {
 	{"int128", true},
 	{"int64", true},
@@ -30,6 +34,7 @@ std::unordered_map<std::string, bool> typeSigns = {
 	{"char", false},
 	{"uchar", false},
 	{"bool", false},
+	{"string", false},
 
 	{"double", false},
 	{"float", false},
@@ -42,12 +47,14 @@ struct argType {
 	ASTNodeType baseASTType;
 	uint8_t pointerLevel = 0;
 	bool isReference = false;
-	argType(std::string ts, ASTNodeType bT, uint8_t pL = 0, bool r = false)
+	bool mustBeExactType = false;
+	argType(std::string ts, ASTNodeType bT, uint8_t pL = 0, bool r = false, bool ex = false)
 	{
 		typeString = ts;
 		baseASTType = bT;
 		pointerLevel = pL;
 		isReference = r;
+		mustBeExactType = ex;
 	}
 };
 
@@ -59,6 +66,7 @@ struct functionID {
 	std::string returnType = "";
 	argumentList arguments = argumentList();
 	bool variableNumArguments = false;
+	uint32_t uses = 0;
 	Function* fnValue = nullptr;
 	functionID() {}
 	functionID(std::string n, std::string mN, std::string r, argumentList a, Function* f, bool vA = false)
@@ -70,7 +78,28 @@ struct functionID {
 		fnValue = f;
 		variableNumArguments = vA;
 	}
-	uint16_t compareMatch(std::string n, argumentList a)
+	bool compareASTNodeTypes(ASTNodeType& a, ASTNodeType& b, bool wereTypesInferred = false)
+	{
+		if (a == b)
+			return true;
+		// If types were inferred from llvm::Type*, it drops the sign
+		if (wereTypesInferred) {
+			if (a < Begin_Unsigned_Integers && b > Begin_Unsigned_Integers && b <= UInt8_Type) {
+				// LLVM does not differentiate between signed and unsigned types, so return true
+				// if a is b with flipped signs
+				if (a == b - (Begin_Unsigned_Integers + 1))
+					return true;
+			}
+			else if (b < Begin_Unsigned_Integers && a > Begin_Unsigned_Integers && a <= UInt8_Type) {
+				// LLVM does not differentiate between signed and unsigned types, so return true
+				// if a is b with flipped signs
+				if (b == a - (Begin_Unsigned_Integers + 1))
+					return true;
+			}
+		}
+		return false;
+	}
+	uint16_t compareMatch(std::string n, argumentList a, bool wereTypesInferred = false)
 	{
 		uint16_t differences = 0;
 		if (n != name)
@@ -80,24 +109,33 @@ struct functionID {
 		for (int i = 0; i < arguments.size(); i++) {
 			ASTNodeType t1 = arguments[i].baseASTType;
 			ASTNodeType t2 = a[i].baseASTType;
+			bool mustBeExactType = arguments[i].mustBeExactType;
 			// If t1 is an integer type, make sure t2 is also
 			// Difference points are given the further the types are
-			if (t1 >= Integer_Node && t1 <= Boolean_Node) {
+
+			// If they are the same, return no diff
+			if (compareASTNodeTypes(t1, t2, wereTypesInferred))
+				differences += 0;
+			// Else if they are both integer types
+			else if (t1 >= Integer_Node && t1 <= Boolean_Node) {
+				if (mustBeExactType)  // If the argument type must be exact
+					return 500;
 				if (t2 >= Integer_Node && t2 <= Boolean_Node)  // If similar type
 					differences += abs(t1 - t2);
 				else
 					differences += Boolean_Node - Integer_Node;
 				// TODO: also give points if there exists a cast function
 			}
-			else if (t1 >= Float_Node && t1 <= Half_Type) {
-				if (t2 >= Float_Node && t2 <= Half_Type)  // If similar type
+			// Else if they are both float types
+			else if (t1 >= Double_Type && t1 <= Half_Type) {
+				if (mustBeExactType)  // If the argument type must be exact
+					return 500;
+				if (t2 >= Double_Type && t2 <= Half_Type)  // If similar type
 					differences += abs(t1 - t2);
 				else
-					differences += Half_Type - Float_Node;
+					differences += Half_Type - Double_Type;
 				// TODO: also give points if there exists a cast function
 			}
-			else if (t1 == t2)
-				differences += 0;
 		}
 		return differences;
 	}
@@ -108,23 +146,37 @@ struct functionID {
 			return 1000;
 		if (arguments.size() != a.size())
 			return 1000 - 1;
-		//for (int i = 0; i < arguments.size(); i++) {
-		//	ASTNodeType t1 = arguments[i].second;
-		//	ASTNodeType t2 = a[i].second;
-		//	// If t1 is an integer type, make sure t2 is also
-		//	// more points for similarity are given the closer the types are
-		//	if (t1 >= Integer_Node && t1 <= Boolean_Node) {
-		//		if (t2 >= Integer_Node && t2 <= Boolean_Node)
-		//			total += (Boolean_Node - Integer_Node) - abs(t1 - t2);
-		//		// TODO: also give points if there exists a cast function
-		//	}
-		//	else if (t1 >= Float_Node && t1 <= Half_Type) {
-		//		if (t2 >= Float_Node && t2 <= Half_Type)
-		//			total += (Half_Type - Float_Node) - abs(t1 - t2);
-		//	}
-		//	else if (t1 == t2)
-		//		total += 1;
-		//}
+		for (int i = 0; i < arguments.size(); i++) {
+			ASTNodeType t1 = arguments[i].baseASTType;
+			ASTNodeType t2 = a[i]->nodeType;
+			bool mustBeExactType = arguments[i].mustBeExactType;
+			// If t1 is an integer type, make sure t2 is also
+			// Difference points are given the further the types are
+
+			// If they are the same, return no diff
+			if (compareASTNodeTypes(t1, t2))
+				differences += 0;
+			// Else if they are both integer types
+			else if (t1 >= Integer_Node && t1 <= Boolean_Node) {
+				if (mustBeExactType)  // If the argument type must be exact
+					return 500;
+				if (t2 >= Integer_Node && t2 <= Boolean_Node)  // If similar type
+					differences += abs(t1 - t2);
+				else
+					differences += Boolean_Node - Integer_Node;
+				// TODO: also give points if there exists a cast function
+			}
+			// Else if they are both float types
+			else if (t1 >= Double_Type && t1 <= Half_Type) {
+				if (mustBeExactType)  // If the argument type must be exact
+					return 500;
+				if (t2 >= Double_Type && t2 <= Half_Type)  // If similar type
+					differences += abs(t1 - t2);
+				else
+					differences += Half_Type - Double_Type;
+				// TODO: also give points if there exists a cast function
+			}
+		}
 		return differences;
 	}
 	uint16_t compareMatch(std::string n)
@@ -138,61 +190,101 @@ struct functionID {
 
 std::vector<functionID> functionIDs = std::vector<functionID>();
 
-functionID* getFunctionFromID(std::string& name, argumentList& arguments)
+functionID* getFunctionFromID(std::string& name, argumentList& arguments, tokenPair& t, bool wereTypesInferred = false)
 {
 	functionID* best;
 	int bestScore = 1000;
+	bool requiresExact = false;
 	for (auto& f : functionIDs) {
-		uint16_t score = f.compareMatch(name, arguments);
+		uint16_t score = f.compareMatch(name, arguments, wereTypesInferred);
 		if (score < bestScore) {
 			best = &f;
 			bestScore = score;
+			if (score == 500)
+				requiresExact = true;
+			else
+				requiresExact = false;
 		}
+	}
+	// If the best function match requires exact typing (and different types are passed) throw error
+	if (requiresExact) {
+		printTokenError(t, "Function match not found, closest prototype requires exact types.\nDid you try casting?");
+		return nullptr;
 	}
 	if (bestScore < 1000)
 		return best;
 	return nullptr;
 }
-functionID* getExactFunctionFromID(std::string& name, argumentList& arguments)
+functionID* getExactFunctionFromID(std::string& name, argumentList& arguments, tokenPair& t, bool wereTypesInferred = false)
 {
 	functionID* best;
 	int bestScore = 1000;
+	bool requiresExact = false;
 	for (auto& f : functionIDs) {
-		uint16_t score = f.compareMatch(name, arguments);
+		uint16_t score = f.compareMatch(name, arguments, wereTypesInferred);
 		if (score < bestScore) {
 			best = &f;
 			bestScore = score;
+			if (score == 500)
+				requiresExact = true;
+			else
+				requiresExact = false;
 		}
+	}
+	// If the best function match requires exact typing (and different types are passed) throw error
+	if (requiresExact) {
+		//printTokenError(t, "Function match not found, closest prototype requires exact types.\nDid you try casting?");
+		return nullptr;
 	}
 	if (bestScore == 0)
 		return best;
 	return nullptr;
 }
-functionID* getFunctionFromID(std::string& name, std::vector<ASTNode*>& argValues)
+functionID* getFunctionFromID(std::string& name, std::vector<ASTNode*>& argValues, tokenPair& t)
 {
 	functionID* best;
 	int bestScore = 1000;
+	bool requiresExact = false;
 	for (auto& f : functionIDs) {
 		uint16_t score = f.compareMatch(name, argValues);
 		if (score < bestScore) {
 			best = &f;
 			bestScore = score;
+			if (score == 500)
+				requiresExact = true;
+			else
+				requiresExact = false;
 		}
+	}
+	// If the best function match requires exact typing (and different types are passed) throw error
+	if (requiresExact) {
+		printTokenError(t, "Function match not found, closest prototype requires exact types.\nDid you try casting?");
+		return nullptr;
 	}
 	if (bestScore < 1000)
 		return best;
 	return nullptr;
 }
-functionID* getFunctionFromID(std::string& name)
+functionID* getFunctionFromID(std::string& name, tokenPair& t)
 {
 	functionID* best;
 	int bestScore = 1000;
+	bool requiresExact = false;
 	for (auto& f : functionIDs) {
 		uint16_t score = f.compareMatch(name);
 		if (score < bestScore) {
 			best = &f;
 			bestScore = score;
+			if (score == 500)
+				requiresExact = true;
+			else
+				requiresExact = false;
 		}
+	}
+	// If the best function match requires exact typing (and different types are passed) throw error
+	if (requiresExact) {
+		printTokenError(t, "Function match not found, closest prototype requires exact types.\nDid you try casting?");
+		return nullptr;
 	}
 	if (bestScore < 1000)
 		return best;
@@ -300,6 +392,87 @@ std::string getStringTypeFromLLVMType(llvm::Type* type)
 	// Prefix with pointer asterisks
 	std::string pointerPrefix(pointerLevel, '*');
 	return pointerPrefix + baseTypeName;
+}
+
+ASTNodeType getASTNodeTypeFromString(const std::string& typeName)
+{
+	if (typeName == "int" || typeName == "int32")
+		return SInt32_Type;
+	if (typeName == "uint" || typeName == "uint32")
+		return UInt32_Type;
+	if (typeName == "int8")
+		return SInt8_Type;
+	if (typeName == "uint8")
+		return UInt8_Type;
+	if (typeName == "int16")
+		return SInt16_Type;
+	if (typeName == "uint16")
+		return UInt16_Type;
+	if (typeName == "int64")
+		return SInt64_Type;
+	if (typeName == "uint64")
+		return UInt64_Type;
+	if (typeName == "int128")
+		return SInt128_Type;
+	if (typeName == "uint128")
+		return UInt128_Type;
+	if (typeName == "char")
+		return Char_Type;
+	if (typeName == "bool")
+		return Boolean_Node;
+	if (typeName == "float")
+		return Float_Node;
+	if (typeName == "double")
+		return Double_Type;
+	if (typeName == "half")
+		return Half_Type;
+	if (typeName == "string")
+		return String_Node;
+	if (typeName == "type")
+		return Type_Node;
+
+	return Identifier_Node;
+}
+
+void castToHighestAccuracy(Value*& L, Value*& R, tokenPair& token)
+{
+	std::string lTyStr = getStringTypeFromLLVMType(L->getType());
+	std::string rTyStr = getStringTypeFromLLVMType(R->getType());
+	ASTNodeType LType = getASTNodeTypeFromString(lTyStr);
+	ASTNodeType RType = getASTNodeTypeFromString(rTyStr);
+	// If signed, L more accurate
+	if (LType < RType && RType < Begin_Unsigned_Integers) {
+		R = castValue(R, L->getType(), typeSigns[lTyStr], typeSigns[rTyStr], token);
+		return;
+	}
+	// If signed, R more accurate
+	else if (RType < LType && LType < Begin_Unsigned_Integers) {
+		L = castValue(L, R->getType(), typeSigns[rTyStr], typeSigns[lTyStr], token);
+		return;
+	}
+	// If unsigned, L more accurate
+	else if (LType < RType && RType < Double_Type) {
+		R = castValue(R, L->getType(), typeSigns[lTyStr], typeSigns[rTyStr], token);
+		return;
+	}
+	// If unsigned, R more accurate
+	else if (RType < LType && LType < Double_Type) {
+		L = castValue(L, R->getType(), typeSigns[rTyStr], typeSigns[lTyStr], token);
+		return;
+	}
+	// If floats, L more accurate
+	else if (LType < RType && RType < Half_Type) {
+		R = castValue(R, L->getType(), typeSigns[lTyStr], typeSigns[rTyStr], token);
+		return;
+	}
+	// If unsigned, R more accurate
+	else if (RType < LType && LType < Half_Type) {
+		L = castValue(L, R->getType(), typeSigns[rTyStr], typeSigns[lTyStr], token);
+		return;
+	}
+
+	printTokenError(token, "Unsupported cast");
+	exit(1);
 }
 
 void initializeCodeGenerator()
@@ -415,6 +588,145 @@ llvm::Value* castValue(llvm::Value* value, llvm::Type* destType, bool isSrcSigne
 //	return false;
 //}
 
+std::string unescapeString(const std::string& src, tokenPair& token)
+{
+	std::string result;
+	result.reserve(src.size());
+
+	for (size_t i = 0; i < src.length(); ++i) {
+		char c = src[i];
+		if (c != '\\') {
+			result.push_back(c);
+		}
+		else {
+			if (i + 1 >= src.length()) {
+				printTokenError(token, "Incomplete escape sequence at end of string");
+				exit(1);
+			}
+
+			char esc = src[++i];
+			switch (esc) {
+				case 'a':
+					result.push_back('\a');
+					break;
+				case 'b':
+					result.push_back('\b');
+					break;
+				case 'f':
+					result.push_back('\f');
+					break;
+				case 'n':
+					result.push_back('\n');
+					break;
+				case 'r':
+					result.push_back('\r');
+					break;
+				case 't':
+					result.push_back('\t');
+					break;
+				case 'v':
+					result.push_back('\v');
+					break;
+				case '\\':
+					result.push_back('\\');
+					break;
+				case '\'':
+					result.push_back('\'');
+					break;
+				case '"':
+					result.push_back('\"');
+					break;
+				case '?':
+					result.push_back('\?');
+					break;
+				// Hexadecimal: \xhh...
+				case 'x': {
+					int value = 0;
+					int digits = 0;
+					while (i + 1 < src.length() && std::isxdigit(src[i + 1])) {
+						++i;
+						value *= 16;
+						char hc = src[i];
+						if (hc >= '0' && hc <= '9')
+							value += hc - '0';
+						else if (hc >= 'a' && hc <= 'f')
+							value += 10 + (hc - 'a');
+						else if (hc >= 'A' && hc <= 'F')
+							value += 10 + (hc - 'A');
+						++digits;
+					}
+					if (digits == 0)
+						throw std::runtime_error("Invalid \\x escape");
+					result.push_back(static_cast<char>(value));
+					break;
+				}
+				// Universal character: \uFFFF or \UFFFFFFFF
+				case 'u':
+				case 'U': {
+					int maxlen = (esc == 'u') ? 4 : 8;
+					int value = 0;
+					int digits = 0;
+					while (digits < maxlen && i + 1 < src.length() && std::isxdigit(src[i + 1])) {
+						++i;
+						char hc = src[i];
+						value *= 16;
+						if (hc >= '0' && hc <= '9')
+							value += hc - '0';
+						else if (hc >= 'a' && hc <= 'f')
+							value += 10 + (hc - 'a');
+						else if (hc >= 'A' && hc <= 'F')
+							value += 10 + (hc - 'A');
+						++digits;
+					}
+					if (digits != maxlen)
+						throw std::runtime_error("Invalid \\u or \\U escape");
+					// For simplicity, only support basic multilingual plane
+					if (value <= 0x7F)
+						result.push_back(static_cast<char>(value));
+					else if (value <= 0x7FF) {
+						result.push_back(static_cast<char>(0xC0 | ((value >> 6) & 0x1F)));
+						result.push_back(static_cast<char>(0x80 | (value & 0x3F)));
+					}
+					else if (value <= 0xFFFF) {
+						result.push_back(static_cast<char>(0xE0 | ((value >> 12) & 0x0F)));
+						result.push_back(static_cast<char>(0x80 | ((value >> 6) & 0x3F)));
+						result.push_back(static_cast<char>(0x80 | (value & 0x3F)));
+					}
+					else if (value <= 0x10FFFF) {
+						result.push_back(static_cast<char>(0xF0 | ((value >> 18) & 0x07)));
+						result.push_back(static_cast<char>(0x80 | ((value >> 12) & 0x3F)));
+						result.push_back(static_cast<char>(0x80 | ((value >> 6) & 0x3F)));
+						result.push_back(static_cast<char>(0x80 | (value & 0x3F)));
+					}
+					else {
+						throw std::runtime_error("Unicode code point out of range in escape");
+					}
+					break;
+				}
+				// Octal: up to 3 octal digits \nnn
+				default:
+					if (esc >= '0' && esc <= '7') {
+						int value = esc - '0';
+						int digits = 1;
+						while (digits < 3 && i + 1 < src.length() && src[i + 1] >= '0' && src[i + 1] <= '7') {
+							++i;
+							value = value * 8 + (src[i] - '0');
+							++digits;
+						}
+						result.push_back(static_cast<char>(value));
+					}
+					else {
+						// Anything else: treat as literal character
+						result.push_back(esc);
+					}
+					break;
+			}
+		}
+	}
+
+	return result;
+}
+
 // Value*
 void* ASTNode::generateConstant(int pass)
 {
@@ -425,23 +737,32 @@ void* ASTNode::generateConstant(int pass)
 	else if (nodeType == Float_Node)
 		return ConstantFP::get(*TheContext, APFloat(stod(token.first)));
 	else if (nodeType == String_Constant_Node) {
-		std::string strValue = token.first.substr(1, token.first.size() - 2);  // remove quotes from token
+		std::string strValue = unescapeString(token.first.substr(1, token.first.size() - 2), token);  // remove quotes from token
 		// Add null terminator
 		strValue += '\0';
 
-		// Create constant data array (i8 array)
-		Constant* strConst = ConstantDataArray::getString(*TheContext, strValue, false);
+		GlobalVariable* globalStr = nullptr;
+		if (globalStringLiteralConstants.find(strValue) != globalStringLiteralConstants.end())
+			globalStr = globalStringLiteralConstants[strValue];
+		else {
+			printf("String generated, pass:%d\n", pass);
 
-		// Create global variable to hold the string
-		GlobalVariable* globalStr = new GlobalVariable(
-			*TheModule,
-			strConst->getType(),
-			true,						  // Constant
-			GlobalValue::PrivateLinkage,  // Or InternalLinkage for hidden
-			strConst,
-			".str");
-		globalStr->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);  // Allow merging
-		globalStr->setAlignment(Align(1));
+			// Create constant data array (i8 array)
+			Constant* strConst = ConstantDataArray::getString(*TheContext, strValue, true);
+
+			// Create global variable to hold the string
+			globalStr = new GlobalVariable(
+				*TheModule,
+				strConst->getType(),
+				true,						  // Constant
+				GlobalValue::PrivateLinkage,  // Or InternalLinkage for hidden
+				strConst,
+				"str");
+			globalStr->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);  // Allow merging
+			globalStr->setAlignment(Align(1));
+
+			globalStringLiteralConstants[strValue] = globalStr;
+		}
 
 		// Get pointer to the first element (i8*)
 		Constant* zero = ConstantInt::get(Type::getInt32Ty(*TheContext), 0);
@@ -749,17 +1070,13 @@ void* ASTNode::generateBinaryExpression(int pass)
 	Value* R = (Value*)(childNodes[1]->*(childNodes[1]->codegen))(pass);
 	if (!L || !R)
 		return nullptr;
-	if (L->getType() != R->getType()) {
-		printTokenError(token, "Left and right arguments of operator must be the same type");
-		exit(1);
-	}
 
 	ASTNodeType t = childNodes[0]->nodeType;
 
 	bool operatorOverloaded = nodeType == Redefined_Operator_Expr;
 	std::string operatorOverloadName = "binary." + tokenAsString(token.second);
 	Function* CalleeF = nullptr;
-	functionID* calleeID = getFunctionFromID(operatorOverloadName);
+	functionID* calleeID = getFunctionFromID(operatorOverloadName, token);
 
 	// Check to see if the operator actually has an overload
 	if (calleeID != nullptr) {
@@ -785,7 +1102,12 @@ void* ASTNode::generateBinaryExpression(int pass)
 		return Builder->CreateCall(CalleeF, ArgsV, "calltmp");
 	}
 	// Otherwise, it is a regular builtin operator
-	else
+	else {
+		// builtin operators expect matching types
+		if (L->getType() != R->getType()) {
+			printTokenWarning(token, "Left and right arguments have type mismatch, implicit conversion occurring");
+			castToHighestAccuracy(L, R, token);
+		}
 		switch (t) {
 			case Integer_Node:
 				switch (nodeType) {
@@ -832,6 +1154,7 @@ void* ASTNode::generateBinaryExpression(int pass)
 						exit(1);
 				}
 		}
+	}
 
 	return nullptr;
 }
@@ -856,22 +1179,17 @@ void* ASTNode::generateAccessOperation(int pass)
 	Value* R = (Value*)(childNodes[1]->*(childNodes[1]->codegen))(pass);
 	if (!L || !R)
 		return nullptr;
-	if (L->getType()->isPointerTy() == false) {
-		printTokenError(token, "Left argument of access operator must be a pointer type");
-		exit(1);
-	}
-	if (R->getType()->isIntegerTy() == false) {
-		printTokenError(token, "Right argument of access operator must be an integer");
-		exit(1);
-	}
 
 	ASTNodeType t = childNodes[0]->nodeType;
 
 	bool operatorOverloaded = false;
-	std::string operatorOverloadName = "binary." + tokenAsString(token.second);
+	std::string operatorOverloadName = "binary." + tokenAsString(Both_Brackets);
+	argumentList argList = argumentList();
+	argList.push_back(argType(getStringTypeFromLLVMType(L->getType()), getASTNodeTypeFromString(getStringTypeFromLLVMType(L->getType())), 0, false, true));
+	argList.push_back(argType(getStringTypeFromLLVMType(R->getType()), getASTNodeTypeFromString(getStringTypeFromLLVMType(R->getType())), 0));
 	Function* CalleeF = nullptr;
 	// TODO: make operator overloads for exact matches only
-	functionID* calleeID = getFunctionFromID(operatorOverloadName);
+	functionID* calleeID = getExactFunctionFromID(operatorOverloadName, argList, token, true);
 
 	// Check to see if the operator actually has an overload
 	if (calleeID != nullptr) {
@@ -894,6 +1212,15 @@ void* ASTNode::generateAccessOperation(int pass)
 	}
 	// Otherwise, it is a regular builtin operator
 	else {
+		if (L->getType()->isPointerTy() == false) {
+			printTokenError(token, "Left argument of access operator must be a pointer type");
+			exit(1);
+		}
+		if (R->getType()->isIntegerTy() == false) {
+			printTokenError(token, "Right argument of access operator must be an integer");
+			exit(1);
+		}
+
 		// Evaluate base pointer
 		Value* basePtr = L;
 		if (!basePtr || !basePtr->getType()->isPointerTy()) {
@@ -987,14 +1314,29 @@ void* ASTNode::generateCallExpression(int pass)
 			//aList.push_back(std::make_pair());
 		}
 
+	std::vector<Value*> ArgsV = std::vector<Value*>();
+	argumentList argList = argumentList();
+	for (int i = 0; i < args.size(); i++) {
+		Value* argVal = (Value*)(args[i]->*(args[i]->codegen))(pass);
+		ArgsV.push_back(argVal);
+		argList.push_back(argType(getStringTypeFromLLVMType(argVal->getType()), getASTNodeTypeFromString(getStringTypeFromLLVMType(argVal->getType())), 0));
+		if (!ArgsV.back())
+			return nullptr;
+	}
+
+
 	// Look up the id in the global module table.
-	functionID* CalleeFID = getFunctionFromID(token.first, args);
+	functionID* CalleeFID = getFunctionFromID(token.first, argList, token, true);
 	//Function* CalleeF = TheModule->getFunction(token.first);
 	if (!CalleeFID) {
 		printTokenError(token, "Undefined function");
+		for (const auto& n : functionIDs) {
+			console::WriteLine(n.name + " => " + n.mangledName);
+		}
 		exit(1);
 	}
 	Function* CalleeF = CalleeFID->fnValue;
+	CalleeFID->uses++;
 
 	// If argument mismatch error.
 	if (CalleeFID->variableNumArguments == false)
@@ -1008,8 +1350,9 @@ void* ASTNode::generateCallExpression(int pass)
 			exit(1);
 		}
 
-	std::vector<Value*> ArgsV;
-	for (int i = 0; i < CalleeF->arg_size(); i++) {
+	// Clear arg values list to get values correctly
+	ArgsV = std::vector<Value*>();
+	for (int i = 0; i < args.size(); i++) {
 		if (CalleeFID->arguments[i].isReference) {
 			if (args[0]->childNodes.size() != 1 || args[0]->childNodes[0]->nodeType != Identifier_Node) {
 				printTokenError(token, "Cannot pass value as reference");
@@ -1017,10 +1360,12 @@ void* ASTNode::generateCallExpression(int pass)
 			}
 			args[i]->childNodes[0]->isRef = true;
 		}
-		ArgsV.push_back((Value*)(args[i]->*(args[i]->codegen))(pass));
+		Value* argVal = (Value*)(args[i]->*(args[i]->codegen))(pass);
+		ArgsV.push_back(argVal);
 		if (!ArgsV.back())
 			return nullptr;
 	}
+
 
 	return Builder->CreateCall(CalleeF, ArgsV, "calltmp");
 }
@@ -1244,6 +1589,7 @@ void* ASTNode::generateFor(int pass)
 // Function*
 void* ASTNode::generatePrototype(int pass)
 {
+	console::WriteLine("begin generating prototype");
 	argumentList argList = argumentList();
 	std::vector<Type*> argTypes = std::vector<Type*>();
 	ASTNode* argsNode = childNodes[2];
@@ -1266,7 +1612,10 @@ void* ASTNode::generatePrototype(int pass)
 	if (typeNode->childNodes.size() > 0) {
 	recurseAddPointer:
 		typeNode = typeNode->childNodes[0];
-		mangledName += "." + typeNode->token.first;
+		if (typeNode->token.first == "*")
+			mangledName += ".ptr";
+		else
+			mangledName += "." + typeNode->token.first;
 		rTypeString += typeNode->token.first;
 
 		if (typeNode->token.first == "*") {
@@ -1286,22 +1635,31 @@ void* ASTNode::generatePrototype(int pass)
 				ASTNode* typeNode = a->childNodes[0]->childNodes[0];
 				std::string typeStr = "";
 				bool isReference = false;
+				bool mustBeExactType = false;
 				int pointerLevel = 0;
+
+			gatherTypeModifiers:
 				if (typeNode->token.first == "ref") {
 					isReference = true;
 					mangledName += ".ref";
 					typeStr += ".ref";
 					pointerLevel++;
 					typeNode = typeNode->childNodes[0];
+					goto gatherTypeModifiers;
 				}
-
-			checkPointer:
+				if (typeNode->token.first == "exact") {
+					//mangledName += ".exact";
+					typeStr += ".exact";
+					mustBeExactType = true;
+					typeNode = typeNode->childNodes[0];
+					goto gatherTypeModifiers;
+				}
 				if (typeNode->token.first == "*") {
 					pointerLevel++;
 					mangledName += ".ptr";
 					typeStr += ".ptr";
 					typeNode = typeNode->childNodes[0];
-					goto checkPointer;
+					goto gatherTypeModifiers;
 				}
 
 				mangledName += "." + typeNode->token.first;
@@ -1309,7 +1667,7 @@ void* ASTNode::generatePrototype(int pass)
 
 
 				Type* aType = nullptr;
-				argList.push_back(argType(typeStr, typeNode->nodeType, pointerLevel, isReference));
+				argList.push_back(argType(typeStr, getASTNodeTypeFromString(typeNode->token.first), pointerLevel, isReference, mustBeExactType));
 
 				try {
 					aType = getLLVMTypeFromString(typeNode->token.first);
@@ -1350,24 +1708,38 @@ void* ASTNode::generatePrototype(int pass)
 
 	// Don't add another prototype if the exact same one is already defined
 	//Function* theFunction = TheModule->getFunction(token.first);
-	functionID* theFunctionID = getExactFunctionFromID(fnName, argList);
-	if (theFunctionID)
+	functionID* theFunctionID = getExactFunctionFromID(fnName, argList, token);
+	if (theFunctionID) {
+		if (verbosity >= 3) {
+			console::printIndent(2);
+			console::Write("-- Pre-existing function definition found for: ");
+			console::Write(fnName, console::yellowFGColor);
+			console::WriteLine(" (" + theFunctionID->mangledName + ")", console::yellowFGColor);
+		}
 		return theFunctionID->fnValue;
+	}
 
 
 	FunctionType* FT = FunctionType::get(retType, argTypes, variableNumArguments);
 
-	Function* fn = Function::Create(FT, Function::ExternalLinkage, fnName, TheModule.get());
+	Function* fn = nullptr;
+	// If extern declaration, dont mangle name
+	if (isExtern)
+		fn = Function::Create(FT, Function::ExternalLinkage, fnName, TheModule.get());
+	else
+		fn = Function::Create(FT, Function::ExternalLinkage, mangledName, TheModule.get());
 	if (isAlwaysInline)
 		fn->addFnAttr(llvm::Attribute::AlwaysInline);
 
-	unsigned Idx = 0;
+	uint16_t Idx = 0;
 	for (auto& arg : fn->args()) {
 		arg.setName(argNames[Idx++]);
 		//namedValues[std::string(arg.getName())] = &arg;
 	}
 
 	functionIDs.emplace_back(fnName, mangledName, rTypeString, argList, fn, variableNumArguments);
+	console::printIndent(depth + 2);
+	console::WriteLine("-- Added function \"" + fnName + "\" to functionIDs");
 
 	return fn;
 }
@@ -1375,26 +1747,31 @@ void* ASTNode::generatePrototype(int pass)
 // Function*
 void* ASTNode::generateFunction(int pass)
 {
+	console::WriteLine("begin generating function");
 	// First, check for an existing function from a previous declaration.
 	//Function* theFunction = TheModule->getFunction(token.first);
-	functionID* theFunctionID = getFunctionFromID(token.first);
-	Function* theFunction;
+	functionID* theFunctionID = nullptr;
+	Function* theFunction = nullptr;
 
-	if (!theFunctionID)
-		theFunction = (Function*)generatePrototype();
-	else
-		theFunction = theFunctionID->fnValue;
+	//if (!theFunctionID)
+	theFunction = (Function*)generatePrototype();
+	//else
+	//	theFunction = theFunctionID->fnValue;
 
-	if (!theFunction)
+	if (!theFunction) {
+		printTokenError(token, "There was a failure to create a function");
+		exit(1);
+	}
+
+	if (!theFunction->empty()) {
+		printTokenError(token, "Function cannot be redefined");
 		return nullptr;
-
-	if (!theFunction->empty())
-		return (Function*)LogErrorV("Function cannot be redefined.");
+	}
 
 	if (pass == 0)
 		return theFunction;
 
-	theFunctionID = getFunctionFromID(token.first);
+	theFunctionID = getFunctionFromID(token.first, token);
 	if (!theFunctionID) {
 		printTokenError(token, "There was a failure to create a function");
 		exit(1);
@@ -1468,6 +1845,12 @@ void* ASTNode::generateFunction(int pass)
 	//return nullptr;
 }
 
+// Nothing
+void* ASTNode::generateNothing(int pass)
+{
+	return nullptr;
+}
+
 int outputObjectFile(std::string& objectFilePath)
 {
 
@@ -1529,4 +1912,12 @@ int generateExecutable(const std::string& objectFilePath, const std::string& exe
 	std::string command = "clang -o " + exeFilePath + " " + objectFilePath;
 	int result = std::system(command.c_str());
 	return result;
+}
+
+void removeUnusedPrototypes()
+{
+	for (auto& fn : functionIDs)
+		if (fn.name != "main")
+			if (fn.uses == 0)
+				fn.fnValue->eraseFromParent();
 }

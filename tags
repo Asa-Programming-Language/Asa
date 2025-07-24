@@ -3629,6 +3629,7 @@ BeginLabels	src/include/llvm/CodeGen/MachineFunction.h	/^  SmallVector<MCSymbol 
 BeginOffset	src/include/llvm/DebugInfo/CodeView/CodeViewRecordIO.h	/^    uint32_t BeginOffset;$/;"	m	struct:llvm::codeview::CodeViewRecordIO::RecordLimit	typeref:typename:uint32_t
 BeginValue	src/include/llvm/ADT/Sequence.h	/^  iterator BeginValue;$/;"	m	struct:llvm::iota_range	typeref:typename:iterator
 BeginX	src/include/llvm/ADT/SmallVector.h	/^  void *BeginX;$/;"	m	class:llvm::SmallVectorBase	typeref:typename:void *
+Begin_Unsigned_Integers	src/parser.h	/^	Begin_Unsigned_Integers,$/;"	e	enum:ASTNodeType
 Beginning	src/include/llvm/Analysis/MemorySSA.h	/^  enum InsertionPlace { Beginning, End, BeforeTerminator };$/;"	e	enum:llvm::MemorySSA::InsertionPlace
 Beginning	src/include/llvm/CodeGen/GlobalISel/RegBankSelect.h	/^    bool Beginning;$/;"	m	class:llvm::RegBankSelect::MBBInsertPoint	typeref:typename:bool
 Begins	src/include/llvm/ADT/STLExtras.h	/^  std::tuple<IterTs...> Begins;$/;"	m	class:llvm::concat_iterator	typeref:typename:std::tuple<IterTs...>
@@ -13506,6 +13507,7 @@ Evictor	src/include/llvm/DebugInfo/Symbolize/Symbolize.h	/^  std::function<void(
 Exact	src/include/llvm/Analysis/ScalarEvolution.h	/^    Exact,$/;"	e	enum:llvm::ScalarEvolution::ExitCountKind
 Exact	src/include/llvm/CodeGen/SelectionDAGNodes.h	/^    Exact = 1 << 2,$/;"	e	enum:llvm::SDNodeFlags::__anonf4393ade0103
 Exact	src/include/llvm/Transforms/Utils/ScalarEvolutionExpander.h	/^  unsigned Exact : 1;$/;"	m	struct:llvm::PoisonFlags	typeref:typename:unsigned:1
+Exact	src/tokenizer.h	/^	Exact,$/;"	e	enum:TokenType
 ExactFPMathInst	src/include/llvm/Analysis/IVDescriptors.h	/^    Instruction *ExactFPMathInst;$/;"	m	class:llvm::RecurrenceDescriptor::InstDesc	typeref:typename:Instruction *
 ExactFPMathInst	src/include/llvm/Analysis/IVDescriptors.h	/^  Instruction *ExactFPMathInst = nullptr;$/;"	m	class:llvm::RecurrenceDescriptor	typeref:typename:Instruction *
 ExactFPMathInst	src/include/llvm/Transforms/Vectorize/LoopVectorizationLegality.h	/^  Instruction *ExactFPMathInst = nullptr;$/;"	m	class:llvm::LoopVectorizationRequirements	typeref:typename:Instruction *
@@ -13514,6 +13516,7 @@ ExactNotTaken	src/include/llvm/Analysis/ScalarEvolution.h	/^    const SCEV *Exac
 ExactNotTaken	src/include/llvm/Analysis/ScalarEvolution.h	/^    const SCEV *ExactNotTaken;$/;"	m	struct:llvm::ScalarEvolution::ExitNotTakenInfo	typeref:typename:const SCEV *
 ExactSizeFromOffset	src/include/llvm/Analysis/MemoryBuiltins.h	/^    ExactSizeFromOffset,$/;"	e	enum:llvm::ObjectSizeOpts::Mode
 ExactUnderlyingSizeAndOffset	src/include/llvm/Analysis/MemoryBuiltins.h	/^    ExactUnderlyingSizeAndOffset,$/;"	e	enum:llvm::ObjectSizeOpts::Mode
+Exact_Type_Node	src/parser.h	/^	Exact_Type_Node,$/;"	e	enum:ASTNodeType
 Exact_match	src/include/llvm/IR/PatternMatch.h	/^  Exact_match(const SubPattern_t &SP) : SubPattern(SP) {}$/;"	f	struct:llvm::PatternMatch::Exact_match
 Exact_match	src/include/llvm/IR/PatternMatch.h	/^template <typename SubPattern_t> struct Exact_match {$/;"	s	namespace:llvm::PatternMatch
 ExceedPressure	src/include/llvm/CodeGen/MachinePipeliner.h	/^  SUnit *ExceedPressure = nullptr;$/;"	m	class:llvm::NodeSet	typeref:typename:SUnit *
@@ -51356,7 +51359,7 @@ are_settings	src/indicators.hpp	/^template <> struct are_settings<> : std::true_
 are_settings_from_tuple	src/indicators.hpp	/^struct are_settings_from_tuple$/;"	s	namespace:indicators::details
 arg	src/include/llvm/XRay/FDRRecords.h	/^  uint64_t arg() const { return Arg; }$/;"	f	class:llvm::xray::CallArgRecord	typeref:typename:uint64_t
 argMemOnly	src/include/llvm/Support/ModRef.h	/^  static MemoryEffectsBase argMemOnly(ModRefInfo MR = ModRefInfo::ModRef) {$/;"	f	class:llvm::MemoryEffectsBase	typeref:typename:MemoryEffectsBase
-argType	src/codegen.cpp	/^	argType(std::string ts, ASTNodeType bT, uint8_t pL = 0, bool r = false)$/;"	f	struct:argType	file:
+argType	src/codegen.cpp	/^	argType(std::string ts, ASTNodeType bT, uint8_t pL = 0, bool r = false, bool ex = false)$/;"	f	struct:argType	file:
 argType	src/codegen.cpp	/^struct argType {$/;"	s	file:
 arg_begin	src/include/llvm/IR/Function.h	/^  arg_iterator arg_begin() {$/;"	f	class:llvm::Function	typeref:typename:arg_iterator
 arg_begin	src/include/llvm/IR/Function.h	/^  const_arg_iterator arg_begin() const {$/;"	f	class:llvm::Function	typeref:typename:const_arg_iterator
@@ -52642,6 +52645,7 @@ castFailed	src/include/llvm/Support/Casting.h	/^  static inline decltype(auto) c
 castFailed	src/include/llvm/Support/Casting.h	/^  static inline std::optional<To> castFailed() { return std::optional<To>{}; }$/;"	f	struct:llvm::OptionalValueCast	typeref:typename:std::optional<To>
 castIsValid	src/include/llvm/IR/InstrTypes.h	/^  static bool castIsValid(Instruction::CastOps op, Value *S, Type *DstTy) {$/;"	f	class:llvm::CastInst	typeref:typename:bool
 castToAtomicIntPointer	src/include/llvm/Frontend/Atomic/Atomic.h	/^  Value *castToAtomicIntPointer(Value *addr) const {$/;"	f	class:llvm::AtomicInfo	typeref:typename:Value *
+castToHighestAccuracy	src/codegen.cpp	/^void castToHighestAccuracy(Value*& L, Value*& R, tokenPair& token)$/;"	f	typeref:typename:void
 castValue	src/codegen.cpp	/^llvm::Value* castValue(llvm::Value* value, llvm::Type* destType, bool isSrcSigned, bool isToSign/;"	f	typeref:typename:llvm::Value *
 castValue	src/include/llvm/ADT/TypeSwitch.h	/^  static decltype(auto) castValue(ValueT &&value) {$/;"	f	class:llvm::detail::TypeSwitchBase	typeref:typename:decltype(auto)
 cast_convert_val	src/include/llvm/Support/Casting.h	/^struct cast_convert_val<To, FromTy *, FromTy *> {$/;"	s	namespace:llvm
@@ -54431,11 +54435,12 @@ compare	src/include/llvm/Support/GenericDomTree.h	/^  bool compare(const DomTree
 compare	src/include/llvm/Support/GenericDomTree.h	/^  bool compare(const DominatorTreeBase &Other) const {$/;"	f	class:llvm::DominatorTreeBase	typeref:typename:bool
 compare	src/include/llvm/Support/ScaledNumber.h	/^  int compare(const ScaledNumber &X) const {$/;"	f	class:llvm::ScaledNumber	typeref:typename:int
 compare	src/include/llvm/Support/ScaledNumber.h	/^int compare(DigitsT LDigits, int16_t LScale, DigitsT RDigits, int16_t RScale) {$/;"	f	namespace:llvm::ScaledNumbers	typeref:typename:int
+compareASTNodeTypes	src/codegen.cpp	/^	bool compareASTNodeTypes(ASTNodeType& a, ASTNodeType& b, bool wereTypesInferred = false)$/;"	f	struct:functionID	typeref:typename:bool	file:
 compareAbsoluteValue	src/include/llvm/ADT/APFloat.h	/^  cmpResult compareAbsoluteValue(const APFloat &RHS) const {$/;"	f	class:llvm::APFloat	typeref:typename:cmpResult
 compareKey	src/include/llvm/ExecutionEngine/Orc/Shared/MemoryFlags.h	/^  static bool compareKey(const ElemT &E, const AllocGroup &G) {$/;"	f	class:llvm::orc::AllocGroupSmallMap	typeref:typename:bool
 compareLoops	src/include/llvm/Support/GenericLoopInfoImpl.h	/^static void compareLoops(const LoopT *L, const LoopT *OtherL,$/;"	f	namespace:llvm	typeref:typename:void
 compareMatch	src/codegen.cpp	/^	uint16_t compareMatch(std::string n)$/;"	f	struct:functionID	typeref:typename:uint16_t	file:
-compareMatch	src/codegen.cpp	/^	uint16_t compareMatch(std::string n, argumentList a)$/;"	f	struct:functionID	typeref:typename:uint16_t	file:
+compareMatch	src/codegen.cpp	/^	uint16_t compareMatch(std::string n, argumentList a, bool wereTypesInferred = false)$/;"	f	struct:functionID	typeref:typename:uint16_t	file:
 compareMatch	src/codegen.cpp	/^	uint16_t compareMatch(std::string n, std::vector<ASTNode*> a)$/;"	f	struct:functionID	typeref:typename:uint16_t	file:
 compareMemory	src/include/llvm/ADT/StringRef.h	/^    static int compareMemory(const char *Lhs, const char *Rhs, size_t Length) {$/;"	f	class:llvm::StringRef	typeref:typename:int
 compareMemory	src/include/llvm/ProfileData/FunctionId.h	/^  static int compareMemory(const char *Lhs, const char *Rhs, uint64_t Length) {$/;"	f	class:llvm::sampleprof::FunctionId	typeref:typename:int
@@ -58240,6 +58245,7 @@ generateFunction	src/codegen.cpp	/^void* ASTNode::generateFunction(int pass)$/;"
 generateIf	src/codegen.cpp	/^void* ASTNode::generateIf(int pass)$/;"	f	class:ASTNode	typeref:typename:void *
 generateInstructionOrderMap	src/include/llvm/Analysis/LoopAccessAnalysis.h	/^  DenseMap<Instruction *, unsigned> generateInstructionOrderMap() const {$/;"	f	class:llvm::MemoryDepChecker	typeref:typename:DenseMap<Instruction *,unsigned>
 generateIterator	src/codegen.cpp	/^void* ASTNode::generateIterator(int pass)$/;"	f	class:ASTNode	typeref:typename:void *
+generateNothing	src/codegen.cpp	/^void* ASTNode::generateNothing(int pass)$/;"	f	class:ASTNode	typeref:typename:void *
 generateOutputCode	src/parser.cpp	/^void generateOutputCode(ASTNode*& node, int depth, int pass)$/;"	f	typeref:typename:void
 generatePrototype	src/codegen.cpp	/^void* ASTNode::generatePrototype(int pass)$/;"	f	class:ASTNode	typeref:typename:void *
 generateReturn	src/codegen.cpp	/^void* ASTNode::generateReturn(int pass)$/;"	f	class:ASTNode	typeref:typename:void *
@@ -58395,6 +58401,7 @@ getAPIntVal	src/include/llvm/MC/MCAsmMacro.h	/^  APInt getAPIntVal() const {$/;"
 getAPIntValue	src/include/llvm/CodeGen/SelectionDAGNodes.h	/^  const APInt &getAPIntValue() const { return Value->getValue(); }$/;"	f	class:llvm::ConstantSDNode	typeref:typename:const APInt &
 getAPSIntVal	src/include/llvm/AsmParser/LLLexer.h	/^    const APSInt &getAPSIntVal() const { return APSIntVal; }$/;"	f	class:llvm::LLLexer	typeref:typename:const APSInt &
 getASAP	src/include/llvm/CodeGen/MachinePipeliner.h	/^  int getASAP(SUnit *Node) { return ScheduleInfo[Node->NodeNum].ASAP; }$/;"	f	class:llvm::SwingSchedulerDAG	typeref:typename:int
+getASTNodeTypeFromString	src/codegen.cpp	/^ASTNodeType getASTNodeTypeFromString(const std::string& typeName)$/;"	f	typeref:typename:ASTNodeType
 getAbbrOffset	src/include/llvm/DebugInfo/DWARF/DWARFUnit.h	/^  uint64_t getAbbrOffset() const { return AbbrOffset; }$/;"	f	class:llvm::DWARFUnitHeader	typeref:typename:uint64_t
 getAbbrOffset	src/include/llvm/DebugInfo/DWARF/DWARFUnit.h	/^  uint64_t getAbbrOffset() const { return Header.getAbbrOffset(); }$/;"	f	class:llvm::DWARFUnit	typeref:typename:uint64_t
 getAbbrev	src/include/llvm/Bitstream/BitstreamReader.h	/^  Expected<const BitCodeAbbrev *> getAbbrev(unsigned AbbrevID) {$/;"	f	class:llvm::BitstreamCursor	typeref:typename:Expected<const BitCodeAbbrev * >
@@ -60736,7 +60743,7 @@ getExactFPInst	src/include/llvm/Transforms/Vectorize/LoopVectorizationLegality.h
 getExactFPMathInst	src/include/llvm/Analysis/IVDescriptors.h	/^    Instruction *getExactFPMathInst() const { return ExactFPMathInst; }$/;"	f	class:llvm::RecurrenceDescriptor::InstDesc	typeref:typename:Instruction *
 getExactFPMathInst	src/include/llvm/Analysis/IVDescriptors.h	/^  Instruction *getExactFPMathInst() const { return ExactFPMathInst; }$/;"	f	class:llvm::RecurrenceDescriptor	typeref:typename:Instruction *
 getExactFPMathInst	src/include/llvm/Analysis/IVDescriptors.h	/^  Instruction *getExactFPMathInst() {$/;"	f	class:llvm::InductionDescriptor	typeref:typename:Instruction *
-getExactFunctionFromID	src/codegen.cpp	/^functionID* getExactFunctionFromID(std::string& name, argumentList& arguments)$/;"	f	typeref:typename:functionID *
+getExactFunctionFromID	src/codegen.cpp	/^functionID* getExactFunctionFromID(std::string& name, argumentList& arguments, tokenPair& t, boo/;"	f	typeref:typename:functionID *
 getExactInverse	src/include/llvm/ADT/APFloat.h	/^  bool getExactInverse(APFloat *inv) const {$/;"	f	class:llvm::APFloat	typeref:typename:bool
 getExactLog2	src/include/llvm/ADT/APFloat.h	/^  int getExactLog2() const {$/;"	f	class:llvm::APFloat	typeref:typename:LLVM_READONLY int
 getExactLog2	src/include/llvm/ADT/APFloat.h	/^  int getExactLog2() const {$/;"	f	class:llvm::detail::IEEEFloat	typeref:typename:LLVM_READONLY int
@@ -61275,9 +61282,9 @@ getFunctionEnd	src/include/llvm/CodeGen/AsmPrinter.h	/^  MCSymbol *getFunctionEn
 getFunctionEntryPointSymbol	src/include/llvm/Target/TargetLoweringObjectFile.h	/^  virtual MCSymbol *getFunctionEntryPointSymbol(const GlobalValue *Func,$/;"	f	class:llvm::TargetLoweringObjectFile	typeref:typename:MCSymbol *
 getFunctionFaultInfoAt	src/include/llvm/Object/FaultMapParser.h	/^    FunctionFaultInfoAccessor getFunctionFaultInfoAt(uint32_t Index) const {$/;"	f	class:llvm::FaultMapParser::FunctionInfoAccessor	typeref:typename:FunctionFaultInfoAccessor
 getFunctionFrameSymbol	src/include/llvm/CodeGen/AsmPrinter.h	/^  virtual const MCSymbol *getFunctionFrameSymbol() const { return nullptr; }$/;"	f	class:llvm::AsmPrinter	typeref:typename:const MCSymbol *
-getFunctionFromID	src/codegen.cpp	/^functionID* getFunctionFromID(std::string& name)$/;"	f	typeref:typename:functionID *
-getFunctionFromID	src/codegen.cpp	/^functionID* getFunctionFromID(std::string& name, argumentList& arguments)$/;"	f	typeref:typename:functionID *
-getFunctionFromID	src/codegen.cpp	/^functionID* getFunctionFromID(std::string& name, std::vector<ASTNode*>& argValues)$/;"	f	typeref:typename:functionID *
+getFunctionFromID	src/codegen.cpp	/^functionID* getFunctionFromID(std::string& name, argumentList& arguments, tokenPair& t, bool wer/;"	f	typeref:typename:functionID *
+getFunctionFromID	src/codegen.cpp	/^functionID* getFunctionFromID(std::string& name, std::vector<ASTNode*>& argValues, tokenPair& t)$/;"	f	typeref:typename:functionID *
+getFunctionFromID	src/codegen.cpp	/^functionID* getFunctionFromID(std::string& name, tokenPair& t)$/;"	f	typeref:typename:functionID *
 getFunctionGUID	src/include/llvm/IR/PseudoProbe.h	/^  uint64_t getFunctionGUID() const { return FunctionGUID; }$/;"	f	class:llvm::PseudoProbeDescriptor	typeref:typename:uint64_t
 getFunctionHash	src/include/llvm/IR/PseudoProbe.h	/^  uint64_t getFunctionHash() const { return FunctionHash; }$/;"	f	class:llvm::PseudoProbeDescriptor	typeref:typename:uint64_t
 getFunctionHash	src/include/llvm/ProfileData/SampleProf.h	/^  uint64_t getFunctionHash() const { return FunctionHash; }$/;"	f	class:llvm::sampleprof::FunctionSamples	typeref:typename:uint64_t
@@ -67403,6 +67410,7 @@ get_value	src/indicators.hpp	/^  auto get_value() const$/;"	f	class:indicators::
 get_value	src/indicators.hpp	/^  auto get_value() const$/;"	f	class:indicators::ProgressSpinner	typeref:typename:decltype((details::get_value<id> (std::declval<const Settings &> ()).value))
 get_value	src/indicators.hpp	/^  auto get_value()$/;"	f	class:indicators::ProgressBar	typeref:typename:decltype((details::get_value<id> (std::declval<Settings &> ()).value))
 get_value	src/indicators.hpp	/^auto get_value(Settings &&settings)$/;"	f	namespace:indicators::details	typeref:typename:decltype((std::get<option_idx<Id,typename std::decay<Settings>::type>::value> (std::declval<Settings &&> ())))
+globalStringLiteralConstants	src/codegen.cpp	/^std::unordered_map<std::string, llvm::GlobalVariable*> globalStringLiteralConstants;$/;"	v	typeref:typename:std::unordered_map<std::string,llvm::GlobalVariable * >
 global_begin	src/include/llvm/IR/Module.h	/^  const_global_iterator global_begin() const { return GlobalList.begin(); }$/;"	f	class:llvm::Module	typeref:typename:const_global_iterator
 global_begin	src/include/llvm/IR/Module.h	/^  global_iterator       global_begin()       { return GlobalList.begin(); }$/;"	f	class:llvm::Module	typeref:typename:global_iterator
 global_empty	src/include/llvm/IR/Module.h	/^  bool                  global_empty() const { return GlobalList.empty(); }$/;"	f	class:llvm::Module	typeref:typename:bool
@@ -70125,6 +70133,7 @@ isExtVecInRegOpcode	src/include/llvm/CodeGen/ISDOpcodes.h	/^inline bool isExtVec
 isExtendLikelyToBeFolded	src/include/llvm/CodeGen/TargetInstrInfo.h	/^  virtual bool isExtendLikelyToBeFolded(MachineInstr &ExtMI,$/;"	f	class:llvm::TargetInstrInfo	typeref:typename:bool
 isExtended	src/include/llvm/CodeGen/ValueTypes.h	/^    bool isExtended() const {$/;"	f	struct:llvm::EVT	typeref:typename:bool
 isExtendedGlobalAddrSpace	src/include/llvm/Support/AMDGPUAddrSpace.h	/^inline bool isExtendedGlobalAddrSpace(unsigned AS) {$/;"	f	namespace:llvm::AMDGPU	typeref:typename:bool
+isExtern	src/parser.h	/^	bool isExtern = false;$/;"	m	struct:ASTNode	typeref:typename:bool
 isExternal	src/include/llvm/ExecutionEngine/JITLink/JITLink.h	/^  bool isExternal() const {$/;"	f	class:llvm::jitlink::Symbol	typeref:typename:bool
 isExternal	src/include/llvm/MC/MCSymbol.h	/^  bool isExternal() const { return IsExternal; }$/;"	f	class:llvm::MCSymbol	typeref:typename:bool
 isExternal	src/include/llvm/Object/COFF.h	/^  bool isExternal() const {$/;"	f	class:llvm::object::COFFSymbolRef	typeref:typename:bool
@@ -77373,6 +77382,7 @@ multiply	src/include/llvm/ADT/APFloat.h	/^  opStatus multiply(const APFloat &RHS
 multiplyCoefficientBy	src/include/llvm/Support/TypeSize.h	/^  constexpr LeafTy multiplyCoefficientBy(ScalarTy RHS) const {$/;"	f	class:llvm::details::FixedOrScalableQuantity	typeref:typename:LeafTy
 multiplyElements	src/include/llvm/CodeGenTypes/LowLevelType.h	/^  constexpr LLT multiplyElements(int Factor) const {$/;"	f	class:llvm::LLT	typeref:typename:LLT
 multiplyHexByInteger	src/strops.cpp	/^std::string multiplyHexByInteger(const std::string& hexNumber, int multiplier)$/;"	f	typeref:typename:std::string
+mustBeExactType	src/codegen.cpp	/^	bool mustBeExactType = false;$/;"	m	struct:argType	typeref:typename:bool	file:
 mustProgress	src/include/llvm/IR/Function.h	/^  bool mustProgress() const {$/;"	f	class:llvm::Function	typeref:typename:bool
 mustQuote	src/include/llvm/CodeGen/MIRYamlMapping.h	/^  static QuotingType mustQuote(StringRef S) { return needsQuotes(S); }$/;"	f	struct:llvm::yaml::ScalarTraits	typeref:typename:QuotingType
 mustQuote	src/include/llvm/CodeGen/MIRYamlMapping.h	/^  static QuotingType mustQuote(StringRef Scalar) {$/;"	f	struct:llvm::yaml::ScalarTraits	typeref:typename:QuotingType
@@ -83082,6 +83092,7 @@ removeSubRegion	src/include/llvm/Analysis/RegionInfoImpl.h	/^typename Tr::Region
 removeSymbol	src/include/llvm/ExecutionEngine/JITLink/JITLink.h	/^  void removeSymbol(Symbol &Sym) {$/;"	f	class:llvm::jitlink::Section	typeref:typename:void
 removeTotalSamples	src/include/llvm/ProfileData/SampleProf.h	/^  void removeTotalSamples(uint64_t Num) {$/;"	f	class:llvm::sampleprof::FunctionSamples	typeref:typename:void
 removeUnits	src/include/llvm/CodeGen/LiveRegUnits.h	/^  void removeUnits(const BitVector &RegUnits) {$/;"	f	class:llvm::LiveRegUnits	typeref:typename:void
+removeUnusedPrototypes	src/codegen.cpp	/^void removeUnusedPrototypes()$/;"	f	typeref:typename:void
 removeValue	src/include/llvm/Analysis/DomConditionCache.h	/^  void removeValue(Value *V) { AffectedValues.erase(V); }$/;"	f	class:llvm::DomConditionCache	typeref:typename:void
 removeValue	src/include/llvm/TableGen/Record.h	/^  void removeValue(StringRef Name) {$/;"	f	class:llvm::Record	typeref:typename:void
 removeValue	src/include/llvm/TableGen/Record.h	/^  void removeValue(const Init *Name) {$/;"	f	class:llvm::Record	typeref:typename:void
@@ -83700,20 +83711,20 @@ runWithSPSRetErrorMerged	src/include/llvm/ExecutionEngine/Orc/Shared/WrapperFunc
 runtime_check	src/include/llvm/Transforms/Instrumentation/LowerAllowCheckPass.h	/^    unsigned int runtime_check = 0;$/;"	m	struct:llvm::LowerAllowCheckPass::Options	typeref:typename:unsigned int
 s:l	src/Session.vim	/^let s:l = 1 - ((0 * winheight(0) + 13) \/ 26)$/;"	v
 s:l	src/Session.vim	/^let s:l = 1 - ((0 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 10019 - ((18 * winheight(0) + 13) \/ 26)$/;"	v
+s:l	src/Session.vim	/^let s:l = 10026 - ((25 * winheight(0) + 13) \/ 26)$/;"	v
+s:l	src/Session.vim	/^let s:l = 1012 - ((39 * winheight(0) + 26) \/ 53)$/;"	v
 s:l	src/Session.vim	/^let s:l = 113 - ((31 * winheight(0) + 26) \/ 53)$/;"	v
 s:l	src/Session.vim	/^let s:l = 127 - ((28 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 134 - ((42 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 1319 - ((27 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 142 - ((15 * winheight(0) + 13) \/ 26)$/;"	v
+s:l	src/Session.vim	/^let s:l = 142 - ((42 * winheight(0) + 26) \/ 53)$/;"	v
 s:l	src/Session.vim	/^let s:l = 157 - ((16 * winheight(0) + 26) \/ 53)$/;"	v
 s:l	src/Session.vim	/^let s:l = 16 - ((15 * winheight(0) + 26) \/ 53)$/;"	v
 s:l	src/Session.vim	/^let s:l = 20 - ((19 * winheight(0) + 26) \/ 53)$/;"	v
 s:l	src/Session.vim	/^let s:l = 202 - ((15 * winheight(0) + 13) \/ 26)$/;"	v
 s:l	src/Session.vim	/^let s:l = 21 - ((20 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 232 - ((11 * winheight(0) + 13) \/ 26)$/;"	v
-s:l	src/Session.vim	/^let s:l = 499 - ((40 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 81 - ((10 * winheight(0) + 13) \/ 26)$/;"	v
-s:l	src/Session.vim	/^let s:l = 832 - ((42 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 84 - ((26 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 85 - ((26 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 86 - ((13 * winheight(0) + 13) \/ 26)$/;"	v
 s:l	src/Session.vim	/^let s:l = 9 - ((8 * winheight(0) + 13) \/ 26)$/;"	v
 s:save_splitbelow	src/Session.vim	/^let s:save_splitbelow = &splitbelow$/;"	v
 s:save_splitright	src/Session.vim	/^let s:save_splitright = &splitright$/;"	v
@@ -84265,6 +84276,7 @@ setChangeObserver	src/include/llvm/CodeGen/GlobalISel/MachineIRBuilder.h	/^  voi
 setCheckWiden	src/include/llvm/Analysis/ValueLattice.h	/^    MergeOptions &setCheckWiden(bool V = true) {$/;"	f	struct:llvm::ValueLatticeElement::MergeOptions	typeref:typename:MergeOptions &
 setChecked	src/include/llvm/Support/Error.h	/^  void setChecked(bool V) {$/;"	f	class:llvm::Error	typeref:typename:void
 setChecksums	src/include/llvm/DebugInfo/CodeView/StringsAndChecksums.h	/^  void setChecksums(const ChecksumsPtr &CP) { Checksums = CP; }$/;"	f	class:llvm::codeview::StringsAndChecksums	typeref:typename:void
+setChildrenAsExtern	src/parser.cpp	/^void setChildrenAsExtern(ASTNode*& node)$/;"	f	typeref:typename:void
 setChildrenFlag	src/include/llvm/CodeGen/DIE.h	/^  void setChildrenFlag(bool hasChild) { Children = hasChild; }$/;"	f	class:llvm::DIEAbbrev	typeref:typename:void
 setClass	src/include/llvm/MC/MCSymbolCOFF.h	/^  void setClass(uint16_t StorageClass) const {$/;"	f	class:llvm::MCSymbolCOFF	typeref:typename:void
 setCleanup	src/include/llvm/IR/Instructions.h	/^  void setCleanup(bool V) { setSubclassData<CleanupField>(V); }$/;"	f	class:llvm::LandingPadInst	typeref:typename:void
@@ -87580,6 +87592,7 @@ underline	src/indicators.hpp	/^enum class FontStyle { bold, dark, italic, underl
 underlying_type	src/include/llvm/ExecutionEngine/Orc/Shared/MemoryFlags.h	/^  using underlying_type = uint8_t;$/;"	t	class:llvm::orc::AllocGroup	typeref:typename:uint8_t
 undfl	src/include/llvm/BinaryFormat/MachO.h	/^  unsigned short invalid : 1, denorm : 1, zdiv : 1, ovrfl : 1, undfl : 1,$/;"	m	struct:llvm::MachO::fp_control_t	typeref:typename:unsigned short:1
 undfl	src/include/llvm/BinaryFormat/MachO.h	/^  unsigned short invalid : 1, denorm : 1, zdiv : 1, ovrfl : 1, undfl : 1,$/;"	m	struct:llvm::MachO::fp_status_t	typeref:typename:unsigned short:1
+unescapeString	src/codegen.cpp	/^std::string unescapeString(const std::string& src, tokenPair& token)$/;"	f	typeref:typename:std::string
 unexpected_correlation_info	src/include/llvm/ProfileData/InstrProf.h	/^  unexpected_correlation_info,$/;"	e	enum:llvm::instrprof_error
 unexpected_eof	src/include/llvm/Object/Error.h	/^  unexpected_eof,$/;"	e	enum:llvm::object::object_error
 unfoldMemoryOperand	src/include/llvm/CodeGen/TargetInstrInfo.h	/^  unfoldMemoryOperand(MachineFunction &MF, MachineInstr &MI, Register Reg,$/;"	f	class:llvm::TargetInstrInfo	typeref:typename:bool
@@ -87889,6 +87902,7 @@ users	src/include/llvm/IR/Value.h	/^  iterator_range<const_user_iterator> users(
 users	src/include/llvm/IR/Value.h	/^  iterator_range<user_iterator> users() {$/;"	f	class:llvm::Value	typeref:typename:iterator_range<user_iterator>
 users	src/include/llvm/SandboxIR/Value.h	/^  iterator_range<const_user_iterator> users() const {$/;"	f	class:llvm::sandboxir::Value	typeref:typename:iterator_range<const_user_iterator>
 users	src/include/llvm/SandboxIR/Value.h	/^  iterator_range<user_iterator> users() {$/;"	f	class:llvm::sandboxir::Value	typeref:typename:iterator_range<user_iterator>
+uses	src/codegen.cpp	/^	uint32_t uses = 0;$/;"	m	struct:functionID	typeref:typename:uint32_t	file:
 uses	src/include/llvm/CodeGen/MachineInstr.h	/^  const_mop_range uses() const {$/;"	f	class:llvm::MachineInstr	typeref:typename:const_mop_range
 uses	src/include/llvm/CodeGen/MachineInstr.h	/^  mop_range uses() { return operands_impl().drop_front(getNumExplicitDefs()); }$/;"	f	class:llvm::MachineInstr	typeref:typename:mop_range
 uses	src/include/llvm/CodeGen/SelectionDAGNodes.h	/^  inline iterator_range<use_iterator> uses() const {$/;"	f	class:llvm::SDNode	typeref:typename:iterator_range<use_iterator>
