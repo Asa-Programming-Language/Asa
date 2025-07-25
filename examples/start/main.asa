@@ -3,6 +3,7 @@
 #import Builtin.Casts;
 //#import Builtin.Operators;
 #import Builtin.Memory;
+#import Builtin.Strings;
 
 //#import GameLogic;
 
@@ -18,9 +19,9 @@ Or individual components:
 #import Rendering.Window;
 */
 
-string :: struct {
-	c : int;
-}
+//string :: struct {
+//	c : int;
+//}
 string::string(){
 	return *(#new string);
 }

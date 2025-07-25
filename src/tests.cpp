@@ -197,48 +197,46 @@ std::vector<Test> tests = {
 	)",
 		A(Scope_Body, // Global
 			{
-			A(Nothing_Node,
-				{
-					A(Identifier_Node, {}),
-					A(Scope_Body, 
-						{
-							A(Member_Access,
-								{
-									A(Identifier_Node),
-									A(Identifier_Node),
-								}
-							)
-						}
-					),
-				}
-			),
-			A(Scope_Body,
-				{
-					A(Compiler_Define_Function, // x
-						{
-							A(Identifier_Node,{}), // x name
-							A(Type_Node,{}),
-							A(Arguments,
-								{A(Expression_Term, {})}
-							),
-							A(Compiler_Modifiers,{A(Scope_Body)}),
-							A(Scope_Body, // Contents of x(){
-								{
-									A(Return_Node, 
-										{
-											A(Expression_Term,
-												{
-													A(Integer_Node)
-												}
-											)
-										}
-									)
-								}
-							)
-						}
-					)
-				}
-			)
+				A(Nothing_Node,
+					{
+						A(Identifier_Node, {}),
+						A(Scope_Body, 
+							{
+								A(Member_Access,
+									{
+										A(Identifier_Node),
+										A(Identifier_Node),
+									}
+								)
+							}
+						),
+					}
+				),
+				
+				A(Compiler_Define_Function, // x
+					{
+						A(Identifier_Node,{}), // x name
+						A(Type_Node,{}),
+						A(Arguments,
+							{A(Expression_Term, {})}
+						),
+						A(Compiler_Modifiers,{A(Scope_Body)}),
+						A(Scope_Body, // Contents of x(){
+							{
+								A(Return_Node, 
+									{
+										A(Expression_Term,
+											{
+												A(Integer_Node)
+											}
+										)
+									}
+								)
+							}
+						)
+					}
+				)
+			
 			}
 		)
 	),
@@ -356,6 +354,7 @@ testFailed:
 
 	console::PrintError("");
 	console::WriteLine("A test failed ❌ \n", console::redFGColor);
+	//exit(1);
 	//throw;
 }
 #endif

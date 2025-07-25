@@ -663,20 +663,20 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 			}
 
 			case Module_Define: {
-				node->nodeType = Module_Define_Node;
 
-				ASTNode* bodyNode = new ASTNode();
+				//ASTNode* bodyNode = new ASTNode();
 
 				std::vector<tokenPair> subTokens = std::vector<tokenPair>();
 
 				// Step through all tokens to gather body until braces are closed
 				GATHER_SCOPE_BODY(tokens, subTokens, 0, i, true);
 
-				bodyNode = generateAST(subTokens, depth + 1);
-				bodyNode->nodeType = Scope_Body;
-				bodyNode->codegen = &ASTNode::generateScopeBody;
+				generateAST(subTokens, depth + 1, node);
 
-				node->childNodes.push_back(bodyNode);
+				node->nodeType = Module_Define_Node;
+				node->token = token;
+				node->codegen = &ASTNode::generateScopeBody;
+
 				break;
 			}
 
@@ -1077,7 +1077,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 					bodyNode->nodeType = Scope_Body;
 					bodyNode->codegen = &ASTNode::generateScopeBody;
 
-					node->token.first = identifier->token.first;
+					node->token = identifier->token;
 					node->childNodes.push_back(bodyNode);
 
 					// Check if extra type following :: but before {
@@ -1197,7 +1197,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 					else
 						node->codegen = &ASTNode::generatePrototype;
 
-					node->token.first = identifier->token.first;
+					node->token = identifier->token;
 					node->childNodes.push_back(identifier);
 					node->childNodes.push_back(secondPart);
 					node->childNodes.push_back(argumentsNode);
@@ -1208,7 +1208,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 					// Check for special function types
 					if (identifier->token.first == "cast") {
 						if (secondPart->childNodes.size() > 0)
-							node->token.first = secondPart->childNodes[0]->token.first;
+							node->token = secondPart->childNodes[0]->token;
 						else {
 							printTokenError(secondPart->token, "Cast function must have a return type");
 							exit(1);
@@ -1926,20 +1926,21 @@ bool loadModule(std::string& modulePath, std::string& moduleName)
 		// Look through file to see if it contains the desired module
 		for (int j = 0; j < localRoot->childNodes.size(); j++) {
 			if (localRoot->childNodes[j]->nodeType == Compiler_Define)
-				if (localRoot->childNodes[j]->childNodes.size() >= 1)
-					if (localRoot->childNodes[j]->childNodes[0]->childNodes.size() >= 1)
-						if (localRoot->childNodes[j]->childNodes[0]->childNodes[0]->nodeType == Module_Define_Node) {
-							ASTNode* moduleNode = localRoot->childNodes[j]->childNodes[0]->childNodes[0];
-							if (localRoot->childNodes[j]->token.first == moduleName) {
-								for (int i = 0; i < moduleNode->childNodes[0]->childNodes.size(); i++) {
-									importedNodes.push_back(moduleNode->childNodes[0]->childNodes[i]);
-									//rootNode->childNodes.push_back(localRoot->childNodes[i]);
-								}
-								if (verbosity >= 2)
-									printModuleLoaded(moduleName, pathStr);
-								return true;
-							}
+				if (localRoot->childNodes[j]->childNodes.size() >= 1 &&
+					localRoot->childNodes[j]->childNodes[0]->childNodes.size() >= 1 &&
+					localRoot->childNodes[j]->childNodes[0]->childNodes[0]->nodeType == Module_Define_Node) {
+
+					ASTNode* moduleNode = localRoot->childNodes[j]->childNodes[0]->childNodes[0];
+					if (localRoot->childNodes[j]->token.first == moduleName) {
+						for (int i = 0; i < moduleNode->childNodes[0]->childNodes.size(); i++) {
+							importedNodes.push_back(moduleNode->childNodes[0]->childNodes[i]);
+							//rootNode->childNodes.push_back(localRoot->childNodes[i]);
 						}
+						if (verbosity >= 2)
+							printModuleLoaded(moduleName, pathStr);
+						return true;
+					}
+				}
 		}
 	}
 	return false;
@@ -1959,21 +1960,26 @@ void addModuleImports(ASTNode*& node)
 				if (node->childNodes.size() > 1) {
 					ASTNode* moduleNameNode = node->childNodes[1]->childNodes[0];
 					if (moduleNameNode->nodeType == Member_Access) {
-						std::string modulePath = "";
+						std::string modulePath = moduleNameNode->childNodes[0]->token.first;
 						bool moduleFound = false;
-						for (int i = 0; i < moduleNameNode->childNodes.size() - 1; i++)
-							modulePath += moduleNameNode->childNodes[i]->token.first;
-						std::string moduleName = moduleNameNode->childNodes.back()->token.first;
+						ASTNode* secondExpression = moduleNameNode->childNodes[1];
+						// Get sub member accesses
+						while (secondExpression->nodeType == Member_Access) {
+							modulePath += "/" + secondExpression->childNodes[0]->token.first;
+							secondExpression = secondExpression->childNodes[1];
+						}
+						std::string moduleName = secondExpression->token.first;
 
 						if (importedModuleNames.find(moduleName) != importedModuleNames.end()) {
 							node->nodeType = Nothing_Node;
+							node->showInASTOutput = false;
 							return;
 						}
 
 						std::string searchPath[2] = {projectDirectory + modulePath, executableDirectory + "modules/" + modulePath};
 						if (directoryExists(searchPath[0]))
 							moduleFound = loadModule(searchPath[0], moduleName);
-						else if (directoryExists(searchPath[1]))
+						if (!moduleFound && directoryExists(searchPath[1]))
 							moduleFound = loadModule(searchPath[1], moduleName);
 
 						importedModuleNames.insert(moduleName);
@@ -1995,7 +2001,7 @@ void addModuleImports(ASTNode*& node)
 						std::string searchPath[2] = {projectDirectory, executableDirectory + "modules/"};
 						if (directoryExists(searchPath[0]))
 							moduleFound = loadModule(searchPath[0], moduleName);
-						else if (directoryExists(searchPath[1]))
+						if (!moduleFound && directoryExists(searchPath[1]))
 							moduleFound = loadModule(searchPath[1], moduleName);
 
 						importedModuleNames.insert(moduleName);

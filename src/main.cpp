@@ -154,7 +154,7 @@ int main(int argc, char** argv)
 		// File includes
 		addFileIncludes(rootNode);
 		for (int i = 0; i < importedNodes.size(); i++)
-			rootNode->childNodes.push_back(importedNodes[i]);
+			rootNode->childNodes.insert(rootNode->childNodes.begin(), importedNodes[i]);
 		if (importedNodes.size() > 0)
 			noImports = false;
 		importedNodes = std::vector<ASTNode*>();
@@ -162,7 +162,7 @@ int main(int argc, char** argv)
 		// Module imports
 		addModuleImports(rootNode);
 		for (int i = 0; i < importedNodes.size(); i++)
-			rootNode->childNodes.push_back(importedNodes[i]);
+			rootNode->childNodes.insert(rootNode->childNodes.begin(), importedNodes[i]);
 		if (importedNodes.size() > 0)
 			noImports = false;
 		importedNodes = std::vector<ASTNode*>();
@@ -200,7 +200,7 @@ int main(int argc, char** argv)
 		console::WriteLine("\n\nCompiling:", console::greenFGColor);
 	// First pass
 	generateOutputCode(rootNode, 0, 0);
-	// Second pass
+	// Final pass
 	generateOutputCode(rootNode, 0, 1);
 	// Cleanup unused code
 	removeUnusedPrototypes();

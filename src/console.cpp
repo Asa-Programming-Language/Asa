@@ -90,7 +90,7 @@ namespace console {
 			Write(std::string(" on line: \"") + std::to_string(lineNumber) + "\"");
 		Write(":  ");
 
-		Write(s + "\n\n");
+		Write(s + "\n");
 	}
 
 	void PrintWarning(std::string s, int lineNumber, std::string fileName)
@@ -102,7 +102,7 @@ namespace console {
 			Write(std::string(" on line: \"") + std::to_string(lineNumber) + "\"");
 		Write(":  ");
 
-		Write(s + "\n\n");
+		Write(s + "\n");
 	}
 
 

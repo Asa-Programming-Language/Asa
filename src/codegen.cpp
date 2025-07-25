@@ -1404,7 +1404,7 @@ void* ASTNode::generateMemberAccess(int pass)
 		printf("member index: %d\n", memberIndex);
 		//std::cout << structDefinitions[v->type].members << std::endl;
 		printf("member list size: %d\n", structDefinition->members.size());
-		printf("member name: %s\n", structDefinition->members[memberIndex].typeString);
+		printf("member name: %s\n", structDefinition->members[memberIndex].typeString.c_str());
 		Type* elementType = getLLVMTypeFromString(structDefinition->members[memberIndex].typeString, 0, token);
 		//Type* elementType = getLLVMTypeFromString(v->type, -1, childNodes[0]->token);
 		//Type* elementType = getLLVMTypeFromString(baseType);
@@ -1644,6 +1644,12 @@ void* ASTNode::generateStruct(int pass)
 {
 	std::string structName = token.first;
 
+	// Do not create a struct with the same name
+	if (structDefinitions.find(structName) != structDefinitions.end()) {
+		printTokenError(token, "Struct cannot be redefined");
+		exit(1);
+	}
+
 	argumentList members = argumentList();
 	std::vector<Type*> fieldTypes;
 	std::vector<std::string> fieldNames;
@@ -1681,6 +1687,9 @@ void* ASTNode::generateStruct(int pass)
 			i++;
 		}
 	}
+
+	// Make nothing node to not be regenerated
+	nodeType = Nothing_Node;
 
 	StructType* structTy = StructType::create(*TheContext, fieldTypes, structName);
 
@@ -1920,7 +1929,7 @@ void* ASTNode::generatePrototype(int pass)
 	//Function* theFunction = TheModule->getFunction(token.first);
 	functionID* theFunctionID = getExactFunctionFromID(fnName, argList, token);
 	if (theFunctionID) {
-		if (verbosity >= 3) {
+		if (verbosity >= 5) {
 			console::printIndent(2);
 			console::Write("-- Pre-existing function definition found for: ");
 			console::Write(fnName, console::yellowFGColor);
@@ -1948,8 +1957,10 @@ void* ASTNode::generatePrototype(int pass)
 	}
 
 	functionIDs.emplace_back(fnName, mangledName, rTypeString, argList, fn, variableNumArguments);
-	console::printIndent(depth + 2);
-	console::WriteLine("-- Added function \"" + fnName + "\" to functionIDs");
+	if (verbosity >= 5) {
+		console::printIndent(depth + 2);
+		console::WriteLine("-- Added function \"" + fnName + "\" to functionIDs");
+	}
 
 	return fn;
 }
@@ -1973,7 +1984,7 @@ void* ASTNode::generateFunction(int pass)
 	}
 
 	if (!theFunction->empty()) {
-		printTokenError(token, "Function cannot be redefined");
+		printTokenError(token, "Function cannot be redefined, requires unique identity.");
 		return nullptr;
 	}
 
