@@ -199,21 +199,26 @@ struct tokenDataType {
 	TokenType second = Nothing;
 	int lineNumber = 0;
 	std::string* lineValue = nullptr;
+	std::string* filePath = nullptr;
 	int indexInLine = 0;
+	uint16_t length = 0;
 
 	tokenDataType() {}
 	tokenDataType(std::string f, TokenType s)
 	{
 		first = f;
+		length = first.size();
 		second = s;
 	}
-	tokenDataType(std::string f, TokenType s, int l, int i, std::string* lV)
+	tokenDataType(std::string f, TokenType s, int l, int i, std::string* lV, std::string* fP)
 	{
 		first = f;
+		length = first.size();
 		second = s;
 		lineNumber = l;
 		indexInLine = i;
 		lineValue = lV;
+		filePath = fP;
 	}
 
 	bool operator==(tokenDataType other)
@@ -228,14 +233,14 @@ struct tokenDataType {
 typedef tokenDataType tokenPair;
 //typedef std::pair<std::string, TokenType> tokenPair;
 
-extern std::vector<tokenPair> allTokens;
+extern std::vector<tokenPair*> allTokens;
 extern std::vector<std::string*> lines;
 
 #define NEXT_TOKEN(tokens, i) tokens[++i];
 //tokenPair NEXT_TOKEN(int& i);
 
-int tokenize(std::string& rawFile, std::vector<tokenPair>& tokens);
-int labelSubTokens(std::vector<tokenPair>& tokens);
-int joinCommentTokens(std::vector<tokenPair>& tokens);
-int removeCommentTokens(std::vector<tokenPair>& tokens);
+int tokenize(std::string& rawFile, std::vector<tokenPair*>& tokens, std::string& fileName);
+int labelSubTokens(std::vector<tokenPair*>& tokens);
+int joinCommentTokens(std::vector<tokenPair*>& tokens);
+int removeCommentTokens(std::vector<tokenPair*>& tokens);
 const std::string tokenAsString(TokenType t);

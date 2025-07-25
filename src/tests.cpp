@@ -77,7 +77,7 @@ std::vector<Test> tests = {
 									A({}, Identifier_Node),
 									A(Expression_Term,
 										{
-											A(Expression_Plus, {A(Integer_Node, {}, tokenPair("2", Integer), true),A(Integer_Node, {}, tokenPair("2", Integer), true)})
+											A(Expression_Plus, {A(Integer_Node, {}, new tokenPair("2", Integer), true),A(Integer_Node, {}, new tokenPair("2", Integer), true)})
 										}
 									)
 								}
@@ -115,8 +115,8 @@ std::vector<Test> tests = {
 									A(Nothing_Node),
 									A(Range_Node,
 										{
-											A(Integer_Node, {}, tokenPair("0", Integer), true),
-											A(Integer_Node, {}, tokenPair("100", Integer), true),
+											A(Integer_Node, {}, new tokenPair("0", Integer), true),
+											A(Integer_Node, {}, new tokenPair("100", Integer), true),
 										}
 									),
 									A(Scope_Body, {}),
@@ -153,12 +153,12 @@ std::vector<Test> tests = {
 							A(For_Statement_Node,
 								{
 									A(Iterator,  // Iterator i
-										{A(Identifier_Node, {}, tokenPair("i", Identifier), true)}
+										{A(Identifier_Node, {}, new tokenPair("i", Identifier), true)}
 									),
 									A(Range_Node, // Range
 										{
-											A(Integer_Node, {}, tokenPair("0", Integer), true),
-											A(Integer_Node, {}, tokenPair("100", Integer), true),
+											A(Integer_Node, {}, new tokenPair("0", Integer), true),
+											A(Integer_Node, {}, new tokenPair("100", Integer), true),
 										}
 									),
 									A(Scope_Body, {}),
@@ -258,10 +258,11 @@ void runTests()
 			console::Write(PadStringRight("Test " + std::to_string(i + 1), '.', 60));
 
 			Test& t = tests[i];
-			std::vector<tokenPair> localTokens = std::vector<tokenPair>();
+			std::vector<tokenPair*> localTokens = std::vector<tokenPair*>();
 
 			// Begin tokenizing file
-			int e = tokenize(t.code, localTokens);
+			std::string fileName = "";
+			int e = tokenize(t.code, localTokens, fileName);
 			if (e != 0) {
 				console::PrintError("Invalid tokens met", __LINE__, __FILE__);
 				goto testFailed;

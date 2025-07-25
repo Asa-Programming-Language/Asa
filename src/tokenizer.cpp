@@ -1,7 +1,8 @@
 #include "tokenizer.h"
 
-std::vector<tokenPair> allTokens = std::vector<tokenPair>();
+std::vector<tokenPair*> allTokens = std::vector<tokenPair*>();
 std::vector<std::string*> lines = std::vector<std::string*>();
+std::vector<std::string*> fileNames = std::vector<std::string*>();
 std::string nullStr = "";
 
 bool charInArray(char x, const char* a)
@@ -156,7 +157,7 @@ const std::string tokenAsString(TokenType t)
 
 TokenType currentToken = Nothing;
 std::string tokenContent = "";
-int tokenize(std::string& rawFile, std::vector<tokenPair>& tokens)
+int tokenize(std::string& rawFile, std::vector<tokenPair*>& tokens, std::string& fileName)
 {
 	// First remove carriage returns if they exist
 	std::string output = "";
@@ -168,6 +169,7 @@ int tokenize(std::string& rawFile, std::vector<tokenPair>& tokens)
 	rawFile = output;
 
 	lines.push_back(new std::string(""));
+	fileNames.push_back(new std::string(fileName));
 
 	// Then start making tokens
 	int lineNumber = 1;
@@ -231,13 +233,14 @@ int tokenize(std::string& rawFile, std::vector<tokenPair>& tokens)
 						}
 
 						if (tokenContainsSwap.find(currentToken) != tokenContainsSwap.end()) {
-							if (tokenContent.find(tokenContainsSwap[currentToken].first[0]) != std::string::npos)
+							if (tokenContent.find(tokenContainsSwap[currentToken].first[0]) != std::string::npos) {
 								currentToken = tokenContainsSwap[currentToken].second;
+							}
 						}
 
 
 						// Add tokenContent as element to tokens, and clear it
-						tokens.push_back(tokenPair(tokenContent, currentToken, lineNumber, startIndexInLine, lineValue));
+						tokens.push_back(new tokenPair(tokenContent, currentToken, lineNumber, startIndexInLine, lineValue, fileNames.back()));
 						tokenContent = "";
 
 						currentToken = Nothing;
@@ -261,71 +264,71 @@ int tokenize(std::string& rawFile, std::vector<tokenPair>& tokens)
 			}
 		}
 	}
-	tokens.push_back(tokenPair("", EndOfFile, lineNumber + 1, 0, &nullStr));
+	tokens.push_back(new tokenPair("", EndOfFile, lineNumber + 1, 0, &nullStr, &nullStr));
 
 	return 0;
 }
 
-int labelSubTokens(std::vector<tokenPair>& tokens)
+int labelSubTokens(std::vector<tokenPair*>& tokens)
 {
 	for (int i = 0; i < tokens.size(); i++) {
-		std::string t = tokens[i].first;
-		TokenType tt = tokens[i].second;
+		std::string t = tokens[i]->first;
+		TokenType tt = tokens[i]->second;
 		//if (tt != Punctuation)
 		//	continue;
 		// If token has a known subtype, set TokenType to that instead
 		if (subTokenTypes.find(t) != subTokenTypes.end()) {
 			const TokenType newType = subTokenTypes[t];
-			tokens[i].second = newType;
+			tokens[i]->second = newType;
 		}
 	}
 
 	return 0;
 }
 
-int joinCommentTokens(std::vector<tokenPair>& tokens)
+int joinCommentTokens(std::vector<tokenPair*>& tokens)
 {
-	tokens.insert(tokens.begin(), tokenPair());
+	tokens.insert(tokens.begin(), new tokenPair());
 	int i = 0;
 	bool inComment = false;
 	bool multiLineComment = false;
 	int startIndex = 0;
 	std::string newTokenContents = "";
 	while (i < tokens.size() - 1) {
-		tokenPair t = NEXT_TOKEN(tokens, i);
+		tokenPair* t = NEXT_TOKEN(tokens, i);
 		if (!inComment) {
-			if (t.first.substr(0, 2) == "//" || t.first.substr(0, 2) == "/*") {
+			if (t->first.substr(0, 2) == "//" || t->first.substr(0, 2) == "/*") {
 				inComment = true;
-				if (t.first.substr(0, 2) == "/*")
+				if (t->first.substr(0, 2) == "/*")
 					multiLineComment = true;
 				startIndex = i;
-				tokens[startIndex].second = Comment;
-				newTokenContents = t.first + " ";
+				tokens[startIndex]->second = Comment;
+				newTokenContents = t->first + " ";
 			}
 		}
 		else if (inComment) {
-			newTokenContents += t.first + " ";
+			newTokenContents += t->first + " ";
 			//tokens.erase(tokens.begin() + i);
 			// If end of comment, combine all parts into single token and delete others
 			if (multiLineComment) {
-				if (t.first.substr(0, 2) == "*/") {
+				if (t->first.substr(0, 2) == "*/") {
 					i++;
 					goto endComment;
 				}
 			}
-			else if (t.second == EndOfLine)
+			else if (t->second == EndOfLine)
 				goto endComment;
 
 			continue;
 
 		endComment:
-			if (t.second == EndOfLine) {  // If newline, redact last character
+			if (t->second == EndOfLine) {  // If newline, redact last character
 				//i--;
 				newTokenContents = newTokenContents.substr(0, newTokenContents.length() - 4);
 			}
 			inComment = false;
 			multiLineComment = false;
-			tokens[startIndex].first = newTokenContents;
+			tokens[startIndex]->first = newTokenContents;
 			tokens.erase(tokens.begin() + startIndex + 1, tokens.begin() + i);
 			i = startIndex + 1;
 		}
@@ -333,12 +336,12 @@ int joinCommentTokens(std::vector<tokenPair>& tokens)
 	return 0;
 }
 
-int removeCommentTokens(std::vector<tokenPair>& tokens)
+int removeCommentTokens(std::vector<tokenPair*>& tokens)
 {
 	int i = 0;
 	while (i < tokens.size() - 1) {
-		tokenPair t = NEXT_TOKEN(tokens, i);
-		if (t.second == Comment) {
+		tokenPair* t = NEXT_TOKEN(tokens, i);
+		if (t->second == Comment) {
 			tokens.erase(tokens.begin() + i);
 			i--;
 		}

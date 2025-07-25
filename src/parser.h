@@ -78,6 +78,7 @@ enum ASTNodeType {
 	While_Statement_Node,
 
 	Struct_Define_Node,
+	Struct_Type,
 
 	Module_Define_Node,
 
@@ -173,6 +174,7 @@ const std::string ASTNodeTypeStrings[] = {
 	"While_Statement_Node",
 
 	"Struct_Define_Node",
+	"Struct_Type",
 
 	"Module_Define_Node",
 
@@ -223,13 +225,14 @@ struct ASTNode {
 	ASTNode* parentNode = nullptr;
 	std::vector<ASTNode*> childNodes = std::vector<ASTNode*>();
 	ASTNodeType nodeType = Nothing_Node;
-	tokenPair token = tokenPair();
+	tokenPair* token = new tokenPair();
 	int lineNumber = 0;
 	uint16_t depth = 0;
 	bool isRef = false;
 	bool isExtern = false;
 	bool lvalue = false;
 	bool showInASTOutput = true;
+	bool replaceableDefinition = false;
 	// Add leaf nodes here as they are still yet to be used.
 	std::vector<ASTNode*> leafNodes = std::vector<ASTNode*>();
 
@@ -280,14 +283,14 @@ struct ASTNode {
 		childNodes = cNodes;
 		nodeType = nType;
 	}
-	ASTNode(ASTNodeType nType, std::vector<ASTNode*> cNodes, tokenPair t, bool cmpTokens = false)
+	ASTNode(ASTNodeType nType, std::vector<ASTNode*> cNodes, tokenPair* t, bool cmpTokens = false)
 	{
 		childNodes = cNodes;
 		nodeType = nType;
 		token = t;
 		compareTokens = cmpTokens;
 	}
-	ASTNode(std::vector<ASTNode*> cNodes, ASTNodeType nType, tokenPair t, bool cmpTokens = false)
+	ASTNode(std::vector<ASTNode*> cNodes, ASTNodeType nType, tokenPair* t, bool cmpTokens = false)
 	{
 		childNodes = cNodes;
 		nodeType = nType;
@@ -308,7 +311,7 @@ struct ASTNode {
 
 		// If child nodes match, then we have to check the current node
 		if (compareTokens)
-			if (!(token == other.token))
+			if (!(*token == *(other.token)))
 				return false;
 		if (nodeType == other.nodeType /* && token == other.token &&
 			lineNumber == other.lineNumber*/
@@ -324,8 +327,8 @@ struct ASTNode {
 extern ASTNode* rootNode;
 extern std::vector<ASTNode*> importedNodes;
 
-int beginParse(const std::vector<tokenPair>& tokens);
-ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth = 0, ASTNode* parentNodePtr = nullptr);
+int beginParse(const std::vector<tokenPair*>& tokens);
+ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth = 0, ASTNode* parentNodePtr = nullptr);
 void orderASTOperations(ASTNode* startNode);
 const std::string ASTNodeTypeAsString(ASTNodeType t);
 int printAST(ASTNode* startNode, int depth = 0);
@@ -335,8 +338,8 @@ void optimizeASTNode(ASTNode*& node);
 void addFileIncludes(ASTNode*& node);
 void addModuleImports(ASTNode*& node);
 void assignParentNodes(ASTNode*& node, int depth = 0);
-void printTokenError(tokenPair& token, std::string errorString = "", int sourceLineNumber = 0, const char* fileName = "");
-void printTokenWarning(tokenPair& token, std::string errorString = "", int sourceLineNumber = 0, const char* fileName = "");
+void printTokenError(tokenPair*& token, std::string errorString = "", int sourceLineNumber = 0, const char* fileName = "");
+void printTokenWarning(tokenPair*& token, std::string errorString = "", int sourceLineNumber = 0, const char* fileName = "");
 void printModuleLoaded(std::string& moduleName, std::string& modulePath);
 void generateOutputCode(ASTNode*& node, int depth = 0, int pass = 0);
 //std::vector<tokenPair> GATHER_SCOPE_BODY(int brLevel, int& i);

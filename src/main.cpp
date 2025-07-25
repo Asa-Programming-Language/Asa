@@ -108,6 +108,7 @@ int main(int argc, char** argv)
 	}
 	projectDirectory = std::filesystem::weakly_canonical(std::filesystem::path(fileName)).parent_path().string() + "/";
 	baseFileName = std::filesystem::path(fileName).filename();
+	std::string fullFileName = projectDirectory + baseFileName;
 
 
 	// If output name not provided, create
@@ -116,7 +117,7 @@ int main(int argc, char** argv)
 
 
 	// Begin tokenizing file
-	int e = tokenize(initialFileString, allTokens);
+	int e = tokenize(initialFileString, allTokens, fullFileName);
 	if (e != 0) {
 		console::Write("Invalid tokens met\n");
 		exit(1);
@@ -136,10 +137,10 @@ int main(int argc, char** argv)
 	if (verbosity >= 5) {
 		printf("\nTokens:\n");
 		for (int i = 0; i < allTokens.size(); i++) {
-			if (allTokens[i].second != EndOfLine) {
-				console::Write(std::to_string(i) + "T:" + std::to_string(allTokens[i].lineNumber) + "L: ", console::yellowFGColor);
-				if (allTokens[i].lineValue != nullptr)
-					printf("[%s]\t[%s]\t[%s]\n", allTokens[i].first.c_str(), tokenAsString(allTokens[i].second).c_str(), allTokens[i].lineValue->c_str());
+			if (allTokens[i]->second != EndOfLine) {
+				console::Write(std::to_string(i) + "T:" + std::to_string(allTokens[i]->lineNumber) + "L: ", console::yellowFGColor);
+				if (allTokens[i]->lineValue != nullptr)
+					printf("[%s]\t[%s]\t[%s]\n", allTokens[i]->first.c_str(), tokenAsString(allTokens[i]->second).c_str(), allTokens[i]->lineValue->c_str());
 			}
 		}
 	}
@@ -198,12 +199,14 @@ int main(int argc, char** argv)
 	initializeCodeGenerator();
 	if (verbosity >= 2)
 		console::WriteLine("\n\nCompiling:", console::greenFGColor);
-	// First pass
+	// First pass, type/struct definitions
 	generateOutputCode(rootNode, 0, 0);
-	// Final pass
+	// Function pass
 	generateOutputCode(rootNode, 0, 1);
-	// Cleanup unused code
-	removeUnusedPrototypes();
+	// Final pass
+	generateOutputCode(rootNode, 0, 2);
+	//// Cleanup unused code
+	//removeUnusedPrototypes();
 
 	// Print out all of the generated code.
 	if (verbosity >= 4) {

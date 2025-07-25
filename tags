@@ -776,9 +776,9 @@ ASTAllocator	src/include/llvm/Demangle/ItaniumDemangle.h	/^  Alloc ASTAllocator;
 ASTNode	src/parser.h	/^	ASTNode() {}$/;"	f	struct:ASTNode
 ASTNode	src/parser.h	/^	ASTNode(ASTNodeType nType)$/;"	f	struct:ASTNode
 ASTNode	src/parser.h	/^	ASTNode(ASTNodeType nType, std::vector<ASTNode*> cNodes)$/;"	f	struct:ASTNode
-ASTNode	src/parser.h	/^	ASTNode(ASTNodeType nType, std::vector<ASTNode*> cNodes, tokenPair t, bool cmpTokens = false)$/;"	f	struct:ASTNode
+ASTNode	src/parser.h	/^	ASTNode(ASTNodeType nType, std::vector<ASTNode*> cNodes, tokenPair* t, bool cmpTokens = false)$/;"	f	struct:ASTNode
 ASTNode	src/parser.h	/^	ASTNode(std::vector<ASTNode*> cNodes, ASTNodeType nType)$/;"	f	struct:ASTNode
-ASTNode	src/parser.h	/^	ASTNode(std::vector<ASTNode*> cNodes, ASTNodeType nType, tokenPair t, bool cmpTokens = false)$/;"	f	struct:ASTNode
+ASTNode	src/parser.h	/^	ASTNode(std::vector<ASTNode*> cNodes, ASTNodeType nType, tokenPair* t, bool cmpTokens = false)$/;"	f	struct:ASTNode
 ASTNode	src/parser.h	/^struct ASTNode {$/;"	s
 ASTNodeType	src/parser.h	/^enum ASTNodeType {$/;"	g
 ASTNodeTypeAsString	src/parser.cpp	/^const std::string ASTNodeTypeAsString(ASTNodeType t)$/;"	f	typeref:typename:const std::string
@@ -16305,13 +16305,13 @@ G	src/include/llvm/Support/GraphWriter.h	/^  const GraphType &G;$/;"	m	class:llv
 G	src/include/llvm/XRay/Graph.h	/^    GraphT &G;$/;"	m	class:llvm::xray::Graph::EdgeView	typeref:typename:GraphT &
 G	src/include/llvm/XRay/Graph.h	/^    GraphT &G;$/;"	m	class:llvm::xray::Graph::VertexView	typeref:typename:GraphT &
 GAR	src/include/llvm/Analysis/GlobalsModRef.h	/^    GlobalsAAResult *GAR;$/;"	m	struct:llvm::GlobalsAAResult::DeletionCallbackHandle	typeref:typename:GlobalsAAResult *
-GATHER_PAREN_EXPRESSION	src/parser.cpp	/^void GATHER_PAREN_EXPRESSION(const std::vector<tokenPair>& tokens, std::vector<tokenPair>& subTo/;"	f	typeref:typename:void
-GATHER_SCOPE_BODY	src/parser.cpp	/^bool GATHER_SCOPE_BODY(const std::vector<tokenPair>& tokens, std::vector<tokenPair>& subTokens, /;"	f	typeref:typename:bool
-GATHER_SCOPE_BODY_APPEND	src/parser.cpp	/^bool GATHER_SCOPE_BODY_APPEND(const std::vector<tokenPair>& tokens, std::vector<tokenPair>& subT/;"	f	typeref:typename:bool
-GATHER_TO_A_OR_B	src/parser.cpp	/^bool GATHER_TO_A_OR_B(const std::vector<tokenPair>& tokens, std::vector<tokenPair>& subTokens, i/;"	f	typeref:typename:bool
-GATHER_TO_SEMICOLON	src/parser.cpp	/^bool GATHER_TO_SEMICOLON(const std::vector<tokenPair>& tokens, std::vector<tokenPair>& subTokens/;"	f	typeref:typename:bool
-GATHER_TO_SEMICOLON_OR_OTHER	src/parser.cpp	/^bool GATHER_TO_SEMICOLON_OR_OTHER(const std::vector<tokenPair>& tokens, std::vector<tokenPair>& /;"	f	typeref:typename:bool
-GATHER_TO_TOKEN	src/parser.cpp	/^bool GATHER_TO_TOKEN(const std::vector<tokenPair>& tokens, std::vector<tokenPair>& subTokens, in/;"	f	typeref:typename:bool
+GATHER_PAREN_EXPRESSION	src/parser.cpp	/^void GATHER_PAREN_EXPRESSION(const std::vector<tokenPair*>& tokens, std::vector<tokenPair*>& sub/;"	f	typeref:typename:void
+GATHER_SCOPE_BODY	src/parser.cpp	/^bool GATHER_SCOPE_BODY(const std::vector<tokenPair*>& tokens, std::vector<tokenPair*>& subTokens/;"	f	typeref:typename:bool
+GATHER_SCOPE_BODY_APPEND	src/parser.cpp	/^bool GATHER_SCOPE_BODY_APPEND(const std::vector<tokenPair*>& tokens, std::vector<tokenPair*>& su/;"	f	typeref:typename:bool
+GATHER_TO_A_OR_B	src/parser.cpp	/^bool GATHER_TO_A_OR_B(const std::vector<tokenPair*>& tokens, std::vector<tokenPair*>& subTokens,/;"	f	typeref:typename:bool
+GATHER_TO_SEMICOLON	src/parser.cpp	/^bool GATHER_TO_SEMICOLON(const std::vector<tokenPair*>& tokens, std::vector<tokenPair*>& subToke/;"	f	typeref:typename:bool
+GATHER_TO_SEMICOLON_OR_OTHER	src/parser.cpp	/^bool GATHER_TO_SEMICOLON_OR_OTHER(const std::vector<tokenPair*>& tokens, std::vector<tokenPair*>/;"	f	typeref:typename:bool
+GATHER_TO_TOKEN	src/parser.cpp	/^bool GATHER_TO_TOKEN(const std::vector<tokenPair*>& tokens, std::vector<tokenPair*>& subTokens, /;"	f	typeref:typename:bool
 GAdd	src/include/llvm/CodeGen/GlobalISel/GenericMachineInstrs.h	/^class GAdd : public GIntBinOp {$/;"	c	namespace:llvm
 GAddCarryOut	src/include/llvm/CodeGen/GlobalISel/GenericMachineInstrs.h	/^class GAddCarryOut : public GBinOpCarryOut {$/;"	c	namespace:llvm
 GAddSubCarryInOut	src/include/llvm/CodeGen/GlobalISel/GenericMachineInstrs.h	/^class GAddSubCarryInOut : public GAddSubCarryOut {$/;"	c	namespace:llvm
@@ -43261,6 +43261,7 @@ StructVersion	src/include/llvm/BinaryFormat/Minidump.h	/^  support::ulittle32_t 
 Struct_Define	src/tokenizer.h	/^	Struct_Define,$/;"	e	enum:TokenType
 Struct_Define_Node	src/parser.h	/^	Struct_Define_Node,$/;"	e	enum:ASTNodeType
 Struct_NumElements	src/include/llvm/IR/Intrinsics.h	/^      unsigned Struct_NumElements;$/;"	m	union:llvm::Intrinsic::IITDescriptor::__anon6329595f010a	typeref:typename:unsigned
+Struct_Type	src/parser.h	/^	Struct_Type,$/;"	e	enum:ASTNodeType
 Structor	src/include/llvm/CodeGen/AsmPrinter.h	/^  struct Structor {$/;"	s	class:llvm::AsmPrinter
 StructorIdentifier	src/include/llvm/Demangle/MicrosoftDemangleNodes.h	/^  StructorIdentifier,$/;"	e	enum:llvm::ms_demangle::NodeKind
 StructorIdentifierNode	src/include/llvm/Demangle/MicrosoftDemangleNodes.h	/^  StructorIdentifierNode() : IdentifierNode(NodeKind::StructorIdentifier) {}$/;"	f	struct:llvm::ms_demangle::StructorIdentifierNode
@@ -51035,7 +51036,7 @@ allEdges	src/include/llvm/Transforms/Instrumentation/CFGMST.h	/^  const std::vec
 allEdges	src/include/llvm/Transforms/Instrumentation/CFGMST.h	/^  std::vector<std::unique_ptr<Edge>> &allEdges() { return AllEdges; }$/;"	f	class:llvm::CFGMST	typeref:typename:std::vector<std::unique_ptr<Edge>> &
 allInSet	src/include/llvm/IR/Analysis.h	/^  template <typename AnalysisSetT> static PreservedAnalyses allInSet() {$/;"	f	class:llvm::PreservedAnalyses	typeref:typename:PreservedAnalyses
 allReferencesDropped	src/include/llvm/Analysis/CallGraph.h	/^  void allReferencesDropped() { NumReferences = 0; }$/;"	f	class:llvm::CallGraphNode	typeref:typename:void
-allTokens	src/tokenizer.cpp	/^std::vector<tokenPair> allTokens = std::vector<tokenPair>();$/;"	v	typeref:typename:std::vector<tokenPair>
+allTokens	src/tokenizer.cpp	/^std::vector<tokenPair*> allTokens = std::vector<tokenPair*>();$/;"	v	typeref:typename:std::vector<tokenPair * >
 allUsed	src/include/llvm/Transforms/Vectorize/SandboxVectorizer/SeedCollector.h	/^  bool allUsed() const { return UsedLaneCount == Seeds.size(); }$/;"	f	class:llvm::sandboxir::SeedBundle	typeref:typename:bool
 allUsesReplacedWith	src/include/llvm/IR/ValueHandle.h	/^  virtual void allUsesReplacedWith(Value *) {}$/;"	f	class:llvm::CallbackVH	typeref:typename:void
 allUsesReplacedWith	src/include/llvm/IR/ValueHandle.h	/^  void allUsesReplacedWith(Value *) override {$/;"	f	class:llvm::PoisoningVH	typeref:typename:void
@@ -51957,7 +51958,6 @@ beginFunclet	src/include/llvm/CodeGen/AsmPrinterHandler.h	/^  virtual void begin
 beginIndex	src/include/llvm/CodeGen/LiveInterval.h	/^    SlotIndex beginIndex() const {$/;"	f	class:llvm::LiveRange	typeref:typename:SlotIndex
 beginInstruction	src/include/llvm/CodeGen/AsmPrinterHandler.h	/^  virtual void beginInstruction(const MachineInstr *MI) {}$/;"	f	class:llvm::AsmPrinterHandler	typeref:typename:void
 beginModule	src/include/llvm/CodeGen/AsmPrinterHandler.h	/^  virtual void beginModule(Module *M) {}$/;"	f	class:llvm::AsmPrinterHandler	typeref:typename:void
-beginParse	src/parser.cpp	/^int beginParse(const std::vector<std::pair<std::string, TokenType>>& tokens)$/;"	f	typeref:typename:int
 beginPostorder	src/include/llvm/Analysis/LoopIterator.h	/^  POIterator beginPostorder() const {$/;"	f	class:llvm::LoopBlocksDFS	typeref:typename:POIterator
 beginRPO	src/include/llvm/Analysis/LoopIterator.h	/^  RPOIterator beginRPO() const {$/;"	f	class:llvm::LoopBlocksDFS	typeref:typename:RPOIterator
 beginStage	src/include/llvm/MC/MCInstrItineraries.h	/^  const InstrStage *beginStage(unsigned ItinClassIndx) const {$/;"	f	class:llvm::InstrItineraryData	typeref:typename:const InstrStage *
@@ -52645,7 +52645,7 @@ castFailed	src/include/llvm/Support/Casting.h	/^  static inline decltype(auto) c
 castFailed	src/include/llvm/Support/Casting.h	/^  static inline std::optional<To> castFailed() { return std::optional<To>{}; }$/;"	f	struct:llvm::OptionalValueCast	typeref:typename:std::optional<To>
 castIsValid	src/include/llvm/IR/InstrTypes.h	/^  static bool castIsValid(Instruction::CastOps op, Value *S, Type *DstTy) {$/;"	f	class:llvm::CastInst	typeref:typename:bool
 castToAtomicIntPointer	src/include/llvm/Frontend/Atomic/Atomic.h	/^  Value *castToAtomicIntPointer(Value *addr) const {$/;"	f	class:llvm::AtomicInfo	typeref:typename:Value *
-castToHighestAccuracy	src/codegen.cpp	/^void castToHighestAccuracy(Value*& L, Value*& R, tokenPair& token)$/;"	f	typeref:typename:void
+castToHighestAccuracy	src/codegen.cpp	/^void castToHighestAccuracy(Value*& L, Value*& R, tokenPair*& token)$/;"	f	typeref:typename:void
 castValue	src/codegen.cpp	/^llvm::Value* castValue(llvm::Value* value, llvm::Type* destType, bool isSrcSigned, bool isToSign/;"	f	typeref:typename:llvm::Value *
 castValue	src/include/llvm/ADT/TypeSwitch.h	/^  static decltype(auto) castValue(ValueT &&value) {$/;"	f	class:llvm::detail::TypeSwitchBase	typeref:typename:decltype(auto)
 cast_convert_val	src/include/llvm/Support/Casting.h	/^struct cast_convert_val<To, FromTy *, FromTy *> {$/;"	s	namespace:llvm
@@ -55435,6 +55435,7 @@ current	src/indicators.hpp	/^  size_t current() {$/;"	f	class:indicators::Progre
 currentAlternativeIndex	src/include/llvm/IR/InlineAsm.h	/^    unsigned currentAlternativeIndex = 0;$/;"	m	struct:llvm::InlineAsm::ConstraintInfo	typeref:typename:unsigned
 currentBB	src/include/llvm/Analysis/DominanceFrontierImpl.h	/^  BlockT *currentBB;$/;"	m	class:llvm::DFCalculateWorkObject	typeref:typename:BlockT *
 currentContext	src/include/llvm/Analysis/Utils/TrainingLogger.h	/^  const std::string &currentContext() const { return CurrentContext; }$/;"	f	class:llvm::Logger	typeref:typename:const std::string &
+currentStructName	src/codegen.cpp	/^std::string currentStructName = "";$/;"	v	typeref:typename:std::string
 currentToken	src/tokenizer.cpp	/^TokenType currentToken = Nothing;$/;"	v	typeref:typename:TokenType
 current_pos	src/include/llvm/Support/FormattedStream.h	/^  uint64_t current_pos() const override {$/;"	f	class:llvm::formatted_raw_ostream	typeref:typename:uint64_t
 current_pos	src/include/llvm/Support/circular_raw_ostream.h	/^    uint64_t current_pos() const override {$/;"	f	class:llvm::circular_raw_ostream	typeref:typename:uint64_t
@@ -57571,6 +57572,8 @@ field	src/include/llvm/Support/JSON.h	/^    StringRef field() const {$/;"	f	clas
 field	src/include/llvm/Support/JSON.h	/^  Path field(StringRef Field) const { return Path(this, Segment(Field)); }$/;"	f	class:llvm::json::Path	typeref:typename:Path
 fifo_file	src/include/llvm/Support/FileSystem.h	/^  fifo_file,$/;"	e	enum:llvm::sys::fs::file_type
 file	src/include/llvm/ProfileData/GCOV.h	/^  GCOVFile &file;$/;"	m	class:llvm::GCOVFunction	typeref:typename:GCOVFile &
+fileNames	src/tokenizer.cpp	/^std::vector<std::string*> fileNames = std::vector<std::string*>();$/;"	v	typeref:typename:std::vector<std::string * >
+filePath	src/tokenizer.h	/^	std::string* filePath = nullptr;$/;"	m	struct:tokenDataType	typeref:typename:std::string *
 file_exists	src/include/llvm/Support/Errc.h	/^  file_exists = int(std::errc::file_exists),$/;"	e	enum:llvm::errc
 file_magic	src/include/llvm/BinaryFormat/Magic.h	/^  file_magic(Impl V) : V(V) {}$/;"	f	struct:llvm::file_magic
 file_magic	src/include/llvm/BinaryFormat/Magic.h	/^struct file_magic {$/;"	s	namespace:llvm
@@ -58186,7 +58189,7 @@ functionEntryOnly	src/include/llvm/ProfileData/InstrProfReader.h	/^  bool functi
 functionID	src/codegen.cpp	/^	functionID() {}$/;"	f	struct:functionID	file:
 functionID	src/codegen.cpp	/^	functionID(std::string n, std::string mN, std::string r, argumentList a, Function* f, bool vA =/;"	f	struct:functionID	file:
 functionID	src/codegen.cpp	/^struct functionID {$/;"	s	file:
-functionIDs	src/codegen.cpp	/^std::vector<functionID> functionIDs = std::vector<functionID>();$/;"	v	typeref:typename:std::vector<functionID>
+functionIDs	src/codegen.cpp	/^std::vector<functionID*> functionIDs = std::vector<functionID*>();$/;"	v	typeref:typename:std::vector<functionID * >
 functionId	src/include/llvm/XRay/FDRRecords.h	/^  int32_t functionId() const { return FuncId; }$/;"	f	class:llvm::xray::FunctionRecord	typeref:typename:int32_t
 functionSamplesAt	src/include/llvm/ProfileData/SampleProf.h	/^  FunctionSamplesMap &functionSamplesAt(const LineLocation &Loc) {$/;"	f	class:llvm::sampleprof::FunctionSamples	typeref:typename:FunctionSamplesMap &
 function_iterator	src/include/llvm/Object/StackMapParser.h	/^  using function_iterator = AccessorIterator<FunctionAccessor>;$/;"	t	class:llvm::StackMapParser	typeref:typename:AccessorIterator<FunctionAccessor>
@@ -58228,7 +58231,7 @@ gc_transition_args_end	src/include/llvm/IR/Statepoint.h	/^  const_op_iterator gc
 gcd	src/include/llvm/ADT/DynamicAPInt.h	/^LLVM_ATTRIBUTE_ALWAYS_INLINE DynamicAPInt gcd(const DynamicAPInt &A,$/;"	f	namespace:llvm	typeref:typename:LLVM_ATTRIBUTE_ALWAYS_INLINE DynamicAPInt
 generate	src/include/llvm/ADT/CombinationGenerator.h	/^  void generate(const function_ref<bool(ArrayRef<choice_type>)> Callback) {$/;"	f	class:llvm::CombinationGenerator	typeref:typename:void
 generate	src/include/llvm/FuzzMutate/OpDescriptor.h	/^  std::vector<Constant *> generate(ArrayRef<Value *> Cur,$/;"	f	class:llvm::fuzzerop::SourcePred	typeref:typename:std::vector<Constant * >
-generateAST	src/parser.cpp	/^ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* parentNodePtr)$/;"	f	typeref:typename:ASTNode *
+generateAST	src/parser.cpp	/^ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* parentNodePtr)$/;"	f	typeref:typename:ASTNode *
 generateAccessOperation	src/codegen.cpp	/^void* ASTNode::generateAccessOperation(int pass)$/;"	f	class:ASTNode	typeref:typename:void *
 generateBinaryExpression	src/codegen.cpp	/^void* ASTNode::generateBinaryExpression(int pass)$/;"	f	class:ASTNode	typeref:typename:void *
 generateCallExpression	src/codegen.cpp	/^void* ASTNode::generateCallExpression(int pass)$/;"	f	class:ASTNode	typeref:typename:void *
@@ -60745,7 +60748,7 @@ getExactFPInst	src/include/llvm/Transforms/Vectorize/LoopVectorizationLegality.h
 getExactFPMathInst	src/include/llvm/Analysis/IVDescriptors.h	/^    Instruction *getExactFPMathInst() const { return ExactFPMathInst; }$/;"	f	class:llvm::RecurrenceDescriptor::InstDesc	typeref:typename:Instruction *
 getExactFPMathInst	src/include/llvm/Analysis/IVDescriptors.h	/^  Instruction *getExactFPMathInst() const { return ExactFPMathInst; }$/;"	f	class:llvm::RecurrenceDescriptor	typeref:typename:Instruction *
 getExactFPMathInst	src/include/llvm/Analysis/IVDescriptors.h	/^  Instruction *getExactFPMathInst() {$/;"	f	class:llvm::InductionDescriptor	typeref:typename:Instruction *
-getExactFunctionFromID	src/codegen.cpp	/^functionID* getExactFunctionFromID(std::string& name, argumentList& arguments, tokenPair& t, boo/;"	f	typeref:typename:functionID *
+getExactFunctionFromID	src/codegen.cpp	/^functionID* getExactFunctionFromID(std::vector<functionID*>& fnIDs, std::string& name, argumentL/;"	f	typeref:typename:functionID *
 getExactInverse	src/include/llvm/ADT/APFloat.h	/^  bool getExactInverse(APFloat *inv) const {$/;"	f	class:llvm::APFloat	typeref:typename:bool
 getExactLog2	src/include/llvm/ADT/APFloat.h	/^  int getExactLog2() const {$/;"	f	class:llvm::APFloat	typeref:typename:LLVM_READONLY int
 getExactLog2	src/include/llvm/ADT/APFloat.h	/^  int getExactLog2() const {$/;"	f	class:llvm::detail::IEEEFloat	typeref:typename:LLVM_READONLY int
@@ -61284,13 +61287,14 @@ getFunctionEnd	src/include/llvm/CodeGen/AsmPrinter.h	/^  MCSymbol *getFunctionEn
 getFunctionEntryPointSymbol	src/include/llvm/Target/TargetLoweringObjectFile.h	/^  virtual MCSymbol *getFunctionEntryPointSymbol(const GlobalValue *Func,$/;"	f	class:llvm::TargetLoweringObjectFile	typeref:typename:MCSymbol *
 getFunctionFaultInfoAt	src/include/llvm/Object/FaultMapParser.h	/^    FunctionFaultInfoAccessor getFunctionFaultInfoAt(uint32_t Index) const {$/;"	f	class:llvm::FaultMapParser::FunctionInfoAccessor	typeref:typename:FunctionFaultInfoAccessor
 getFunctionFrameSymbol	src/include/llvm/CodeGen/AsmPrinter.h	/^  virtual const MCSymbol *getFunctionFrameSymbol() const { return nullptr; }$/;"	f	class:llvm::AsmPrinter	typeref:typename:const MCSymbol *
-getFunctionFromID	src/codegen.cpp	/^functionID* getFunctionFromID(std::string& name, argumentList& arguments, tokenPair& t, bool wer/;"	f	typeref:typename:functionID *
-getFunctionFromID	src/codegen.cpp	/^functionID* getFunctionFromID(std::string& name, std::vector<ASTNode*>& argValues, tokenPair& t)$/;"	f	typeref:typename:functionID *
-getFunctionFromID	src/codegen.cpp	/^functionID* getFunctionFromID(std::string& name, tokenPair& t)$/;"	f	typeref:typename:functionID *
+getFunctionFromID	src/codegen.cpp	/^functionID* getFunctionFromID(std::vector<functionID*>& fnIDs, std::string& name, argumentList& /;"	f	typeref:typename:functionID *
+getFunctionFromID	src/codegen.cpp	/^functionID* getFunctionFromID(std::vector<functionID*>& fnIDs, std::string& name, std::vector<AS/;"	f	typeref:typename:functionID *
+getFunctionFromID	src/codegen.cpp	/^functionID* getFunctionFromID(std::vector<functionID*>& fnIDs, std::string& name, tokenPair*& t)$/;"	f	typeref:typename:functionID *
 getFunctionGUID	src/include/llvm/IR/PseudoProbe.h	/^  uint64_t getFunctionGUID() const { return FunctionGUID; }$/;"	f	class:llvm::PseudoProbeDescriptor	typeref:typename:uint64_t
 getFunctionHash	src/include/llvm/IR/PseudoProbe.h	/^  uint64_t getFunctionHash() const { return FunctionHash; }$/;"	f	class:llvm::PseudoProbeDescriptor	typeref:typename:uint64_t
 getFunctionHash	src/include/llvm/ProfileData/SampleProf.h	/^  uint64_t getFunctionHash() const { return FunctionHash; }$/;"	f	class:llvm::sampleprof::FunctionSamples	typeref:typename:uint64_t
 getFunctionHash	src/include/llvm/Transforms/IPO/SampleProfileProbe.h	/^  uint64_t getFunctionHash() const { return FunctionHash; }$/;"	f	class:llvm::SampleProfileProber	typeref:typename:uint64_t
+getFunctionIDFromFunctionPointer	src/codegen.cpp	/^functionID* getFunctionIDFromFunctionPointer(std::vector<functionID*>& fnIDs, Function*& fnPtr)$/;"	f	typeref:typename:functionID *
 getFunctionId	src/include/llvm/MC/MCCodeView.h	/^  unsigned getFunctionId() const { return FunctionId; }$/;"	f	class:llvm::MCCVLoc	typeref:typename:unsigned
 getFunctionInfo	src/include/llvm/Transforms/IPO/Attributor.h	/^  FunctionInfo &getFunctionInfo(const Function &F) {$/;"	f	struct:llvm::InformationCache	typeref:typename:FunctionInfo &
 getFunctionList	src/include/llvm/IR/Module.h	/^  FunctionListType       &getFunctionList()           { return FunctionList; }$/;"	f	class:llvm::Module	typeref:typename:FunctionListType &
@@ -62285,7 +62289,7 @@ getLLVMContext	src/include/llvm/Frontend/Atomic/Atomic.h	/^  LLVMContext &getLLV
 getLLVMIRBuilder	src/include/llvm/SandboxIR/Context.h	/^  auto &getLLVMIRBuilder() { return LLVMIRBuilder; }$/;"	f	class:llvm::sandboxir::Context	typeref:typename:auto &
 getLLVMInstrs	src/include/llvm/SandboxIR/Instruction.h	/^  SmallVector<llvm::Instruction *, 1> getLLVMInstrs() const final {$/;"	f	class:llvm::sandboxir::SingleLLVMInstructionImpl	typeref:typename:SmallVector<llvm::Instruction *,1>
 getLLVMInstrs	src/include/llvm/SandboxIR/Instruction.h	/^  SmallVector<llvm::Instruction *, 1> getLLVMInstrs() const final {$/;"	f	class:llvm::sandboxir::UnreachableInst	typeref:typename:SmallVector<llvm::Instruction *,1>
-getLLVMTypeFromString	src/codegen.cpp	/^Type* getLLVMTypeFromString(std::string typeName, int pointerLevelOffset, tokenPair& token)$/;"	f	typeref:typename:Type *
+getLLVMTypeFromString	src/codegen.cpp	/^Type* getLLVMTypeFromString(std::string typeName, int pointerLevelOffset, tokenPair*& token)$/;"	f	typeref:typename:Type *
 getLOHContainer	src/include/llvm/MC/MCMachObjectWriter.h	/^  MCLOHContainer &getLOHContainer() { return LOHContainer; }$/;"	f	class:llvm::MachObjectWriter	typeref:typename:MCLOHContainer &
 getLRM	src/include/llvm/CodeGen/LiveRegMatrix.h	/^  LiveRegMatrix &getLRM() { return LRM; }$/;"	f	class:llvm::LiveRegMatrixWrapperLegacy	typeref:typename:LiveRegMatrix &
 getLRM	src/include/llvm/CodeGen/LiveRegMatrix.h	/^  const LiveRegMatrix &getLRM() const { return LRM; }$/;"	f	class:llvm::LiveRegMatrixWrapperLegacy	typeref:typename:const LiveRegMatrix &
@@ -63366,7 +63370,7 @@ getNextNode	src/include/llvm/ADT/ilist_node.h	/^  const NodeTy *getNextNode() co
 getNextNode	src/include/llvm/IR/DebugProgramInstruction.h	/^  DbgRecord *getNextNode() { return &*std::next(getIterator()); }$/;"	f	class:llvm::DbgRecord	typeref:typename:DbgRecord *
 getNextNode	src/include/llvm/Transforms/Vectorize/SandboxVectorizer/DependencyGraph.h	/^  MemDGNode *getNextNode() const { return NextMemN; }$/;"	f	class:llvm::sandboxir::MemDGNode	typeref:typename:MemDGNode *
 getNextNonDebugInstruction	src/include/llvm/IR/Instruction.h	/^  Instruction *getNextNonDebugInstruction(bool SkipPseudoOp = false) {$/;"	f	class:llvm::Instruction	typeref:typename:Instruction *
-getNextNonNothingToken	src/parser.cpp	/^tokenPair getNextNonNothingToken(const std::vector<tokenPair>& tokens, int& i)$/;"	f	typeref:typename:tokenPair
+getNextNonNothingToken	src/parser.cpp	/^tokenPair* getNextNonNothingToken(const std::vector<tokenPair*>& tokens, int& i)$/;"	f	typeref:typename:tokenPair *
 getNextNonNullIndex	src/include/llvm/CodeGen/SlotIndexes.h	/^    SlotIndex getNextNonNullIndex(SlotIndex Index) {$/;"	f	class:llvm::SlotIndexes	typeref:typename:SlotIndex
 getNextOperandForReg	src/include/llvm/CodeGen/MachineRegisterInfo.h	/^  static MachineOperand *getNextOperandForReg(const MachineOperand *MO) {$/;"	f	class:llvm::MachineRegisterInfo	typeref:typename:MachineOperand *
 getNextPostDom	src/include/llvm/Analysis/RegionInfoImpl.h	/^RegionInfoBase<Tr>::getNextPostDom(DomTreeNodeT *N, BBtoBBMap *ShortCut) const {$/;"	f	class:llvm::RegionInfoBase	typeref:typename:Tr::DomTreeNodeT *
@@ -72860,7 +72864,7 @@ joinAND	src/include/llvm/Transforms/IPO/Attributor.h	/^  void joinAND(base_t Ass
 joinAND	src/include/llvm/Transforms/IPO/Attributor.h	/^  void joinAND(base_t AssumedValue, base_t KnownValue) override {$/;"	f	struct:llvm::BooleanState	typeref:typename:void
 joinAND	src/include/llvm/Transforms/IPO/Attributor.h	/^  void joinAND(base_t AssumedValue, base_t KnownValue) override {$/;"	f	struct:llvm::DecIntegerState	typeref:typename:void
 joinAND	src/include/llvm/Transforms/IPO/Attributor.h	/^  void joinAND(base_t AssumedValue, base_t KnownValue) override {$/;"	f	struct:llvm::IncIntegerState	typeref:typename:void
-joinCommentTokens	src/tokenizer.cpp	/^int joinCommentTokens(std::vector<tokenPair>& tokens)$/;"	f	typeref:typename:int
+joinCommentTokens	src/tokenizer.cpp	/^int joinCommentTokens(std::vector<tokenPair*>& tokens)$/;"	f	typeref:typename:int
 joinErrors	src/include/llvm/Support/Error.h	/^inline Error joinErrors(Error E1, Error E2) {$/;"	f	namespace:llvm	typeref:typename:Error
 joinOR	src/include/llvm/Transforms/IPO/Attributor.h	/^  void joinOR(base_t AssumedValue, base_t KnownValue) override {$/;"	f	struct:llvm::BitIntegerState	typeref:typename:void
 joinOR	src/include/llvm/Transforms/IPO/Attributor.h	/^  void joinOR(base_t AssumedValue, base_t KnownValue) override {$/;"	f	struct:llvm::BooleanState	typeref:typename:void
@@ -73407,7 +73411,7 @@ kw_zero	src/include/llvm/AsmParser/LLToken.h	/^  kw_zero,$/;"	e	enum:llvm::lltok
 kw_zeroinitializer	src/include/llvm/AsmParser/LLToken.h	/^  kw_zeroinitializer,$/;"	e	enum:llvm::lltok::Kind
 kw_zext	src/include/llvm/AsmParser/LLToken.h	/^  kw_zext,$/;"	e	enum:llvm::lltok::Kind
 lV_SCOPE_FIRST	src/include/llvm/DebugInfo/LogicalView/Core/LVElement.h	/^  lV_SCOPE_FIRST,$/;"	e	enum:llvm::logicalview::LVSubclassID
-labelSubTokens	src/tokenizer.cpp	/^int labelSubTokens(std::vector<tokenPair>& tokens)$/;"	f	typeref:typename:int
+labelSubTokens	src/tokenizer.cpp	/^int labelSubTokens(std::vector<tokenPair*>& tokens)$/;"	f	typeref:typename:int
 lanai	src/include/llvm/TargetParser/Triple.h	/^    lanai,          \/\/ Lanai: Lanai 32-bit$/;"	e	enum:llvm::Triple::ArchType
 largest_bitmask_enum_bit	src/include/llvm/ADT/BitmaskEnum.h	/^struct largest_bitmask_enum_bit<$/;"	s	namespace:llvm
 last	src/include/llvm/BinaryFormat/Swift.h	/^  last = unknown$/;"	e	enum:llvm::binaryformat::Swift5ReflectionSectionKind
@@ -73476,6 +73480,7 @@ length	src/include/llvm/DebugInfo/LogicalView/Readers/LVCodeViewReader.h	/^  sta
 length	src/include/llvm/DebugInfo/PDB/Native/GSIStreamBuilder.h	/^  static size_t length(const codeview::CVSymbol &Item) {$/;"	f	struct:llvm::BinaryItemTraits	typeref:typename:size_t
 length	src/include/llvm/DebugInfo/PDB/Native/TpiStreamBuilder.h	/^  static size_t length(const codeview::CVType &Item) { return Item.length(); }$/;"	f	struct:llvm::BinaryItemTraits	typeref:typename:size_t
 length	src/include/llvm/ObjectYAML/MachOYAML.h	/^  uint8_t length;$/;"	m	struct:llvm::MachOYAML::Relocation	typeref:typename:uint8_t
+length	src/tokenizer.h	/^	uint16_t length = 0;$/;"	m	struct:tokenDataType	typeref:typename:uint16_t
 lenientConversion	src/include/llvm/Support/ConvertUTF.h	/^  lenientConversion$/;"	e	enum:llvm::__anon8c81040b0203
 less	src/include/llvm/AsmParser/LLToken.h	/^  less,$/;"	e	enum:llvm::lltok::Kind
 less	src/include/llvm/CodeGen/RDFRegisters.h	/^  constexpr less(const llvm::rdf::PhysicalRegisterInfo &pri) : PRI(&pri) {}$/;"	f	struct:std::less
@@ -81053,7 +81058,6 @@ order	src/include/llvm/CodeGen/AccelTable.h	/^  uint64_t order() const override 
 order	src/include/llvm/CodeGen/AccelTable.h	/^  uint64_t order() const override { return Offset; }$/;"	f	class:llvm::AppleAccelTableStaticTypeData	typeref:typename:uint64_t
 order	src/include/llvm/CodeGen/AccelTable.h	/^  uint64_t order() const override { return getDieOffset(); }$/;"	f	class:llvm::DWARF5AccelTableData	typeref:typename:uint64_t
 order	src/include/llvm/CodeGen/TargetLowering.h	/^    AtomicOrdering order = AtomicOrdering::NotAtomic;$/;"	m	struct:llvm::TargetLoweringBase::IntrinsicInfo	typeref:typename:AtomicOrdering
-orderASTOperations	src/parser.cpp	/^void orderASTOperations(ASTNode* startNode)$/;"	f	typeref:typename:void
 orderByAddress	src/include/llvm/DebugInfo/DWARF/DWARFDebugLine.h	/^    static bool orderByAddress(const Row &LHS, const Row &RHS) {$/;"	f	struct:llvm::DWARFDebugLine::Row	typeref:typename:bool
 orderByHighPC	src/include/llvm/DebugInfo/DWARF/DWARFDebugLine.h	/^    static bool orderByHighPC(const Sequence &LHS, const Sequence &RHS) {$/;"	f	struct:llvm::DWARFDebugLine::Sequence	typeref:typename:bool
 orderFrameObjects	src/include/llvm/CodeGen/TargetFrameLowering.h	/^  orderFrameObjects(const MachineFunction &MF,$/;"	f	class:llvm::TargetFrameLowering	typeref:typename:void
@@ -82154,8 +82158,8 @@ printSwitchToSection	src/include/llvm/MC/MCSectionSPIRV.h	/^  void printSwitchTo
 printSymbolOffset	src/include/llvm/Support/ScopedPrinter.h	/^  void printSymbolOffset(StringRef Label, StringRef Symbol, T Value) {$/;"	f	class:llvm::ScopedPrinter	typeref:typename:void
 printSymbolOffsetImpl	src/include/llvm/Support/ScopedPrinter.h	/^  virtual void printSymbolOffsetImpl(StringRef Label, StringRef Symbol,$/;"	f	class:llvm::ScopedPrinter	typeref:typename:void
 printSymbolOffsetImpl	src/include/llvm/Support/ScopedPrinter.h	/^  void printSymbolOffsetImpl(StringRef Label, StringRef Symbol,$/;"	f	class:llvm::JSONScopedPrinter	typeref:typename:void
-printTokenError	src/parser.cpp	/^void printTokenError(tokenPair& token, std::string errorString, int sourceLineNumber, const char/;"	f	typeref:typename:void
-printTokenWarning	src/parser.cpp	/^void printTokenWarning(tokenPair& token, std::string errorString, int sourceLineNumber, const ch/;"	f	typeref:typename:void
+printTokenError	src/parser.cpp	/^void printTokenError(tokenPair*& token, std::string errorString, int sourceLineNumber, const cha/;"	f	typeref:typename:void
+printTokenWarning	src/parser.cpp	/^void printTokenWarning(tokenPair*& token, std::string errorString, int sourceLineNumber, const c/;"	f	typeref:typename:void
 printTree	src/include/llvm/ADT/IntervalTree.h	/^  void printTree(raw_ostream &OS, unsigned Level, IntervalNode *Node,$/;"	f	class:llvm::IntervalTree	typeref:typename:void
 printVersion	src/include/llvm/Support/ScopedPrinter.h	/^  template <typename... T> void printVersion(StringRef Label, T... Version) {$/;"	f	class:llvm::ScopedPrinter	typeref:typename:void
 printVersionInternal	src/include/llvm/Support/ScopedPrinter.h	/^  template <typename T> void printVersionInternal(T Value) {$/;"	f	class:llvm::ScopedPrinter	typeref:typename:void
@@ -83025,7 +83029,7 @@ removeCalledTarget	src/include/llvm/ProfileData/SampleProf.h	/^  uint64_t remove
 removeCalledTargetAndBodySample	src/include/llvm/ProfileData/SampleProf.h	/^  uint64_t removeCalledTargetAndBodySample(uint32_t LineOffset,$/;"	f	class:llvm::sampleprof::FunctionSamples	typeref:typename:uint64_t
 removeChildLoop	src/include/llvm/Support/GenericLoopInfo.h	/^  LoopT *removeChildLoop(LoopT *Child) {$/;"	f	class:llvm::LoopBase	typeref:typename:LoopT *
 removeChildLoop	src/include/llvm/Support/GenericLoopInfo.h	/^  LoopT *removeChildLoop(iterator I) {$/;"	f	class:llvm::LoopBase	typeref:typename:LoopT *
-removeCommentTokens	src/tokenizer.cpp	/^int removeCommentTokens(std::vector<tokenPair>& tokens)$/;"	f	typeref:typename:int
+removeCommentTokens	src/tokenizer.cpp	/^int removeCommentTokens(std::vector<tokenPair*>& tokens)$/;"	f	typeref:typename:int
 removeDecoration	src/include/llvm/DebugInfo/CodeView/TypeIndex.h	/^  TypeIndex removeDecoration() {$/;"	f	class:llvm::codeview::TypeIndex	typeref:typename:TypeIndex
 removeDefinedSymbol	src/include/llvm/ExecutionEngine/JITLink/JITLink.h	/^  void removeDefinedSymbol(Symbol &Sym) {$/;"	f	class:llvm::jitlink::LinkGraph	typeref:typename:void
 removeDuplicates	src/include/llvm/ExecutionEngine/Orc/Core.h	/^  void removeDuplicates() {$/;"	f	class:llvm::orc::SymbolLookupSet	typeref:typename:void
@@ -83204,6 +83208,7 @@ replaceWithPermanent	src/include/llvm/IR/Metadata.h	/^  replaceWithPermanent(std
 replaceWithUniqued	src/include/llvm/IR/Metadata.h	/^  replaceWithUniqued(std::unique_ptr<T, TempMDNodeDeleter> N) {$/;"	f	class:llvm::MDNode	typeref:typename:std::enable_if_t<std::is_base_of<MDNode,T>::value,T * >
 replace_copy	src/include/llvm/ADT/STLExtras.h	/^OutputIt replace_copy(R &&Range, OutputIt Out, const T &OldValue,$/;"	f	namespace:llvm	typeref:typename:OutputIt
 replace_copy_if	src/include/llvm/ADT/STLExtras.h	/^OutputIt replace_copy_if(R &&Range, OutputIt Out, UnaryPredicate P,$/;"	f	namespace:llvm	typeref:typename:OutputIt
+replaceableDefinition	src/parser.h	/^	bool replaceableDefinition = false;$/;"	m	struct:ASTNode	typeref:typename:bool
 replacementPreservesLCSSAForm	src/include/llvm/Analysis/LoopInfo.h	/^  bool replacementPreservesLCSSAForm(Instruction *From, Value *To) {$/;"	f	class:llvm::LoopInfo	typeref:typename:bool
 report	src/include/llvm/DebugInfo/LogicalView/Core/LVElement.h	/^  virtual void report(LVComparePass Pass) {}$/;"	f	class:llvm::logicalview::LVElement	typeref:typename:void
 reportDiagnosticWhenGlobalISelFallback	src/include/llvm/Passes/CodeGenPassBuilder.h	/^  bool reportDiagnosticWhenGlobalISelFallback() const {$/;"	f	class:llvm::CodeGenPassBuilder	typeref:typename:bool
@@ -83715,23 +83720,23 @@ runWithSPSRet	src/include/llvm/ExecutionEngine/Orc/Shared/WrapperFunctionUtils.h
 runWithSPSRet	src/include/llvm/ExecutionEngine/Orc/Shared/WrapperFunctionUtils.h	/^  runWithSPSRet(RetT &RetVal) const {$/;"	f	class:llvm::orc::shared::WrapperFunctionCall	typeref:typename:std::enable_if_t<!std::is_same<SPSRetT,void>::value,Error>
 runWithSPSRetErrorMerged	src/include/llvm/ExecutionEngine/Orc/Shared/WrapperFunctionUtils.h	/^  Error runWithSPSRetErrorMerged() const {$/;"	f	class:llvm::orc::shared::WrapperFunctionCall	typeref:typename:Error
 runtime_check	src/include/llvm/Transforms/Instrumentation/LowerAllowCheckPass.h	/^    unsigned int runtime_check = 0;$/;"	m	struct:llvm::LowerAllowCheckPass::Options	typeref:typename:unsigned int
-s:l	src/Session.vim	/^let s:l = 1 - ((0 * winheight(0) + 25) \/ 51)$/;"	v
-s:l	src/Session.vim	/^let s:l = 10027 - ((26 * winheight(0) + 13) \/ 27)$/;"	v
-s:l	src/Session.vim	/^let s:l = 114 - ((30 * winheight(0) + 25) \/ 51)$/;"	v
-s:l	src/Session.vim	/^let s:l = 144 - ((40 * winheight(0) + 25) \/ 51)$/;"	v
-s:l	src/Session.vim	/^let s:l = 16 - ((14 * winheight(0) + 25) \/ 51)$/;"	v
-s:l	src/Session.vim	/^let s:l = 162 - ((37 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 176 - ((24 * winheight(0) + 12) \/ 25)$/;"	v
-s:l	src/Session.vim	/^let s:l = 190 - ((42 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 1 - ((0 * winheight(0) + 24) \/ 49)$/;"	v
+s:l	src/Session.vim	/^let s:l = 10028 - ((27 * winheight(0) + 14) \/ 28)$/;"	v
+s:l	src/Session.vim	/^let s:l = 122 - ((26 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 124 - ((13 * winheight(0) + 12) \/ 24)$/;"	v
+s:l	src/Session.vim	/^let s:l = 155 - ((40 * winheight(0) + 25) \/ 51)$/;"	v
+s:l	src/Session.vim	/^let s:l = 16 - ((13 * winheight(0) + 24) \/ 49)$/;"	v
+s:l	src/Session.vim	/^let s:l = 1691 - ((41 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 189 - ((0 * winheight(0) + 26) \/ 53)$/;"	v
 s:l	src/Session.vim	/^let s:l = 20 - ((18 * winheight(0) + 25) \/ 51)$/;"	v
-s:l	src/Session.vim	/^let s:l = 206 - ((14 * winheight(0) + 12) \/ 25)$/;"	v
-s:l	src/Session.vim	/^let s:l = 21 - ((14 * winheight(0) + 12) \/ 25)$/;"	v
-s:l	src/Session.vim	/^let s:l = 228 - ((26 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 256 - ((16 * winheight(0) + 13) \/ 27)$/;"	v
-s:l	src/Session.vim	/^let s:l = 4 - ((3 * winheight(0) + 13) \/ 27)$/;"	v
-s:l	src/Session.vim	/^let s:l = 7 - ((6 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 746 - ((22 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 964 - ((36 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 204 - ((13 * winheight(0) + 12) \/ 24)$/;"	v
+s:l	src/Session.vim	/^let s:l = 222 - ((42 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 23 - ((22 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 231 - ((17 * winheight(0) + 14) \/ 28)$/;"	v
+s:l	src/Session.vim	/^let s:l = 235 - ((46 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 294 - ((17 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 45 - ((10 * winheight(0) + 12) \/ 24)$/;"	v
+s:l	src/Session.vim	/^let s:l = 57 - ((17 * winheight(0) + 14) \/ 28)$/;"	v
 s:save_splitbelow	src/Session.vim	/^let s:save_splitbelow = &splitbelow$/;"	v
 s:save_splitright	src/Session.vim	/^let s:save_splitright = &splitright$/;"	v
 s:save_winminheight	src/Session.vim	/^let s:save_winminheight = &winminheight$/;"	v
@@ -86554,7 +86559,7 @@ strsignal	src/include/llvm/Support/SystemZ/zOSSupport.h	/^inline char *strsignal
 strsize	src/include/llvm/BinaryFormat/MachO.h	/^  uint32_t strsize;$/;"	m	struct:llvm::MachO::symtab_command	typeref:typename:uint32_t
 structDefinitions	src/codegen.cpp	/^std::unordered_map<std::string, structType> structDefinitions = std::unordered_map<std::string, /;"	v	typeref:typename:std::unordered_map<std::string,structType>
 structType	src/codegen.cpp	/^	structType() {}$/;"	f	struct:structType	file:
-structType	src/codegen.cpp	/^	structType(std::string& n, StructType*& sT, argumentList a, std::unordered_map<std::string, uin/;"	f	struct:structType	file:
+structType	src/codegen.cpp	/^	structType(std::string& n, tokenPair*& tP, StructType*& sT, argumentList a, std::vector<functio/;"	f	struct:structType	file:
 structType	src/codegen.cpp	/^struct structType {$/;"	s	file:
 structVal	src/codegen.cpp	/^	StructType* structVal = nullptr;$/;"	m	struct:structType	typeref:typename:StructType *	file:
 sub	src/include/llvm/Support/CommandLine.h	/^  sub(SubCommand &S) : Sub(&S) {}$/;"	f	struct:llvm::cl::sub
@@ -87247,14 +87252,15 @@ to_vector_of	src/include/llvm/ADT/SmallVector.h	/^SmallVector<Out, Size> to_vect
 to_vector_of	src/include/llvm/ADT/SmallVector.h	/^template <typename Out, typename R> SmallVector<Out> to_vector_of(R &&Range) {$/;"	f	namespace:llvm	typeref:typename:SmallVector<Out>
 tocoff	src/include/llvm/BinaryFormat/MachO.h	/^  uint32_t tocoff;$/;"	m	struct:llvm::MachO::dysymtab_command	typeref:typename:uint32_t
 tokError	src/include/llvm/AsmParser/LLParser.h	/^    bool tokError(const Twine &Msg) { return error(Lex.getLoc(), Msg); }$/;"	f	class:llvm::LLParser	typeref:typename:bool
+token	src/codegen.cpp	/^	tokenPair* token = nullptr;$/;"	m	struct:structType	typeref:typename:tokenPair *	file:
 token	src/include/llvm/CodeGenTypes/LowLevelType.h	/^  static constexpr LLT token() {$/;"	f	class:llvm::LLT	typeref:typename:LLT
-token	src/parser.h	/^	tokenPair token = tokenPair();$/;"	m	struct:ASTNode	typeref:typename:tokenPair
+token	src/parser.h	/^	tokenPair* token = new tokenPair();$/;"	m	struct:ASTNode	typeref:typename:tokenPair *
 tokenAsString	src/tokenizer.cpp	/^const std::string tokenAsString(TokenType t)$/;"	f	typeref:typename:const std::string
 tokenContainsSwap	src/tokenizer.cpp	/^std::map<TokenType, std::pair<const char*, TokenType>> tokenContainsSwap = {$/;"	v	typeref:typename:std::map<TokenType,std::pair<const char *,TokenType>>
 tokenContent	src/tokenizer.cpp	/^std::string tokenContent = "";$/;"	v	typeref:typename:std::string
 tokenDataType	src/tokenizer.h	/^	tokenDataType() {}$/;"	f	struct:tokenDataType
 tokenDataType	src/tokenizer.h	/^	tokenDataType(std::string f, TokenType s)$/;"	f	struct:tokenDataType
-tokenDataType	src/tokenizer.h	/^	tokenDataType(std::string f, TokenType s, int l, int i, std::string* lV)$/;"	f	struct:tokenDataType
+tokenDataType	src/tokenizer.h	/^	tokenDataType(std::string f, TokenType s, int l, int i, std::string* lV, std::string* fP)$/;"	f	struct:tokenDataType
 tokenDataType	src/tokenizer.h	/^struct tokenDataType {$/;"	s
 tokenEscapeCancels	src/tokenizer.cpp	/^const std::map<const char*, const char*> tokenEscapeCancels = {$/;"	v	typeref:typename:const std::map<const char *,const char * >
 tokenEscapes	src/tokenizer.cpp	/^const std::map<TokenType, const char*> tokenEscapes = {$/;"	v	typeref:typename:const std::map<TokenType,const char * >
@@ -87263,7 +87269,7 @@ tokenIsStartOfStatement	src/include/llvm/MC/MCParser/MCTargetAsmParser.h	/^  vir
 tokenPair	src/tokenizer.h	/^typedef tokenDataType tokenPair;$/;"	t	typeref:typename:tokenDataType
 tokenStarts	src/tokenizer.cpp	/^const std::map<TokenType, const char*> tokenStarts = {$/;"	v	typeref:typename:const std::map<TokenType,const char * >
 tokenTypeStrings	src/tokenizer.h	/^const std::string tokenTypeStrings[] = {$/;"	v	typeref:typename:const std::string[]
-tokenize	src/tokenizer.cpp	/^int tokenize(std::string& rawFile, std::vector<tokenPair>& tokens)$/;"	f	typeref:typename:int
+tokenize	src/tokenizer.cpp	/^int tokenize(std::string& rawFile, std::vector<tokenPair*>& tokens, std::string& fileName)$/;"	f	typeref:typename:int
 tomp	src/include/llvm/Frontend/OpenMP/ClauseT.h	/^namespace tomp {$/;"	n
 tomp	src/include/llvm/Frontend/OpenMP/ConstructDecompositionT.h	/^namespace tomp {$/;"	n
 tooManyClobberingCalls	src/include/llvm/Transforms/Utils/LoopUtils.h	/^  bool tooManyClobberingCalls() { return LicmMssaOptCounter >= LicmMssaOptCap; }$/;"	f	class:llvm::SinkAndHoistLICMFlags	typeref:typename:bool
@@ -87604,7 +87610,7 @@ underline	src/indicators.hpp	/^enum class FontStyle { bold, dark, italic, underl
 underlying_type	src/include/llvm/ExecutionEngine/Orc/Shared/MemoryFlags.h	/^  using underlying_type = uint8_t;$/;"	t	class:llvm::orc::AllocGroup	typeref:typename:uint8_t
 undfl	src/include/llvm/BinaryFormat/MachO.h	/^  unsigned short invalid : 1, denorm : 1, zdiv : 1, ovrfl : 1, undfl : 1,$/;"	m	struct:llvm::MachO::fp_control_t	typeref:typename:unsigned short:1
 undfl	src/include/llvm/BinaryFormat/MachO.h	/^  unsigned short invalid : 1, denorm : 1, zdiv : 1, ovrfl : 1, undfl : 1,$/;"	m	struct:llvm::MachO::fp_status_t	typeref:typename:unsigned short:1
-unescapeString	src/codegen.cpp	/^std::string unescapeString(const std::string& src, tokenPair& token)$/;"	f	typeref:typename:std::string
+unescapeString	src/codegen.cpp	/^std::string unescapeString(const std::string& src, tokenPair*& token)$/;"	f	typeref:typename:std::string
 unexpected_correlation_info	src/include/llvm/ProfileData/InstrProf.h	/^  unexpected_correlation_info,$/;"	e	enum:llvm::instrprof_error
 unexpected_eof	src/include/llvm/Object/Error.h	/^  unexpected_eof,$/;"	e	enum:llvm::object::object_error
 unfoldMemoryOperand	src/include/llvm/CodeGen/TargetInstrInfo.h	/^  unfoldMemoryOperand(MachineFunction &MF, MachineInstr &MI, Register Reg,$/;"	f	class:llvm::TargetInstrInfo	typeref:typename:bool

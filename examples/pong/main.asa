@@ -6,8 +6,8 @@
 
 
 gameObject :: struct{
-	vector3 position;
-	vector3 rotation;
+	position : vector3;
+	rotation : vector3;
 }
 
 vector2 :: struct{
@@ -24,30 +24,48 @@ vector2 :: struct{
 }
 
 sprite2d :: struct{
-	image2d image = void;
-	vector2 scale = vector2(1, 1);
-	vector2 position = void;
-	float rotation = void;
+	image : image2d = void;
+	scale : vector2 = vector2(1, 1);
+	position : vector2 = void;
+	rotation : float = void;
 
-	create :: (string path){
+	create:: (path : string){
 		image = create_image2d(path);
 	}
-	create :: (string path, vector2 s){
+	create:: (path : string, s : vector2){
 		scale = s;
 		image = create_image2d(path);
 	}
 
-	draw :: (){
+	draw:: (){
 		draw_image(image, position, rotation, scale);
 	}
 }
 
 paddle :: gameObject :: struct{
 	moveSpeed = 1;
-	vector2 minMax = vector2(0, screen_height);
-	sprite2d sprite = sprite2d("./square.png", vector2(0.2, 1));
+	minMax = vector2(0, screen_height);
+	sprite = sprite2d("./square.png", vector2(0.2, 1));
 
-	move :: (float dT){
+	move:: (dT : float){
+		nextPosition = position.y + moveSpeed * dT;
+		if((nextPosition > position.y && nextPosition<minMax.y) || 
+		(nextPosition < position.y && nextPosition>minMax.x))
+			position.y = nextPosition;
+	}
+	draw:: (){
+		sprite.position = vector2(position);
+		sprite.rotation = rotation.z;
+		sprite.draw();
+	}
+}
+
+ball:: gameObject :: struct{
+	moveSpeed = 1;
+	minMax = vector2(0, screen_height);
+	sprite = sprite2d("./ball.png");
+
+	move :: (dT : float){
 		nextPosition = position.y + moveSpeed * dT;
 		if((nextPosition > position.y && nextPosition<minMax.y) || 
 		(nextPosition < position.y && nextPosition>minMax.x))
@@ -60,28 +78,10 @@ paddle :: gameObject :: struct{
 	}
 }
 
-ball :: gameObject :: struct{
-	moveSpeed = 1;
-	vector2 minMax = vector2(0, screen_height);
-	sprite2d sprite = sprite2d("./ball.png");
-
-	move :: (float dT){
-		nextPosition = position.y + moveSpeed * dT;
-		if((nextPosition > position.y && nextPosition<minMax.y) || 
-		(nextPosition < position.y && nextPosition>minMax.x))
-			position.y = nextPosition;
-	}
-	draw :: (){
-		sprite.position = (vector2)position;
-		sprite.rotation = rotation.z;
-		sprite.draw();
-	}
-}
-
-list paddles = {paddle(), paddle()};
+paddles : paddle[] = {paddle(), paddle()};
 ball = ball();
 
-main :: (){
+main:: (){
 	w = window_create("Pong", 512, 512);
 
 	paddles[0].position = vector3(10,              screen_height/2, 0);
@@ -91,7 +91,7 @@ main :: (){
 }
 
 // Function called by draw_window method
-update :: (float dT){
+update:: (dT : float ){
 	if(key_down("W"))
 		paddles[0].move(dT);
 	else if(key_down("S"))

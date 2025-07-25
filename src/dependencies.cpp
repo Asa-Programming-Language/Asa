@@ -6,7 +6,7 @@ int resolveDependencies(ASTNode*& node)
 		resolveDependencies(node->childNodes[i]);
 
 	if (node->nodeType == Function_Call) {
-		std::string identifier = node->token.first;
+		std::string identifier = node->token->first;
 		bool foundDefinition = false;
 		ASTNode* parent = node->parentNode;
 		// Work backwards up node tree
@@ -19,7 +19,7 @@ int resolveDependencies(ASTNode*& node)
 			for (int i = 0; i < parent->childNodes.size(); i++) {
 				ASTNode* childNode = parent->childNodes[i];
 				if (childNode->nodeType == Compiler_Define_Function || childNode->nodeType == Compiler_Define || childNode->nodeType == Compiler_Define_Cast)
-					if (childNode->token.first == identifier) {
+					if (childNode->token->first == identifier) {
 						foundDefinition = true;
 						goto exitLoop;
 					}
