@@ -14,7 +14,7 @@ static std::unique_ptr<StandardInstrumentations> TheSI;
 
 std::unordered_map<std::string, llvm::GlobalVariable*> globalStringLiteralConstants;
 
-llvm::Value* castValue(llvm::Value* value, llvm::Type* destType, bool isSrcSigned, bool isToSigned, tokenPair& token);
+llvm::Value* castValue(llvm::Value* value, llvm::Type* destType, bool isSrcSigned, bool isToSigned, tokenPair& token, bool destTypeIsStruct = false);
 
 std::unordered_map<std::string, bool> typeSigns = {
 	{"int128", true},
@@ -34,7 +34,6 @@ std::unordered_map<std::string, bool> typeSigns = {
 	{"char", false},
 	{"uchar", false},
 	{"bool", false},
-	{"string", false},
 
 	{"double", false},
 	{"float", false},
@@ -43,7 +42,7 @@ std::unordered_map<std::string, bool> typeSigns = {
 
 
 struct argType {
-	std::string typeString;
+	std::string typeString = "";
 	ASTNodeType baseASTType;
 	uint8_t pointerLevel = 0;
 	bool isReference = false;
@@ -188,7 +187,25 @@ struct functionID {
 	}
 };
 
+struct structType {
+	std::string name = "";
+	argumentList members = argumentList();
+	std::unordered_map<std::string, uint16_t> memberNameIndexes;
+	uint32_t uses = 0;
+	std::vector<functionID*> memberFunctions;
+	StructType* structVal = nullptr;
+	structType() {}
+	structType(std::string& n, StructType*& sT, argumentList a, std::unordered_map<std::string, uint16_t>& mI)
+	{
+		name = n;
+		structVal = sT;
+		members = a;
+		memberNameIndexes = mI;
+	}
+};
+
 std::vector<functionID> functionIDs = std::vector<functionID>();
+std::unordered_map<std::string, structType> structDefinitions = std::unordered_map<std::string, structType>();
 
 functionID* getFunctionFromID(std::string& name, argumentList& arguments, tokenPair& t, bool wereTypesInferred = false)
 {
@@ -305,7 +322,7 @@ static AllocaInst* CreateEntryBlockAlloca(Function* TheFunction, Type* t, String
 	return TmpB.CreateAlloca(t, nullptr, VarName);
 }
 
-Type* getLLVMTypeFromString(std::string typeName, int pointerLevelOffset = 0)
+Type* getLLVMTypeFromString(std::string typeName, int pointerLevelOffset, tokenPair& token)
 {
 	Type* aType;
 	uint16_t pointerLevel = 0;
@@ -337,8 +354,14 @@ Type* getLLVMTypeFromString(std::string typeName, int pointerLevelOffset = 0)
 	else if (typeName == "bool")
 		aType = Type::getInt1Ty(*TheContext);
 
+	// Otherwise, look in struct definitions
+	else if (structDefinitions.find(typeName) != structDefinitions.end())
+		aType = (Type*)(structDefinitions[typeName].structVal);
+
+	// If still not found, throw an error
 	else {
-		throw 1;
+		printTokenError(token, "Unknown type");
+		exit(1);
 	}
 	for (int i = 0; i < pointerLevel + pointerLevelOffset; i++)
 		aType = aType->getPointerTo();
@@ -387,6 +410,14 @@ std::string getStringTypeFromLLVMType(llvm::Type* type)
 	}
 	else {
 		baseTypeName = "unknown";
+
+		// Finally, search through all defined struct types
+		for (const auto& [key, value] : structDefinitions) {
+			if ((Type*)(value.structVal) == (Type*)baseType) {
+				baseTypeName = value.name;
+				break;
+			}
+		}
 	}
 
 	// Prefix with pointer asterisks
@@ -531,9 +562,14 @@ valueType* findNamedValue(ASTNode* node, ASTNode* childNode, std::string& identi
 }
 
 
-llvm::Value* castValue(llvm::Value* value, llvm::Type* destType, bool isSrcSigned, bool isToSigned, tokenPair& token)
+llvm::Value* castValue(llvm::Value* value, llvm::Type* destType, bool isSrcSigned, bool isToSigned, tokenPair& token, bool destTypeIsStruct)
 {
 	llvm::Type* srcType = value->getType();
+
+	if (destTypeIsStruct) {
+		return value;
+	}
+
 	if (srcType == destType)
 		return value;
 
@@ -566,9 +602,6 @@ llvm::Value* castValue(llvm::Value* value, llvm::Type* destType, bool isSrcSigne
 
 
 	printTokenError(token, "Unsupported cast");
-
-	srcType->print(llvm::outs());
-	destType->print(llvm::outs());
 	exit(1);
 }
 
@@ -745,8 +778,6 @@ void* ASTNode::generateConstant(int pass)
 		if (globalStringLiteralConstants.find(strValue) != globalStringLiteralConstants.end())
 			globalStr = globalStringLiteralConstants[strValue];
 		else {
-			printf("String generated, pass:%d\n", pass);
-
 			// Create constant data array (i8 array)
 			Constant* strConst = ConstantDataArray::getString(*TheContext, strValue, true);
 
@@ -790,7 +821,7 @@ void* ASTNode::generateVariableExpression(int pass)
 	}
 	AllocaInst* A = (AllocaInst*)(val->val);
 
-	if (isRef)
+	if (isRef || lvalue)
 		//if (isRef || lvalue)
 		return A;
 	else
@@ -894,7 +925,7 @@ void* ASTNode::generateExpressionStatement(int pass)
 				typeNode = typeNode->childNodes[0];
 				goto getNextPointerLevel;
 			}
-			type = getLLVMTypeFromString(typeNode->token.first);
+			type = getLLVMTypeFromString(typeNode->token.first, 0, typeNode->token);
 			for (int pL = 0; pL < pointerLevel; pL++)
 				type = type->getPointerTo();
 		}
@@ -908,7 +939,15 @@ void* ASTNode::generateExpressionStatement(int pass)
 	}
 	// Otherwise, the type is explicit, and builtin types should be cast automatically
 	else {
-		exprVal = castValue(exprVal, type, true, typeSigns[typeNode->token.first], exprNode->token);
+		std::string typeName = typeNode->token.first;
+		if (typeSigns.find(typeName) != typeSigns.end())  // If builtin type
+			exprVal = castValue(exprVal, type, true, typeSigns[typeNode->token.first], exprNode->token);
+		else if (structDefinitions.find(typeName) != structDefinitions.end())  // If defined struct
+			exprVal = castValue(exprVal, type, true, false, exprNode->token, true);
+		else {
+			printTokenError(token, "Unknown type");
+			exit(1);
+		}
 	}
 
 	// If the left side is an identifier
@@ -928,14 +967,16 @@ void* ASTNode::generateExpressionStatement(int pass)
 			targetPtr = (AllocaInst*)(val->val);
 		targetType = ((AllocaInst*)targetPtr)->getAllocatedType();
 	}
+	else
+		targetType = type;
 
-	if (exprVal->getType() != type) {
-		printTokenError(token, "Type mismatch in set expression");
-		exprVal->getType()->print(llvm::outs());
-		type->print(llvm::outs());
-		//printTokenError(token, "Type mismatch in set expression.\nTypes are \"" + exprVal->getType()->getAsString() + "\" and \"" + type->getAsString() + "\"");
-		exit(1);
-	}
+	//if (exprVal->getType() != targetType) {
+	//	printTokenError(token, "Type mismatch in set expression");
+	//	exprVal->getType()->print(llvm::outs());
+	//	type->print(llvm::outs());
+	//	//printTokenError(token, "Type mismatch in set expression.\nTypes are \"" + exprVal->getType()->getAsString() + "\" and \"" + type->getAsString() + "\"");
+	//	exit(1);
+	//}
 
 	Builder->CreateStore(exprVal, targetPtr);
 
@@ -1237,7 +1278,7 @@ void* ASTNode::generateAccessOperation(int pass)
 
 		valueType* v = findNamedValue(this, nullptr, childNodes[0]->token.first);
 		printf("ACCESS OPERATOR type string: %s\n", v->type.c_str());
-		Type* elementType = getLLVMTypeFromString(v->type, -1);
+		Type* elementType = getLLVMTypeFromString(v->type, -1, childNodes[0]->token);
 		//Type* elementType = getLLVMTypeFromString(baseType);
 		if (!elementType) {
 			printTokenError(token, "Invalid element type");
@@ -1253,6 +1294,136 @@ void* ASTNode::generateAccessOperation(int pass)
 		// If rvalue, return value
 		else
 			return Builder->CreateLoad(elementType, gep, "accessop_load");
+
+
+		//Value* newAddr = Builder->CreateAdd(L, R, "ptraddtmp");
+		//return newAddr;
+	}
+
+	return nullptr;
+}
+
+// Value*
+void* ASTNode::generateMemberAccess(int pass)
+{
+	if (childNodes.size() == 0) {
+		printTokenError(token, "Member access operation reqires a left and right argument");
+		return nullptr;
+	}
+	if (childNodes[0]->codegen == nullptr) {
+		printTokenError(childNodes[0]->token, "Node `" + ASTNodeTypeAsString(childNodes[0]->nodeType) + "` does not have a code generator");
+		return nullptr;
+	}
+	if (childNodes[1]->codegen == nullptr) {
+		printTokenError(childNodes[0]->token, "Node `" + ASTNodeTypeAsString(childNodes[1]->nodeType) + "` does not have a code generator");
+		return nullptr;
+	}
+	childNodes[0]->lvalue = true;  // Set flag for base to return address if needed
+
+	ASTNodeType t = childNodes[0]->nodeType;
+
+	bool operatorOverloaded = false;
+	std::string operatorOverloadName = "binary." + tokenAsString(Dot);
+	argumentList argList = argumentList();
+	//argList.push_back(argType(getStringTypeFromLLVMType(L->getType()), getASTNodeTypeFromString(getStringTypeFromLLVMType(L->getType())), 0, false, true));
+	//argList.push_back(argType(getStringTypeFromLLVMType(R->getType()), getASTNodeTypeFromString(getStringTypeFromLLVMType(R->getType())), 0));
+	//Function* CalleeF = nullptr;
+	//// TODO: make operator overloads for exact matches only
+	//functionID* calleeID = getExactFunctionFromID(operatorOverloadName, argList, token, true);
+
+	//// Check to see if the operator actually has an overload
+	//if (calleeID != nullptr) {
+	//	CalleeF = calleeID->fnValue;
+	//	operatorOverloaded = true;
+	//}
+
+	//// If this is an operator overload, create function call to it
+	//if (operatorOverloaded) {
+	//	Value* L = (Value*)(childNodes[0]->*(childNodes[0]->codegen))(pass);
+	//	Value* R = (Value*)(childNodes[1]->*(childNodes[1]->codegen))(pass);
+	//	if (!L || !R)
+	//		return nullptr;
+
+	//	if (!CalleeF) {
+	//		printTokenError(token, "Undefined function");
+	//		return nullptr;
+	//	}
+
+	//	std::vector<Value*> ArgsV;
+	//	ArgsV.push_back(L);
+	//	ArgsV.push_back(R);
+
+	//	return Builder->CreateCall(CalleeF, ArgsV, "calltmp");
+	//}
+
+	// Otherwise, it is a regular builtin operator, member access
+	//else
+	{
+		Value* L = (Value*)(childNodes[0]->*(childNodes[0]->codegen))(pass);
+		//if (!L)
+		//	return nullptr;
+
+		//if (L->getType()->isPointerTy() == false) {
+		//	printTokenError(token, "Left argument of member access operator must be a pointer type");
+		//	exit(1);
+		//}
+		//if (R->getType()->isIntegerTy() == false) {
+		//	printTokenError(token, "Right argument of member access operator must be an integer");
+		//	exit(1);
+		//}
+
+		// Evaluate base pointer
+		Value* basePtr = L;
+		if (!basePtr || !basePtr->getType()->isPointerTy()) {
+			printTokenError(token, "Base must be a pointer for access");
+			return nullptr;
+		}
+
+		valueType* v = findNamedValue(this, nullptr, childNodes[0]->token.first);
+
+		if (structDefinitions.find(v->type) == structDefinitions.end()) {
+			printTokenError(token, "Type \"" + v->type + "\" has not been defined");
+			exit(1);
+		}
+		structType* structDefinition = &(structDefinitions[v->type]);
+
+		// Get member name and index
+		std::string memberName = childNodes[1]->token.first;
+		if (structDefinition->memberNameIndexes.find(memberName) == structDefinition->memberNameIndexes.end()) {
+			printTokenError(childNodes[1]->token, "Struct definition does not contain member");
+			exit(1);
+		}
+		uint16_t memberIndex = structDefinition->memberNameIndexes[memberName];
+
+		//Value* index = R;
+		//if (!index || !index->getType()->isIntegerTy()) {
+		//	printTokenError(token, "Index must be an integer");
+		//	return nullptr;
+		//}
+
+		printf("member index: %d\n", memberIndex);
+		//std::cout << structDefinitions[v->type].members << std::endl;
+		printf("member list size: %d\n", structDefinition->members.size());
+		printf("member name: %s\n", structDefinition->members[memberIndex].typeString);
+		Type* elementType = getLLVMTypeFromString(structDefinition->members[memberIndex].typeString, 0, token);
+		//Type* elementType = getLLVMTypeFromString(v->type, -1, childNodes[0]->token);
+		//Type* elementType = getLLVMTypeFromString(baseType);
+		if (!elementType) {
+			printTokenError(token, "Invalid element type");
+			exit(1);
+		}
+
+		//// Create GEP to compute the address
+		//Value* gep = Builder->CreateGEP(elementType, basePtr, index, "arrayidx");
+
+		auto gep = Builder->CreateStructGEP(structDefinitions[v->type].structVal, basePtr, memberIndex, "struct_member");
+
+		// If this is an lvalue (for assignment), return the pointer gep
+		if (lvalue)
+			return gep;
+		// If rvalue, return value
+		else
+			return Builder->CreateLoad(elementType, gep, "member_load");
 
 
 		//Value* newAddr = Builder->CreateAdd(L, R, "ptraddtmp");
@@ -1295,11 +1466,30 @@ void* ASTNode::generateCast(int pass)
 
 	std::string tyVal = childNodes[1]->childNodes[0]->childNodes[0]->token.first;
 
-	Type* toType = getLLVMTypeFromString(tyVal);
+	Type* toType = getLLVMTypeFromString(tyVal, 0, childNodes[1]->childNodes[0]->childNodes[0]->token);
 
 	return castValue(value, toType, true, typeSigns[tyVal], token);
 
 	//return Builder->CreateStore(castedValue, var);
+}
+
+// Value*
+void* ASTNode::generateTypeInstance(int pass)
+{
+	if (childNodes.size() < 2 || childNodes[1]->childNodes.size() == 0) {
+		printTokenError(token, "New expression requires type name, like #new ty;");
+		exit(1);
+	}
+	std::string typeName = childNodes[1]->childNodes[0]->token.first;
+	if (structDefinitions.find(typeName) == structDefinitions.end()) {
+		printTokenError(childNodes[1]->childNodes[0]->token, "Unknown type name used");
+		exit(1);
+	}
+	structType* typeVal = &(structDefinitions[typeName]);
+
+	AllocaInst* var = Builder->CreateAlloca(typeVal->structVal, nullptr);
+
+	return var;
 }
 
 // Value*
@@ -1452,32 +1642,53 @@ void* ASTNode::generateIf(int pass)
 // Value*
 void* ASTNode::generateStruct(int pass)
 {
-
 	std::string structName = token.first;
 
+	argumentList members = argumentList();
 	std::vector<Type*> fieldTypes;
 	std::vector<std::string> fieldNames;
+	std::unordered_map<std::string, uint16_t> memberNameIndexes;
+	uint16_t i = 0;
 	for (auto& fieldNode : childNodes[0]->childNodes) {
-		// fieldNode->childNodes[0]: type (as string or as node)
-		// fieldNode->childNodes[1]: name
-		std::string typeName = fieldNode->childNodes[0]->token.first;
+		if (fieldNode->nodeType == Identifier_Node) {
+			if (fieldNode->childNodes.size() == 0) {
+				printTokenError(fieldNode->token, "Member declaration must have type");
+				exit(1);
+			}
+			std::string memberName = fieldNode->token.first;
+			ASTNode* typeNode = fieldNode;
+			std::string memberType = fieldNode->childNodes[0]->token.first;
+			int pointerLevel = 0;
 
-		Type* fieldType = getLLVMTypeFromString(typeName);
+		recurseAddMemberPointer:
+			typeNode = typeNode->childNodes[0];
 
-		fieldTypes.push_back(fieldType);
-		fieldNames.push_back(fieldNode->token.first);
+			if (typeNode->token.first == "*") {
+				pointerLevel++;
+				goto recurseAddMemberPointer;
+			}
+
+			memberType = typeNode->token.first;
+
+			Type* fieldType = getLLVMTypeFromString(memberType, 0, typeNode->token);
+			for (int i = 0; i < pointerLevel; i++)
+				fieldType = fieldType->getPointerTo();
+			fieldTypes.push_back(fieldType);
+			fieldNames.push_back(memberName);
+			memberNameIndexes[memberName] = i;
+
+			members.push_back(argType(memberType, getASTNodeTypeFromString(memberType), pointerLevel));
+			i++;
+		}
 	}
 
-	// 3. Create struct type
-	StructType* structType = StructType::create(*TheContext, fieldTypes, structName);
+	StructType* structTy = StructType::create(*TheContext, fieldTypes, structName);
 
-	//// (Optional) Register type in a map for future lookup
-	//NamedValues[structName] = structType;
+	//structTy->setBody(fieldTypes, false);
 
-	// (Optional) Store field names somewhere for member access
-	// You could maintain a separate map: structFieldNames[structName] = fieldNames;
+	structDefinitions[structName] = structType(structName, structTy, members, memberNameIndexes);
 
-	return structType;
+	return structTy;
 }
 
 // Value*
@@ -1589,7 +1800,6 @@ void* ASTNode::generateFor(int pass)
 // Function*
 void* ASTNode::generatePrototype(int pass)
 {
-	console::WriteLine("begin generating prototype");
 	argumentList argList = argumentList();
 	std::vector<Type*> argTypes = std::vector<Type*>();
 	ASTNode* argsNode = childNodes[2];
@@ -1622,7 +1832,7 @@ void* ASTNode::generatePrototype(int pass)
 			goto recurseAddPointer;
 		}
 
-		retType = getLLVMTypeFromString(rTypeString);
+		retType = getLLVMTypeFromString(rTypeString, 0, typeNode->token);
 	}
 
 	// Get function arguments
@@ -1670,7 +1880,7 @@ void* ASTNode::generatePrototype(int pass)
 				argList.push_back(argType(typeStr, getASTNodeTypeFromString(typeNode->token.first), pointerLevel, isReference, mustBeExactType));
 
 				try {
-					aType = getLLVMTypeFromString(typeNode->token.first);
+					aType = getLLVMTypeFromString(typeNode->token.first, 0, typeNode->token);
 					for (int i = 0; i < pointerLevel; i++) {
 						aType = aType->getPointerTo();
 					}
@@ -1747,7 +1957,6 @@ void* ASTNode::generatePrototype(int pass)
 // Function*
 void* ASTNode::generateFunction(int pass)
 {
-	console::WriteLine("begin generating function");
 	// First, check for an existing function from a previous declaration.
 	//Function* theFunction = TheModule->getFunction(token.first);
 	functionID* theFunctionID = nullptr;

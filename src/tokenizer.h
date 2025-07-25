@@ -94,8 +94,7 @@ enum TokenType {
 	Struct_Define,
 	Module_Define,
 
-	Unary,
-	Binary,
+	Operator_Keyword,
 
 	True_Literal,
 	False_Literal,
@@ -188,8 +187,7 @@ const std::string tokenTypeStrings[] = {
 	"Struct_Define",
 	"Module_Define",
 
-	"Unary",
-	"Binary",
+	"Operator_Keyword",
 
 	"True_Literal",
 	"False_Literal",

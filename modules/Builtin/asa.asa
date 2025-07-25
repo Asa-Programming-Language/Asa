@@ -1,110 +1,110 @@
 
 Casts :: module {
 	// Float casting
-	cast:: float(x : int) #inline {
+	cast:: float(x : int) #inline; #noast {
 		return #cast x : float;
 	}
-	cast:: float(x : char) #inline {
+	cast:: float(x : char) #inline; #noast {
 		return #cast x : float;
 	}
-	cast:: float(x : float) #inline {
+	cast:: float(x : float) #inline; #noast {
 		return #cast x : float;
 	}
-	cast:: float(x : double) #inline {
+	cast:: float(x : double) #inline; #noast {
 		return #cast x : float;
 	}
-	cast:: float(x : bool) #inline {
+	cast:: float(x : bool) #inline; #noast {
 		return #cast x : float;
 	}
 	// Double
-	cast:: double(x : int) #inline {
+	cast:: double(x : int) #inline; #noast {
 		return #cast x : double;
 	}
-	cast:: double(x : char) #inline {
+	cast:: double(x : char) #inline; #noast {
 		return #cast x : double;
 	}
-	cast:: double(x : float) #inline {
+	cast:: double(x : float) #inline; #noast {
 		return #cast x : double;
 	}
-	cast:: double(x : double) #inline {
+	cast:: double(x : double) #inline; #noast {
 		return #cast x : double;
 	}
-	cast:: double(x : bool) #inline {
+	cast:: double(x : bool) #inline; #noast {
 		return #cast x : double;
 	}
 
 	// Int casting
-	cast:: int(x : float) #inline {
+	cast:: int(x : float) #inline; #noast {
 		return #cast x : int;
 	}
-	cast:: int(x : double) #inline {
+	cast:: int(x : double) #inline; #noast {
 		return #cast x : int;
 	}
-	cast:: int(x : int) #inline {
+	cast:: int(x : int) #inline; #noast {
 		return #cast x : int;
 	}
-	cast:: int(x : uint) #inline {
+	cast:: int(x : uint) #inline; #noast {
 		return #cast x : int;
 	}
-	cast:: int(x : bool) #inline {
+	cast:: int(x : bool) #inline; #noast {
 		return #cast x : int;
 	}
 
-	cast:: uint(x : float) #inline {
+	cast:: uint(x : float) #inline; #noast {
 		return #cast x : uint;
 	}
-	cast:: uint(x : double) #inline {
+	cast:: uint(x : double) #inline; #noast {
 		return #cast x : uint;
 	}
-	cast:: uint(x : int) #inline {
+	cast:: uint(x : int) #inline; #noast {
 		return #cast x : uint;
 	}
-	cast:: uint(x : uint) #inline {
+	cast:: uint(x : uint) #inline; #noast {
 		return #cast x : uint;
 	}
-	cast:: uint(x : bool) #inline {
+	cast:: uint(x : bool) #inline; #noast {
 		return #cast x : uint;
 	}
 
-	cast:: uint64(x : float) #inline {
+	cast:: uint64(x : float) #inline; #noast {
 		return #cast x : uint64;
 	}
-	cast:: uint64(x : double) #inline {
+	cast:: uint64(x : double) #inline; #noast {
 		return #cast x : uint64;
 	}
-	cast:: uint64(x : int) #inline {
+	cast:: uint64(x : int) #inline; #noast {
 		return #cast x : uint64;
 	}
-	cast:: uint64(x : uint) #inline {
+	cast:: uint64(x : uint) #inline; #noast {
 		return #cast x : uint64;
 	}
-	cast:: uint64(x : bool) #inline {
+	cast:: uint64(x : bool) #inline; #noast {
 		return #cast x : uint64;
 	}
 
-	cast:: uint16(x : float) #inline {
+	cast:: uint16(x : float) #inline; #noast {
 		return #cast x : uint16;
 	}
-	cast:: uint16(x : double) #inline {
+	cast:: uint16(x : double) #inline; #noast {
 		return #cast x : uint16;
 	}
-	cast:: uint16(x : int) #inline {
+	cast:: uint16(x : int) #inline; #noast {
 		return #cast x : uint16;
 	}
-	cast:: uint16(x : uint) #inline {
+	cast:: uint16(x : uint) #inline; #noast {
 		return #cast x : uint16;
 	}
-	cast:: uint16(x : bool) #inline {
+	cast:: uint16(x : bool) #inline; #noast {
 		return #cast x : uint16;
 	}
 }
 
 Operators::module{
-	unary++ :: int(i : ref int) #inline {
+	operator++ :: int(i : ref int) #inline; #noast {
 		i += 1;
 		return i;
 	}
-	unary-- :: int(i : ref int) #inline {
+	operator-- :: int(i : ref int) #inline; #noast {
 		i -= 1;
 		return i;
 	}
@@ -116,61 +116,61 @@ Memory :: module{
 	#extern free::(p : *int);
 }
 
-Strings :: module{
-	#import Builtin.Memory;
-	#import Builtin.Operators;
-
-	string :: struct {
-		address : *char;
-		length : uint32;
-		
-		size::uint32(){
-			return length;
-		}
-
-		cast::string(c : *char){
-			len = 0;
-			for(i : 0..4_294_967_296){
-				if(c[i] == '\0')
-				break;
-				len++;
-			}
-			address = malloc(len);
-			for(i : 0..len){
-				address[i] = c[i];
-			}
-			length = len;
-		}
-
-		binary+ :: string(s : ref string, c : char) #inline {
-			s.length += 1;
-			newAddress : *char = malloc(s.length);
-			for(i : 0..s.length-1){
-				newAddress[i] = s.address[i];
-			}
-			free(s.address);
-			newAddress[s.length-1] = c;
-			s.address = newAddress;
-			return s;
-		}
-
-		binary+ :: string(s : ref string, otherStr : string) #inline {
-			oldLength = s.length;
-			s.length += otherStr.length;
-			newAddress : *char = malloc(s.length);
-			for(i : 0..oldLength){
-				newAddress[i] = s.address[i];
-			}
-			free(s.address);
-			for(i : oldLength..otherStr.length){
-				newAddress[i] = otherStr.address[i-oldLength];
-			}
-			s.address = newAddress;
-			return s;
-		}
-
-		binary[] :: char(s : ref string, i : int) #inline {
-			return s.address[i];
-		}
-	}
-}
+//Strings :: module{
+//	#import Builtin.Memory;
+//	#import Builtin.Operators;
+//
+//	string :: struct {
+//		address : *char;
+//		length : uint32;
+//		
+//		size::uint32(){
+//			return length;
+//		}
+//
+//		cast::string(c : *char){
+//			len = 0;
+//			for(i : 0..4_294_967_296){
+//				if(c[i] == '\0')
+//				break;
+//				len++;
+//			}
+//			address = malloc(len);
+//			for(i : 0..len){
+//				address[i] = c[i];
+//			}
+//			length = len;
+//		}
+//
+//		binary+ :: string(s : ref string, c : char) #inline {
+//			s.length += 1;
+//			newAddress : *char = malloc(s.length);
+//			for(i : 0..s.length-1){
+//				newAddress[i] = s.address[i];
+//			}
+//			free(s.address);
+//			newAddress[s.length-1] = c;
+//			s.address = newAddress;
+//			return s;
+//		}
+//
+//		binary+ :: string(s : ref string, otherStr : string) #inline {
+//			oldLength = s.length;
+//			s.length += otherStr.length;
+//			newAddress : *char = malloc(s.length);
+//			for(i : 0..oldLength){
+//				newAddress[i] = s.address[i];
+//			}
+//			free(s.address);
+//			for(i : oldLength..otherStr.length){
+//				newAddress[i] = otherStr.address[i-oldLength];
+//			}
+//			s.address = newAddress;
+//			return s;
+//		}
+//
+//		binary[] :: char(s : ref string, i : int) #inline {
+//			return s.address[i];
+//		}
+//	}
+//}

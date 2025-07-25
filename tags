@@ -3683,7 +3683,6 @@ Binary	src/include/llvm/Object/Binary.h	/^class LLVM_ABI Binary {$/;"	c	namespac
 Binary	src/include/llvm/ObjectYAML/COFFYAML.h	/^  yaml::BinaryRef Binary;$/;"	m	struct:llvm::COFFYAML::SectionDataEntry	typeref:typename:yaml::BinaryRef
 Binary	src/include/llvm/ObjectYAML/OffloadYAML.h	/^struct Binary {$/;"	s	namespace:llvm::OffloadYAML
 Binary	src/include/llvm/ProfileData/MemProfReader.h	/^  object::OwningBinary<object::Binary> Binary;$/;"	m	class:llvm::memprof::RawMemProfReader	typeref:typename:object::OwningBinary<object::Binary>
-Binary	src/tokenizer.h	/^	Binary,$/;"	e	enum:TokenType
 BinaryAnnotationIterator	src/include/llvm/DebugInfo/CodeView/SymbolRecord.h	/^  BinaryAnnotationIterator(ArrayRef<uint8_t> Annotations) : Data(Annotations) {}$/;"	f	struct:llvm::codeview::BinaryAnnotationIterator
 BinaryAnnotationIterator	src/include/llvm/DebugInfo/CodeView/SymbolRecord.h	/^  BinaryAnnotationIterator(const BinaryAnnotationIterator &Other)$/;"	f	struct:llvm::codeview::BinaryAnnotationIterator
 BinaryAnnotationIterator	src/include/llvm/DebugInfo/CodeView/SymbolRecord.h	/^struct BinaryAnnotationIterator$/;"	s	namespace:llvm::codeview
@@ -29218,6 +29217,7 @@ MemberPointerInfo	src/include/llvm/DebugInfo/CodeView/TypeRecord.h	/^class Membe
 MemberRecord	src/include/llvm/ObjectYAML/CodeViewYAMLTypes.h	/^struct MemberRecord {$/;"	s	namespace:llvm::CodeViewYAML
 MemberT	src/include/llvm/ADT/PointerSumType.h	/^    using MemberT = decltype($/;"	t	struct:llvm::detail::PointerSumTypeHelper::Lookup
 MemberType	src/include/llvm/Demangle/ItaniumDemangle.h	/^  const Node *MemberType;$/;"	m	class:PointerToMemberType	typeref:typename:const Node *
+Member_Access	src/parser.h	/^	Member_Access,$/;"	e	enum:ASTNodeType
 Members	src/include/llvm/ADT/EquivalenceClasses.h	/^  SmallVector<const ECValue *> Members;$/;"	m	class:llvm::EquivalenceClasses	typeref:typename:SmallVector<const ECValue * >
 Members	src/include/llvm/Analysis/LoopAccessAnalysis.h	/^  SmallVector<unsigned, 2> Members;$/;"	m	struct:llvm::RuntimeCheckingPtrGroup	typeref:typename:SmallVector<unsigned,2>
 Members	src/include/llvm/Analysis/VectorUtils.h	/^  DenseMap<int32_t, InstTy *> Members;$/;"	m	class:llvm::InterleaveGroup	typeref:typename:DenseMap<int32_t,InstTy * >
@@ -33463,6 +33463,7 @@ Operator	src/include/llvm/TableGen/SetTheory.h	/^  class Operator {$/;"	c	class:
 OperatorInfo	src/include/llvm/Demangle/ItaniumDemangle.h	/^    constexpr OperatorInfo(const char (&E)[3], OIKind K, bool F, Node::Prec P,$/;"	f	struct:AbstractManglingParser::OperatorInfo
 OperatorInfo	src/include/llvm/Demangle/ItaniumDemangle.h	/^  struct OperatorInfo {$/;"	s	struct:AbstractManglingParser
 OperatorName	src/include/llvm/Demangle/ItaniumDemangle.h	/^  std::string_view OperatorName;$/;"	m	class:FoldExpr	typeref:typename:std::string_view
+Operator_Keyword	src/tokenizer.h	/^	Operator_Keyword,$/;"	e	enum:TokenType
 Operator_Overload_Node	src/parser.h	/^	Operator_Overload_Node,$/;"	e	enum:ASTNodeType
 Operator_Type_Node	src/parser.h	/^	Operator_Type_Node,$/;"	e	enum:ASTNodeType
 Operators	src/include/llvm/TableGen/SetTheory.h	/^  StringMap<std::unique_ptr<Operator>> Operators;$/;"	m	class:llvm::SetTheory	typeref:typename:StringMap<std::unique_ptr<Operator>>
@@ -46376,7 +46377,6 @@ Unaligned	src/include/llvm/DebugInfo/CodeView/CodeView.h	/^  Unaligned = 0x00000
 Unaligned	src/include/llvm/DebugInfo/CodeView/CodeView.h	/^  Unaligned = 0x0004$/;"	e	enum:llvm::codeview::ModifierOptions
 Unary	src/include/llvm/Demangle/ItaniumDemangle.h	/^    Unary,$/;"	e	enum:Node::Prec
 Unary	src/include/llvm/MC/MCExpr.h	/^    Unary,     \/\/\/< Unary expressions.$/;"	e	enum:llvm::MCExpr::ExprKind
-Unary	src/tokenizer.h	/^	Unary,$/;"	e	enum:TokenType
 UnaryInstruction	src/include/llvm/IR/InstrTypes.h	/^  UnaryInstruction(Type *Ty, unsigned iType, Value *V,$/;"	f	class:llvm::UnaryInstruction
 UnaryInstruction	src/include/llvm/IR/InstrTypes.h	/^class UnaryInstruction : public Instruction {$/;"	c	namespace:llvm
 UnaryInstruction	src/include/llvm/SandboxIR/Instruction.h	/^  UnaryInstruction(ClassID ID, Opcode Opc, llvm::Instruction *LLVMI,$/;"	f	class:llvm::sandboxir::UnaryInstruction
@@ -58245,12 +58245,14 @@ generateFunction	src/codegen.cpp	/^void* ASTNode::generateFunction(int pass)$/;"
 generateIf	src/codegen.cpp	/^void* ASTNode::generateIf(int pass)$/;"	f	class:ASTNode	typeref:typename:void *
 generateInstructionOrderMap	src/include/llvm/Analysis/LoopAccessAnalysis.h	/^  DenseMap<Instruction *, unsigned> generateInstructionOrderMap() const {$/;"	f	class:llvm::MemoryDepChecker	typeref:typename:DenseMap<Instruction *,unsigned>
 generateIterator	src/codegen.cpp	/^void* ASTNode::generateIterator(int pass)$/;"	f	class:ASTNode	typeref:typename:void *
+generateMemberAccess	src/codegen.cpp	/^void* ASTNode::generateMemberAccess(int pass)$/;"	f	class:ASTNode	typeref:typename:void *
 generateNothing	src/codegen.cpp	/^void* ASTNode::generateNothing(int pass)$/;"	f	class:ASTNode	typeref:typename:void *
 generateOutputCode	src/parser.cpp	/^void generateOutputCode(ASTNode*& node, int depth, int pass)$/;"	f	typeref:typename:void
 generatePrototype	src/codegen.cpp	/^void* ASTNode::generatePrototype(int pass)$/;"	f	class:ASTNode	typeref:typename:void *
 generateReturn	src/codegen.cpp	/^void* ASTNode::generateReturn(int pass)$/;"	f	class:ASTNode	typeref:typename:void *
 generateScopeBody	src/codegen.cpp	/^void* ASTNode::generateScopeBody(int pass)$/;"	f	class:ASTNode	typeref:typename:void *
 generateStruct	src/codegen.cpp	/^void* ASTNode::generateStruct(int pass)$/;"	f	class:ASTNode	typeref:typename:void *
+generateTypeInstance	src/codegen.cpp	/^void* ASTNode::generateTypeInstance(int pass)$/;"	f	class:ASTNode	typeref:typename:void *
 generateUnaryExpression	src/codegen.cpp	/^void* ASTNode::generateUnaryExpression(int pass)$/;"	f	class:ASTNode	typeref:typename:void *
 generateVariableExpression	src/codegen.cpp	/^void* ASTNode::generateVariableExpression(int pass)$/;"	f	class:ASTNode	typeref:typename:void *
 generate_vcs_version_script	src/include/llvm/Support/CMakeLists.txt	/^set(generate_vcs_version_script "${LLVM_CMAKE_DIR}\/GenerateVersionFromVCS.cmake")$/;"	v
@@ -62283,7 +62285,7 @@ getLLVMContext	src/include/llvm/Frontend/Atomic/Atomic.h	/^  LLVMContext &getLLV
 getLLVMIRBuilder	src/include/llvm/SandboxIR/Context.h	/^  auto &getLLVMIRBuilder() { return LLVMIRBuilder; }$/;"	f	class:llvm::sandboxir::Context	typeref:typename:auto &
 getLLVMInstrs	src/include/llvm/SandboxIR/Instruction.h	/^  SmallVector<llvm::Instruction *, 1> getLLVMInstrs() const final {$/;"	f	class:llvm::sandboxir::SingleLLVMInstructionImpl	typeref:typename:SmallVector<llvm::Instruction *,1>
 getLLVMInstrs	src/include/llvm/SandboxIR/Instruction.h	/^  SmallVector<llvm::Instruction *, 1> getLLVMInstrs() const final {$/;"	f	class:llvm::sandboxir::UnreachableInst	typeref:typename:SmallVector<llvm::Instruction *,1>
-getLLVMTypeFromString	src/codegen.cpp	/^Type* getLLVMTypeFromString(std::string typeName, int pointerLevelOffset = 0)$/;"	f	typeref:typename:Type *
+getLLVMTypeFromString	src/codegen.cpp	/^Type* getLLVMTypeFromString(std::string typeName, int pointerLevelOffset, tokenPair& token)$/;"	f	typeref:typename:Type *
 getLOHContainer	src/include/llvm/MC/MCMachObjectWriter.h	/^  MCLOHContainer &getLOHContainer() { return LOHContainer; }$/;"	f	class:llvm::MachObjectWriter	typeref:typename:MCLOHContainer &
 getLRM	src/include/llvm/CodeGen/LiveRegMatrix.h	/^  LiveRegMatrix &getLRM() { return LRM; }$/;"	f	class:llvm::LiveRegMatrixWrapperLegacy	typeref:typename:LiveRegMatrix &
 getLRM	src/include/llvm/CodeGen/LiveRegMatrix.h	/^  const LiveRegMatrix &getLRM() const { return LRM; }$/;"	f	class:llvm::LiveRegMatrixWrapperLegacy	typeref:typename:const LiveRegMatrix &
@@ -77162,10 +77164,13 @@ medianOf3	src/include/llvm/Support/Parallel.h	/^RandomAccessIterator medianOf3(R
 memPreds	src/include/llvm/Transforms/Vectorize/SandboxVectorizer/DependencyGraph.h	/^  iterator_range<DenseSet<MemDGNode *>::const_iterator> memPreds() const {$/;"	f	class:llvm::sandboxir::MemDGNode	typeref:typename:iterator_range<DenseSet<MemDGNode * >::const_iterator>
 memSuccs	src/include/llvm/Transforms/Vectorize/SandboxVectorizer/DependencyGraph.h	/^  iterator_range<DenseSet<MemDGNode *>::const_iterator> memSuccs() const {$/;"	f	class:llvm::sandboxir::MemDGNode	typeref:typename:iterator_range<DenseSet<MemDGNode * >::const_iterator>
 memVT	src/include/llvm/CodeGen/TargetLowering.h	/^    EVT          memVT;            \/\/ memory VT$/;"	m	struct:llvm::TargetLoweringBase::IntrinsicInfo	typeref:typename:EVT
+memberFunctions	src/codegen.cpp	/^	std::vector<functionID*> memberFunctions;$/;"	m	struct:structType	typeref:typename:std::vector<functionID * >	file:
+memberNameIndexes	src/codegen.cpp	/^	std::unordered_map<std::string, uint16_t> memberNameIndexes;$/;"	m	struct:structType	typeref:typename:std::unordered_map<std::string,uint16_t>	file:
 member_begin	src/include/llvm/ADT/EquivalenceClasses.h	/^  member_iterator member_begin(const ECValue &ECV) const {$/;"	f	class:llvm::EquivalenceClasses	typeref:typename:member_iterator
 member_end	src/include/llvm/ADT/EquivalenceClasses.h	/^  member_iterator member_end() const { return member_iterator(nullptr); }$/;"	f	class:llvm::EquivalenceClasses	typeref:typename:member_iterator
 member_iterator	src/include/llvm/ADT/EquivalenceClasses.h	/^    explicit member_iterator(const ECValue *N) : Node(N) {}$/;"	f	class:llvm::EquivalenceClasses::member_iterator
 member_iterator	src/include/llvm/ADT/EquivalenceClasses.h	/^  class member_iterator {$/;"	c	class:llvm::EquivalenceClasses
+members	src/codegen.cpp	/^	argumentList members = argumentList();$/;"	m	struct:structType	typeref:typename:argumentList	file:
 members	src/include/llvm/ADT/EquivalenceClasses.h	/^  iterator_range<member_iterator> members(const ECValue &ECV) const {$/;"	f	class:llvm::EquivalenceClasses	typeref:typename:iterator_range<member_iterator>
 members	src/include/llvm/ADT/EquivalenceClasses.h	/^  iterator_range<member_iterator> members(const ElemTy &V) const {$/;"	f	class:llvm::EquivalenceClasses	typeref:typename:iterator_range<member_iterator>
 members	src/include/llvm/Analysis/BlockFrequencyInfoImpl.h	/^    iterator_range<NodeList::const_iterator> members() const {$/;"	f	struct:llvm::BlockFrequencyInfoImplBase::LoopData	typeref:typename:iterator_range<NodeList::const_iterator>
@@ -77445,6 +77450,7 @@ n_value	src/include/llvm/BinaryFormat/MachO.h	/^  uint32_t n_value;$/;"	m	struct
 n_value	src/include/llvm/BinaryFormat/MachO.h	/^  uint64_t n_value;$/;"	m	struct:llvm::MachO::nlist_64	typeref:typename:uint64_t
 n_value	src/include/llvm/ObjectYAML/MachOYAML.h	/^  uint64_t n_value;$/;"	m	struct:llvm::MachOYAML::NListEntry	typeref:typename:uint64_t
 name	src/codegen.cpp	/^	std::string name = "";$/;"	m	struct:functionID	typeref:typename:std::string	file:
+name	src/codegen.cpp	/^	std::string name = "";$/;"	m	struct:structType	typeref:typename:std::string	file:
 name	src/include/llvm/Analysis/TensorSpec.h	/^  const std::string &name() const { return Name; }$/;"	f	class:llvm::TensorSpec	typeref:typename:const std::string &
 name	src/include/llvm/BinaryFormat/MachO.h	/^  uint32_t name;$/;"	m	struct:llvm::MachO::dyld_env_command	typeref:typename:uint32_t
 name	src/include/llvm/BinaryFormat/MachO.h	/^  uint32_t name;$/;"	m	struct:llvm::MachO::dylib	typeref:typename:uint32_t
@@ -83709,23 +83715,23 @@ runWithSPSRet	src/include/llvm/ExecutionEngine/Orc/Shared/WrapperFunctionUtils.h
 runWithSPSRet	src/include/llvm/ExecutionEngine/Orc/Shared/WrapperFunctionUtils.h	/^  runWithSPSRet(RetT &RetVal) const {$/;"	f	class:llvm::orc::shared::WrapperFunctionCall	typeref:typename:std::enable_if_t<!std::is_same<SPSRetT,void>::value,Error>
 runWithSPSRetErrorMerged	src/include/llvm/ExecutionEngine/Orc/Shared/WrapperFunctionUtils.h	/^  Error runWithSPSRetErrorMerged() const {$/;"	f	class:llvm::orc::shared::WrapperFunctionCall	typeref:typename:Error
 runtime_check	src/include/llvm/Transforms/Instrumentation/LowerAllowCheckPass.h	/^    unsigned int runtime_check = 0;$/;"	m	struct:llvm::LowerAllowCheckPass::Options	typeref:typename:unsigned int
-s:l	src/Session.vim	/^let s:l = 1 - ((0 * winheight(0) + 13) \/ 26)$/;"	v
-s:l	src/Session.vim	/^let s:l = 1 - ((0 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 10026 - ((25 * winheight(0) + 13) \/ 26)$/;"	v
-s:l	src/Session.vim	/^let s:l = 1012 - ((39 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 113 - ((31 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 127 - ((28 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 1319 - ((27 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 142 - ((15 * winheight(0) + 13) \/ 26)$/;"	v
-s:l	src/Session.vim	/^let s:l = 142 - ((42 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 157 - ((16 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 16 - ((15 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 20 - ((19 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 202 - ((15 * winheight(0) + 13) \/ 26)$/;"	v
-s:l	src/Session.vim	/^let s:l = 21 - ((20 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 85 - ((26 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 86 - ((13 * winheight(0) + 13) \/ 26)$/;"	v
-s:l	src/Session.vim	/^let s:l = 9 - ((8 * winheight(0) + 13) \/ 26)$/;"	v
+s:l	src/Session.vim	/^let s:l = 1 - ((0 * winheight(0) + 25) \/ 51)$/;"	v
+s:l	src/Session.vim	/^let s:l = 10027 - ((26 * winheight(0) + 13) \/ 27)$/;"	v
+s:l	src/Session.vim	/^let s:l = 114 - ((30 * winheight(0) + 25) \/ 51)$/;"	v
+s:l	src/Session.vim	/^let s:l = 144 - ((40 * winheight(0) + 25) \/ 51)$/;"	v
+s:l	src/Session.vim	/^let s:l = 16 - ((14 * winheight(0) + 25) \/ 51)$/;"	v
+s:l	src/Session.vim	/^let s:l = 162 - ((37 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 176 - ((24 * winheight(0) + 12) \/ 25)$/;"	v
+s:l	src/Session.vim	/^let s:l = 190 - ((42 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 20 - ((18 * winheight(0) + 25) \/ 51)$/;"	v
+s:l	src/Session.vim	/^let s:l = 206 - ((14 * winheight(0) + 12) \/ 25)$/;"	v
+s:l	src/Session.vim	/^let s:l = 21 - ((14 * winheight(0) + 12) \/ 25)$/;"	v
+s:l	src/Session.vim	/^let s:l = 228 - ((26 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 256 - ((16 * winheight(0) + 13) \/ 27)$/;"	v
+s:l	src/Session.vim	/^let s:l = 4 - ((3 * winheight(0) + 13) \/ 27)$/;"	v
+s:l	src/Session.vim	/^let s:l = 7 - ((6 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 746 - ((22 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 964 - ((36 * winheight(0) + 26) \/ 53)$/;"	v
 s:save_splitbelow	src/Session.vim	/^let s:save_splitbelow = &splitbelow$/;"	v
 s:save_splitright	src/Session.vim	/^let s:save_splitright = &splitright$/;"	v
 s:save_winminheight	src/Session.vim	/^let s:save_winminheight = &winminheight$/;"	v
@@ -85888,6 +85894,7 @@ shouldUseSchedule	src/include/llvm/CodeGen/TargetInstrInfo.h	/^    virtual bool 
 shouldUseStrictFP_TO_INT	src/include/llvm/CodeGen/TargetLowering.h	/^  virtual bool shouldUseStrictFP_TO_INT(EVT FpVT, EVT IntVT,$/;"	f	class:llvm::TargetLoweringBase	typeref:typename:bool
 showEdgeWeights	src/include/llvm/Analysis/CFGPrinter.h	/^  bool showEdgeWeights() { return EdgeWeights; }$/;"	f	class:llvm::DOTFuncInfo	typeref:typename:bool
 showHeatColors	src/include/llvm/Analysis/CFGPrinter.h	/^  bool showHeatColors() { return ShowHeat; }$/;"	f	class:llvm::DOTFuncInfo	typeref:typename:bool
+showInASTOutput	src/parser.h	/^	bool showInASTOutput = true;$/;"	m	struct:ASTNode	typeref:typename:bool
 show_console_cursor	src/indicators.hpp	/^static inline void show_console_cursor(bool const show) {$/;"	f	namespace:indicators	typeref:typename:void
 show_elapsed_time	src/indicators.hpp	/^  show_elapsed_time,$/;"	e	enum:indicators::details::ProgressBarOption
 show_percentage	src/indicators.hpp	/^  show_percentage,$/;"	e	enum:indicators::details::ProgressBarOption
@@ -86545,6 +86552,11 @@ stroff	src/include/llvm/BinaryFormat/MachO.h	/^  uint32_t stroff;$/;"	m	struct:l
 strops_h	src/strops.h	/^#define strops_h$/;"	d
 strsignal	src/include/llvm/Support/SystemZ/zOSSupport.h	/^inline char *strsignal(int sig) {$/;"	f	typeref:typename:char *
 strsize	src/include/llvm/BinaryFormat/MachO.h	/^  uint32_t strsize;$/;"	m	struct:llvm::MachO::symtab_command	typeref:typename:uint32_t
+structDefinitions	src/codegen.cpp	/^std::unordered_map<std::string, structType> structDefinitions = std::unordered_map<std::string, /;"	v	typeref:typename:std::unordered_map<std::string,structType>
+structType	src/codegen.cpp	/^	structType() {}$/;"	f	struct:structType	file:
+structType	src/codegen.cpp	/^	structType(std::string& n, StructType*& sT, argumentList a, std::unordered_map<std::string, uin/;"	f	struct:structType	file:
+structType	src/codegen.cpp	/^struct structType {$/;"	s	file:
+structVal	src/codegen.cpp	/^	StructType* structVal = nullptr;$/;"	m	struct:structType	typeref:typename:StructType *	file:
 sub	src/include/llvm/Support/CommandLine.h	/^  sub(SubCommand &S) : Sub(&S) {}$/;"	f	struct:llvm::cl::sub
 sub	src/include/llvm/Support/CommandLine.h	/^  sub(SubCommandGroup &G) : Group(&G) {}$/;"	f	struct:llvm::cl::sub
 sub	src/include/llvm/Support/CommandLine.h	/^struct sub {$/;"	s	namespace:llvm::cl
@@ -87502,7 +87514,7 @@ typeIdx	src/include/llvm/CodeGen/GlobalISel/LegalizerInfo.h	/^  unsigned typeIdx
 typeIsNot	src/include/llvm/CodeGen/GlobalISel/LegalizerInfo.h	/^inline LegalityPredicate typeIsNot(unsigned TypeIdx, LLT Type) {$/;"	f	namespace:llvm::LegalityPredicates	typeref:typename:LegalityPredicate
 typeSigns	src/codegen.cpp	/^std::unordered_map<std::string, bool> typeSigns = {$/;"	v	typeref:typename:std::unordered_map<std::string,bool>
 typeSizeEqualsStoreSize	src/include/llvm/IR/DataLayout.h	/^  bool typeSizeEqualsStoreSize(Type *Ty) const {$/;"	f	class:llvm::DataLayout	typeref:typename:bool
-typeString	src/codegen.cpp	/^	std::string typeString;$/;"	m	struct:argType	typeref:typename:std::string	file:
+typeString	src/codegen.cpp	/^	std::string typeString = "";$/;"	m	struct:argType	typeref:typename:std::string	file:
 typeToStr	src/include/llvm/Remarks/Remark.h	/^inline StringRef typeToStr(Type Ty) {$/;"	f	namespace:llvm::remarks	typeref:typename:StringRef
 type_checked_load_const_vcalls	src/include/llvm/IR/ModuleSummaryIndex.h	/^  ArrayRef<ConstVCall> type_checked_load_const_vcalls() const {$/;"	f	class:llvm::FunctionSummary	typeref:typename:ArrayRef<ConstVCall>
 type_checked_load_vcalls	src/include/llvm/IR/ModuleSummaryIndex.h	/^  ArrayRef<VFuncId> type_checked_load_vcalls() const {$/;"	f	class:llvm::FunctionSummary	typeref:typename:ArrayRef<VFuncId>
@@ -87903,6 +87915,7 @@ users	src/include/llvm/IR/Value.h	/^  iterator_range<user_iterator> users() {$/;
 users	src/include/llvm/SandboxIR/Value.h	/^  iterator_range<const_user_iterator> users() const {$/;"	f	class:llvm::sandboxir::Value	typeref:typename:iterator_range<const_user_iterator>
 users	src/include/llvm/SandboxIR/Value.h	/^  iterator_range<user_iterator> users() {$/;"	f	class:llvm::sandboxir::Value	typeref:typename:iterator_range<user_iterator>
 uses	src/codegen.cpp	/^	uint32_t uses = 0;$/;"	m	struct:functionID	typeref:typename:uint32_t	file:
+uses	src/codegen.cpp	/^	uint32_t uses = 0;$/;"	m	struct:structType	typeref:typename:uint32_t	file:
 uses	src/include/llvm/CodeGen/MachineInstr.h	/^  const_mop_range uses() const {$/;"	f	class:llvm::MachineInstr	typeref:typename:const_mop_range
 uses	src/include/llvm/CodeGen/MachineInstr.h	/^  mop_range uses() { return operands_impl().drop_front(getNumExplicitDefs()); }$/;"	f	class:llvm::MachineInstr	typeref:typename:mop_range
 uses	src/include/llvm/CodeGen/SelectionDAGNodes.h	/^  inline iterator_range<use_iterator> uses() const {$/;"	f	class:llvm::SDNode	typeref:typename:iterator_range<use_iterator>

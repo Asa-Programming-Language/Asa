@@ -202,7 +202,7 @@ std::vector<Test> tests = {
 					A(Identifier_Node, {}),
 					A(Scope_Body, 
 						{
-							A(Module_Scope,
+							A(Member_Access,
 								{
 									A(Identifier_Node),
 									A(Identifier_Node),

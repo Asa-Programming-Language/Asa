@@ -286,7 +286,7 @@ bool GATHER_TO_TOKEN(const std::vector<tokenPair>& tokens, std::vector<tokenPair
 void printTokenError(tokenPair& token, std::string errorString, int sourceLineNumber, const char* fileName)
 {
 	if (verbosity >= 5) {
-		if (fileName != "")
+		if (fileName != "" && fileName != "\0")
 			std::cerr << "Source file: " << fileName << std::endl;
 		if (sourceLineNumber > 0)
 			std::cerr << "Line: " << sourceLineNumber << std::endl;
@@ -349,7 +349,6 @@ std::vector<ASTNode*> ASTNodes = std::vector<ASTNode*>();
 
 std::map<TokenType, ASTNodeType> operatorDefaultNodeType = {
 	{Dot_Dot, Range_Node},
-	{Dot, Module_Scope},
 	{Bang_Equal, Compare_Not},
 	{Equal_Equal, Compare_Equal},
 	{Less, Compare_Less},
@@ -363,6 +362,7 @@ std::map<TokenType, ASTNodeType> operatorDefaultNodeType = {
 	{Ref, Reference_Operation},
 	{Exact, Exact_Type_Node},
 	{Left_Bracket, Access_Operation},
+	{Dot, Member_Access},
 };
 
 std::map<ASTNodeType, int> operatorPrecedence = {
@@ -869,6 +869,8 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 						subTokens.push_back(t);
 					}
 				}
+				if (node->nodeType == Member_Access)
+					node->codegen = &ASTNode::generateMemberAccess;
 				if (subTokens.size() == 0) {
 					if (!isUnaryR && tokenType == Star) {
 						node->nodeType = Pointer_Node;
@@ -963,6 +965,9 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 					node->isExtern = true;
 					identifier->codegen = &ASTNode::generateNothing;
 					node->codegen = &ASTNode::generateScopeBody;
+				}
+				if (identifier->token.first == "new") {
+					node->codegen = &ASTNode::generateTypeInstance;
 				}
 
 				node->token.first = "#" + identifier->token.first;
@@ -1173,6 +1178,11 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 					if (!noModifiers) {
 						modifiersNode = generateAST(subTokens, depth + 1);
 						modifiersNode->nodeType = Compiler_Modifiers;
+
+						for (const auto& m : modifiersNode->childNodes) {
+							if (m->token.first == "#noast")
+								node->showInASTOutput = false;
+						}
 					}
 
 					// Step through all tokens to gather body until braces are closed
@@ -1209,8 +1219,7 @@ ASTNode* generateAST(const std::vector<tokenPair>& tokens, int depth, ASTNode* p
 				break;
 			}
 
-			case Binary:
-			case Unary: {
+			case Operator_Keyword: {
 				node->nodeType = Operator_Overload_Node;
 
 				// Get next token, which should be the operator
@@ -1949,7 +1958,7 @@ void addModuleImports(ASTNode*& node)
 				// Load module if module name is provided
 				if (node->childNodes.size() > 1) {
 					ASTNode* moduleNameNode = node->childNodes[1]->childNodes[0];
-					if (moduleNameNode->nodeType == Module_Scope) {
+					if (moduleNameNode->nodeType == Member_Access) {
 						std::string modulePath = "";
 						bool moduleFound = false;
 						for (int i = 0; i < moduleNameNode->childNodes.size() - 1; i++)
@@ -2075,6 +2084,9 @@ int printAST(ASTNode* startNode, int depth)
 {
 	// Print each node
 
+	if (startNode->showInASTOutput == false)
+		return 0;
+
 	console::printIndent(depth);
 
 	console::Write(startNode->token.first, console::greenFGColor);
@@ -2117,6 +2129,7 @@ int printAST(ASTNode* startNode, int depth)
 void generateOutputCode(ASTNode*& node, int depth, int pass)
 {
 	switch (node->nodeType) {
+		case Compiler_Define_Struct:
 		case Compiler_Define_Cast:
 		case Compiler_Define_Function: {
 			console::printIndent(depth + 1);

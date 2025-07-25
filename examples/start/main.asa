@@ -18,11 +18,14 @@ Or individual components:
 #import Rendering.Window;
 */
 
-//string :: struct {
-//	int c;
-//}
+string :: struct {
+	c : int;
+}
+string::string(){
+	return *(#new string);
+}
 
-binary|| :: bool(a : bool, b : bool) #inline {
+operator|| :: bool(a : bool, b : bool) #inline {
 	if(a){
 		return true;
 	}
@@ -54,7 +57,7 @@ modifyReference::(n : ref float){
 	n = 4;
 }
 
-binary[] :: (x : int, y : int){
+operator[] :: (x : int, y : int){
 	puts("Bracket overload works!\n");
 }
 
@@ -72,11 +75,18 @@ main :: (){
 	//y : uint16 = 4;
 	f = float(1);
 
+	s : string = string();
+
+	s.c = 8;
+	printint(s.c);
+
+	newline();
+
 	//x_ptr : *int = &x;
 	//begin : *int = x_ptr;
 	//i = 0;
 	//i[3];
-	puts("main function works!\n");
+	//puts("main function works!\n");
 
 	//putchar(x);
 	x = x+1;
