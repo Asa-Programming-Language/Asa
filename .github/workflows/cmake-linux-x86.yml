@@ -31,7 +31,7 @@ jobs:
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
       run: |
         mkdir ${{github.workspace}}/build
-        cd mkdir ${{github.workspace}}/build
+        cd ${{github.workspace}}/build
         cmake -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DLLVM_TARGETS_TO_BUILD="X86" -G Ninja ../src
 
     - name: Build
