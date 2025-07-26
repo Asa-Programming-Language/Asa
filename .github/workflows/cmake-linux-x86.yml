@@ -23,14 +23,29 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Setup LLVM
-      uses: ZhongRuoyu/setup-llvm@5bee61a33dd6160cb4dd652cd80d56ff3654535f
+
+    - name: Set up Ninja
+      uses: ashutoshvarma/setup-ninja@93f8b9763516f1fb9b4d9840b12d844bee17791f
+        
 
     - name: Set up GCC
       uses: egor-tensin/setup-gcc@v1
       with:
         version: latest
         platform: x64
+
+        
+    - name: Setup LLVM
+      run: |
+        git config --add remote.origin.fetch '^refs/heads/users/*'
+        git config --add remote.origin.fetch '^refs/heads/revert-*'
+        git clone --depth 1 https://github.com/llvm/llvm-project.git
+        git reset --hard 7615503409f19ad7e2e2f946437919d0689d4b3e
+        cd llvm-project
+        cmake -S llvm -B build -G Ninja- DLLVM_TARGETS_TO_BUILD="X86" -DCMAKE_BUILD_TYPE=MinSizeRel
+        cmake --build build
+        cmake --install build
+        
           
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
