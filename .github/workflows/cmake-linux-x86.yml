@@ -42,7 +42,7 @@ jobs:
         git clone --depth 1 https://github.com/llvm/llvm-project.git
         cd llvm-project
         git fetch origin 7615503409f19ad7e2e2f946437919d0689d4b3e
-        cmake -S llvm -B build -G Ninja- DLLVM_TARGETS_TO_BUILD="X86" -DCMAKE_BUILD_TYPE=MinSizeRel
+        cmake -S llvm -B build -G Ninja -DLLVM_TARGETS_TO_BUILD="X86" -DCMAKE_BUILD_TYPE=MinSizeRel
         cmake --build build
         cmake --install build
         
