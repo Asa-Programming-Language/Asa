@@ -1,7 +1,12 @@
-<p align="center">
-  <img width="600" src="https://github.com/sam-astro/ASA/blob/main/media/ASA-Full.png?raw=true">
-</p>
-
+<div align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://github.com/sam-astro/ASA/blob/main/media/ASA-Full.png?raw=true">
+    <source media="(prefers-color-scheme: light)" srcset="https://github.com/sam-astro/ASA/blob/main/media/ASA-Full-light.png?raw=true">
+    <img alt="Asa Programming Language"
+         src="https://raw.githubusercontent.com/sam-astro/ASA/main/media/ASA-Full-light.png"
+         width="60%">
+  </picture>
+</div>
 
 [![Badge License]][License]   [![Button Discord]][Discord Server]
 
