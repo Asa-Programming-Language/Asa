@@ -164,7 +164,7 @@ bool GATHER_TO_SEMICOLON(const std::vector<tokenPair*>& tokens, std::vector<toke
 				printTokenError(firstToken, "Missing semicolon");
 				exit(1);
 			}
-			break;
+			return true;
 		}
 		tokenPair* t = NEXT_TOKEN(tokens, i);
 
@@ -182,7 +182,7 @@ bool GATHER_TO_SEMICOLON(const std::vector<tokenPair*>& tokens, std::vector<toke
 	return false;
 }
 
-bool GATHER_TO_SEMICOLON_OR_OTHER(const std::vector<tokenPair*>& tokens, std::vector<tokenPair*>& subTokens, int pLevel, int& i, TokenType other, bool includeLast)
+bool GATHER_TO_SEMICOLON_OR_OTHER(const std::vector<tokenPair*>& tokens, std::vector<tokenPair*>& subTokens, int& i, TokenType other, bool includeLast = false, bool allowRunOut = false)
 {
 	tokenPair* firstToken;
 	if (i < tokens.size() - 1) {
@@ -196,8 +196,10 @@ bool GATHER_TO_SEMICOLON_OR_OTHER(const std::vector<tokenPair*>& tokens, std::ve
 	i--;
 	for (;;) {
 		if (i >= tokens.size() - 1 || tokens[i]->second == EndOfLine) {
-			printTokenError(firstToken, "Missing semicolon or " + tokenAsString(other));
-			exit(1);
+			if (!allowRunOut) {
+				printTokenError(firstToken, "Missing semicolon");
+				exit(1);
+			}
 			break;
 		}
 		tokenPair* t = NEXT_TOKEN(tokens, i);
@@ -366,6 +368,8 @@ std::map<TokenType, ASTNodeType> operatorDefaultNodeType = {
 
 std::map<ASTNodeType, int> operatorPrecedence = {
 	{Operator_Overload_Node, 100},	// anything else
+	{Member_Access, 90},			// .
+	{Access_Operation, 80},			// []
 	{Expression_Paren_Term, 50},	// ()
 	{Address_Of_Operation, 5},		// &
 	{Expression_Times, 4},			// *
@@ -379,6 +383,11 @@ std::map<ASTNodeType, int> operatorPrecedence = {
 	{Compare_Greater, 2},			// >
 	{Compare_GreaterEqual, 2},		// >=
 	{Range_Node, 1},				// ..
+};
+
+std::unordered_set<ASTNodeType> leftAssociativeOperators = {
+	Member_Access,
+	Access_Operation,
 };
 
 std::unordered_set<ASTNodeType> literals = {
@@ -940,6 +949,7 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 
 				ASTNode* identifier = new ASTNode();
 				ASTNode* bodyNode = new ASTNode();
+				bool isLeafNode = false;
 
 				tokenPair* tt = NEXT_TOKEN(tokens, i);
 				identifier->token = tt;
@@ -949,8 +959,8 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 				std::vector<tokenPair*> subTokens = std::vector<tokenPair*>();
 
 				// Step through all following tokens until end of line via semicolon
-				GATHER_TO_SEMICOLON(tokens, subTokens, i, true, true);
-				//GATHER_TO_SEMICOLON_OR_OTHER(tokens, subTokens, 1, i, Left_Brace, true);
+				isLeafNode = GATHER_TO_SEMICOLON(tokens, subTokens, i, true, true);
+				//GATHER_TO_SEMICOLON_OR_OTHER(tokens, subTokens, i, Left_Brace, true);
 
 				bodyNode = generateAST(subTokens, depth + 1);
 				bodyNode->nodeType = Scope_Body;
@@ -972,6 +982,8 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 				node->token->first = "#" + identifier->token->first;
 				node->childNodes.push_back(identifier);
 				node->childNodes.push_back(bodyNode);
+				//if (isLeafNode)
+				//	goto addNodeAsLeaf;
 				break;
 			}
 
@@ -985,7 +997,12 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 				ASTNode* bodyNode = new ASTNode();
 				std::vector<ASTNode*> arguments = std::vector<ASTNode*>();
 
-				identifier = parentNode->leafNodes.back();
+				if (parentNode->leafNodes.size() > 0)
+					identifier = parentNode->leafNodes.back();
+				else {
+					printTokenError(token, "Expected a leaf node, but none were found", __LINE__);
+					exit(1);
+				}
 				parentNode->leafNodes.pop_back();
 				identifier->nodeType = Identifier_Node;
 				argumentsNode->nodeType = Arguments;
@@ -1180,7 +1197,7 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 
 						for (const auto& m : modifiersNode->childNodes) {
 							if (m->token != nullptr)
-								if (m->token->first == "#noast")
+								if (m->token->first == "#hideast")
 									node->showInASTOutput = false;
 						}
 					}
@@ -1219,7 +1236,7 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 						if (secondPart->childNodes.size() > 0)
 							node->token = secondPart->childNodes[0]->token;
 						else {
-							printTokenError(secondPart->token, "Struct create function must have a return type");
+							printTokenError(secondPart->token, "Struct initializer function must have a return type");
 							exit(1);
 						}
 						node->nodeType = Compiler_Define_Function;
@@ -1349,6 +1366,13 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 
 			case String: {
 				node->nodeType = String_Constant_Node;
+				node->codegen = &ASTNode::generateConstant;
+				parentNode->leafNodes.push_back(node);
+				goto dontAddNode;
+			}
+
+			case Character: {
+				node->nodeType = Character_Constant_Node;
 				node->codegen = &ASTNode::generateConstant;
 				parentNode->leafNodes.push_back(node);
 				goto dontAddNode;
@@ -1505,104 +1529,98 @@ void fixPrecedence(ASTNode*& node)
 	if (!node)
 		return;
 
-	// First, recursively fix all child nodes
-	for (auto& child : node->childNodes) {
+	// Recurse first on children
+	for (auto& child : node->childNodes)
 		fixPrecedence(child);
-	}
 
-	// Check if this node is a binary operator that needs precedence fixing
+	// Handle only binary ops with two children
 	if (operatorPrecedence.find(node->nodeType) != operatorPrecedence.end()) {
-
-		// Must have exactly 2 children for binary operators
 		if (node->childNodes.size() != 2)
 			return;
-
 		ASTNode* leftChild = node->childNodes[0];
 		ASTNode* rightChild = node->childNodes[1];
 
-		// Check if left child is a binary operator with lower precedence
-		if (leftChild->childNodes.size() == 2 &&
-			operatorPrecedence.find(leftChild->nodeType) != operatorPrecedence.end()) {
-
-			int currentPrecedence = operatorPrecedence[node->nodeType];
-			int leftPrecedence = operatorPrecedence[leftChild->nodeType];
-
-			// If current operator has higher precedence than left child, rotate right
-			if (currentPrecedence > leftPrecedence) {
-				// Rotate: (A op1 B) op2 C  ->  A op1 (B op2 C)
-				// where op2 has higher precedence than op1
-
-				ASTNode* A = leftChild->childNodes[0];
-				ASTNode* B = leftChild->childNodes[1];
-				ASTNode* C = rightChild;
-
-				// Create new subtree: B op2 C
-				ASTNode* newRight = new ASTNode();
-				newRight->nodeType = node->nodeType;
-				newRight->token = node->token;
-				//newRight->tokenType = node->tokenType;
-				newRight->lineNumber = node->lineNumber;
-				newRight->childNodes.push_back(B);
-				newRight->childNodes.push_back(C);
-
-				// Update current node to be: A op1 (B op2 C)
-				node->nodeType = leftChild->nodeType;
-				node->token = leftChild->token;
-				//node->tokenType = leftChild->tokenType;
-				node->lineNumber = leftChild->lineNumber;
-
-				// Clear and rebuild children
-				node->childNodes.clear();
-				node->childNodes.push_back(A);
-				node->childNodes.push_back(newRight);
-
-				// Recursively fix the new subtree
-				fixPrecedence(newRight);
-			}
-		}
-
-		// Check if right child is a binary operator with lower or equal precedence
-		if (rightChild->childNodes.size() == 2 &&
-			operatorPrecedence.find(rightChild->nodeType) != operatorPrecedence.end()) {
-
-			int currentPrecedence = operatorPrecedence[node->nodeType];
-			int rightPrecedence = operatorPrecedence[rightChild->nodeType];
-
-			// If current operator has higher precedence than right child, rotate left
-			if (currentPrecedence > rightPrecedence) {
-				// Rotate: A op1 (B op2 C)  ->  (A op1 B) op2 C
-				// where op1 has higher precedence than op2
-
+		// Special handling: force left-associativity for these ops
+		if (leftAssociativeOperators.count(node->nodeType)) {
+			// If right child is same op: rotate left so (a op (b op c)) -> ((a op b) op c)
+			if (rightChild->nodeType == node->nodeType && rightChild->childNodes.size() == 2) {
 				ASTNode* A = leftChild;
 				ASTNode* B = rightChild->childNodes[0];
 				ASTNode* C = rightChild->childNodes[1];
 
-				// Create new subtree: A op1 B
+				// New left: (A op B)
 				ASTNode* newLeft = new ASTNode();
-				newLeft->nodeType = node->nodeType;
-				newLeft->token = node->token;
-				//newLeft->tokenType = node->tokenType;
-				newLeft->lineNumber = node->lineNumber;
+				*newLeft = *node;  // Copy node info (type, codegen, etc.)
+				newLeft->childNodes.clear();
 				newLeft->childNodes.push_back(A);
 				newLeft->childNodes.push_back(B);
 
-				// Update current node to be: (A op1 B) op2 C
-				node->nodeType = rightChild->nodeType;
-				node->token = rightChild->token;
-				//node->tokenType = rightChild->tokenType;
-				node->lineNumber = rightChild->lineNumber;
-
-				// Clear and rebuild children
+				// Rebuild this node as: (A op B) op C
 				node->childNodes.clear();
 				node->childNodes.push_back(newLeft);
 				node->childNodes.push_back(C);
 
-				// Recursively fix the new subtree
+				fixPrecedence(newLeft);
+			}
+			//return;	 // Finished for left-associative
+		}
+
+		// Usual precedence fix: check left, then right, just as before
+		if (leftChild->childNodes.size() == 2 &&
+			operatorPrecedence.find(leftChild->nodeType) != operatorPrecedence.end()) {
+			int currPrec = operatorPrecedence[node->nodeType];
+			int leftPrec = operatorPrecedence[leftChild->nodeType];
+			// Rotate right for tighter right
+			if (currPrec > leftPrec) {
+				ASTNode* A = leftChild->childNodes[0];
+				ASTNode* B = leftChild->childNodes[1];
+				ASTNode* C = rightChild;
+
+				ASTNode* newRight = new ASTNode();
+				*newRight = *node;
+				newRight->childNodes.clear();
+				newRight->childNodes.push_back(B);
+				newRight->childNodes.push_back(C);
+
+				node->nodeType = leftChild->nodeType;
+				node->codegen = leftChild->codegen;
+				node->token = leftChild->token;
+				node->childNodes.clear();
+				node->childNodes.push_back(A);
+				node->childNodes.push_back(newRight);
+
+				fixPrecedence(newRight);
+			}
+		}
+		if (rightChild->childNodes.size() == 2 &&
+			operatorPrecedence.find(rightChild->nodeType) != operatorPrecedence.end()) {
+			int currPrec = operatorPrecedence[node->nodeType];
+			int rightPrec = operatorPrecedence[rightChild->nodeType];
+			// Rotate left for tighter left
+			if (currPrec > rightPrec) {
+				ASTNode* A = leftChild;
+				ASTNode* B = rightChild->childNodes[0];
+				ASTNode* C = rightChild->childNodes[1];
+
+				ASTNode* newLeft = new ASTNode();
+				*newLeft = *node;
+				newLeft->childNodes.clear();
+				newLeft->childNodes.push_back(A);
+				newLeft->childNodes.push_back(B);
+
+				node->nodeType = rightChild->nodeType;
+				node->codegen = rightChild->codegen;
+				node->token = rightChild->token;
+				node->childNodes.clear();
+				node->childNodes.push_back(newLeft);
+				node->childNodes.push_back(C);
+
 				fixPrecedence(newLeft);
 			}
 		}
 	}
 }
+
 
 void unifyNodes(ASTNode*& node)
 {
@@ -2094,9 +2112,6 @@ int printAST(ASTNode* startNode, int depth)
 {
 	// Print each node
 
-	if (startNode->showInASTOutput == false)
-		return 0;
-
 	console::printIndent(depth);
 
 	if (startNode->token != nullptr) {
@@ -2105,9 +2120,18 @@ int printAST(ASTNode* startNode, int depth)
 			if (startNode->token->first.size() > 0)
 				printf(":L%d", startNode->lineNumber);
 	}
-	console::Write(":(");
-	console::Write(ASTNodeTypeAsString(startNode->nodeType), console::yellowFGColor);
-	console::Write("){");
+	if (startNode->showInASTOutput) {
+		console::Write(":(");
+		console::Write(ASTNodeTypeAsString(startNode->nodeType), console::yellowFGColor);
+		console::Write("){");
+	}
+	else {
+		console::Write(":(");
+		console::Write(ASTNodeTypeAsString(startNode->nodeType), console::yellowFGColor);
+		console::Write(")");
+		console::WriteLine("{...}");
+		return 0;
+	}
 
 	if (startNode->childNodes.size() > 0 || startNode->leafNodes.size() > 0)
 		printf("\n");

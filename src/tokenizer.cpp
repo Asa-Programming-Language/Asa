@@ -27,6 +27,7 @@ const std::map<TokenType, const char*> tokenStarts = {
 	{Identifier, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_"},
 	{Integer, "0123456789"},
 	{String, "\""},
+	{Character, "'"},
 	{Punctuation, ".,/;()+=-\\|<>?:!@#$%^&*{}[]`~"},
 	{EndOfLine, "\n"},
 	{Nothing, " \t"},
@@ -36,6 +37,7 @@ const std::map<TokenType, const char*> tokenEscapes = {
 	{Identifier, " .,/;()+=-\\|<>?:!@#$%^&*{}[]\"'\n\t\r"},
 	{Integer, " ,/;()+=-\\|<>?:!@#$%^&*{}[]\"'\n\t\r"},
 	{String, "\""},
+	{Character, "'"},
 	{Punctuation, " ,/;()+=-\\|<>?:!@#$%^&*{}[]\"'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789.\n\t\r"},
 	{EndOfLine, " ,/;()+=-\\|<>?:!@#$%^&*{}[]\"'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789.\n\t\r"},
 };
@@ -214,7 +216,7 @@ int tokenize(std::string& rawFile, std::vector<tokenPair*>& tokens, std::string&
 						}
 
 					endToken:
-						if (currentToken == String) {
+						if (currentToken == String || currentToken == Character) {
 							tokenContent += c;
 							if (c != '\t') {
 								*lineValue += c;

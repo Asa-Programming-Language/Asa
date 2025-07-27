@@ -49,6 +49,7 @@ enum ASTNodeType {
 	Half_Type,
 	String_Node,
 	String_Constant_Node,
+	Character_Constant_Node,
 	Type_Node,
 
 	Module_Scope,
@@ -145,6 +146,7 @@ const std::string ASTNodeTypeStrings[] = {
 	"Half_Type",
 	"String_Node",
 	"String_Constant_Node",
+	"Character_Constant_Node",
 	"Type_Node",
 
 	"Module_Scope",
@@ -233,6 +235,7 @@ struct ASTNode {
 	bool lvalue = false;
 	bool showInASTOutput = true;
 	bool replaceableDefinition = false;
+	Type* baseType = nullptr;
 	// Add leaf nodes here as they are still yet to be used.
 	std::vector<ASTNode*> leafNodes = std::vector<ASTNode*>();
 

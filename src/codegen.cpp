@@ -13,8 +13,12 @@ static std::unique_ptr<PassInstrumentationCallbacks> ThePIC;
 static std::unique_ptr<StandardInstrumentations> TheSI;
 
 std::unordered_map<std::string, llvm::GlobalVariable*> globalStringLiteralConstants;
+bool isCallMemberFunction = false;
 
 llvm::Value* castValue(llvm::Value* value, llvm::Type* destType, bool isSrcSigned, bool isToSigned, tokenPair*& token, bool destTypeIsStruct = false);
+
+std::unordered_map<std::string, Type*> unresolvedTypes;
+std::stack<Type*> lastRetrievedElementType;
 
 std::unordered_map<std::string, bool> typeSigns = {
 	{"int128", true},
@@ -66,9 +70,10 @@ struct functionID {
 	argumentList arguments = argumentList();
 	bool variableNumArguments = false;
 	uint32_t uses = 0;
+	bool isMemberFunction = false;
 	Function* fnValue = nullptr;
 	functionID() {}
-	functionID(std::string n, std::string mN, std::string r, argumentList a, Function* f, bool vA = false)
+	functionID(std::string n, std::string mN, std::string r, argumentList a, Function* f, bool vA = false, bool mF = false)
 	{
 		name = n;
 		mangledName = mN;
@@ -76,6 +81,21 @@ struct functionID {
 		arguments = a;
 		fnValue = f;
 		variableNumArguments = vA;
+		isMemberFunction = mF;
+	}
+	void print()
+	{
+		console::Write(returnType + " ", console::blueFGColor);
+		console::Write(name, console::greenFGColor);
+		console::Write("(");
+		for (int i = 0; i < arguments.size(); i++) {
+			if (arguments[i].isReference)
+				console::Write("ref ", console::magentaFGColor);
+			console::Write(arguments[i].typeString, console::blueFGColor);
+			if (i < arguments.size() - 1)
+				console::Write(", ");
+		}
+		console::WriteLine(")");
 	}
 	bool compareASTNodeTypes(ASTNodeType& a, ASTNodeType& b, bool wereTypesInferred = false)
 	{
@@ -195,6 +215,7 @@ struct structType {
 	std::vector<functionID*> memberFunctions;
 	StructType* structVal = nullptr;
 	tokenPair* token = nullptr;
+	ASTNode* sourceNode = nullptr;
 	structType() {}
 	structType(std::string& n, tokenPair*& tP, StructType*& sT, argumentList a, std::vector<functionID*>& mF, std::unordered_map<std::string, uint16_t>& mI)
 	{
@@ -205,19 +226,36 @@ struct structType {
 		memberFunctions = mF;
 		memberNameIndexes = mI;
 	}
+	structType(std::string& n, tokenPair*& tP, ASTNode* sN)
+	{
+		name = n;
+		token = tP;
+		sourceNode = sN;
+	}
 };
 
 std::vector<functionID*> functionIDs = std::vector<functionID*>();
-std::unordered_map<std::string, structType> structDefinitions = std::unordered_map<std::string, structType>();
+std::unordered_map<std::string, structType*> structDefinitions = std::unordered_map<std::string, structType*>();
 std::string currentStructName = "";
 
-functionID* getFunctionFromID(std::vector<functionID*>& fnIDs, std::string& name, argumentList& arguments, tokenPair*& t, bool wereTypesInferred = false)
+structType* getStructTypeFromLLVMType(Type*& t)
+{
+	for (const auto& [key, value] : structDefinitions) {
+		if ((Type*)(value->structVal) == (Type*)t) {
+			return value;
+		}
+	}
+}
+
+functionID* getFunctionFromID(std::vector<functionID*>& fnIDs, std::string& name, argumentList& arguments, tokenPair*& t, bool wereTypesInferred = false, bool isMemberFunction = false)
 {
 	functionID* best;
 	int bestScore = 1000;
 	bool requiresExact = false;
 	for (auto& f : fnIDs) {
 		uint16_t score = f->compareMatch(name, arguments, wereTypesInferred);
+		if (isMemberFunction != f->isMemberFunction)
+			continue;
 		if (score < bestScore) {
 			best = f;
 			bestScore = score;
@@ -336,7 +374,7 @@ static AllocaInst* CreateEntryBlockAlloca(Function* TheFunction, Type* t, String
 	return TmpB.CreateAlloca(t, nullptr, VarName);
 }
 
-Type* getLLVMTypeFromString(std::string typeName, int pointerLevelOffset, tokenPair*& token)
+Type* getLLVMTypeFromString(std::string typeName, int pointerLevelOffset, tokenPair*& token, bool& wasDefined, int& pass)
 {
 	Type* aType;
 	uint16_t pointerLevel = 0;
@@ -369,13 +407,21 @@ Type* getLLVMTypeFromString(std::string typeName, int pointerLevelOffset, tokenP
 		aType = Type::getInt1Ty(*TheContext);
 
 	// Otherwise, look in struct definitions
-	else if (structDefinitions.find(typeName) != structDefinitions.end())
-		aType = (Type*)(structDefinitions[typeName].structVal);
+	else if (structDefinitions.find(typeName) != structDefinitions.end()) {
+		// If the struct body hasn't been generated yet, generate it
+		if (structDefinitions[typeName]->structVal == nullptr)
+			aType = (Type*)(structDefinitions[typeName]->sourceNode->*(structDefinitions[typeName]->sourceNode->codegen))(pass);
+		else
+			aType = (Type*)(structDefinitions[typeName]->structVal);
+	}
 
-	// If still not found, throw an error
+	// If still not found, return null and add type string to global unresolved types map
 	else {
-		printTokenError(token, "Unknown type \"" + typeName + "\"");
-		exit(1);
+		unresolvedTypes[typeName] = nullptr;
+		wasDefined = false;
+		return (unresolvedTypes[typeName]);
+		//printTokenError(token, "Unknown type \"" + typeName + "\"", __LINE__);
+		//exit(1);
 	}
 	for (int i = 0; i < pointerLevel + pointerLevelOffset; i++)
 		aType = aType->getPointerTo();
@@ -427,8 +473,8 @@ std::string getStringTypeFromLLVMType(llvm::Type* type)
 
 		// Finally, search through all defined struct types
 		for (const auto& [key, value] : structDefinitions) {
-			if ((Type*)(value.structVal) == (Type*)baseType) {
-				baseTypeName = value.name;
+			if ((Type*)(value->structVal) == (Type*)baseType) {
+				baseTypeName = value->name;
 				break;
 			}
 		}
@@ -819,6 +865,16 @@ void* ASTNode::generateConstant(int pass)
 
 		return strPtr;	// Returns i8* pointing to the string
 	}
+	else if (nodeType == Character_Constant_Node) {
+		std::string strValue = unescapeString(token->first.substr(1, token->first.size() - 2), token);	// remove quotes from token
+
+		if (strValue.size() > 1) {
+			printTokenError(token, "Character constant may contain only a single character");
+			exit(1);
+		}
+
+		return ConstantInt::get(*TheContext, APInt(8, strValue[0], true));
+	}
 
 	printTokenError(token, "Value could not be parsed as constant");
 	return nullptr;
@@ -851,7 +907,8 @@ void* ASTNode::generateVariableExpression(int pass)
 				typeNode = typeNode->childNodes[0];
 				goto getNextPointerLevel;
 			}
-			type = getLLVMTypeFromString(typeName, 0, typeNode->token);
+			bool wasDefined = true;
+			type = getLLVMTypeFromString(typeName, 0, typeNode->token, wasDefined, pass);
 			for (int i = 0; i < pointerLevel; i++)
 				type = type->getPointerTo();
 			if (typeSigns.find(typeName) != typeSigns.end())  // If builtin type
@@ -863,7 +920,7 @@ void* ASTNode::generateVariableExpression(int pass)
 				exit(1);
 			}
 		}
-
+		baseType = type;
 		AllocaInst* targetPtr = CreateEntryBlockAlloca(theFunction, type, token->first);
 		std::string actualType = (pointerLevel > 0 ? std::string(pointerLevel, '*') : "") + typeName;
 		namedValues[token->first] = new valueType(token->first, actualType, targetPtr);
@@ -876,6 +933,7 @@ void* ASTNode::generateVariableExpression(int pass)
 			return Builder->CreateLoad(targetPtr->getAllocatedType(), targetPtr, token->first + "_load");
 	}
 	AllocaInst* A = (AllocaInst*)(val->val);
+	baseType = A->getAllocatedType();
 
 	if (isRef || lvalue)
 		return A;
@@ -980,7 +1038,10 @@ void* ASTNode::generateExpressionStatement(int pass)
 				typeNode = typeNode->childNodes[0];
 				goto getNextPointerLevel;
 			}
-			type = getLLVMTypeFromString(typeNode->token->first, 0, typeNode->token);
+			bool wasDefined = true;
+			type = getLLVMTypeFromString(typeNode->token->first, 0, typeNode->token, wasDefined, pass);
+			//if (wasDefined == false)
+			//	return nullptr;
 			for (int pL = 0; pL < pointerLevel; pL++)
 				type = type->getPointerTo();
 		}
@@ -1109,7 +1170,7 @@ void* ASTNode::generateUnaryExpression(int pass)
 		//			case Compare_Less:
 		//				return Builder->CreateICmpULT(L, R, "cmptmp");
 		//			default:
-		//				printTokenError(childNodes[0]->token, "Unknown unary operator \"" + childNodes[0]->token->first + "\"");
+		//				printTokenError(childNodes[0]->token, "Unknown operator \"" + childNodes[0]->token->first + "\"");
 		//				exit(1);
 		//		}
 
@@ -1124,7 +1185,7 @@ void* ASTNode::generateUnaryExpression(int pass)
 		//			case Compare_Less:
 		//				return Builder->CreateFCmpULT(L, R, "cmptmp");
 		//			default:
-		//				printTokenError(childNodes[0]->token, "Unknown unary operator \"" + childNodes[0]->token->first + "\"");
+		//				printTokenError(childNodes[0]->token, "Unknown operator \"" + childNodes[0]->token->first + "\"");
 		//				exit(1);
 		//		}
 
@@ -1139,7 +1200,7 @@ void* ASTNode::generateUnaryExpression(int pass)
 		//			case Compare_Less:
 		//				return Builder->CreateICmpULT(L, R, "cmptmp");
 		//			default:
-		//				printTokenError(childNodes[0]->token, "Unknown unary operator \"" + childNodes[0]->token->first + "\"");
+		//				printTokenError(childNodes[0]->token, "Unknown operator \"" + childNodes[0]->token->first + "\"");
 		//				exit(1);
 		//		}
 	}
@@ -1170,7 +1231,7 @@ void* ASTNode::generateBinaryExpression(int pass)
 	ASTNodeType t = childNodes[0]->nodeType;
 
 	bool operatorOverloaded = nodeType == Redefined_Operator_Expr;
-	std::string operatorOverloadName = "binary." + tokenAsString(token->second);
+	std::string operatorOverloadName = "operator." + tokenAsString(token->second);
 	Function* CalleeF = nullptr;
 	functionID* calleeID = getFunctionFromID(functionIDs, operatorOverloadName, token);
 
@@ -1215,8 +1276,10 @@ void* ASTNode::generateBinaryExpression(int pass)
 						return Builder->CreateMul(L, R, "multmp");
 					case Compare_Less:
 						return Builder->CreateICmpULT(L, R, "cmptmp");
+					case Compare_Equal:
+						return Builder->CreateICmpEQ(L, R, "cmptmp");
 					default:
-						printTokenError(childNodes[0]->token, "Unknown binary operator \"" + childNodes[0]->token->first + "\"");
+						printTokenError(childNodes[0]->token, "Unknown operator \"" + childNodes[0]->token->first + "\"");
 						exit(1);
 				}
 
@@ -1231,7 +1294,7 @@ void* ASTNode::generateBinaryExpression(int pass)
 					case Compare_Less:
 						return Builder->CreateFCmpULT(L, R, "cmptmp");
 					default:
-						printTokenError(childNodes[0]->token, "Unknown binary operator \"" + childNodes[0]->token->first + "\"");
+						printTokenError(childNodes[0]->token, "Unknown operator \"" + childNodes[0]->token->first + "\"");
 						exit(1);
 				}
 
@@ -1245,8 +1308,10 @@ void* ASTNode::generateBinaryExpression(int pass)
 						return Builder->CreateMul(L, R, "multmp");
 					case Compare_Less:
 						return Builder->CreateICmpULT(L, R, "cmptmp");
+					case Compare_Equal:
+						return Builder->CreateICmpEQ(L, R, "cmptmp");
 					default:
-						printTokenError(childNodes[0]->token, "Unknown binary operator \"" + childNodes[0]->token->first + "\"");
+						printTokenError(childNodes[0]->token, "Unknown operator \"" + childNodes[0]->token->first + "\"");
 						exit(1);
 				}
 		}
@@ -1258,6 +1323,7 @@ void* ASTNode::generateBinaryExpression(int pass)
 // Value*
 void* ASTNode::generateAccessOperation(int pass)
 {
+	printf("Generating access operation\n");
 	if (childNodes.size() == 0) {
 		printTokenError(token, "Access operation reqires a left and right argument");
 		return nullptr;
@@ -1278,10 +1344,19 @@ void* ASTNode::generateAccessOperation(int pass)
 
 	ASTNodeType t = childNodes[0]->nodeType;
 
+	Type* lType = L->getType();
+	if (t != Identifier_Node) {
+		//if (childNodes[0]->baseType != nullptr)
+		//	lType = childNodes[0]->baseType;
+		lType = lastRetrievedElementType.top()->getPointerTo();
+		lastRetrievedElementType.pop();
+		//lastRetrievedElementType.push(getLLVMTypeFromString(CalleeFID->returnType, 0, token, wasDefined, pass));
+	}
+
 	bool operatorOverloaded = false;
-	std::string operatorOverloadName = "binary." + tokenAsString(Both_Brackets);
+	std::string operatorOverloadName = "operator." + tokenAsString(Both_Brackets);
 	argumentList argList = argumentList();
-	argList.push_back(argType(getStringTypeFromLLVMType(L->getType()), getASTNodeTypeFromString(getStringTypeFromLLVMType(L->getType())), 0, false, true));
+	argList.push_back(argType(getStringTypeFromLLVMType(lType), getASTNodeTypeFromString(getStringTypeFromLLVMType(lType)), 0, false, true));
 	argList.push_back(argType(getStringTypeFromLLVMType(R->getType()), getASTNodeTypeFromString(getStringTypeFromLLVMType(R->getType())), 0));
 	Function* CalleeF = nullptr;
 	// TODO: make operator overloads for exact matches only
@@ -1308,7 +1383,7 @@ void* ASTNode::generateAccessOperation(int pass)
 	}
 	// Otherwise, it is a regular builtin operator
 	else {
-		if (L->getType()->isPointerTy() == false) {
+		if (lType->isPointerTy() == false) {
 			printTokenError(token, "Left argument of access operator must be a pointer type");
 			exit(1);
 		}
@@ -1319,21 +1394,25 @@ void* ASTNode::generateAccessOperation(int pass)
 
 		// Evaluate base pointer
 		Value* basePtr = L;
-		if (!basePtr || !basePtr->getType()->isPointerTy()) {
+		if (!basePtr || !lType->isPointerTy()) {
 			printTokenError(token, "Base must be a pointer for access");
-			return nullptr;
+			exit(1);
 		}
 
 		// Evaluate index (should be integer)
 		Value* index = R;
 		if (!index || !index->getType()->isIntegerTy()) {
 			printTokenError(token, "Index must be an integer");
-			return nullptr;
+			exit(1);
 		}
 
-		valueType* v = findNamedValue(this, nullptr, childNodes[0]->token->first);
-		printf("ACCESS OPERATOR type string: %s\n", v->type.c_str());
-		Type* elementType = getLLVMTypeFromString(v->type, -1, childNodes[0]->token);
+		//valueType* v = findNamedValue(this, nullptr, childNodes[0]->token->first);
+		//printf("ACCESS OPERATOR type string: %s\n", v->type.c_str());
+		//Type* elementType = getLLVMTypeFromString(v->type, -1, childNodes[0]->token);
+		Type* elementType = nullptr;
+
+		if (childNodes[0]->baseType != nullptr)
+			elementType = childNodes[0]->baseType;
 		//Type* elementType = getLLVMTypeFromString(baseType);
 		if (!elementType) {
 			printTokenError(token, "Invalid element type");
@@ -1344,11 +1423,15 @@ void* ASTNode::generateAccessOperation(int pass)
 		Value* gep = Builder->CreateGEP(elementType, basePtr, index, "arrayidx");
 
 		// If this is an lvalue (for assignment), return the pointer gep
-		if (lvalue)
+		if (lvalue) {
+			printf("gep returned\n");
 			return gep;
+		}
 		// If rvalue, return value
-		else
+		else {
+			printf("value returned\n");
 			return Builder->CreateLoad(elementType, gep, "accessop_load");
+		}
 
 
 		//Value* newAddr = Builder->CreateAdd(L, R, "ptraddtmp");
@@ -1378,69 +1461,44 @@ void* ASTNode::generateMemberAccess(int pass)
 	ASTNodeType t = childNodes[0]->nodeType;
 
 	bool operatorOverloaded = false;
-	std::string operatorOverloadName = "binary." + tokenAsString(Dot);
+	std::string operatorOverloadName = "operator." + tokenAsString(Dot);
 	argumentList argList = argumentList();
-	//argList.push_back(argType(getStringTypeFromLLVMType(L->getType()), getASTNodeTypeFromString(getStringTypeFromLLVMType(L->getType())), 0, false, true));
-	//argList.push_back(argType(getStringTypeFromLLVMType(R->getType()), getASTNodeTypeFromString(getStringTypeFromLLVMType(R->getType())), 0));
-	//Function* CalleeF = nullptr;
-	//// TODO: make operator overloads for exact matches only
-	//functionID* calleeID = getExactFunctionFromID(operatorOverloadName, argList, token, true);
 
-	//// Check to see if the operator actually has an overload
-	//if (calleeID != nullptr) {
-	//	CalleeF = calleeID->fnValue;
-	//	operatorOverloaded = true;
+
+	Value* L = (Value*)(childNodes[0]->*(childNodes[0]->codegen))(pass);
+	//Type* lastMemberType = lastRetrievedElementType.top();
+	//lastRetrievedElementType.pop();
+	//if (!L)
+	//	return nullptr;
+
+	//if (L->getType()->isPointerTy() == false) {
+	//	printTokenError(token, "Left argument of member access operator must be a pointer type");
+	//	exit(1);
+	//}
+	//if (R->getType()->isIntegerTy() == false) {
+	//	printTokenError(token, "Right argument of member access operator must be an integer");
+	//	exit(1);
 	//}
 
-	//// If this is an operator overload, create function call to it
-	//if (operatorOverloaded) {
-	//	Value* L = (Value*)(childNodes[0]->*(childNodes[0]->codegen))(pass);
-	//	Value* R = (Value*)(childNodes[1]->*(childNodes[1]->codegen))(pass);
-	//	if (!L || !R)
-	//		return nullptr;
+	// Evaluate base pointer
+	Value* basePtr = L;
+	if (!basePtr || !basePtr->getType()->isPointerTy()) {
+		printTokenError(token, "Base must be a pointer for access");
+		return nullptr;
+	}
 
-	//	if (!CalleeF) {
-	//		printTokenError(token, "Undefined function");
-	//		return nullptr;
-	//	}
-
-	//	std::vector<Value*> ArgsV;
-	//	ArgsV.push_back(L);
-	//	ArgsV.push_back(R);
-
-	//	return Builder->CreateCall(CalleeF, ArgsV, "calltmp");
-	//}
-
-	// Otherwise, it is a regular builtin operator, member access
-	//else
-	{
-		Value* L = (Value*)(childNodes[0]->*(childNodes[0]->codegen))(pass);
-		//if (!L)
-		//	return nullptr;
-
-		//if (L->getType()->isPointerTy() == false) {
-		//	printTokenError(token, "Left argument of member access operator must be a pointer type");
-		//	exit(1);
-		//}
-		//if (R->getType()->isIntegerTy() == false) {
-		//	printTokenError(token, "Right argument of member access operator must be an integer");
-		//	exit(1);
-		//}
-
-		// Evaluate base pointer
-		Value* basePtr = L;
-		if (!basePtr || !basePtr->getType()->isPointerTy()) {
-			printTokenError(token, "Base must be a pointer for access");
-			return nullptr;
-		}
-
+	if (childNodes[0]->nodeType == Identifier_Node) {
 		valueType* v = findNamedValue(this, nullptr, childNodes[0]->token->first);
 
 		if (structDefinitions.find(v->type) == structDefinitions.end()) {
 			printTokenError(token, "Type \"" + v->type + "\" has not been defined");
 			exit(1);
 		}
-		structType* structDefinition = &(structDefinitions[v->type]);
+		structType* structDefinition = structDefinitions[v->type];
+
+		// If the struct body hasn't been generated yet, generate it
+		if (structDefinition->structVal == nullptr)
+			Value* argVal = (Value*)(structDefinition->sourceNode->*(structDefinition->sourceNode->codegen))(pass);
 
 		// Get member name and index
 		std::string memberName = childNodes[1]->token->first;
@@ -1454,18 +1512,23 @@ void* ASTNode::generateMemberAccess(int pass)
 
 			uint16_t memberIndex = structDefinition->memberNameIndexes[memberName];
 
-			Type* elementType = getLLVMTypeFromString(structDefinition->members[memberIndex].typeString, 0, token);
+			bool wasDefined = true;
+			Type* elementType = getLLVMTypeFromString(structDefinition->members[memberIndex].typeString, 0, token, wasDefined, pass);
+			//if (wasDefined == false)
+			//	return nullptr;
 			//Type* elementType = getLLVMTypeFromString(v->type, -1, childNodes[0]->token);
 			//Type* elementType = getLLVMTypeFromString(baseType);
 			if (!elementType) {
 				printTokenError(token, "Invalid element type");
 				exit(1);
 			}
+			lastRetrievedElementType.push(elementType);
 
 			//// Create GEP to compute the address
 			//Value* gep = Builder->CreateGEP(elementType, basePtr, index, "arrayidx");
 
-			auto gep = Builder->CreateStructGEP(structDefinitions[v->type].structVal, basePtr, memberIndex, "struct_member");
+			auto gep = Builder->CreateStructGEP(structDefinition->structVal, basePtr, memberIndex, "struct_member");
+			baseType = elementType;
 
 			// If this is an lvalue (for assignment), return the pointer gep
 			if (lvalue)
@@ -1503,7 +1566,7 @@ void* ASTNode::generateMemberAccess(int pass)
 			}
 
 			// Look up the id in the struct function.
-			functionID* CalleeFID = getFunctionFromID(structDefinition->memberFunctions, memberName, argList, token, true);
+			functionID* CalleeFID = getFunctionFromID(structDefinition->memberFunctions, memberName, argList, token, true, true);
 			if (!CalleeFID) {
 				printTokenError(childNodes[1]->token, "Struct definition does not contain member function");
 				exit(1);
@@ -1512,16 +1575,17 @@ void* ASTNode::generateMemberAccess(int pass)
 			// Call function
 			Function* CalleeF = CalleeFID->fnValue;
 			CalleeFID->uses++;
+			isCallMemberFunction = true;
 
 			// If argument mismatch error.
 			if (CalleeFID->variableNumArguments == false)
 				if (CalleeF->arg_size() != argList.size()) {
-					printTokenError(token, "Incorrect number of arguments passed to function");
+					printTokenError(token, "Incorrect number of arguments passed to function", __LINE__);
 					exit(1);
 				}
 				// If variable arguments, make sure the amount in call are <= the required amount
 				else if (CalleeF->arg_size() > argList.size()) {
-					printTokenError(token, "Incorrect number of arguments passed to function");
+					printTokenError(token, "Incorrect number of arguments passed to function", __LINE__);
 					exit(1);
 				}
 
@@ -1546,15 +1610,143 @@ void* ASTNode::generateMemberAccess(int pass)
 				if (!ArgsV.back())
 					return nullptr;
 			}
+			bool wasDefined = true;
+			lastRetrievedElementType.push(getLLVMTypeFromString(CalleeFID->returnType, 0, token, wasDefined, pass));
 
+			isCallMemberFunction = false;
+			baseType = lastRetrievedElementType.top();
 
 			return Builder->CreateCall(CalleeF, ArgsV, "calltmp");
 		}
-
-
-		//Value* newAddr = Builder->CreateAdd(L, R, "ptraddtmp");
-		//return newAddr;
 	}
+	// If left is not pointer, assume another member access or index operator
+	else {
+		structType* structDefinition = getStructTypeFromLLVMType(lastRetrievedElementType.top());
+		lastRetrievedElementType.pop();
+
+		if (structDefinition == nullptr)
+			exit(1);
+
+		// Get member name and index
+		std::string memberName = childNodes[1]->token->first;
+		// Handle if member variable access/set
+		if (childNodes[1]->nodeType == Identifier_Node) {
+			if (structDefinition->memberNameIndexes.find(memberName) == structDefinition->memberNameIndexes.end()) {
+				printTokenError(childNodes[1]->token, "Struct definition does not contain member");
+				exit(1);
+			}
+
+
+			uint16_t memberIndex = structDefinition->memberNameIndexes[memberName];
+
+			bool wasDefined = true;
+			Type* elementType = getLLVMTypeFromString(structDefinition->members[memberIndex].typeString, 0, token, wasDefined, pass);
+			//if (wasDefined == false)
+			//	return nullptr;
+			//Type* elementType = getLLVMTypeFromString(v->type, -1, childNodes[0]->token);
+			//Type* elementType = getLLVMTypeFromString(baseType);
+			if (!elementType) {
+				printTokenError(token, "Invalid element type");
+				exit(1);
+			}
+			lastRetrievedElementType.push(elementType);
+
+			//// Create GEP to compute the address
+			//Value* gep = Builder->CreateGEP(elementType, basePtr, index, "arrayidx");
+
+			auto gep = Builder->CreateStructGEP(structDefinition->structVal, basePtr, memberIndex, "struct_member");
+			baseType = elementType;
+
+			// If this is an lvalue (for assignment), return the pointer gep
+			if (lvalue)
+				return gep;
+			// If rvalue, return value
+			else
+				return Builder->CreateLoad(elementType, gep, "member_load");
+		}
+		// Handle if member function call
+		else if (childNodes[1]->nodeType == Function_Call) {
+			memberName = structDefinition->name + "." + memberName;
+			childNodes[1]->token->first = memberName;
+
+			ASTNode* argsNode = childNodes[1]->childNodes[0];
+			std::vector<ASTNode*> args = std::vector<ASTNode*>();
+			for (auto& a : argsNode->childNodes)
+				if (a->childNodes.size() > 0) {
+					args.push_back(a);
+				}
+
+			std::vector<Value*> ArgsV = std::vector<Value*>();
+			argumentList argList = argumentList();
+			// Add first argument, like: (this : ref structName, ...)
+			ArgsV.push_back(basePtr);
+			argList.push_back(argType(structDefinition->name, Struct_Type, 1, true));
+			if (!ArgsV.back())
+				return nullptr;
+			// Add rest of argument values
+			for (int i = 0; i < args.size(); i++) {
+				Value* argVal = (Value*)(args[i]->*(args[i]->codegen))(pass);
+				ArgsV.push_back(argVal);
+				argList.push_back(argType(getStringTypeFromLLVMType(argVal->getType()), getASTNodeTypeFromString(getStringTypeFromLLVMType(argVal->getType())), 0));
+				if (!ArgsV.back())
+					return nullptr;
+			}
+
+			// Look up the id in the struct function.
+			functionID* CalleeFID = getFunctionFromID(structDefinition->memberFunctions, memberName, argList, token, true, true);
+			if (!CalleeFID) {
+				printTokenError(childNodes[1]->token, "Struct definition does not contain member function");
+				exit(1);
+			}
+
+			// Call function
+			Function* CalleeF = CalleeFID->fnValue;
+			CalleeFID->uses++;
+			isCallMemberFunction = true;
+
+			// If argument mismatch error.
+			if (CalleeFID->variableNumArguments == false)
+				if (CalleeF->arg_size() != argList.size()) {
+					printTokenError(token, "Incorrect number of arguments passed to function", __LINE__);
+					exit(1);
+				}
+				// If variable arguments, make sure the amount in call are <= the required amount
+				else if (CalleeF->arg_size() > argList.size()) {
+					printTokenError(token, "Incorrect number of arguments passed to function", __LINE__);
+					exit(1);
+				}
+
+			// Clear arg values list to get values correctly
+			ArgsV = std::vector<Value*>();
+			// Add first argument, like: (this : ref structName, ...)
+			ArgsV.push_back(basePtr);
+			//argList.push_back(argType(structDefinition->name, Struct_Type, 1, true));
+			if (!ArgsV.back())
+				return nullptr;
+			// Add rest of argument values
+			for (int i = 0; i < args.size(); i++) {
+				if (CalleeFID->arguments[i].isReference) {
+					if (args[0]->childNodes.size() != 1 || args[0]->childNodes[0]->nodeType != Identifier_Node) {
+						printTokenError(token, "Cannot pass value as reference");
+						exit(1);
+					}
+					args[i]->childNodes[0]->isRef = true;
+				}
+				Value* argVal = (Value*)(args[i]->*(args[i]->codegen))(pass);
+				ArgsV.push_back(argVal);
+				if (!ArgsV.back())
+					return nullptr;
+			}
+			bool wasDefined = true;
+			lastRetrievedElementType.push(getLLVMTypeFromString(CalleeFID->returnType, 0, token, wasDefined, pass));
+
+			isCallMemberFunction = false;
+			baseType = lastRetrievedElementType.top();
+
+			return Builder->CreateCall(CalleeF, ArgsV, "calltmp");
+		}
+	}
+
 
 	return nullptr;
 }
@@ -1592,7 +1784,10 @@ void* ASTNode::generateCast(int pass)
 
 	std::string tyVal = childNodes[1]->childNodes[0]->childNodes[0]->token->first;
 
-	Type* toType = getLLVMTypeFromString(tyVal, 0, childNodes[1]->childNodes[0]->childNodes[0]->token);
+	bool wasDefined = true;
+	Type* toType = getLLVMTypeFromString(tyVal, 0, childNodes[1]->childNodes[0]->childNodes[0]->token, wasDefined, pass);
+	//if (wasDefined == false)
+	//	return nullptr;
 
 	return castValue(value, toType, true, typeSigns[tyVal], token);
 
@@ -1611,7 +1806,11 @@ void* ASTNode::generateTypeInstance(int pass)
 		printTokenError(childNodes[1]->childNodes[0]->token, "Unknown type name used");
 		exit(1);
 	}
-	structType* typeVal = &(structDefinitions[typeName]);
+	structType* typeVal = structDefinitions[typeName];
+
+	// If the struct body hasn't been generated yet, generate it
+	if (typeVal->structVal == nullptr)
+		Value* argVal = (Value*)(typeVal->sourceNode->*(typeVal->sourceNode->codegen))(pass);
 
 	AllocaInst* var = Builder->CreateAlloca(typeVal->structVal, nullptr);
 
@@ -1621,8 +1820,9 @@ void* ASTNode::generateTypeInstance(int pass)
 // Value*
 void* ASTNode::generateCallExpression(int pass)
 {
-
 	ASTNode* argsNode = childNodes[0];
+	bool shouldBeMemberFunction = isCallMemberFunction;
+	isCallMemberFunction = false;
 	std::vector<ASTNode*> args = std::vector<ASTNode*>();
 	for (auto& a : argsNode->childNodes)
 		if (a->childNodes.size() > 0) {
@@ -1642,9 +1842,11 @@ void* ASTNode::generateCallExpression(int pass)
 
 
 	// Look up the id in the global module table.
-	functionID* CalleeFID = getFunctionFromID(functionIDs, token->first, argList, token, true);
+	functionID* CalleeFID = getFunctionFromID(functionIDs, token->first, argList, token, true, shouldBeMemberFunction);
 	//Function* CalleeF = TheModule->getFunction(token->first);
 	if (!CalleeFID) {
+		if (shouldBeMemberFunction)
+			printf("Should be member function\n");
 		printTokenError(token, "Undefined function");
 		for (const auto& n : functionIDs) {
 			console::WriteLine(n->name + " => " + n->mangledName);
@@ -1657,12 +1859,14 @@ void* ASTNode::generateCallExpression(int pass)
 	// If argument mismatch error.
 	if (CalleeFID->variableNumArguments == false)
 		if (CalleeF->arg_size() != args.size()) {
-			printTokenError(token, "Incorrect number of arguments passed to function");
+			CalleeFID->print();
+			printTokenError(token, "Incorrect number of arguments passed to function", __LINE__);
 			exit(1);
 		}
 		// If variable arguments, make sure the amount in call are <= the required amount
 		else if (CalleeF->arg_size() > args.size()) {
-			printTokenError(token, "Incorrect number of arguments passed to function");
+			CalleeFID->print();
+			printTokenError(token, "Incorrect number of arguments passed to function", __LINE__);
 			exit(1);
 		}
 
@@ -1773,10 +1977,16 @@ void* ASTNode::generateStruct(int pass)
 
 	// Do not create a struct with the same name
 	if (structDefinitions.find(structName) != structDefinitions.end()) {
-		if (structDefinitions[structName].token != token) {
+		if (structDefinitions[structName]->token != token) {
 			printTokenError(token, "Struct cannot be redefined");
 			exit(1);
 		}
+	}
+
+	// On pass 0, only declare the struct without it's body
+	if (pass == 0) {
+		structDefinitions[structName] = new structType(structName, token, this);
+		return nullptr;
 	}
 
 	argumentList members = argumentList();
@@ -1807,7 +2017,10 @@ void* ASTNode::generateStruct(int pass)
 
 			memberType = typeNode->token->first;
 
-			Type* fieldType = getLLVMTypeFromString(memberType, 0, typeNode->token);
+			bool wasDefined = true;
+			Type* fieldType = getLLVMTypeFromString(memberType, 0, typeNode->token, wasDefined, pass);
+			//if (wasDefined == false)
+			//	return nullptr;
 			for (int i = 0; i < pointerLevel; i++)
 				fieldType = fieldType->getPointerTo();
 			fieldTypes.push_back(fieldType);
@@ -1837,7 +2050,7 @@ void* ASTNode::generateStruct(int pass)
 	//structTy->setBody(fieldTypes, false);
 
 	currentStructName = "";
-	structDefinitions[structName] = structType(structName, token, structTy, members, memberFunctions, memberNameIndexes);
+	structDefinitions[structName] = new structType(structName, token, structTy, members, memberFunctions, memberNameIndexes);
 
 	return structTy;
 }
@@ -1959,8 +2172,15 @@ void* ASTNode::generatePrototype(int pass)
 	std::string fnName = token->first;
 	std::string mangledName = token->first;
 	bool isStruct = false;
+	bool isSpecial = false;
 
 	if (fnName == "operator") {
+		isSpecial = true;
+		fnName = fnName + "." + tokenAsString(childNodes[0]->childNodes[0]->token->second);
+		mangledName = fnName + "." + tokenAsString(childNodes[0]->childNodes[0]->token->second);
+	}
+	else if (fnName == "cast" || fnName == "create" || fnName == "destroy") {
+		isSpecial = true;
 		fnName = fnName + "." + tokenAsString(childNodes[0]->childNodes[0]->token->second);
 		mangledName = fnName + "." + tokenAsString(childNodes[0]->childNodes[0]->token->second);
 	}
@@ -1989,7 +2209,10 @@ void* ASTNode::generatePrototype(int pass)
 			goto recurseAddPointer;
 		}
 
-		retType = getLLVMTypeFromString(rTypeString, 0, typeNode->token);
+		bool wasDefined = true;
+		retType = getLLVMTypeFromString(rTypeString, 0, typeNode->token, wasDefined, pass);
+		//if (wasDefined == false)
+		//	return nullptr;
 	}
 
 	// Get function arguments
@@ -2003,7 +2226,10 @@ void* ASTNode::generatePrototype(int pass)
 		argList.push_back(argType(typeStr, Struct_Type, pointerLevel, isReference, false));
 
 		try {
-			aType = getLLVMTypeFromString(typeStr, 0, token);
+			bool wasDefined = true;
+			aType = getLLVMTypeFromString(typeStr, 0, token, wasDefined, pass);
+			//if (wasDefined == false)
+			//	return nullptr;
 			for (int i = 0; i < pointerLevel; i++) {
 				aType = aType->getPointerTo();
 			}
@@ -2037,14 +2263,14 @@ void* ASTNode::generatePrototype(int pass)
 				if (typeNode->token->first == "ref") {
 					isReference = true;
 					mangledName += ".ref";
-					typeStr += ".ref";
+					typeStr += "*";
 					pointerLevel++;
 					typeNode = typeNode->childNodes[0];
 					goto gatherTypeModifiers;
 				}
 				if (typeNode->token->first == "exact") {
 					//mangledName += ".exact";
-					typeStr += ".exact";
+					//typeStr += ".exact";
 					mustBeExactType = true;
 					typeNode = typeNode->childNodes[0];
 					goto gatherTypeModifiers;
@@ -2052,20 +2278,21 @@ void* ASTNode::generatePrototype(int pass)
 				if (typeNode->token->first == "*") {
 					pointerLevel++;
 					mangledName += ".ptr";
-					typeStr += ".ptr";
+					typeStr += "*";
 					typeNode = typeNode->childNodes[0];
 					goto gatherTypeModifiers;
 				}
 
 				mangledName += "." + typeNode->token->first;
-				typeStr += "." + typeNode->token->first;
+				typeStr += typeNode->token->first;
 
 
 				Type* aType = nullptr;
 				argList.push_back(argType(typeStr, getASTNodeTypeFromString(typeNode->token->first), pointerLevel, isReference, mustBeExactType));
 
 				try {
-					aType = getLLVMTypeFromString(typeNode->token->first, 0, typeNode->token);
+					bool wasDefined = true;
+					aType = getLLVMTypeFromString(typeNode->token->first, 0, typeNode->token, wasDefined, pass);
 					for (int i = 0; i < pointerLevel; i++) {
 						aType = aType->getPointerTo();
 					}
@@ -2134,7 +2361,7 @@ void* ASTNode::generatePrototype(int pass)
 		//namedValues[std::string(arg.getName())] = &arg;
 	}
 
-	functionIDs.push_back(new functionID(fnName, mangledName, rTypeString, argList, fn, variableNumArguments));
+	functionIDs.push_back(new functionID(fnName, mangledName, rTypeString, argList, fn, variableNumArguments, isStruct));
 	if (verbosity >= 5) {
 		console::printIndent(depth + 2);
 		console::WriteLine("-- Added function \"" + fnName + "\" to functionIDs");
@@ -2166,20 +2393,22 @@ void* ASTNode::generateFunction(int pass)
 	//else
 	//	theFunction = theFunctionID->fnValue;
 
+	// If the function wasn't generated, try later
 	if (!theFunction) {
-		printTokenError(token, "There was a failure to create a function");
-		exit(1);
+		return nullptr;
+		//printTokenError(token, "There was a failure to create a function");
+		//exit(1);
 	}
 
 	if (!theFunction->empty() && replaceableDefinition == false) {
-		printTokenError(token, "Function cannot be redefined, requires unique identity.");
+		printTokenError(token, "Function cannot be redefined, requires unique identity");
 		exit(1);
 	}
 
 	if (pass == 1)
 		return theFunction;
 
-	theFunctionID = getFunctionFromID(functionIDs, functionName, token);
+	theFunctionID = getFunctionIDFromFunctionPointer(functionIDs, theFunction);
 	if (!theFunctionID) {
 		printTokenError(token, "There was a failure to create a function");
 		exit(1);
@@ -2206,6 +2435,7 @@ void* ASTNode::generateFunction(int pass)
 	// Add remaining arguments
 	for (auto& arg : theFunction->args()) {
 		if (i >= theFunctionID->arguments.size()) {
+			theFunctionID->print();
 			printTokenError(token, "Mismatch in number of arguments, expected " + std::to_string(theFunctionID->arguments.size()), __LINE__);
 			exit(1);
 		}

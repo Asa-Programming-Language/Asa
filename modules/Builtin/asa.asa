@@ -1,110 +1,110 @@
 
 Casts :: module {
 	// Float casting
-	cast:: float(x : int) #inline; #noast {
+	cast:: float(x : int) #inline; #hideast {
 		return #cast x : float;
 	}
-	cast:: float(x : char) #inline; #noast {
+	cast:: float(x : char) #inline; #hideast {
 		return #cast x : float;
 	}
-	cast:: float(x : float) #inline; #noast {
+	cast:: float(x : float) #inline; #hideast {
 		return #cast x : float;
 	}
-	cast:: float(x : double) #inline; #noast {
+	cast:: float(x : double) #inline; #hideast {
 		return #cast x : float;
 	}
-	cast:: float(x : bool) #inline; #noast {
+	cast:: float(x : bool) #inline; #hideast {
 		return #cast x : float;
 	}
 	// Double
-	cast:: double(x : int) #inline; #noast {
+	cast:: double(x : int) #inline; #hideast {
 		return #cast x : double;
 	}
-	cast:: double(x : char) #inline; #noast {
+	cast:: double(x : char) #inline; #hideast {
 		return #cast x : double;
 	}
-	cast:: double(x : float) #inline; #noast {
+	cast:: double(x : float) #inline; #hideast {
 		return #cast x : double;
 	}
-	cast:: double(x : double) #inline; #noast {
+	cast:: double(x : double) #inline; #hideast {
 		return #cast x : double;
 	}
-	cast:: double(x : bool) #inline; #noast {
+	cast:: double(x : bool) #inline; #hideast {
 		return #cast x : double;
 	}
 
 	// Int casting
-	cast:: int(x : float) #inline; #noast {
+	cast:: int(x : float) #inline; #hideast {
 		return #cast x : int;
 	}
-	cast:: int(x : double) #inline; #noast {
+	cast:: int(x : double) #inline; #hideast {
 		return #cast x : int;
 	}
-	cast:: int(x : int) #inline; #noast {
+	cast:: int(x : int) #inline; #hideast {
 		return #cast x : int;
 	}
-	cast:: int(x : uint) #inline; #noast {
+	cast:: int(x : uint) #inline; #hideast {
 		return #cast x : int;
 	}
-	cast:: int(x : bool) #inline; #noast {
+	cast:: int(x : bool) #inline; #hideast {
 		return #cast x : int;
 	}
 
-	cast:: uint(x : float) #inline; #noast {
+	cast:: uint(x : float) #inline; #hideast {
 		return #cast x : uint;
 	}
-	cast:: uint(x : double) #inline; #noast {
+	cast:: uint(x : double) #inline; #hideast {
 		return #cast x : uint;
 	}
-	cast:: uint(x : int) #inline; #noast {
+	cast:: uint(x : int) #inline; #hideast {
 		return #cast x : uint;
 	}
-	cast:: uint(x : uint) #inline; #noast {
+	cast:: uint(x : uint) #inline; #hideast {
 		return #cast x : uint;
 	}
-	cast:: uint(x : bool) #inline; #noast {
+	cast:: uint(x : bool) #inline; #hideast {
 		return #cast x : uint;
 	}
 
-	cast:: uint64(x : float) #inline; #noast {
+	cast:: uint64(x : float) #inline; #hideast {
 		return #cast x : uint64;
 	}
-	cast:: uint64(x : double) #inline; #noast {
+	cast:: uint64(x : double) #inline; #hideast {
 		return #cast x : uint64;
 	}
-	cast:: uint64(x : int) #inline; #noast {
+	cast:: uint64(x : int) #inline; #hideast {
 		return #cast x : uint64;
 	}
-	cast:: uint64(x : uint) #inline; #noast {
+	cast:: uint64(x : uint) #inline; #hideast {
 		return #cast x : uint64;
 	}
-	cast:: uint64(x : bool) #inline; #noast {
+	cast:: uint64(x : bool) #inline; #hideast {
 		return #cast x : uint64;
 	}
 
-	cast:: uint16(x : float) #inline; #noast {
+	cast:: uint16(x : float) #inline; #hideast {
 		return #cast x : uint16;
 	}
-	cast:: uint16(x : double) #inline; #noast {
+	cast:: uint16(x : double) #inline; #hideast {
 		return #cast x : uint16;
 	}
-	cast:: uint16(x : int) #inline; #noast {
+	cast:: uint16(x : int) #inline; #hideast {
 		return #cast x : uint16;
 	}
-	cast:: uint16(x : uint) #inline; #noast {
+	cast:: uint16(x : uint) #inline; #hideast {
 		return #cast x : uint16;
 	}
-	cast:: uint16(x : bool) #inline; #noast {
+	cast:: uint16(x : bool) #inline; #hideast {
 		return #cast x : uint16;
 	}
 }
 
 Operators::module{
-	operator++ :: int(i : ref int) #inline; #noast {
+	operator++ :: int(i : ref int) #inline; #hideast {
 		i = i+1;
 		return i;
 	}
-	operator-- :: int(i : ref int) #inline; #noast {
+	operator-- :: int(i : ref int) #inline; #hideast {
 		i = i-1;
 		return i;
 	}
@@ -120,9 +120,14 @@ Strings :: module{
 	//#import Builtin.Memory;
 	//#import Builtin.Operators;
 
+	testStruct :: struct {
+		x : int;
+	}
+
 	string :: struct {
 		address : *char;
 		length : uint32;
+		tS : testStruct;
 		
 		size::uint32(){
 			return this.length;

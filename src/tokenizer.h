@@ -22,6 +22,7 @@ enum TokenType {
 	Integer,
 	Float,
 	String,
+	Character,
 
 	// Punctuation and its subtypes
 	Punctuation,
@@ -115,6 +116,7 @@ const std::string tokenTypeStrings[] = {
 	"Integer",
 	"Float",
 	"String",
+	"Character",
 
 	"Punctuation",
 

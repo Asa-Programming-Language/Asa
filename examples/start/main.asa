@@ -25,23 +25,28 @@ Or individual components:
 create::string() #inline; #replaceable; {
 	return *(#new string);
 }
-//cast::string(c : *char) #inline; {
-//	s = string();
-//	
-//	len : uint32 = 0;
-//	for(i : 0..4_294_967_296){
-//		if(c[i] == '\0')
-//			break;
-//		len++;
-//	}
-//	s.address = malloc(len);
-//	for(i : 0..len){
-//		s.address[i] = c[i];
-//	}
-//	s.length = len;
-//}
+create::string(c : *char) #inline; {
+	s : string = string();
+	puts("Creating new string from *char\n");
 
-operator|| :: bool(a : bool, b : bool) #inline {
+	s.tS.x = 5;
+	
+	len : uint32 = 0;
+	for(i : 0..4_294_967_296){
+		//if(c[i] == '\0')
+		//	break;
+		len++;
+	}
+	s.address = malloc(len);
+	for(i : 0..len){
+		s.address[i] = 'A';
+		//s.address[i] = c[i];
+	}
+	puts("Done!\n");
+	s.length = len;
+}
+
+operator|| :: bool(a : bool, b : bool) #inline; #hideast {
 	if(a){
 		return true;
 	}
@@ -62,22 +67,22 @@ TEST_MACRO :: {printl("Macro works!")};
 //	int b = 1;
 //}
 
-printint:: (n : uint64) {
+printint:: (n : uint64) #hideast {
 	putchar(48+n);
 }
 
-modifyReference::(n : ref int){
+modifyReference::(n : ref int) #hideast {
 	n = 4;
 }
-modifyReference::(n : ref float){
+modifyReference::(n : ref float) #hideast {
 	n = 4;
 }
 
-operator[] :: (x : int, y : int){
-	puts("Bracket overload works!\n");
-}
+//operator[] :: (x : int, y : int){
+//	puts("Bracket overload works!\n");
+//}
 
-newline::() #inline; {
+newline::() #inline; #hideast {
 	putchar(10);
 }
 
@@ -96,9 +101,9 @@ main :: (){
 	s : string = string();
 	s = string("This works");
 
-	s.length = 8;
+	//s.length = 8;
 	printint(s.length);
-	s.size();
+	//s.size();
 
 	newline();
 
