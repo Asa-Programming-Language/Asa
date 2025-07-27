@@ -132,6 +132,11 @@ Strings :: module{
 		size::uint32(){
 			return this.length;
 		}
+		print::(){
+			for(i : 0..this.length){
+				putchar(this.address[i]);
+			}
+		}
 
 		//operator+ :: string(s : ref string, c : char) #inline {
 		//	s.length += 1;

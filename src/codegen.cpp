@@ -236,7 +236,7 @@ struct structType {
 
 std::vector<functionID*> functionIDs = std::vector<functionID*>();
 std::unordered_map<std::string, structType*> structDefinitions = std::unordered_map<std::string, structType*>();
-std::string currentStructName = "";
+std::stack<std::string> currentStructName = std::stack<std::string>();
 
 structType* getStructTypeFromLLVMType(Type*& t)
 {
@@ -409,8 +409,18 @@ Type* getLLVMTypeFromString(std::string typeName, int pointerLevelOffset, tokenP
 	// Otherwise, look in struct definitions
 	else if (structDefinitions.find(typeName) != structDefinitions.end()) {
 		// If the struct body hasn't been generated yet, generate it
-		if (structDefinitions[typeName]->structVal == nullptr)
-			aType = (Type*)(structDefinitions[typeName]->sourceNode->*(structDefinitions[typeName]->sourceNode->codegen))(pass);
+		if (structDefinitions[typeName]->structVal == nullptr) {
+			if (currentStructName.size() == 0 || currentStructName.top() != typeName)
+				aType = (Type*)(structDefinitions[typeName]->sourceNode->*(structDefinitions[typeName]->sourceNode->codegen))(pass);
+			// If this type is inside of a struct and the type *is* the struct,
+			// throw an error (nested structs aren't allowed)
+			else {
+				wasDefined = false;
+				printTokenError(token, "Cannot nest struct in self");
+				return nullptr;
+				//exit(1);
+			}
+		}
 		else
 			aType = (Type*)(structDefinitions[typeName]->structVal);
 	}
@@ -949,7 +959,47 @@ void* ASTNode::generateReturn(int pass)
 		return nullptr;
 	}
 	Value* RetVal = (Value*)(exprNode->*(exprNode->codegen))(pass);
-	Builder->CreateRet(RetVal);
+	// Check if we're returning a struct
+	Type* returnType = Builder->GetInsertBlock()->getParent()->getReturnType();
+	if (returnType->isStructTy()) {
+		// For struct returns, we need to handle this specially
+		// Option 1: If the function uses sret, copy to the sret parameter
+		Function* currentFunc = Builder->GetInsertBlock()->getParent();
+		if (currentFunc->hasStructRetAttr()) {
+			// Get the sret parameter (first parameter)
+			Value* sretPtr = &*currentFunc->arg_begin();
+
+			// Copy the struct value to the sret location
+			if (RetVal->getType()->isPointerTy()) {
+				// If RetVal is a pointer to struct, memcpy from it
+				Value* structSize = ConstantInt::get(Type::getInt64Ty(*TheContext),
+					TheModule->getDataLayout().getTypeAllocSize(returnType));
+
+				// Create memcpy call
+				Function* memcpyFunc = Intrinsic::getDeclaration(TheModule.get(),
+					Intrinsic::memcpy, {sretPtr->getType(), RetVal->getType(), Type::getInt64Ty(*TheContext)});
+				Builder->CreateCall(memcpyFunc, {sretPtr, RetVal, structSize, ConstantInt::get(Type::getInt1Ty(*TheContext), 0)});
+			}
+			else {
+				// If RetVal is a struct value, store it
+				Builder->CreateStore(RetVal, sretPtr);
+			}
+			Builder->CreateRetVoid();
+		}
+		else {
+			// Option 2: Direct struct return (for small structs)
+			if (RetVal->getType()->isPointerTy()) {
+				// Load the struct value from the pointer
+				RetVal = Builder->CreateLoad(returnType, RetVal, "struct_ret_load");
+			}
+			Builder->CreateRet(RetVal);
+		}
+	}
+	else {
+		// Non-struct return, handle normally
+		Builder->CreateRet(RetVal);
+	}
+
 	return nullptr;
 }
 
@@ -1973,7 +2023,6 @@ void* ASTNode::generateIf(int pass)
 void* ASTNode::generateStruct(int pass)
 {
 	std::string structName = token->first;
-	currentStructName = structName;
 
 	// Do not create a struct with the same name
 	if (structDefinitions.find(structName) != structDefinitions.end()) {
@@ -1983,73 +2032,86 @@ void* ASTNode::generateStruct(int pass)
 		}
 	}
 
-	// On pass 0, only declare the struct without it's body
-	if (pass == 0) {
-		structDefinitions[structName] = new structType(structName, token, this);
+	//// On pass 0, only declare the struct without it's body
+	//if (pass == 0) {
+	//	structDefinitions[structName] = new structType(structName, token, this);
+	//	return nullptr;
+	//}
+
+	currentStructName.push(structName);
+	uint8_t generatingType = 0;	 // Generate all member variables first (0), then functions (1)
+	argumentList members = argumentList();
+	std::vector<Type*> fieldTypes = std::vector<Type*>();
+	std::vector<std::string> fieldNames = std::vector<std::string>();
+	std::vector<functionID*> memberFunctions = std::vector<functionID*>();
+	std::unordered_map<std::string, uint16_t> memberNameIndexes = std::unordered_map<std::string, uint16_t>();
+	uint16_t i = 0;
+	for (; generatingType < 2; generatingType++)
+		for (auto& fieldNode : childNodes[0]->childNodes) {
+			// If it is a member variable declaration
+			if (fieldNode->nodeType == Identifier_Node && generatingType == 0 && pass > 0) {
+				if (fieldNode->childNodes.size() == 0) {
+					printTokenError(fieldNode->token, "Member declaration must have type");
+					exit(1);
+				}
+				std::string memberName = fieldNode->token->first;
+				ASTNode* typeNode = fieldNode;
+				std::string memberType = fieldNode->childNodes[0]->token->first;
+				int pointerLevel = 0;
+
+			recurseAddMemberPointer:
+				typeNode = typeNode->childNodes[0];
+
+				if (typeNode->token->first == "*") {
+					pointerLevel++;
+					goto recurseAddMemberPointer;
+				}
+
+				memberType = typeNode->token->first;
+
+				bool wasDefined = true;
+				Type* fieldType = getLLVMTypeFromString(memberType, 0, typeNode->token, wasDefined, pass);
+				//if (wasDefined == false)
+				//	return nullptr;
+				for (int i = 0; i < pointerLevel; i++)
+					fieldType = fieldType->getPointerTo();
+				fieldTypes.push_back(fieldType);
+				fieldNames.push_back(memberName);
+				memberNameIndexes[memberName] = i;
+
+				members.push_back(argType(memberType, getASTNodeTypeFromString(memberType), pointerLevel));
+				i++;
+			}
+			// Else it is a member function definition
+			else if (fieldNode->nodeType == Compiler_Define_Function && generatingType == 1 && pass > 1) {
+				// Generate function
+				Function* memberFunction = (Function*)(fieldNode->*(fieldNode->codegen))(pass);
+				// Get pointer to generated function from global
+				functionID* fnID = getFunctionIDFromFunctionPointer(functionIDs, memberFunction);
+				memberFunctions.push_back(fnID);
+			}
+		}
+	// pass 0 declare struct name,
+	// pass 1 struct body and function prototypes,
+	// pass 2 function bodies
+	if (pass > 1) {
+		currentStructName.pop();
+		structDefinitions[structName]->members = members;
+		structDefinitions[structName]->memberFunctions = memberFunctions;
+		structDefinitions[structName]->memberNameIndexes = memberNameIndexes;
+		structDefinitions[structName]->structVal->setBody(fieldTypes, false);
 		return nullptr;
 	}
 
-	argumentList members = argumentList();
-	std::vector<Type*> fieldTypes;
-	std::vector<std::string> fieldNames;
-	std::vector<functionID*> memberFunctions = std::vector<functionID*>();
-	std::unordered_map<std::string, uint16_t> memberNameIndexes;
-	uint16_t i = 0;
-	for (auto& fieldNode : childNodes[0]->childNodes) {
-		// If it is a member variable declaration
-		if (fieldNode->nodeType == Identifier_Node) {
-			if (fieldNode->childNodes.size() == 0) {
-				printTokenError(fieldNode->token, "Member declaration must have type");
-				exit(1);
-			}
-			std::string memberName = fieldNode->token->first;
-			ASTNode* typeNode = fieldNode;
-			std::string memberType = fieldNode->childNodes[0]->token->first;
-			int pointerLevel = 0;
+	// Make node not be regenerated
+	//currentNodeDoneGenerating = true;
+	//nodeType = Fully_Defined;
+	//codegen = nullptr;
 
-		recurseAddMemberPointer:
-			typeNode = typeNode->childNodes[0];
+	StructType* structTy = StructType::create(*TheContext, fieldTypes, "struct." + structName);
 
-			if (typeNode->token->first == "*") {
-				pointerLevel++;
-				goto recurseAddMemberPointer;
-			}
 
-			memberType = typeNode->token->first;
-
-			bool wasDefined = true;
-			Type* fieldType = getLLVMTypeFromString(memberType, 0, typeNode->token, wasDefined, pass);
-			//if (wasDefined == false)
-			//	return nullptr;
-			for (int i = 0; i < pointerLevel; i++)
-				fieldType = fieldType->getPointerTo();
-			fieldTypes.push_back(fieldType);
-			fieldNames.push_back(memberName);
-			memberNameIndexes[memberName] = i;
-
-			members.push_back(argType(memberType, getASTNodeTypeFromString(memberType), pointerLevel));
-			i++;
-		}
-		// Else it is a member function definition
-		else if (fieldNode->nodeType == Compiler_Define_Function) {
-			if (pass == 0)
-				continue;
-			// Generate function
-			Function* memberFunction = (Function*)(fieldNode->*(fieldNode->codegen))(pass);
-			// Get pointer to generated function from global
-			functionID* fnID = getFunctionIDFromFunctionPointer(functionIDs, memberFunction);
-			memberFunctions.push_back(fnID);
-		}
-	}
-
-	//// Make nothing node to not be regenerated
-	//nodeType = Nothing_Node;
-
-	StructType* structTy = StructType::create(*TheContext, fieldTypes, structName);
-
-	//structTy->setBody(fieldTypes, false);
-
-	currentStructName = "";
+	currentStructName.pop();
 	structDefinitions[structName] = new structType(structName, token, structTy, members, memberFunctions, memberNameIndexes);
 
 	return structTy;
@@ -2184,9 +2246,9 @@ void* ASTNode::generatePrototype(int pass)
 		fnName = fnName + "." + tokenAsString(childNodes[0]->childNodes[0]->token->second);
 		mangledName = fnName + "." + tokenAsString(childNodes[0]->childNodes[0]->token->second);
 	}
-	else if (currentStructName != "") {
-		fnName = currentStructName + "." + fnName;
-		mangledName = currentStructName + "." + mangledName;
+	else if (currentStructName.size() != 0) {
+		fnName = currentStructName.top() + "." + fnName;
+		mangledName = currentStructName.top() + "." + mangledName;
 		isStruct = true;
 	}
 	//else
@@ -2217,8 +2279,8 @@ void* ASTNode::generatePrototype(int pass)
 
 	// Get function arguments
 	// If it is a struct, first add a "this" argument like: (this : ref structName, ...)
-	if (isStruct) {
-		std::string typeStr = currentStructName;
+	if (currentStructName.size() > 0) {
+		std::string typeStr = currentStructName.top();
 		bool isReference = true;
 		int pointerLevel = 1;
 
@@ -2373,8 +2435,6 @@ void* ASTNode::generatePrototype(int pass)
 // Function*
 void* ASTNode::generateFunction(int pass)
 {
-	if (pass == 0)
-		return nullptr;
 
 	// First, check for an existing function from a previous declaration.
 	//Function* theFunction = TheModule->getFunction(token->first);
@@ -2383,13 +2443,13 @@ void* ASTNode::generateFunction(int pass)
 	std::string functionName = token->first;
 	bool isStruct = false;
 
-	if (currentStructName != "") {
-		functionName = currentStructName + "." + functionName;
+	if (currentStructName.size() > 0) {
+		functionName = currentStructName.top() + "." + functionName;
 		isStruct = true;
 	}
 
 	//if (!theFunctionID)
-	theFunction = (Function*)generatePrototype();
+	theFunction = (Function*)this->generatePrototype(pass);
 	//else
 	//	theFunction = theFunctionID->fnValue;
 
@@ -2405,7 +2465,7 @@ void* ASTNode::generateFunction(int pass)
 		exit(1);
 	}
 
-	if (pass == 1)
+	if (pass <= 1)
 		return theFunction;
 
 	theFunctionID = getFunctionIDFromFunctionPointer(functionIDs, theFunction);

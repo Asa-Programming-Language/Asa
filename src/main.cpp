@@ -205,8 +205,8 @@ int main(int argc, char** argv)
 	generateOutputCode(rootNode, 0, 1);
 	// Final pass
 	generateOutputCode(rootNode, 0, 2);
-	//// Cleanup unused code
-	//removeUnusedPrototypes();
+	// Cleanup unused code
+	removeUnusedPrototypes();
 
 	// Print out all of the generated code.
 	if (verbosity >= 4) {

@@ -117,6 +117,8 @@ enum ASTNodeType {
 	Arguments,
 	Compiler_Modifiers,
 
+	Fully_Defined,
+
 	// Nothing below this
 	LastASTNodeType
 };
@@ -213,6 +215,8 @@ const std::string ASTNodeTypeStrings[] = {
 	"Compile_Time_Directive",
 	"Arguments",
 	"Compiler_Modifiers",
+
+	"Fully_Defined",
 };
 
 struct valueType {
@@ -235,6 +239,7 @@ struct ASTNode {
 	bool lvalue = false;
 	bool showInASTOutput = true;
 	bool replaceableDefinition = false;
+	bool currentNodeDoneGenerating = false;
 	Type* baseType = nullptr;
 	// Add leaf nodes here as they are still yet to be used.
 	std::vector<ASTNode*> leafNodes = std::vector<ASTNode*>();

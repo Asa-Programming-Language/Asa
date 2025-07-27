@@ -309,7 +309,7 @@ void printTokenError(tokenPair*& token, std::string errorString, int sourceLineN
 	console::Write("here", console::redFGColor);
 	console::WriteLine("\n");
 	//throw;
-	exit(1);
+	//exit(1);
 }
 
 void printTokenWarning(tokenPair*& token, std::string errorString, int sourceLineNumber, const char* fileName)
@@ -2172,7 +2172,7 @@ void generateOutputCode(ASTNode*& node, int depth, int pass)
 			console::Write(": generating struct for: ");
 			console::WriteLine(node->token->first, console::yellowFGColor);
 			if (node->codegen != nullptr)
-				auto fnVal = (Function*)(node->*(node->codegen))(pass);
+				(node->*(node->codegen))(pass);
 			break;
 		}
 

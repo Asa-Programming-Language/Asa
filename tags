@@ -15922,6 +15922,7 @@ FullyRead	src/include/llvm/CodeGen/MachineInstrBundle.h	/^  bool FullyRead;$/;"	
 FullyScheduled	src/include/llvm/Transforms/Vectorize/SandboxVectorizer/Scheduler.h	/^    FullyScheduled, \/\/\/> All instrs in the bundle were previously scheduled and$/;"	e	enum:llvm::sandboxir::Scheduler::BndlSchedState
 FullySpecialized	src/include/llvm/Transforms/IPO/FunctionSpecialization.h	/^  SmallPtrSet<Function *, 32> FullySpecialized;$/;"	m	class:llvm::FunctionSpecializer	typeref:typename:SmallPtrSet<Function *,32>
 FullyUnrolled	src/include/llvm/Transforms/Utils/UnrollLoop.h	/^  FullyUnrolled$/;"	e	enum:llvm::LoopUnrollResult
+Fully_Defined	src/parser.h	/^	Fully_Defined,$/;"	e	enum:ASTNodeType
 FunFlags	src/include/llvm/IR/ModuleSummaryIndex.h	/^  FFlags FunFlags;$/;"	m	class:llvm::FunctionSummary	typeref:typename:FFlags
 Func	src/include/llvm/ADT/STLExtras.h	/^  StorageT Func = nullptr;$/;"	m	class:llvm::callable_detail::Callable	typeref:typename:StorageT
 Func	src/include/llvm/CodeGen/AsmPrinter.h	/^    Constant *Func = nullptr;$/;"	m	struct:llvm::AsmPrinter::Structor	typeref:typename:Constant *
@@ -55438,7 +55439,8 @@ current	src/indicators.hpp	/^  size_t current() {$/;"	f	class:indicators::Progre
 currentAlternativeIndex	src/include/llvm/IR/InlineAsm.h	/^    unsigned currentAlternativeIndex = 0;$/;"	m	struct:llvm::InlineAsm::ConstraintInfo	typeref:typename:unsigned
 currentBB	src/include/llvm/Analysis/DominanceFrontierImpl.h	/^  BlockT *currentBB;$/;"	m	class:llvm::DFCalculateWorkObject	typeref:typename:BlockT *
 currentContext	src/include/llvm/Analysis/Utils/TrainingLogger.h	/^  const std::string &currentContext() const { return CurrentContext; }$/;"	f	class:llvm::Logger	typeref:typename:const std::string &
-currentStructName	src/codegen.cpp	/^std::string currentStructName = "";$/;"	v	typeref:typename:std::string
+currentNodeDoneGenerating	src/parser.h	/^	bool currentNodeDoneGenerating = false;$/;"	m	struct:ASTNode	typeref:typename:bool
+currentStructName	src/codegen.cpp	/^std::stack<std::string> currentStructName = std::stack<std::string>();$/;"	v	typeref:typename:std::stack<std::string>
 currentToken	src/tokenizer.cpp	/^TokenType currentToken = Nothing;$/;"	v	typeref:typename:TokenType
 current_pos	src/include/llvm/Support/FormattedStream.h	/^  uint64_t current_pos() const override {$/;"	f	class:llvm::formatted_raw_ostream	typeref:typename:uint64_t
 current_pos	src/include/llvm/Support/circular_raw_ostream.h	/^    uint64_t current_pos() const override {$/;"	f	class:llvm::circular_raw_ostream	typeref:typename:uint64_t
@@ -83731,22 +83733,21 @@ runWithSPSRetErrorMerged	src/include/llvm/ExecutionEngine/Orc/Shared/WrapperFunc
 runtime_check	src/include/llvm/Transforms/Instrumentation/LowerAllowCheckPass.h	/^    unsigned int runtime_check = 0;$/;"	m	struct:llvm::LowerAllowCheckPass::Options	typeref:typename:unsigned int
 s:l	src/Session.vim	/^let s:l = 1 - ((0 * winheight(0) + 24) \/ 49)$/;"	v
 s:l	src/Session.vim	/^let s:l = 10028 - ((27 * winheight(0) + 14) \/ 28)$/;"	v
-s:l	src/Session.vim	/^let s:l = 106 - ((26 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 1220 - ((37 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 130 - ((13 * winheight(0) + 12) \/ 24)$/;"	v
+s:l	src/Session.vim	/^let s:l = 107 - ((26 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 123 - ((10 * winheight(0) + 12) \/ 24)$/;"	v
+s:l	src/Session.vim	/^let s:l = 1351 - ((14 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 1565 - ((33 * winheight(0) + 26) \/ 53)$/;"	v
 s:l	src/Session.vim	/^let s:l = 16 - ((13 * winheight(0) + 24) \/ 49)$/;"	v
 s:l	src/Session.vim	/^let s:l = 17 - ((15 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 176 - ((42 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 177 - ((12 * winheight(0) + 14) \/ 28)$/;"	v
-s:l	src/Session.vim	/^let s:l = 1846 - ((40 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 181 - ((42 * winheight(0) + 26) \/ 53)$/;"	v
 s:l	src/Session.vim	/^let s:l = 203 - ((11 * winheight(0) + 12) \/ 24)$/;"	v
-s:l	src/Session.vim	/^let s:l = 205 - ((10 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 221 - ((30 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 23 - ((22 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 265 - ((27 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 314 - ((37 * winheight(0) + 26) \/ 53)$/;"	v
-s:l	src/Session.vim	/^let s:l = 46 - ((11 * winheight(0) + 12) \/ 24)$/;"	v
-s:l	src/Session.vim	/^let s:l = 66 - ((17 * winheight(0) + 14) \/ 28)$/;"	v
+s:l	src/Session.vim	/^let s:l = 219 - ((25 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 235 - ((26 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 238 - ((17 * winheight(0) + 14) \/ 28)$/;"	v
+s:l	src/Session.vim	/^let s:l = 24 - ((23 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 36 - ((10 * winheight(0) + 14) \/ 28)$/;"	v
+s:l	src/Session.vim	/^let s:l = 4 - ((3 * winheight(0) + 26) \/ 53)$/;"	v
+s:l	src/Session.vim	/^let s:l = 50 - ((11 * winheight(0) + 12) \/ 24)$/;"	v
 s:save_splitbelow	src/Session.vim	/^let s:save_splitbelow = &splitbelow$/;"	v
 s:save_splitright	src/Session.vim	/^let s:save_splitright = &splitright$/;"	v
 s:save_winminheight	src/Session.vim	/^let s:save_winminheight = &winminheight$/;"	v

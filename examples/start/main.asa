@@ -30,20 +30,23 @@ create::string(c : *char) #inline; {
 	puts("Creating new string from *char\n");
 
 	s.tS.x = 5;
-	
+
 	len : uint32 = 0;
-	for(i : 0..4_294_967_296){
-		//if(c[i] == '\0')
-		//	break;
-		len++;
-	}
-	s.address = malloc(len);
-	for(i : 0..len){
-		s.address[i] = 'A';
-		//s.address[i] = c[i];
-	}
+	//for(i : 0..4_294_967_296){
+	//	//if(c[i] == '\0')
+	//	//	break;
+	//	len++;
+	//}
+	//s.address = malloc(len);
+	//len = 5;
+	//s.address = malloc(5);
+	//for(i : 0..len){
+	//	s.address[i] = 'A';
+	//	//s.address[i] = c[i];
+	//}
+	//s.length = len;
 	puts("Done!\n");
-	s.length = len;
+	return s;
 }
 
 operator|| :: bool(a : bool, b : bool) #inline; #hideast {
@@ -102,12 +105,15 @@ main :: (){
 	s = string("This works");
 
 	//s.length = 8;
-	printint(s.length);
+	//printint(s.length);
 	//s.size();
+	puts("printing string...");
+	s.print();
+	puts("Done!");
 
 	newline();
 
-	puts(s.address);
+	//puts(s.address);
 
 	//x_ptr : *int = &x;
 	//begin : *int = x_ptr;
