@@ -8,7 +8,7 @@
   </picture>
 </div>
 
-[![Badge License]][License]   [![Button Discord]][Discord Server]
+[![Badge License]][License]   ![Relative date](https://img.shields.io/date/1920814400?label=release%20timeline&color=purple)   [![Button Discord]][Discord Server]
 
 ---
 
