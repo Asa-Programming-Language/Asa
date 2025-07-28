@@ -25,7 +25,7 @@ Or individual components:
 create::string() #inline; #replaceable; {
 	return *(#new string);
 }
-create::string(c : *char) #inline; {
+create :: string(c : *char) #inline; {
 	s : string = string();
 	puts("Creating new string from *char\n");
 
