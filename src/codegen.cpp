@@ -68,20 +68,24 @@ struct functionID {
 	std::string mangledName = "";
 	std::string returnType = "";
 	argumentList arguments = argumentList();
+	argumentList userArguments = argumentList();
 	bool variableNumArguments = false;
+	bool isStructReturn = false;
 	uint32_t uses = 0;
 	bool isMemberFunction = false;
 	Function* fnValue = nullptr;
 	functionID() {}
-	functionID(std::string n, std::string mN, std::string r, argumentList a, Function* f, bool vA = false, bool mF = false)
+	functionID(std::string n, std::string mN, std::string r, argumentList llvmArgs, argumentList userArgs, Function* f, bool vA = false, bool mF = false, bool sRet = false)
 	{
 		name = n;
 		mangledName = mN;
 		returnType = r;
-		arguments = a;
+		arguments = llvmArgs;
+		userArguments = userArgs;
 		fnValue = f;
 		variableNumArguments = vA;
 		isMemberFunction = mF;
+		isStructReturn = sRet;
 	}
 	void print()
 	{
@@ -123,12 +127,12 @@ struct functionID {
 		uint16_t differences = 0;
 		if (n != name)
 			return 1000;
-		if (arguments.size() != a.size())
+		if (userArguments.size() != a.size())
 			return 1000 - 1;
-		for (int i = 0; i < arguments.size(); i++) {
-			ASTNodeType t1 = arguments[i].baseASTType;
+		for (int i = 0; i < userArguments.size(); i++) {
+			ASTNodeType t1 = userArguments[i].baseASTType;
 			ASTNodeType t2 = a[i].baseASTType;
-			bool mustBeExactType = arguments[i].mustBeExactType;
+			bool mustBeExactType = userArguments[i].mustBeExactType;
 			// If t1 is an integer type, make sure t2 is also
 			// Difference points are given the further the types are
 
@@ -163,12 +167,12 @@ struct functionID {
 		uint16_t differences = 0;
 		if (n != name)
 			return 1000;
-		if (arguments.size() != a.size())
+		if (userArguments.size() != a.size())
 			return 1000 - 1;
-		for (int i = 0; i < arguments.size(); i++) {
-			ASTNodeType t1 = arguments[i].baseASTType;
+		for (int i = 0; i < userArguments.size(); i++) {
+			ASTNodeType t1 = userArguments[i].baseASTType;
 			ASTNodeType t2 = a[i]->nodeType;
-			bool mustBeExactType = arguments[i].mustBeExactType;
+			bool mustBeExactType = userArguments[i].mustBeExactType;
 			// If t1 is an integer type, make sure t2 is also
 			// Difference points are given the further the types are
 
@@ -841,8 +845,6 @@ void* ASTNode::generateConstant(int pass)
 		return ConstantFP::get(*TheContext, APFloat(stod(token->first)));
 	else if (nodeType == String_Constant_Node) {
 		std::string strValue = unescapeString(token->first.substr(1, token->first.size() - 2), token);	// remove quotes from token
-		// Add null terminator
-		strValue += '\0';
 
 		GlobalVariable* globalStr = nullptr;
 		if (globalStringLiteralConstants.find(strValue) != globalStringLiteralConstants.end())
@@ -1873,15 +1875,17 @@ void* ASTNode::generateCallExpression(int pass)
 	ASTNode* argsNode = childNodes[0];
 	bool shouldBeMemberFunction = isCallMemberFunction;
 	isCallMemberFunction = false;
+
 	std::vector<ASTNode*> args = std::vector<ASTNode*>();
 	for (auto& a : argsNode->childNodes)
 		if (a->childNodes.size() > 0) {
 			args.push_back(a);
-			//aList.push_back(std::make_pair());
 		}
 
 	std::vector<Value*> ArgsV = std::vector<Value*>();
 	argumentList argList = argumentList();
+
+	// Build argList and ArgsV WITHOUT sret initially
 	for (int i = 0; i < args.size(); i++) {
 		Value* argVal = (Value*)(args[i]->*(args[i]->codegen))(pass);
 		ArgsV.push_back(argVal);
@@ -1890,10 +1894,8 @@ void* ASTNode::generateCallExpression(int pass)
 			return nullptr;
 	}
 
-
-	// Look up the id in the global module table.
+	// Look up the function ID using the caller's argList (without sret)
 	functionID* CalleeFID = getFunctionFromID(functionIDs, token->first, argList, token, true, shouldBeMemberFunction);
-	//Function* CalleeF = TheModule->getFunction(token->first);
 	if (!CalleeFID) {
 		if (shouldBeMemberFunction)
 			printf("Should be member function\n");
@@ -1903,28 +1905,51 @@ void* ASTNode::generateCallExpression(int pass)
 		}
 		exit(1);
 	}
+
 	Function* CalleeF = CalleeFID->fnValue;
 	CalleeFID->uses++;
 
-	// If argument mismatch error.
-	if (CalleeFID->variableNumArguments == false)
-		if (CalleeF->arg_size() != args.size()) {
-			CalleeFID->print();
-			printTokenError(token, "Incorrect number of arguments passed to function", __LINE__);
-			exit(1);
-		}
-		// If variable arguments, make sure the amount in call are <= the required amount
-		else if (CalleeF->arg_size() > args.size()) {
-			CalleeFID->print();
-			printTokenError(token, "Incorrect number of arguments passed to function", __LINE__);
+
+	bool isStructReturn = CalleeFID->isStructReturn;
+	AllocaInst* sretAlloc = nullptr;
+	if (isStructReturn) {
+		// Get the struct type from definitions
+		structType* retStruct = structDefinitions[CalleeFID->returnType];
+		if (retStruct->structVal == nullptr) {
+			printTokenError(token, "Struct return type not fully defined");
 			exit(1);
 		}
 
-	// Clear arg values list to get values correctly
-	ArgsV = std::vector<Value*>();
-	for (int i = 0; i < args.size(); i++) {
-		if (CalleeFID->arguments[i].isReference) {
-			if (args[0]->childNodes.size() != 1 || args[0]->childNodes[0]->nodeType != Identifier_Node) {
+		// Allocate space for the returned struct on the caller's stack
+		sretAlloc = Builder->CreateAlloca(retStruct->structVal, nullptr, "sret_alloc");
+
+		// Insert the sret pointer as the FIRST argument in ArgsV
+		ArgsV.insert(ArgsV.begin(), sretAlloc);
+
+		// For argList matching: Temporarily add sret to argList for validation
+		// (This matches how it's stored in functionID)
+		argType sretArg("*" + CalleeFID->returnType, Struct_Type, 1, false, true);
+		argList.insert(argList.begin(), sretArg);
+	}
+
+	// Validate argument count (now including sret if applicable)
+	if (CalleeFID->variableNumArguments == false) {
+		if (CalleeF->arg_size() != ArgsV.size()) {	// Use ArgsV.size() which includes sret
+			printTokenError(token, "Incorrect number of arguments passed to function (expected " + std::to_string(CalleeF->arg_size()) + ")", __LINE__);
+			CalleeFID->print();
+			exit(1);
+		}
+	}
+	else if (CalleeF->arg_size() > ArgsV.size()) {
+		printTokenError(token, "Incorrect number of arguments passed to function", __LINE__);
+		CalleeFID->print();
+		exit(1);
+	}
+
+	ArgsV.clear();
+	for (int i = 0; i < args.size(); i++) {									   // Start from caller's args (sret is already handled)
+		if (CalleeFID->arguments[i + (isStructReturn ? 1 : 0)].isReference) {  // Offset by 1 if sret
+			if (args[i]->childNodes.size() != 1 || args[i]->childNodes[0]->nodeType != Identifier_Node) {
 				printTokenError(token, "Cannot pass value as reference");
 				exit(1);
 			}
@@ -1936,9 +1961,29 @@ void* ASTNode::generateCallExpression(int pass)
 			return nullptr;
 	}
 
+	// If struct return, re-insert sret as first arg (after rebuilding)
+	if (isStructReturn) {
+		ArgsV.insert(ArgsV.begin(), sretAlloc);
+	}
 
-	return Builder->CreateCall(CalleeF, ArgsV, "calltmp");
+	// Create the call (returns void for struct returns)
+	Value* callResult = Builder->CreateCall(CalleeF, ArgsV, "calltmp");
+
+	// For struct returns, return the loaded struct value (or pointer if lvalue)
+	if (isStructReturn) {
+		if (lvalue) {
+			return sretAlloc;  // Return pointer for lvalue contexts (e.g., assignment)
+		}
+		else {
+			structType* retStruct = structDefinitions[CalleeFID->returnType];
+			return Builder->CreateLoad(retStruct->structVal, sretAlloc, "sret_load");
+		}
+	}
+
+	// Non-struct: Return the call result directly
+	return callResult;
 }
+
 
 // Value*
 void* ASTNode::generateIf(int pass)
@@ -2258,6 +2303,7 @@ void* ASTNode::generatePrototype(int pass)
 	Type* retType = Type::getVoidTy(*TheContext);
 	std::string rTypeString = "";
 	ASTNode* typeNode = childNodes[1];
+	bool isStructReturn = false;
 	if (typeNode->childNodes.size() > 0) {
 	recurseAddPointer:
 		typeNode = typeNode->childNodes[0];
@@ -2273,12 +2319,29 @@ void* ASTNode::generatePrototype(int pass)
 
 		bool wasDefined = true;
 		retType = getLLVMTypeFromString(rTypeString, 0, typeNode->token, wasDefined, pass);
-		//if (wasDefined == false)
-		//	return nullptr;
+
+		// If the return type is a struct
+		if (retType && retType->isStructTy()) {
+			isStructReturn = true;
+		}
+	}
+
+	argumentList userArgList = argList;
+
+	// Handle struct return by modifying function signature
+	Type* actualRetType = retType;
+	if (isStructReturn) {
+		// For struct returns, add sret parameter as first argument
+		argTypes.push_back(retType->getPointerTo());  // sret parameter (pointer to struct)
+		argNames.push_back("sret");
+		argList.insert(argList.begin(), argType("*" + rTypeString, getASTNodeTypeFromString(rTypeString), 1, false, true));
+
+		// Change actual return type to void
+		actualRetType = Type::getVoidTy(*TheContext);
 	}
 
 	// Get function arguments
-	// If it is a struct, first add a "this" argument like: (this : ref structName, ...)
+	// If it is a struct member function, first add a "this" argument like: (this : ref structName, ...)
 	if (currentStructName.size() > 0) {
 		std::string typeStr = currentStructName.top();
 		bool isReference = true;
@@ -2351,6 +2414,7 @@ void* ASTNode::generatePrototype(int pass)
 
 				Type* aType = nullptr;
 				argList.push_back(argType(typeStr, getASTNodeTypeFromString(typeNode->token->first), pointerLevel, isReference, mustBeExactType));
+				userArgList.push_back(argType(typeStr, getASTNodeTypeFromString(typeNode->token->first), pointerLevel, isReference, mustBeExactType));
 
 				try {
 					bool wasDefined = true;
@@ -2394,7 +2458,7 @@ void* ASTNode::generatePrototype(int pass)
 
 	// Don't add another prototype if the exact same one is already defined
 	//Function* theFunction = TheModule->getFunction(token->first);
-	functionID* theFunctionID = getExactFunctionFromID(functionIDs, fnName, argList, token);
+	functionID* theFunctionID = getExactFunctionFromID(functionIDs, fnName, userArgList, token);
 	if (theFunctionID) {
 		if (verbosity >= 5) {
 			console::printIndent(2);
@@ -2406,7 +2470,7 @@ void* ASTNode::generatePrototype(int pass)
 	}
 
 
-	FunctionType* FT = FunctionType::get(retType, argTypes, variableNumArguments);
+	FunctionType* FT = FunctionType::get(actualRetType, argTypes, variableNumArguments);
 
 	Function* fn = nullptr;
 	// If extern declaration, dont mangle name
@@ -2423,7 +2487,7 @@ void* ASTNode::generatePrototype(int pass)
 		//namedValues[std::string(arg.getName())] = &arg;
 	}
 
-	functionIDs.push_back(new functionID(fnName, mangledName, rTypeString, argList, fn, variableNumArguments, isStruct));
+	functionIDs.push_back(new functionID(fnName, mangledName, rTypeString, argList, userArgList, fn, variableNumArguments, isStruct, isStructReturn));
 	if (verbosity >= 5) {
 		console::printIndent(depth + 2);
 		console::WriteLine("-- Added function \"" + fnName + "\" to functionIDs");

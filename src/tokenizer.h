@@ -51,6 +51,7 @@ enum TokenType {
 
 	Bar,
 	Bar_Bar,
+	Bar_Bar_Bar,
 	Ampersand,
 	Ampersand_Ampersand,
 	Tilde,
@@ -145,6 +146,7 @@ const std::string tokenTypeStrings[] = {
 
 	"Bar",
 	"Bar_Bar",
+	"Bar_Bar_Bar",
 	"Ampersand",
 	"Ampersand_Ampersand",
 	"Tilde",

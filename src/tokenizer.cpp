@@ -110,6 +110,7 @@ std::map<const std::string, const TokenType> subTokenTypes = {
 	{">=", Greater_Equal},
 	{"|", Bar},
 	{"||", Bar_Bar},
+	{"|||", Bar_Bar_Bar},
 	{"&", Ampersand},
 	{"&&", Ampersand_Ampersand},
 	{"~", Tilde},

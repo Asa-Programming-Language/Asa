@@ -175,3 +175,15 @@ Strings :: module{
 	//}
 
 }
+
+PipeOperatorTest :: module{
+	fnX :: int(x : int){
+		return x*5;
+	}
+	fnY :: int(y : int){
+		return y*5;
+	}
+	pipeTest::int(z : int){
+		//return fnX(z) -> fnY(%);
+	}
+}
