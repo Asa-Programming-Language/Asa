@@ -8,7 +8,7 @@
   </picture>
 </div>
 
-[![Badge License]][License]   ![Relative date](https://img.shields.io/date/1920814400?label=release%20timeline&color=purple)   [![Button Discord]][Discord Server]
+[![Badge License]][License]   ![Relative date](https://img.shields.io/date/1920814400?label=release%20timeline&color=purple)   ![GitHub commits difference between two branches/tags/commits](https://img.shields.io/github/commits-difference/sam-astro/Asa?base=main&head=dev&label=commits%20ahead%20dev)   [![Button Discord]][Discord Server] 
 
 ---
 
