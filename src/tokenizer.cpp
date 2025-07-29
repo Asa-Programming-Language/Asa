@@ -47,6 +47,7 @@ const std::map<TokenType, const char*> tokenEscapes = {
 const std::map<const char*, const char*> tokenEscapeCancels = {
 	{"+-*:^|!&~<>=", "="},
 	{"+-", "+-"},
+	{"-", ">"},
 	{"/", "/*"},
 	{"*", "*/"},
 	{":", ":"},

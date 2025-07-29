@@ -308,7 +308,9 @@ void printTokenError(tokenPair*& token, std::string errorString, int sourceLineN
 		console::Write(" ");
 	console::Write("here", console::redFGColor);
 	console::WriteLine("\n");
-	//throw;
+	// If debugging the compiler, throw so that the call can be traced
+	if (compilerDebug)
+		throw;
 	//exit(1);
 }
 
@@ -358,36 +360,39 @@ std::map<TokenType, ASTNodeType> operatorDefaultNodeType = {
 	{Plus, Expression_Plus},
 	{Minus, Expression_Minus},
 	{Star, Expression_Times},
-	{Slash, Expression_Divided},
+	{Slash, Expression_Divide},
 	{Ampersand, Address_Of_Operation},
 	{Ref, Reference_Operation},
 	{Exact, Exact_Type_Node},
 	{Left_Bracket, Access_Operation},
 	{Dot, Member_Access},
+	{Arrow_Right, Pipe_Operation},
 };
 
 std::map<ASTNodeType, int> operatorPrecedence = {
 	{Operator_Overload_Node, 100},	// anything else
 	{Member_Access, 90},			// .
 	{Access_Operation, 80},			// []
-	{Expression_Paren_Term, 50},	// ()
-	{Address_Of_Operation, 5},		// &
-	{Expression_Times, 4},			// *
-	{Expression_Divided, 4},		// /
-	{Expression_Plus, 3},			// +
-	{Expression_Minus, 3},			// -
-	{Compare_Equal, 2},				// ==
-	{Compare_Not, 2},				// !=
-	{Compare_Less, 2},				// <
-	{Compare_LessEqual, 2},			// <=
-	{Compare_Greater, 2},			// >
-	{Compare_GreaterEqual, 2},		// >=
-	{Range_Node, 1},				// ..
+	{Expression_Paren_Term, 70},	// ()
+	{Address_Of_Operation, 50},		// &
+	{Expression_Times, 40},			// *
+	{Expression_Divide, 40},		// /
+	{Expression_Plus, 30},			// +
+	{Expression_Minus, 30},			// -
+	{Compare_Equal, 20},			// ==
+	{Compare_Not, 20},				// !=
+	{Compare_Less, 20},				// <
+	{Compare_LessEqual, 20},		// <=
+	{Compare_Greater, 20},			// >
+	{Compare_GreaterEqual, 20},		// >=
+	{Range_Node, 15},				// ..
+	{Pipe_Operation, 10},			// ->
 };
 
 std::unordered_set<ASTNodeType> leftAssociativeOperators = {
 	Member_Access,
 	Access_Operation,
+	Pipe_Operation,
 };
 
 std::unordered_set<ASTNodeType> literals = {
@@ -759,6 +764,7 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 			case Ref:
 			case Exact:
 			case Left_Bracket:
+			case Arrow_Right:
 			// general:
 			case Bar:
 			case Bar_Bar:
@@ -1781,7 +1787,7 @@ void optimizeASTNode(ASTNode*& node)
 						case (Expression_Times):
 							output_f = (*(double*)first_val_ptr) * (*(double*)second_val_ptr);
 							break;
-						case (Expression_Divided):
+						case (Expression_Divide):
 							output_f = (*(double*)first_val_ptr) / (*(double*)second_val_ptr);
 							break;
 						case (Expression_Plus):
@@ -1799,7 +1805,7 @@ void optimizeASTNode(ASTNode*& node)
 						case (Expression_Times):
 							output_i = (*(int*)first_val_ptr) * (*(int*)second_val_ptr);
 							break;
-						case (Expression_Divided):
+						case (Expression_Divide):
 							output_i = (*(int*)first_val_ptr) / (*(int*)second_val_ptr);
 							break;
 						case (Expression_Plus):

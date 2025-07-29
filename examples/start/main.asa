@@ -5,6 +5,8 @@
 #import Builtin.Memory;
 #import Builtin.Strings;
 
+#import Builtin.PipeOperatorTest;
+
 //#import GameLogic;
 
 //#file "./function_redefine.asa";
@@ -25,27 +27,26 @@ Or individual components:
 create::string() #inline; #replaceable; {
 	return *(#new string);
 }
-create :: string(c : *char) #inline; {
-	s : string = string();
+create :: string(c : *char) {
+	s : string = *(#new string);
 	puts("Creating new string from *char\n");
 
-	s.tS.x = 5;
-
-	len : uint32 = 15;
+	len : uint32 = 10;
 	//for(i : 0..4_294_967_296){
 	//	//if(c[i] == '\0')
 	//	//	break;
 	//	len++;
 	//}
-	s.address = malloc(len);
+	s.address = malloc(10*2);
+	s.length = 10;
 	//len = 5;
 	//s.address = malloc(5);
 	for(i : 0..len){
 		s.address[i] = 'A';
 		//s.address[i] = c[i];
 	}
-	s.length = len;
-	s.address = "String value example";
+	//s.length = len;
+	//s.address = "String value example";
 	puts("Done!\n");
 	return s;
 }
@@ -96,20 +97,24 @@ newline::() #inline; #hideast {
 
 main :: (){
 	//printf("Hello World!");
-	x = 70+2;
+	//x = 70+2;
 	//y : uint16 = 4;
-	f = float(1);
+	//f = float(1);
 
-	var : bool;
+	//var : bool;
 
 	s : string = string();
 	s = string("This works");
+
+	pipeTest(1);
 
 	//s.length = 8;
 	//printint(s.length);
 	//s.size();
 	puts("printing string...");
-	puts(s.address);
+	//s.length = 5;
+	printint(s.length);
+	newline();
 	s.print();
 	puts("Done!");
 
@@ -124,13 +129,13 @@ main :: (){
 	//puts("main function works!\n");
 
 	//putchar(x);
-	x = x+1;
+	//x = x+1;
 	//putchar(*x_ptr);
 	//putchar(32);
 	
-	arr : *int = malloc(8*4);
+	//arr : *int = malloc(8*4);
 
-	arr[2] = 72;
+	//arr[2] = 72;
 
 	//puts("Hello World!");
 
@@ -138,9 +143,9 @@ main :: (){
 	//printint(x);
 
 	//newline();
-	putchar(arr[2]);
+	//putchar(arr[2]);
 
-	newline();
+	//newline();
 
 	//if(1 || 0){
 	//	putchar(72);

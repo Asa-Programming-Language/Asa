@@ -17,6 +17,9 @@ extern std::unique_ptr<IRBuilder<>> Builder;
 extern std::map<std::string, Value*> NamedValues;
 
 
+extern bool wasError;
+
+
 void initializeCodeGenerator();
 int outputObjectFile(std::string& objectFilePath);
 int generateExecutable(const std::string& objectFilePath, const std::string& exeFilePath);
