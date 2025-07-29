@@ -45,7 +45,7 @@ jobs:
       run: |
         git clone --depth 1 https://github.com/sam-astro/Asa-LLVM-Compiled
         cmake --build build
-        cmake --install build
+        sudo cmake --install build
 #        git config --add remote.origin.fetch '^refs/heads/users/*'
 #        git config --add remote.origin.fetch '^refs/heads/revert-*'
 #        cd llvm-project
