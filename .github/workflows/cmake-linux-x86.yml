@@ -47,7 +47,8 @@ jobs:
         cd Asa-LLVM-Compiled
         sudo rm -r build
         mkdir build
-        cmake -S llvm --build build -G Ninja -DLLVM_TARGETS_TO_BUILD="X86" -DCMAKE_BUILD_TYPE=MinSizeRel
+        cmake -S llvm -B build -G Ninja -DLLVM_TARGETS_TO_BUILD="X86" -DCMAKE_BUILD_TYPE=MinSizeRel
+        ninja build
         sudo cmake --install build
         cd ../
 #        git config --add remote.origin.fetch '^refs/heads/users/*'
