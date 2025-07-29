@@ -14,5 +14,6 @@
 
 int verbosity = 2;
 int optimizationLevel = 0;
+bool compilerDebug = false;
 
 #endif

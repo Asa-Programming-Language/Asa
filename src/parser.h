@@ -62,7 +62,14 @@ enum ASTNodeType {
 	Expression_Plus,
 	Expression_Minus,
 	Expression_Times,
-	Expression_Divided,
+	Expression_Divide,
+	Expression_Modulo,
+	Bitwise_And,
+	Bitwise_Or,
+	Bitwise_Xor,
+	Bitwise_Shift_Left,
+	Bitwise_Shift_Right,
+	Pipe_Operation,
 
 	Range_Node,
 
@@ -161,7 +168,14 @@ const std::string ASTNodeTypeStrings[] = {
 	"Expression_Plus",
 	"Expression_Minus",
 	"Expression_Times",
-	"Expression_Divided",
+	"Expression_Divide",
+	"Expression_Modulo",
+	"Bitwise_And",
+	"Bitwise_Or",
+	"Bitwise_Xor",
+	"Bitwise_Shift_Left",
+	"Bitwise_Shift_Right",
+	"Pipe_Operation",
 
 	"Range_Node",
 
@@ -272,6 +286,14 @@ struct ASTNode {
 	void* generateNothing(int pass = 0);
 
 	void* (ASTNode::*codegen)(int pass) = nullptr;
+
+	// Helper functions:
+
+	Value* generateOperatorOverloadCall(Value* L, Value* R);
+	bool checkForOperatorOverload();
+	Value* generatePointerBinaryOp(Value* L, Value* R);
+	Value* generateFloatBinaryOp(Value* L, Value* R);
+	Value* generateIntegerBinaryOp(Value* L, Value* R);
 
 	//std::unique_ptr<PrototypeAST> Proto;
 	//std::unique_ptr<ExprAST> Body;

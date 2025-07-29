@@ -184,6 +184,6 @@ PipeOperatorTest :: module{
 		return y*5;
 	}
 	pipeTest::int(z : int){
-		//return fnX(z) -> fnY(%);
+		return fnX(z) -> fnY(%);
 	}
 }

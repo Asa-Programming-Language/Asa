@@ -33,9 +33,10 @@ int main(int argc, char** argv)
 			{"file", required_argument, 0, 'f'},
 			{"output", required_argument, 0, 'o'},
 			{"optimize", required_argument, 0, 'O'},
+			{"compilerdebug", no_argument, 0, 'd'},
 			{0, 0, 0, 0}};
 
-		c = getopt_long(argc, argv, "cvqf:o:O:0",
+		c = getopt_long(argc, argv, "cvqdf:o:O:0",
 			long_options, &option_index);
 		if (c == -1)
 			break;
@@ -81,6 +82,10 @@ int main(int argc, char** argv)
 
 			case 'O':
 				optimizationLevel = std::stoi(optarg);
+				break;
+
+			case 'd':
+				compilerDebug = true;
 				break;
 
 			case '?':
