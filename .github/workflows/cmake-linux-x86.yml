@@ -48,9 +48,10 @@ jobs:
         sudo rm -r build
         mkdir build
         cmake -S llvm -B build -G Ninja -DLLVM_TARGETS_TO_BUILD="X86" -DCMAKE_BUILD_TYPE=MinSizeRel
-        ninja build
-        sudo cmake --install build
-        cd ../
+        cd build
+        ninja
+        sudo cmake --install
+        cd ../../
 #        git config --add remote.origin.fetch '^refs/heads/users/*'
 #        git config --add remote.origin.fetch '^refs/heads/revert-*'
 #        cd llvm-project
