@@ -45,7 +45,9 @@ jobs:
       run: |
         git clone --depth 1 https://github.com/sam-astro/Asa-LLVM-Compiled
         cd Asa-LLVM-Compiled
-        cmake --build build
+        sudo rm -r build
+        mkdir build
+        cmake -S llvm --build build -G Ninja -DLLVM_TARGETS_TO_BUILD="X86" -DCMAKE_BUILD_TYPE=MinSizeRel
         sudo cmake --install build
         cd ../
 #        git config --add remote.origin.fetch '^refs/heads/users/*'
