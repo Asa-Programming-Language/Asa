@@ -29,8 +29,9 @@ jobs:
       with:
         # Adjust these paths to match where LLVM is built and installed
         path: |
-          ${{github.workspace}}/Asa-LLVM-Compiled
-          /usr/local/llvm
+          Asa-LLVM-Compiled
+          /usr/lib
+          /usr/include
         key: llvm-build-${{ hashFiles('Asa-LLVM-Compiled/llvm/**', 'Asa-LLVM-Compiled/build/CMakeCache.txt') }}
         restore-keys: |
           llvm-build-
@@ -57,7 +58,7 @@ jobs:
     - name: Setup LLVM
       if: steps.cache-dependencies.outputs.cache-hit != 'true'
       run: |
-        git clone --depth 1 https://github.com/sam-astro/Asa-LLVM-Compiled ${{github.workspace}}/Asa-LLVM-Compiled
+        git clone --depth 1 https://github.com/sam-astro/Asa-LLVM-Compiled
         cd Asa-LLVM-Compiled
         mkdir build
         cmake -S llvm -B build -G Ninja -DLLVM_TARGETS_TO_BUILD="X86" -DCMAKE_BUILD_TYPE=MinSizeRel
