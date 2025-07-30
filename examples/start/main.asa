@@ -7,6 +7,8 @@
 
 #import Builtin.PipeOperatorTest;
 
+#import Rendering.Window;
+
 //#import GameLogic;
 
 //#file "./function_redefine.asa";
@@ -110,17 +112,18 @@ main :: (){
 	s : string = string();
 	s = string("This works");
 
-	////s.length = 8;
-	////printint(s.length);
-	////s.size();
-	//puts("printing string...");
-	////s.length = 5;
+	//s.length = 8;
 	//printint(s.length);
-	//newline();
-	////s.print();
-	//puts("Done!");
+	//s.size();
+	puts("printing string...");
+	//s.length = 5;
+	printint(s.length);
+	newline();
+	s.print();
+	newline();
+	puts("Done!");
 
-	//newline();
+	newline();
 
 	//puts(s.address);
 
@@ -134,7 +137,7 @@ main :: (){
 	//x = x+1;
 	//putchar(*x_ptr);
 	//putchar(32);
-	
+	//
 	//arr : *int = malloc(8*4);
 
 	//arr[2] = 72;

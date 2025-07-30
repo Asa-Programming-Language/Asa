@@ -1908,7 +1908,17 @@ void* ASTNode::generateMemberAccess(int pass)
 			isCallMemberFunction = false;
 			baseType = lastRetrievedElementType.top();
 
-			return Builder->CreateCall(CalleeF, ArgsV, "calltmp");
+			Value* callResult = nullptr;
+			Type* retType = CalleeF->getReturnType();
+
+			// Create the call
+			if (retType->isVoidTy())
+				Builder->CreateCall(CalleeF, ArgsV);
+			else
+				callResult = Builder->CreateCall(CalleeF, ArgsV, "calltmp");
+			return callResult;
+
+			//return Builder->CreateCall(CalleeF, ArgsV, "calltmp");
 		}
 	}
 	// If left is not pointer, assume another member access or index operator
@@ -2053,7 +2063,17 @@ void* ASTNode::generateMemberAccess(int pass)
 			isCallMemberFunction = false;
 			baseType = lastRetrievedElementType.top();
 
-			return Builder->CreateCall(CalleeF, ArgsV, "calltmp");
+			Value* callResult = nullptr;
+			Type* retType = CalleeF->getReturnType();
+
+			// Create the call
+			if (retType->isVoidTy())
+				Builder->CreateCall(CalleeF, ArgsV);
+			else
+				callResult = Builder->CreateCall(CalleeF, ArgsV, "calltmp");
+			return callResult;
+
+			//return Builder->CreateCall(CalleeF, ArgsV, "calltmp");
 		}
 	}
 
@@ -3043,12 +3063,12 @@ int outputObjectFile(std::string& objectFilePath)
 int generateExecutable(const std::string& irFilePath, const std::string& exeFilePath)
 {
 	// llc to convert <name>.ll to assembly
-	std::string commandLLC = "llc " + irFilePath + " -o " + irFilePath + ".s";
+	std::string commandLLC = "llc  -relocation-model=pic " + irFilePath + " -o " + irFilePath + ".s";
 	int result = std::system(commandLLC.c_str());
 	if (result != 0)
 		exit(1);
 	// clang as the linker
-	std::string commandClang = "clang -o " + exeFilePath + " " + irFilePath + ".s -g";
+	std::string commandClang = "clang -fPIE -o " + exeFilePath + " " + irFilePath + ".s -g";
 	result = std::system(commandClang.c_str());
 	if (result != 0)
 		exit(1);
