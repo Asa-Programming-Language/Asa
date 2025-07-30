@@ -28,7 +28,7 @@ jobs:
       with:
         # Adjust these paths to match where LLVM is built and installed
         path: |
-          Asa-LLVM-Compiled/build
+          ${{github.workspace}}/Asa-LLVM-Compiled
           /usr/local/llvm
         key: llvm-build-${{ hashFiles('Asa-LLVM-Compiled/llvm/**', 'Asa-LLVM-Compiled/build/CMakeCache.txt') }}
         restore-keys: |
