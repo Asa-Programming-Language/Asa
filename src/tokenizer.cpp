@@ -176,7 +176,7 @@ int tokenize(std::string& rawFile, std::vector<tokenPair*>& tokens, std::string&
 	fileNames.push_back(new std::string(fileName));
 
 	// Then start making tokens
-	int lineNumber = 1;
+	int lineNumber = 0;
 	int indexInLine = 0;
 	int startIndexInLine = 0;
 	std::string* lineValue = new std::string("");

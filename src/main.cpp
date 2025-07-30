@@ -34,9 +34,10 @@ int main(int argc, char** argv)
 			{"output", required_argument, 0, 'o'},
 			{"optimize", required_argument, 0, 'O'},
 			{"compilerdebug", no_argument, 0, 'd'},
+			{"version", no_argument, 0, 'V'},
 			{0, 0, 0, 0}};
 
-		c = getopt_long(argc, argv, "cvqdf:o:O:0",
+		c = getopt_long(argc, argv, "cvqdVf:o:O:0",
 			long_options, &option_index);
 		if (c == -1)
 			break;
@@ -87,6 +88,10 @@ int main(int argc, char** argv)
 			case 'd':
 				compilerDebug = true;
 				break;
+
+			case 'V':
+				console::ResetColor();
+				exit(0);
 
 			case '?':
 				console::ResetColor();
@@ -219,18 +224,47 @@ int main(int argc, char** argv)
 		TheModule->print(errs(), nullptr);
 	}
 
-	//// Verify the module
-	//if (llvm::verifyModule(*TheModule, &llvm::errs())) {
-	//	std::cerr << "Module verification failed!\n";
-	//	abort();
-	//}
+	// Write IR to <projectpath>/build/<basename>.ll
+	std::string irFilePath = projectDirectory + "build/" + baseFileName + ".ll";
+	std::error_code EC;
+	llvm::raw_fd_ostream OS(irFilePath, EC, llvm::sys::fs::OF_None);
+	if (EC) {
+		// Handle error
+		llvm::errs() << "Could not open file: " << EC.message() << "\n";
+		exit(1);
+	}
+	TheModule->print(OS, nullptr);
+	OS.close();
 
-	// Output the object file in project's build directory
-	std::string objectFilePath = outputFileName + ".o";
-	outputObjectFile(objectFilePath);
+
+	// Verify the module
+	if (compilerDebug) {
+		console::WriteLine("\nVerifying code:");
+		if (llvm::verifyModule(*TheModule, &llvm::errs())) {
+			std::cerr << "Module verification failed!\n";
+			abort();
+		}
+	}
+
+	// Print out all function prototypes
+	if (verbosity >= 4)
+		printFunctionPrototypes();
+
+	//// Output the object file in project's build directory
+	//std::string objectFilePath = outputFileName + ".o";
+	//outputObjectFile(objectFilePath);
 
 	// Link the object file into executable
-	generateExecutable(objectFilePath, outputFileName);
+	generateExecutable(irFilePath, outputFileName);
 	if (verbosity >= 1)
-		console::WriteLine("\n\nWrote executable to " + outputFileName);
+		console::WriteLine("\nWrote executable to " + outputFileName);
+
+
+	// Cleanup by deleting files only used for codegen.
+	if (verbosity >= 3) {
+		console::WriteLine("Cleaning up files: " + irFilePath);
+		console::WriteLine("Cleaning up files: " + irFilePath + ".s");
+	}
+	std::filesystem::remove(irFilePath);
+	std::filesystem::remove(irFilePath + ".s");
 }

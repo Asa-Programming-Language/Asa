@@ -22,5 +22,6 @@ extern bool wasError;
 
 void initializeCodeGenerator();
 int outputObjectFile(std::string& objectFilePath);
-int generateExecutable(const std::string& objectFilePath, const std::string& exeFilePath);
+int generateExecutable(const std::string& irFilePath, const std::string& exeFilePath);
 void removeUnusedPrototypes();
+void printFunctionPrototypes();
