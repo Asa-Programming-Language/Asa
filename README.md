@@ -14,6 +14,8 @@
 
 This repository contains all of the source code for the Asa programming language compiler and standard libraries.
 
+> There are no releases currently, and much of the current code is subject to change
+
 <!----------------------------------------------------------------------------->
 
 [License]: LICENSE
