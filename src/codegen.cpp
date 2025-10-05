@@ -20,6 +20,7 @@ llvm::Value* castValue(llvm::Value* value, llvm::Type* destType, bool isSrcSigne
 
 std::unordered_map<std::string, Type*> unresolvedTypes;
 std::stack<Type*> lastRetrievedElementType;
+std::stack<Value*> pipeOperationValue;
 
 std::unordered_map<std::string, bool> typeSigns = {
 	{"int128", true},
@@ -90,7 +91,10 @@ struct functionID {
 	}
 	void print()
 	{
-		console::Write(returnType + " ", console::blueFGColor);
+		if (uses == 0)
+			return;
+		if (returnType != "")
+			console::Write(returnType + " ", console::blueFGColor);
 		console::Write(name, console::greenFGColor);
 		console::Write("(");
 		for (int i = 0; i < arguments.size(); i++) {
@@ -100,7 +104,13 @@ struct functionID {
 			if (i < arguments.size() - 1)
 				console::Write(", ");
 		}
-		console::WriteLine(")");
+		console::Write(")");
+		if (isStructReturn) {
+			console::Write(" (");
+			console::Write("returns struct", console::yellowFGColor);
+			console::Write(")");
+		}
+		console::WriteLine();
 	}
 	bool compareASTNodeTypes(ASTNodeType& a, ASTNodeType& b, bool wereTypesInferred = false)
 	{
@@ -251,6 +261,12 @@ structType* getStructTypeFromLLVMType(Type*& t)
 		}
 	}
 	return nullptr;
+}
+
+void printFunctionPrototypes()
+{
+	for (const auto& f : functionIDs)
+		f->print();
 }
 
 functionID* getFunctionFromID(std::vector<functionID*>& fnIDs, std::string& name, argumentList& arguments, tokenPair*& t, bool wereTypesInferred = false, bool isMemberFunction = false)
@@ -967,7 +983,7 @@ void* ASTNode::generateVariableExpression(int pass)
 			return Builder->CreateLoad(targetPtr->getAllocatedType(), targetPtr, token->first + "_load");
 	}
 	AllocaInst* A = (AllocaInst*)(val->val);
-	baseType = A->getAllocatedType();
+	baseType = val->val->getType();
 
 	if (isRef || lvalue)
 		return A;
@@ -987,43 +1003,45 @@ void* ASTNode::generateReturn(int pass)
 	if (wasError) {
 		exit(1);
 	}
+	Function* currentFunc = Builder->GetInsertBlock()->getParent();
+	functionID* fnID = getFunctionIDFromFunctionPointer(functionIDs, currentFunc);
 	// Check if we're returning a struct
 	Type* returnType = Builder->GetInsertBlock()->getParent()->getReturnType();
-	if (returnType->isStructTy()) {
-		// For struct returns, we need to handle this specially
-		// Option 1: If the function uses sret, copy to the sret parameter
-		Function* currentFunc = Builder->GetInsertBlock()->getParent();
-		if (currentFunc->hasStructRetAttr()) {
-			// Get the sret parameter (first parameter)
-			Value* sretPtr = &*currentFunc->arg_begin();
+	if (fnID->isStructReturn) {
+		////if (returnType->isStructTy()) {
+		//// For struct returns, we need to handle this specially
+		//// Option 1: If the function uses sret, copy to the sret parameter
+		//if (currentFunc->hasStructRetAttr()) {
+		// Get the sret parameter (first parameter)
+		Value* sretPtr = &*currentFunc->arg_begin();
 
-			// Copy the struct value to the sret location
-			if (RetVal->getType()->isPointerTy()) {
-				// If RetVal is a pointer to struct, memcpy from it
-				Value* structSize = ConstantInt::get(Type::getInt64Ty(*TheContext),
-					TheModule->getDataLayout().getTypeAllocSize(returnType));
+		// Copy the struct value to the sret location
+		if (RetVal->getType()->isPointerTy()) {
+			// If RetVal is a pointer to struct, memcpy from it
+			Value* structSize = ConstantInt::get(Type::getInt64Ty(*TheContext),
+				TheModule->getDataLayout().getTypeAllocSize(returnType));
 
-				// Create memcpy call
-				Function* memcpyFunc = Intrinsic::getDeclaration(TheModule.get(),
-					Intrinsic::memcpy, {sretPtr->getType(), RetVal->getType(), Type::getInt64Ty(*TheContext)});
-				Builder->CreateCall(memcpyFunc, {sretPtr, RetVal, structSize, ConstantInt::get(Type::getInt1Ty(*TheContext), 0)});
-			}
-			else {
-				// If RetVal is a struct value, store it
-				Builder->CreateStore(RetVal, sretPtr);
-			}
-
-
-			Builder->CreateRetVoid();
+			// Create memcpy call
+			Function* memcpyFunc = Intrinsic::getDeclaration(TheModule.get(),
+				Intrinsic::memcpy, {sretPtr->getType(), RetVal->getType(), Type::getInt64Ty(*TheContext)});
+			Builder->CreateCall(memcpyFunc, {sretPtr, RetVal, structSize, ConstantInt::get(Type::getInt1Ty(*TheContext), 0)});
 		}
 		else {
-			// Option 2: Direct struct return (for small structs)
-			if (RetVal->getType()->isPointerTy()) {
-				// Load the struct value from the pointer
-				RetVal = Builder->CreateLoad(returnType, RetVal, "struct_ret_load");
-			}
-			Builder->CreateRet(RetVal);
+			// If RetVal is a struct value, store it
+			Builder->CreateStore(RetVal, sretPtr);
 		}
+
+
+		Builder->CreateRetVoid();
+		//}
+		//else {
+		//	// Option 2: Direct struct return (for small structs)
+		//	if (RetVal->getType()->isPointerTy()) {
+		//		// Load the struct value from the pointer
+		//		RetVal = Builder->CreateLoad(returnType, RetVal, "struct_ret_load");
+		//	}
+		//	Builder->CreateRet(RetVal);
+		//}
 	}
 	else {
 		// Non-struct return, handle normally
@@ -1397,6 +1415,19 @@ void* ASTNode::generateBinaryExpression(int pass)
 		return nullptr;
 	}
 
+	// Check if it is the pipe operator first
+	if (nodeType == Pipe_Operation) {
+		// add L to stack
+		Value* L = (Value*)(childNodes[0]->*(childNodes[0]->codegen))(pass);
+		pipeOperationValue.push(L);
+		// then process R
+		Value* R = (Value*)(childNodes[1]->*(childNodes[1]->codegen))(pass);
+		// pop stack
+		pipeOperationValue.pop();
+
+		return R;
+	}
+
 	Value* L = (Value*)(childNodes[0]->*(childNodes[0]->codegen))(pass);
 	Value* R = (Value*)(childNodes[1]->*(childNodes[1]->codegen))(pass);
 
@@ -1412,14 +1443,26 @@ void* ASTNode::generateBinaryExpression(int pass)
 	if (L->getType() != R->getType()) {
 		printTokenWarning(token, "Operand type mismatch, performing implicit conversion");
 		castToHighestAccuracy(L, R, token);
+		if (L->getType() != R->getType()) {
+			printTokenError(token, "Operands to multiply are not the same type (after automatic cast)");
+			return nullptr;
+		}
 	}
 
 	ValueCategory category = getValueCategory(L->getType());
 
 	switch (category) {
 		case ValueCategory::Integer:
+			if (!L->getType()->isIntegerTy() || !R->getType()->isIntegerTy()) {
+				printTokenError(token, "Multiply: operands are not both integers");
+				return nullptr;
+			}
 			return generateIntegerBinaryOp(L, R);
 		case ValueCategory::Float:
+			if (!L->getType()->isFloatTy() || !R->getType()->isFloatTy()) {
+				printTokenError(token, "Multiply: operands are not both integers");
+				return nullptr;
+			}
 			return generateFloatBinaryOp(L, R);
 		case ValueCategory::Pointer:
 			return generatePointerBinaryOp(L, R);
@@ -1486,6 +1529,15 @@ Value* ASTNode::generatePointerBinaryOp(Value* L, Value* R)
 	//}
 
 	printTokenError(token, "Invalid pointer operation");
+	return nullptr;
+}
+
+void* ASTNode::generatePipePlaceholder(int pass)
+{
+	if (pipeOperationValue.size() > 0) {
+		return pipeOperationValue.top();
+	}
+	printTokenError(token, "Pipe operation placeholder '%' can only be used after a pipe operation");
 	return nullptr;
 }
 
@@ -1856,7 +1908,17 @@ void* ASTNode::generateMemberAccess(int pass)
 			isCallMemberFunction = false;
 			baseType = lastRetrievedElementType.top();
 
-			return Builder->CreateCall(CalleeF, ArgsV, "calltmp");
+			Value* callResult = nullptr;
+			Type* retType = CalleeF->getReturnType();
+
+			// Create the call
+			if (retType->isVoidTy())
+				Builder->CreateCall(CalleeF, ArgsV);
+			else
+				callResult = Builder->CreateCall(CalleeF, ArgsV, "calltmp");
+			return callResult;
+
+			//return Builder->CreateCall(CalleeF, ArgsV, "calltmp");
 		}
 	}
 	// If left is not pointer, assume another member access or index operator
@@ -2001,7 +2063,17 @@ void* ASTNode::generateMemberAccess(int pass)
 			isCallMemberFunction = false;
 			baseType = lastRetrievedElementType.top();
 
-			return Builder->CreateCall(CalleeF, ArgsV, "calltmp");
+			Value* callResult = nullptr;
+			Type* retType = CalleeF->getReturnType();
+
+			// Create the call
+			if (retType->isVoidTy())
+				Builder->CreateCall(CalleeF, ArgsV);
+			else
+				callResult = Builder->CreateCall(CalleeF, ArgsV, "calltmp");
+			return callResult;
+
+			//return Builder->CreateCall(CalleeF, ArgsV, "calltmp");
 		}
 	}
 
@@ -2221,8 +2293,14 @@ void* ASTNode::generateCallExpression(int pass)
 		ArgsV.insert(ArgsV.begin(), sretAlloc);
 	}
 
-	// Create the call (returns void for struct returns)
-	Value* callResult = Builder->CreateCall(CalleeF, ArgsV, "calltmp");
+	Value* callResult = nullptr;
+	Type* retType = CalleeF->getReturnType();
+
+	// Create the call
+	if (retType->isVoidTy())
+		Builder->CreateCall(CalleeF, ArgsV);
+	else
+		callResult = Builder->CreateCall(CalleeF, ArgsV, "calltmp");
 
 	// For struct returns, return the loaded struct value (or pointer if lvalue)
 	if (isStructReturn) {
@@ -2982,11 +3060,18 @@ int outputObjectFile(std::string& objectFilePath)
 	return 0;
 }
 
-int generateExecutable(const std::string& objectFilePath, const std::string& exeFilePath)
+int generateExecutable(const std::string& irFilePath, const std::string& exeFilePath)
 {
-	// Example using clang as the linker
-	std::string command = "clang -o " + exeFilePath + " " + objectFilePath;
-	int result = std::system(command.c_str());
+	// llc to convert <name>.ll to assembly
+	std::string commandLLC = "llc  -relocation-model=pic " + irFilePath + " -o " + irFilePath + ".s";
+	int result = std::system(commandLLC.c_str());
+	if (result != 0)
+		exit(1);
+	// clang as the linker
+	std::string commandClang = "clang -fPIE -o " + exeFilePath + " " + irFilePath + ".s -g";
+	result = std::system(commandClang.c_str());
+	if (result != 0)
+		exit(1);
 	return result;
 }
 

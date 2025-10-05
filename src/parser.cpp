@@ -780,6 +780,7 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 			case At_At: {
 				bool isUnaryR = false;	// Operates on right
 				bool isUnaryL = false;	// Left
+				bool noOp = false;
 				bool isGeneralOperator = false;
 				if (operatorDefaultNodeType.find(tokenType) != operatorDefaultNodeType.end()) {
 					node->nodeType = operatorDefaultNodeType[tokenType];
@@ -890,6 +891,12 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 						node->nodeType = Pointer_Node;
 						isUnaryL = true;
 					}
+					// No expression operator % when used in conjunction with pipe operator
+					else if (isUnaryR && tokenType == Percent) {
+						node->nodeType = Pipe_Placeholder;
+						node->codegen = &ASTNode::generatePipePlaceholder;
+						noOp = true;
+					}
 					else {
 						printTokenError(token, "Operator expected right argument");
 						exit(1);
@@ -899,10 +906,12 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 					secondTerm = generateAST(subTokens, depth + 1)->childNodes[0];
 				//secondTerm->nodeType = Expression_Term;
 
-				if (!isUnaryR)
-					node->childNodes.push_back(firstTerm);
-				if (!isUnaryL)
-					node->childNodes.push_back(secondTerm);
+				if (!noOp) {
+					if (!isUnaryR)
+						node->childNodes.push_back(firstTerm);
+					if (!isUnaryL)
+						node->childNodes.push_back(secondTerm);
+				}
 				if (isLeaf)
 					goto addNodeAsLeaf;
 				break;

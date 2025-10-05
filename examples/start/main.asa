@@ -7,6 +7,8 @@
 
 #import Builtin.PipeOperatorTest;
 
+#import Rendering.Window;
+
 //#import GameLogic;
 
 //#file "./function_redefine.asa";
@@ -28,25 +30,25 @@ create::string() #inline; #replaceable; {
 	return *(#new string);
 }
 create :: string(c : *char) {
-	s : string = *(#new string);
+	s : string = string();
 	puts("Creating new string from *char\n");
 
-	len : uint32 = 10;
-	//for(i : 0..4_294_967_296){
-	//	//if(c[i] == '\0')
-	//	//	break;
-	//	len++;
+	//len : uint32 = 10;
+	////for(i : 0..4_294_967_296){
+	////	//if(c[i] == '\0')
+	////	//	break;
+	////	len++;
+	////}
+	//s.address = malloc(10*2);
+	//s.length = 10;
+	////len = 5;
+	////s.address = malloc(5);
+	//for(i : 0..len){
+	//	s.address[i] = 'A';
+	//	//s.address[i] = c[i];
 	//}
-	s.address = malloc(10*2);
-	s.length = 10;
-	//len = 5;
-	//s.address = malloc(5);
-	for(i : 0..len){
-		s.address[i] = 'A';
-		//s.address[i] = c[i];
-	}
-	//s.length = len;
-	//s.address = "String value example";
+	////s.length = len;
+	////s.address = "String value example";
 	puts("Done!\n");
 	return s;
 }
@@ -73,7 +75,7 @@ TEST_MACRO :: {printl("Macro works!")};
 //}
 
 printint:: (n : uint64) #hideast {
-	putchar(48+n);
+	putchar(int(48+n));
 }
 
 modifyReference::(n : ref int) #hideast {
@@ -103,10 +105,12 @@ main :: (){
 
 	//var : bool;
 
+	pipeVal = pipeTest(1);
+	printint(pipeVal);
+	newline();
+
 	s : string = string();
 	s = string("This works");
-
-	pipeTest(1);
 
 	//s.length = 8;
 	//printint(s.length);
@@ -116,6 +120,7 @@ main :: (){
 	printint(s.length);
 	newline();
 	s.print();
+	newline();
 	puts("Done!");
 
 	newline();
@@ -132,7 +137,7 @@ main :: (){
 	//x = x+1;
 	//putchar(*x_ptr);
 	//putchar(32);
-	
+	//
 	//arr : *int = malloc(8*4);
 
 	//arr[2] = 72;

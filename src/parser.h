@@ -70,6 +70,7 @@ enum ASTNodeType {
 	Bitwise_Shift_Left,
 	Bitwise_Shift_Right,
 	Pipe_Operation,
+	Pipe_Placeholder,
 
 	Range_Node,
 
@@ -176,6 +177,7 @@ const std::string ASTNodeTypeStrings[] = {
 	"Bitwise_Shift_Left",
 	"Bitwise_Shift_Right",
 	"Pipe_Operation",
+	"Pipe_Placeholder",
 
 	"Range_Node",
 
@@ -272,6 +274,7 @@ struct ASTNode {
 	void* generateIterator(int pass = 0);
 	void* generateUnaryExpression(int pass = 0);
 	void* generateBinaryExpression(int pass = 0);
+	void* generatePipePlaceholder(int pass = 0);
 	void* generateAccessOperation(int pass = 0);
 	void* generateMemberAccess(int pass = 0);
 	void* generateScopeBody(int pass = 0);

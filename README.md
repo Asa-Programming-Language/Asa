@@ -2,9 +2,7 @@
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://github.com/sam-astro/ASA/blob/main/media/ASA-Full.png?raw=true">
     <source media="(prefers-color-scheme: light)" srcset="https://github.com/sam-astro/ASA/blob/main/media/ASA-Full-light.png?raw=true">
-    <img alt="Asa Programming Language"
-         src="https://raw.githubusercontent.com/sam-astro/ASA/main/media/ASA-Full-light.png"
-         width="60%">
+    <img class="portfolio" src="https://raw.githubusercontent.com/sam-astro/ASA/main/media/ASA-Full-light.png" width="60%" alt="Asa Programming Language" >
   </picture>
 </div>
 
@@ -13,6 +11,8 @@
 ---
 
 This repository contains all of the source code for the Asa programming language compiler and standard libraries.
+
+> There are no releases currently, and much of the current code is subject to change
 
 <!----------------------------------------------------------------------------->
 
