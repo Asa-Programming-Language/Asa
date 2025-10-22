@@ -26,7 +26,7 @@ This method has only been tested on Debian Linux version 12.2, but may be applic
 2. **Install required packages**
 
    ```bash
-   sudo apt-get install -y cmake ninja #TODO:
+   sudo apt-get install -y cmake ninja libedit-dev #TODO:
    ```
 
 3. **Clone and build LLVM from source**
@@ -42,7 +42,7 @@ This method has only been tested on Debian Linux version 12.2, but may be applic
    cmake -S llvm -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DLLVM_ENABLE_RUNTIMES="libcxx;libcxxabi" -DLLVM_TARGETS_TO_BUILD=X86 -DLLVM_PARALLEL_LINK_JOBS=1 -DCMAKE_EXE_LINKER_FLAGS="-Wl,--reduce-memory-overheads -Wl,--hash-size=1021" -DLLVM_ENABLE_RUNTIMES="libunwind"
    cd build;
    ninja;
-   ninja install;
+   sudo ninja install;
    ```
 
 4. **Build and run ASA**
