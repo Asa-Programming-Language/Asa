@@ -14,6 +14,49 @@ This repository contains all of the source code for the Asa programming language
 
 > There are no releases currently, and much of the current code is subject to change
 
+## Building from source
+This method has only been tested on Debian Linux version 12.2, but may be applicabe to other versions and operating systems.
+
+1. **Clone the repository**
+
+    ```bash
+    git clone --depth=1 https://github.com/Asa-Programming-Language/Asa
+    ```
+
+2. **Install required packages**
+
+   ```bash
+   sudo apt-get install -y cmake ninja #TODO:
+   ```
+
+3. **Clone and build LLVM from source**
+
+   ```bash
+   # Get LLVM and switch to version 21.1.0
+   git clone https://github.com/llvm/llvm-project;
+   cd llvm-project;
+   git checkout 3623fe6;
+   ```
+   Build:
+   ```bash
+   cmake -S llvm -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo;
+   cd build;
+   ninja;
+   ninja install;
+   ```
+
+4. **Build and run ASA**
+
+   Enter ASA primary directory, then run the following to build:
+   
+   ```bash
+   ./src/build.sh
+   ```
+
+   You may also run `./src/run.sh`, which will build ASA, but then also run it. this is useful for fast development testing.
+
+   The built executable will be located at `ASA/build/asa`
+
 <!----------------------------------------------------------------------------->
 
 [License]: LICENSE
