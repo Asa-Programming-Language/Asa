@@ -39,7 +39,7 @@ This method has only been tested on Debian Linux version 12.2, but may be applic
    ```
    Build:
    ```bash
-   cmake -S llvm -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo;
+   cmake -S llvm -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DLLVM_ENABLE_PROJECTS="clang;lldb" -DLLVM_ENABLE_RUNTIMES="libcxx;libcxxabi" -DLLVM_TARGETS_TO_BUILD=X86;
    cd build;
    ninja;
    ninja install;
