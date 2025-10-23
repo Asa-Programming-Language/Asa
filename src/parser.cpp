@@ -309,7 +309,7 @@ void printTokenError(tokenPair*& token, std::string errorString, int sourceLineN
 	console::Write("here", console::redFGColor);
 	console::WriteLine("\n");
 	// If debugging the compiler, throw so that the call can be traced
-	if (compilerDebug)
+	if (compilerFlags & Flags_CompilerDebug)
 		throw;
 	//exit(1);
 }

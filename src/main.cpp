@@ -6,19 +6,11 @@ int main(int argc, char** argv)
 	// Check if the console supports color, and disable if not
 	console::useColor = console::consoleSupportsColor();
 
-	if (verbosity >= 2)
-		std::cout << COMPILER_PRINTOUT << std::endl
-				  << std::endl;
-
-#ifdef DEBUG
-	runTests();
-#endif
-
 	// Handle options
 	int c;
 	int digit_optind = 0;
 
-	std::string fileName;
+	std::string fileName = "";
 
 	executableDirectory = std::filesystem::weakly_canonical(std::filesystem::path(argv[0])).parent_path().string() + "/";
 
@@ -34,27 +26,20 @@ int main(int argc, char** argv)
 			{"output", required_argument, 0, 'o'},
 			{"optimize", required_argument, 0, 'O'},
 			{"compilerdebug", no_argument, 0, 'd'},
+			{"runtests", no_argument, 0, 't'},
 			{"version", no_argument, 0, 'V'},
 			{0, 0, 0, 0}};
 
-		c = getopt_long(argc, argv, "cvqdVf:o:O:0",
+		c = getopt_long(argc, argv, "cvqdtVf:o:O:0",
 			long_options, &option_index);
 		if (c == -1)
 			break;
 
 		switch (c) {
 			case 0:
-				//printf("option %s", long_options[option_index].name);
-				//if (optarg)
-				//	printf(" with arg %s", optarg);
-				//printf("\n");
 				break;
 
 			case '0':
-				//if (digit_optind != 0 && digit_optind != this_option_optind)
-				//	printf("digits occur in two different argv-elements.\n");
-				//digit_optind = this_option_optind;
-				//printf("option %c\n", c);
 				break;
 
 			case 'c':
@@ -85,11 +70,21 @@ int main(int argc, char** argv)
 				optimizationLevel = std::stoi(optarg);
 				break;
 
+			case 't':
+				if (verbosity >= 2)
+					std::cout << COMPILER_PRINTOUT << std::endl
+							  << std::endl;
+				compilerFlags |= Flags_RunTests;
+				break;
+
 			case 'd':
-				compilerDebug = true;
+				compilerFlags |= Flags_CompilerDebug;
 				break;
 
 			case 'V':
+				if (verbosity >= 2)
+					std::cout << COMPILER_PRINTOUT << std::endl
+							  << std::endl;
 				console::ResetColor();
 				exit(0);
 
@@ -98,22 +93,35 @@ int main(int argc, char** argv)
 				exit(1);
 
 			default:
-				//printf("?? getopt returned character code 0%o ??\n", c);
 				break;
 		}
 	}
 	console::ResetColor();
 
+	for (int i = optind; i < argc; i++) {
+		if (fileName == "") {
+			fileName = std::string(argv[i]);
+			break;
+		}
+	}
+
+#ifdef DEBUG
+	if (compilerFlags == Flags_RunTests)
+		runTests();
+#endif
+
 	// Load file if provided
 	if (fileName != "") {
 		int e = loadFile(fileName, initialFileString);
 		if (e != 0) {
-			console::Write("Invalid file path provided\n");
+			console::WriteLine("Invalid file path provided");
+			if (verbosity >= 3)
+				console::WriteLine("Path \"" + initialFileString + "\" could not be opened", console::yellowFGColor);
 			exit(1);
 		}
 	}
 	else {
-		console::Write("Invalid file path provided\n");
+		console::WriteLine("Invalid file path provided");
 		exit(1);
 	}
 	projectDirectory = std::filesystem::weakly_canonical(std::filesystem::path(fileName)).parent_path().string() + "/";
@@ -238,7 +246,7 @@ int main(int argc, char** argv)
 
 
 	// Verify the module
-	if (compilerDebug) {
+	if (compilerFlags == Flags_CompilerDebug) {
 		console::WriteLine("\nVerifying code:");
 		if (llvm::verifyModule(*TheModule, &llvm::errs())) {
 			std::cerr << "Module verification failed!\n";

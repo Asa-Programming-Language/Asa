@@ -26,7 +26,7 @@ Or individual components:
 //string :: struct {
 //	c : int;
 //}
-create::string() #inline; #replaceable; {
+create :: string() #inline; #replaceable; {
 	return *(#new string);
 }
 create :: string(c : *char) {

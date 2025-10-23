@@ -8,4 +8,4 @@ cmake -G Ninja ../src;
 echo -e "\nRunning Ninja...";
 ninja -j12;
 echo -e "\nStarting asa...";
-./asa -V;
+./asa --runtests;

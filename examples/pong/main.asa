@@ -15,7 +15,12 @@ vector2 :: struct{
 	y = 0;
 
 	create:: (){
-
+		return this
+	}
+	create:: (xNew, yNew){
+		x = xNew;
+		y = yNew;
+		return this;
 	}
 	cast:: vector2(vector3 v3){
 		x = v3.x;
