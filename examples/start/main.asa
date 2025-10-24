@@ -5,7 +5,7 @@
 #import Builtin.Memory;
 #import Builtin.Strings;
 
-#import Builtin.PipeOperatorTest;
+#import Tests.PipeOperatorTest;
 
 #import Rendering.Window;
 

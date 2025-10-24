@@ -27,10 +27,11 @@ int main(int argc, char** argv)
 			{"optimize", required_argument, 0, 'O'},
 			{"compilerdebug", no_argument, 0, 'd'},
 			{"runtests", no_argument, 0, 't'},
+			{"run", no_argument, 0, 'r'},
 			{"version", no_argument, 0, 'V'},
 			{0, 0, 0, 0}};
 
-		c = getopt_long(argc, argv, "cvqdtVf:o:O:0",
+		c = getopt_long(argc, argv, "cvqdtrVf:o:O:0",
 			long_options, &option_index);
 		if (c == -1)
 			break;
@@ -79,6 +80,10 @@ int main(int argc, char** argv)
 
 			case 'd':
 				compilerFlags |= Flags_CompilerDebug;
+				break;
+
+			case 'r':
+				compilerFlags |= Flags_Run;
 				break;
 
 			case 'V':
@@ -202,6 +207,12 @@ int main(int argc, char** argv)
 	if (verbosity >= 4) {
 		console::Write("\n\nGenerated AST:\n", console::greenFGColor);
 		printAST(rootNode);
+	}
+
+	// Force run main function
+	if (compilerFlags == Flags_Run) {
+		startTreeWalkExecution(rootNode);
+		exit(1);
 	}
 
 	//// Resolve dependencies

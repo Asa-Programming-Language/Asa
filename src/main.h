@@ -5,6 +5,7 @@
 #include "console.h"
 #include "dependencies.h"
 #include "filemanager.h"
+#include "interpreter.h"
 #include "lexer.h"
 #include "parser.h"
 #include "pch.h"

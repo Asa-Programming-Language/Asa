@@ -27,7 +27,7 @@ set(CMAKE_CXX_FLAGS_DEBUG "-g")
 
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -s -fno-indent -fno-asynchronous-unwind-tables -ffunction-sections -fdata-sections -Wl,--gc-sections")
 
-add_executable(asa main.cpp main.h tests.cpp tests.h settings.h filemanager.cpp filemanager.h tokenizer.cpp tokenizer.h parser.cpp parser.h dependencies.cpp dependencies.h codegen.cpp codegen.h lexer.cpp lexer.h console.cpp console.h strops.cpp strops.h pch.h llvm.h)
+add_executable(asa main.cpp main.h interpreter.cpp interpreter.h tests.cpp tests.h settings.h filemanager.cpp filemanager.h tokenizer.cpp tokenizer.h parser.cpp parser.h dependencies.cpp dependencies.h codegen.cpp codegen.h lexer.cpp lexer.h console.cpp console.h strops.cpp strops.h pch.h llvm.h)
 target_compile_definitions(asa PUBLIC $<$<CONFIG:Debug>:DEBUG>)
 
 # Debug speed optimizations

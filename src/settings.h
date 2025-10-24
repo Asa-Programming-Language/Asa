@@ -10,6 +10,7 @@ enum CompilerFlags {
 	Flags_None = 0,
 	Flags_CompilerDebug = 1,
 	Flags_RunTests = 2,
+	Flags_Run = 4,
 };
 
 extern CompilerFlags compilerFlags;

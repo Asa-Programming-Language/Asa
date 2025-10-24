@@ -4,6 +4,7 @@
 #include <stack>
 #include <stdexcept>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -259,6 +260,8 @@ struct ASTNode {
 	Type* baseType = nullptr;
 	// Add leaf nodes here as they are still yet to be used.
 	std::vector<ASTNode*> leafNodes = std::vector<ASTNode*>();
+
+	std::unordered_map<std::string, ASTNode*> interpreterScopeValues = std::unordered_map<std::string, ASTNode*>();
 
 	Type* llvmType;
 
