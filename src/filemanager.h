@@ -1,10 +1,5 @@
 #pragma once
-
-#include <filesystem>
-#include <fstream>
-#include <iostream>
-#include <string>
-#include <vector>
+#include "pch.h"
 
 extern std::string initialFileString;
 extern std::string executableDirectory;

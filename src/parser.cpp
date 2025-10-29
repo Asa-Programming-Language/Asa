@@ -367,6 +367,7 @@ std::map<TokenType, ASTNodeType> operatorDefaultNodeType = {
 	{Left_Bracket, Access_Operation},
 	{Dot, Member_Access},
 	{Arrow_Right, Pipe_Operation},
+	{Percent, Expression_Modulo},
 };
 
 std::map<ASTNodeType, int> operatorPrecedence = {

@@ -12,6 +12,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <locale>
@@ -19,8 +20,11 @@
 #include <memory>
 #include <queue>
 #include <sstream>
+#include <stack>
 #include <stdexcept>
 #include <string>
 #include <system_error>
+#include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>

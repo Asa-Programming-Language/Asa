@@ -6,6 +6,6 @@ cd ../build;
 echo -e "\nRunning cmake...";
 cmake -G Ninja ../src;
 echo -e "\nRunning Ninja...";
-ninja -j12;
+ninja -j4;
 echo -e "\nStarting asa...";
 ./asa --runtests;

@@ -1,16 +1,8 @@
 #pragma once
 
-#include <iostream>
-#include <stack>
-#include <stdexcept>
-#include <string>
-#include <unordered_map>
-#include <unordered_set>
-#include <utility>
-#include <vector>
-
 #include "codegen.h"
 #include "filemanager.h"
+#include "pch.h"
 #include "settings.h"
 #include "tokenizer.h"
 
@@ -239,9 +231,10 @@ const std::string ASTNodeTypeStrings[] = {
 struct valueType {
 	std::string name;
 	std::string type;
+	bool isFunctionArgument = false;
 	Value* val;
-	valueType(std::string n, std::string t, Value* v)
-		: name(n), type(t), val(v) {};
+	valueType(std::string n, std::string t, Value* v, bool arg = false)
+		: name(n), type(t), val(v), isFunctionArgument(arg) {};
 };
 
 struct ASTNode {

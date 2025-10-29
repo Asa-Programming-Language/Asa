@@ -26,12 +26,13 @@ int main(int argc, char** argv)
 			{"output", required_argument, 0, 'o'},
 			{"optimize", required_argument, 0, 'O'},
 			{"compilerdebug", no_argument, 0, 'd'},
+			{"debug", no_argument, 0, 'D'},
 			{"runtests", no_argument, 0, 't'},
 			{"run", no_argument, 0, 'r'},
 			{"version", no_argument, 0, 'V'},
 			{0, 0, 0, 0}};
 
-		c = getopt_long(argc, argv, "cvqdtrVf:o:O:0",
+		c = getopt_long(argc, argv, "cvqdDtrVf:o:O:0",
 			long_options, &option_index);
 		if (c == -1)
 			break;
@@ -80,6 +81,10 @@ int main(int argc, char** argv)
 
 			case 'd':
 				compilerFlags |= Flags_CompilerDebug;
+				break;
+
+			case 'D':
+				compilerFlags |= Flags_Debug;
 				break;
 
 			case 'r':
@@ -280,10 +285,12 @@ int main(int argc, char** argv)
 
 
 	// Cleanup by deleting files only used for codegen.
-	if (verbosity >= 3) {
-		console::WriteLine("Cleaning up files: " + irFilePath);
-		console::WriteLine("Cleaning up files: " + irFilePath + ".s");
+	if (compilerFlags == Flags_Debug) {
+		if (verbosity >= 3) {
+			console::WriteLine("Cleaning up files: " + irFilePath);
+			console::WriteLine("Cleaning up files: " + irFilePath + ".s");
+		}
+		std::filesystem::remove(irFilePath);
+		std::filesystem::remove(irFilePath + ".s");
 	}
-	std::filesystem::remove(irFilePath);
-	std::filesystem::remove(irFilePath + ".s");
 }

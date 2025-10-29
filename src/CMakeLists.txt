@@ -23,11 +23,11 @@ add_definitions(${LLVM_DEFINITIONS_LIST})
 
 
 #set(CMAKE_CXX_FLAGS "-Wall -Wextra")
-set(CMAKE_CXX_FLAGS_DEBUG "-g")
+set(CMAKE_CXX_FLAGS_DEBUG "-g -Og")
 
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -s -fno-indent -fno-asynchronous-unwind-tables -ffunction-sections -fdata-sections -Wl,--gc-sections")
 
-add_executable(asa main.cpp main.h interpreter.cpp interpreter.h tests.cpp tests.h settings.h filemanager.cpp filemanager.h tokenizer.cpp tokenizer.h parser.cpp parser.h dependencies.cpp dependencies.h codegen.cpp codegen.h lexer.cpp lexer.h console.cpp console.h strops.cpp strops.h pch.h llvm.h)
+add_executable(asa main.cpp main.h interpreter.cpp interpreter.h tests.cpp tests.h settings.h filemanager.cpp filemanager.h tokenizer.cpp tokenizer.h parser.cpp parser.h dependencies.cpp dependencies.h codegen.cpp codegen.h lexer.cpp lexer.h console.cpp console.h strops.cpp strops.h pch.cpp llvm.cpp)
 target_compile_definitions(asa PUBLIC $<$<CONFIG:Debug>:DEBUG>)
 
 # Debug speed optimizations
@@ -35,6 +35,7 @@ if (CMAKE_BUILD_TYPE STREQUAL "Debug")
 	set(CMAKE_C_COMPILER_LAUNCHER ccache)
 	set(CMAKE_CXX_COMPILER_LAUNCHER ccache)
 	target_precompile_headers(asa PRIVATE "pch.h" "llvm.h")
+	message(STATUS "Using precompiled headers: pch.h llvm.h")
 endif()
 
 # Find the libraries that correspond to the LLVM components

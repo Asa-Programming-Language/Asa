@@ -1,10 +1,6 @@
 #pragma once
 
-#include <map>
-#include <stdexcept>
-#include <string>
-#include <utility>
-#include <vector>
+#include "pch.h"
 
 enum TokenType {
 	// Null type

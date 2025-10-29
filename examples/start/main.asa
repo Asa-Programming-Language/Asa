@@ -26,6 +26,7 @@ Or individual components:
 //string :: struct {
 //	c : int;
 //}
+
 create :: string() #inline; #replaceable; {
 	return *(#new string);
 }
@@ -33,22 +34,39 @@ create :: string(c : *char) {
 	s : string = string();
 	puts("Creating new string from *char\n");
 
-	//len : uint32 = 10;
-	////for(i : 0..4_294_967_296){
-	////	//if(c[i] == '\0')
-	////	//	break;
-	////	len++;
-	////}
+	counting = true;
+	len : uint32 = 0;
+	w = "other str";
+	puts(w);
+	puts(c);
+	for(i : 0..4096){
+		if(counting == true){
+			if(int(c[i]) == 0){
+				len = i;
+				counting = false;
+				puts("loop done");
+			}
+			else{
+				putchar(c[i]);
+			}
+		}
+	}
 	//s.address = malloc(10*2);
 	//s.length = 10;
-	////len = 5;
-	////s.address = malloc(5);
-	//for(i : 0..len){
-	//	s.address[i] = 'A';
-	//	//s.address[i] = c[i];
-	//}
-	////s.length = len;
-	////s.address = "String value example";
+	//len = 5;
+	s.address = malloc(len*2);
+	data = malloc(len*2);
+	for(i : 0..(len)){
+		//s.address[i] = 'A';
+		//puts("H");
+		//s.address[i] = c[i];
+		data[i] = c[i];
+		//s.address[i] = 0;
+	}
+	s.address = data;
+	s.length = len;
+	puts(s.address);
+	//s.address = "String value example";
 	puts("Done!\n");
 	return s;
 }
@@ -74,8 +92,24 @@ TEST_MACRO :: {printl("Macro works!")};
 //	int b = 1;
 //}
 
-printint:: (n : uint64) #hideast {
-	putchar(int(48+n));
+printint:: (n : int64){
+    if (n < 0) {
+        putchar('-');
+        // Handle the corner case of INT_MIN
+        if (n == -2147483648) {
+            // Print "2147483648" directly
+            putchar('2');
+            n = 147483648;
+        } else {
+            n = 0-n;
+        }
+    }
+
+    if (n >= 10) {
+        printint(n / 10);
+    }
+
+    putchar((n % 10) + '0');
 }
 
 modifyReference::(n : ref int) #hideast {
@@ -94,8 +128,9 @@ newline::() #inline; #hideast {
 }
 
 #extern printf::(...);
-#extern putchar::(c : int);
+#extern putchar::(c : char);
 #extern puts::(str : *char);
+#extern free::(p : *int);
 
 main :: (){
 	//printf("Hello World!");
@@ -105,18 +140,32 @@ main :: (){
 
 	//var : bool;
 
+	s2 : string = string();
+	s2.address = malloc(10*2);
+	s2.length = 291;
+	printint(s2.length);
+	puts("after malloc");
+	for(j : 0..5){
+		puts("before set");
+		s2.address[j] = 'A';
+	}
+	puts("before puts s2.address");
+	puts(s2.address);
+
+
 	pipeVal = pipeTest(1);
 	printint(pipeVal);
 	newline();
 
 	s : string = string();
-	s = string("This works");
+	s = string("This is a char string converted to string type");
+
 
 	//s.length = 8;
 	//printint(s.length);
 	//s.size();
 	puts("printing string...");
-	//s.length = 5;
+	puts("length:");
 	printint(s.length);
 	newline();
 	s.print();
@@ -125,8 +174,9 @@ main :: (){
 
 	newline();
 
-	//puts(s.address);
+	puts(s.address);
 
+	free(s.address);
 	//x_ptr : *int = &x;
 	//begin : *int = x_ptr;
 	//i = 0;

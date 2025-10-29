@@ -1,0 +1,54 @@
+#import Basic.Print;
+
+#import Builtin.Casts;
+#import Builtin.Memory;
+#import Builtin.Strings;
+
+
+create :: string() #inline; #replaceable; {
+	return *(#new string);
+}
+
+printint:: (n : int64){
+    if (n < 0) {
+        putchar('-');
+        // Handle the corner case of INT_MIN
+        if (n == -2147483648) {
+            // Print "2147483648" directly
+            putchar('2');
+            n = 147483648;
+        } else {
+            n = 0-n;
+        }
+    }
+
+    if (n >= 10) {
+        printint(n / 10);
+    }
+
+    putchar((n % 10) + '0');
+}
+
+newline::() #inline; #hideast {
+	putchar(10);
+}
+
+#extern printf::(...);
+#extern putchar::(c : char);
+#extern puts::(str : *char);
+#extern free::(p : *int);
+
+main :: (){
+	s2 : string = string();
+	s2.address = malloc(10*2);
+	s2.length = 291;
+	printint(s2.length);
+	puts("after malloc");
+	for(j : 0..5){
+		puts("before set");
+		s2.address[j] = 'A';
+	}
+	puts("before puts s2.address");
+	puts(s2.address);
+	return;
+}
