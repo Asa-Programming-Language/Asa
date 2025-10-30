@@ -138,6 +138,7 @@ std::map<const std::string, const TokenType> subTokenTypes = {
 	{"module", Module_Define},
 	{"operator", Operator_Keyword},
 	{"ref", Ref},
+	{"const", Const},
 	{"exact", Exact},
 	//{"switch", },
 	//{"case", },

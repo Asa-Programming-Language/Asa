@@ -16,6 +16,9 @@
 int verbosity = 2;
 int optimizationLevel = 0;
 
+extern bool wasError;
+
 CompilerFlags compilerFlags = Flags_None;
+WarningFlags warningFlags = W_None;
 
 #endif

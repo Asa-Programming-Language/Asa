@@ -89,6 +89,7 @@ enum ASTNodeType {
 	Access_Operation,
 	Member_Access,
 	Reference_Operation,
+	Const_Keyword,
 	Exact_Type_Node,
 	Address_Of_Operation,
 	Dereference_Operation,
@@ -115,6 +116,7 @@ enum ASTNodeType {
 	Compiler_Define_Cast,
 	Compiler_Define_Struct,
 	Compile_Time_Directive,
+	Labeled_Loop,
 	Arguments,
 	Compiler_Modifiers,
 
@@ -196,6 +198,7 @@ const std::string ASTNodeTypeStrings[] = {
 	"Access_Operation",
 	"Member_Access",
 	"Reference_Operation",
+	"Const_Keyword",
 	"Exact_Type_Node",
 	"Address_Of_Operation",
 	"Dereference_Operation",
@@ -222,6 +225,7 @@ const std::string ASTNodeTypeStrings[] = {
 	"Compiler_Define_Cast",
 	"Compiler_Define_Struct",
 	"Compile_Time_Directive",
+	"Labeled_Loop",
 	"Arguments",
 	"Compiler_Modifiers",
 
@@ -232,6 +236,7 @@ struct valueType {
 	std::string name;
 	std::string type;
 	bool isFunctionArgument = false;
+	bool isConstant = false;
 	Value* val;
 	valueType(std::string n, std::string t, Value* v, bool arg = false)
 		: name(n), type(t), val(v), isFunctionArgument(arg) {};
@@ -245,8 +250,10 @@ struct ASTNode {
 	int lineNumber = 0;
 	uint16_t depth = 0;
 	bool isRef = false;
+	bool isConst = false;
 	bool isExtern = false;
 	bool lvalue = false;
+	std::string label = "";
 	bool showInASTOutput = true;
 	bool replaceableDefinition = false;
 	bool currentNodeDoneGenerating = false;
@@ -265,6 +272,8 @@ struct ASTNode {
 	void* generateConstant(int pass = 0);
 	void* generateVariableExpression(int pass = 0);
 	void* generateReturn(int pass = 0);
+	void* generateBreak(int pass = 0);
+	void* generateContinue(int pass = 0);
 	void* generateExpression(int pass = 0);
 	void* generateExpressionStatement(int pass = 0);
 	void* generateIterator(int pass = 0);
@@ -276,7 +285,9 @@ struct ASTNode {
 	void* generateScopeBody(int pass = 0);
 	void* generateIf(int pass = 0);
 	void* generateStruct(int pass);
+	void* generateLabeledLoop(int pass = 0);
 	void* generateFor(int pass = 0);
+	void* generateWhile(int pass = 0);
 	void* generatePrototype(int pass = 0);
 	void* generateFunction(int pass = 0);
 	void* generateCast(int pass = 0);
@@ -325,6 +336,11 @@ struct ASTNode {
 		nodeType = nType;
 		token = t;
 		compareTokens = cmpTokens;
+	}
+
+	bool empty()
+	{
+		return childNodes.size() == 0;
 	}
 
 	bool operator==(ASTNode other)

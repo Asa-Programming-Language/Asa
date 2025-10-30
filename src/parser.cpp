@@ -363,6 +363,7 @@ std::map<TokenType, ASTNodeType> operatorDefaultNodeType = {
 	{Slash, Expression_Divide},
 	{Ampersand, Address_Of_Operation},
 	{Ref, Reference_Operation},
+	{Const, Const_Keyword},
 	{Exact, Exact_Type_Node},
 	{Left_Bracket, Access_Operation},
 	{Dot, Member_Access},
@@ -571,6 +572,7 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 
 			case While_Statement: {
 				node->nodeType = While_Statement_Node;
+				node->codegen = &ASTNode::generateWhile;
 
 				ASTNode* conditionNode = new ASTNode();
 				ASTNode* bodyNode = new ASTNode();
@@ -763,6 +765,7 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 			case Star:
 			case Slash:
 			case Ref:
+			case Const:
 			case Exact:
 			case Left_Bracket:
 			case Arrow_Right:
@@ -1124,6 +1127,13 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 							node->nodeType = Compiler_Define_Struct;
 							node->codegen = &ASTNode::generateStruct;
 						}
+						else if (s->first == "for" || s->first == "while") {
+							tokenPair* labelName = node->token;
+							node = bodyNode;
+							node->token = labelName;
+							node->nodeType = Labeled_Loop;
+							node->codegen = &ASTNode::generateLabeledLoop;
+						}
 					}
 				}
 				else {
@@ -1436,9 +1446,11 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 				goto positionChangeStatement;
 			case Break_Statement:
 				node->nodeType = Break_Node;
+				node->codegen = &ASTNode::generateBreak;
 				goto positionChangeStatement;
 			case Continue_Statement:
 				node->nodeType = Continue_Node;
+				node->codegen = &ASTNode::generateContinue;
 				goto positionChangeStatement;
 			case Goto_Statement: {
 				node->nodeType = Goto_Node;
@@ -1980,7 +1992,7 @@ bool loadModule(std::string& modulePath, std::string& moduleName)
 							importedNodes.push_back(moduleNode->childNodes[0]->childNodes[i]);
 							//rootNode->childNodes.push_back(localRoot->childNodes[i]);
 						}
-						if (verbosity >= 2)
+						if (verbosity >= 3)
 							printModuleLoaded(moduleName, pathStr);
 						return true;
 					}
@@ -2182,11 +2194,13 @@ void generateOutputCode(ASTNode*& node, int depth, int pass)
 {
 	switch (node->nodeType) {
 		case Compiler_Define_Struct: {
-			console::printIndent(depth + 1);
-			console::Write("pass ");
-			console::Write(std::to_string(pass), console::greenFGColor);
-			console::Write(": generating struct for: ");
-			console::WriteLine(node->token->first, console::yellowFGColor);
+			if (verbosity >= 4) {
+				console::printIndent(depth + 1);
+				console::Write("pass ");
+				console::Write(std::to_string(pass), console::greenFGColor);
+				console::Write(": generating struct for: ");
+				console::WriteLine(node->token->first, console::yellowFGColor);
+			}
 			if (node->codegen != nullptr)
 				(node->*(node->codegen))(pass);
 			break;
@@ -2195,11 +2209,13 @@ void generateOutputCode(ASTNode*& node, int depth, int pass)
 		case Compiler_Define_Cast: {
 			if (pass == 0)
 				break;
-			console::printIndent(depth + 1);
-			console::Write("pass ");
-			console::Write(std::to_string(pass), console::greenFGColor);
-			console::Write(": generating cast for: ");
-			console::WriteLine(node->token->first, console::yellowFGColor);
+			if (verbosity >= 4) {
+				console::printIndent(depth + 1);
+				console::Write("pass ");
+				console::Write(std::to_string(pass), console::greenFGColor);
+				console::Write(": generating cast for: ");
+				console::WriteLine(node->token->first, console::yellowFGColor);
+			}
 			if (node->codegen != nullptr)
 				auto fnVal = (Function*)(node->*(node->codegen))(pass);
 			break;
@@ -2208,11 +2224,13 @@ void generateOutputCode(ASTNode*& node, int depth, int pass)
 		case Compiler_Define_Function: {
 			if (pass == 0)
 				break;
-			console::printIndent(depth + 1);
-			console::Write("pass ");
-			console::Write(std::to_string(pass), console::greenFGColor);
-			console::Write(": generating for: ");
-			console::WriteLine(node->token->first, console::yellowFGColor);
+			if (verbosity >= 4) {
+				console::printIndent(depth + 1);
+				console::Write("pass ");
+				console::Write(std::to_string(pass), console::greenFGColor);
+				console::Write(": generating for: ");
+				console::WriteLine(node->token->first, console::yellowFGColor);
+			}
 			if (node->codegen != nullptr)
 				auto fnVal = (Function*)(node->*(node->codegen))(pass);
 			break;
@@ -2221,21 +2239,25 @@ void generateOutputCode(ASTNode*& node, int depth, int pass)
 		case Compile_Time_Directive: {
 			if (pass == 0)
 				break;
-			console::printIndent(depth + 1);
-			console::Write("pass ");
-			console::Write(std::to_string(pass), console::greenFGColor);
-			console::Write(": generating for: ");
-			console::WriteLine(node->token->first, console::yellowFGColor);
+			if (verbosity >= 4) {
+				console::printIndent(depth + 1);
+				console::Write("pass ");
+				console::Write(std::to_string(pass), console::greenFGColor);
+				console::Write(": generating for: ");
+				console::WriteLine(node->token->first, console::yellowFGColor);
+			}
 			if (node->codegen != nullptr)
 				auto fnVal = (Function*)(node->*(node->codegen))(pass);
 			break;
 		}
 
 		case Scope_Body: {
-			console::printIndent(depth + 1);
-			console::Write("pass ");
-			console::Write(std::to_string(pass), console::greenFGColor);
-			console::WriteLine(": generating scope body");
+			if (verbosity >= 4) {
+				console::printIndent(depth + 1);
+				console::Write("pass ");
+				console::Write(std::to_string(pass), console::greenFGColor);
+				console::WriteLine(": generating scope body");
+			}
 			for (auto& c : node->childNodes)
 				generateOutputCode(c, depth + 1, pass);
 

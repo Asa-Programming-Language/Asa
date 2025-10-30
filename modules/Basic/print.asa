@@ -3,16 +3,50 @@ Print :: module {
 	
 	//#library "libc";
 	//print :: {#foreign "printf"};
-	#extern printf:: (...);
+	#extern printf :: int32 (s : const *char, ...);
+	#extern puts :: int32 (str : const *char);
+	#extern putchar::(c : char);
 
-	print:: (...){
-		//printf();
+	print:: (s : const *char, ...){
+		printf(s);
 		return;
 	}
 
-	printl:: (...){
+	printl:: (s : const *char, ...){
+		printf(s);
+		puts("");
 		return;
 	}
+
+	print ::(){
+		return;
+	}
+
+	printl::(){
+		puts("");
+		return;
+	}
+
+	printint:: (n : int64){
+	    if (n < 0) {
+	        putchar('-');
+	        // Handle the corner case of INT_MIN
+	        if (n == -2147483648) {
+	            // Print "2147483648" directly
+	            putchar('2');
+	            n = 147483648;
+	        } else {
+	            n = 0-n;
+	        }
+	    }
+	
+	    if (n >= 10) {
+	        printint(n / 10);
+	    }
+	
+	    putchar((n % 10) + '0');
+	}
+
 }
 
 main ::(){

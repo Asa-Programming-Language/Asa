@@ -14,7 +14,14 @@ enum CompilerFlags {
 	Flags_Debug = 8,
 };
 
+enum WarningFlags {
+	W_None = 0,
+	W_Conversion = 1 << 6,
+	W_All = 0b111111111111111111111111111111,
+};
+
 extern CompilerFlags compilerFlags;
+extern WarningFlags warningFlags;
 
 inline CompilerFlags operator|(CompilerFlags a, CompilerFlags b)
 {
@@ -26,6 +33,20 @@ inline CompilerFlags& operator|=(CompilerFlags& a, CompilerFlags b)
 	return a;
 }
 inline bool operator==(CompilerFlags a, CompilerFlags b)
+{
+	return (static_cast<int>(a) & static_cast<int>(b)) > 0;
+}
+
+inline WarningFlags operator|(WarningFlags a, WarningFlags b)
+{
+	return static_cast<WarningFlags>(static_cast<int>(a) | static_cast<int>(b));
+}
+inline WarningFlags& operator|=(WarningFlags& a, WarningFlags b)
+{
+	a = a | b;
+	return a;
+}
+inline bool operator==(WarningFlags a, WarningFlags b)
 {
 	return (static_cast<int>(a) & static_cast<int>(b)) > 0;
 }

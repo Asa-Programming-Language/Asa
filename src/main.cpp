@@ -22,6 +22,7 @@ int main(int argc, char** argv)
 			{"compile", no_argument, 0, 'c'},
 			{"verbose", no_argument, 0, 'v'},
 			{"quiet", no_argument, 0, 'q'},
+			{"silent", no_argument, 0, 's'},
 			{"file", required_argument, 0, 'f'},
 			{"output", required_argument, 0, 'o'},
 			{"optimize", required_argument, 0, 'O'},
@@ -29,10 +30,11 @@ int main(int argc, char** argv)
 			{"debug", no_argument, 0, 'D'},
 			{"runtests", no_argument, 0, 't'},
 			{"run", no_argument, 0, 'r'},
+			{"warn", required_argument, 0, 'w'},
 			{"version", no_argument, 0, 'V'},
 			{0, 0, 0, 0}};
 
-		c = getopt_long(argc, argv, "cvqdDtrVf:o:O:0",
+		c = getopt_long(argc, argv, "cvqsdDtrVw:f:o:O:0",
 			long_options, &option_index);
 		if (c == -1)
 			break;
@@ -45,23 +47,22 @@ int main(int argc, char** argv)
 				break;
 
 			case 'c':
-				//printf("option c\n");
 				break;
 
 			case 'v':
-				//printf("option v\n");
 				verbosity += 1;
+				break;
+
+			case 's':
+				verbosity = 0;
 				break;
 
 			case 'q':
-				//printf("option q\n");
-				verbosity += 1;
+				verbosity = 1;
 				break;
 
 			case 'f':
-				//printf("option f with value '%s'\n", optarg);
 				fileName = std::string(optarg);
-				//printf("fileName is %s\n", fileName.c_str());
 				break;
 
 			case 'o':
@@ -90,6 +91,17 @@ int main(int argc, char** argv)
 			case 'r':
 				compilerFlags |= Flags_Run;
 				break;
+
+			case 'w': {
+				std::string flagVal = std::string(optarg);
+				if (flagVal == "none")
+					warningFlags = W_None;
+				else if (flagVal == "all")
+					warningFlags |= W_All;
+				else if (flagVal == "conversion")
+					warningFlags |= W_Conversion;
+				break;
+			}
 
 			case 'V':
 				if (verbosity >= 2)
@@ -231,7 +243,7 @@ int main(int argc, char** argv)
 
 	// Generate the IR LLVM Code:
 	initializeCodeGenerator();
-	if (verbosity >= 2)
+	if (verbosity >= 4)
 		console::WriteLine("\n\nCompiling:", console::greenFGColor);
 	// First pass, type/struct definitions
 	generateOutputCode(rootNode, 0, 0);
@@ -243,7 +255,7 @@ int main(int argc, char** argv)
 	removeUnusedPrototypes();
 
 	// Print out all of the generated code.
-	if (verbosity >= 4) {
+	if (verbosity >= 5) {
 		console::WriteLine("\n\nOutput IR Code:", console::greenFGColor);
 		TheModule->print(errs(), nullptr);
 	}
@@ -268,6 +280,11 @@ int main(int argc, char** argv)
 			std::cerr << "Module verification failed!\n";
 			abort();
 		}
+		console::WriteLine("Passed", console::greenFGColor);
+	}
+
+	if (wasError) {
+		console::WriteLine("Errors were encountered while compiling.", console::redFGColor);
 	}
 
 	// Print out all function prototypes
@@ -281,7 +298,7 @@ int main(int argc, char** argv)
 	// Link the object file into executable
 	generateExecutable(irFilePath, outputFileName);
 	if (verbosity >= 1)
-		console::WriteLine("\nWrote executable to " + outputFileName);
+		console::WriteLine("Wrote executable to " + outputFileName);
 
 
 	// Cleanup by deleting files only used for codegen.

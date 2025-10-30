@@ -27,50 +27,6 @@ Or individual components:
 //	c : int;
 //}
 
-create :: string() #inline; #replaceable; {
-	return *(#new string);
-}
-create :: string(c : *char) {
-	s : string = string();
-	puts("Creating new string from *char\n");
-
-	counting = true;
-	len : uint32 = 0;
-	w = "other str";
-	puts(w);
-	puts(c);
-	for(i : 0..4096){
-		if(counting == true){
-			if(int(c[i]) == 0){
-				len = i;
-				counting = false;
-				puts("loop done");
-			}
-			else{
-				putchar(c[i]);
-			}
-		}
-	}
-	//s.address = malloc(10*2);
-	//s.length = 10;
-	//len = 5;
-	s.address = malloc(len*2);
-	data = malloc(len*2);
-	for(i : 0..(len)){
-		//s.address[i] = 'A';
-		//puts("H");
-		//s.address[i] = c[i];
-		data[i] = c[i];
-		//s.address[i] = 0;
-	}
-	s.address = data;
-	s.length = len;
-	puts(s.address);
-	//s.address = "String value example";
-	puts("Done!\n");
-	return s;
-}
-
 operator|| :: bool(a : bool, b : bool) #inline; #hideast {
 	if(a){
 		return true;
@@ -92,26 +48,6 @@ TEST_MACRO :: {printl("Macro works!")};
 //	int b = 1;
 //}
 
-printint:: (n : int64){
-    if (n < 0) {
-        putchar('-');
-        // Handle the corner case of INT_MIN
-        if (n == -2147483648) {
-            // Print "2147483648" directly
-            putchar('2');
-            n = 147483648;
-        } else {
-            n = 0-n;
-        }
-    }
-
-    if (n >= 10) {
-        printint(n / 10);
-    }
-
-    putchar((n % 10) + '0');
-}
-
 modifyReference::(n : ref int) #hideast {
 	n = 4;
 }
@@ -120,16 +56,14 @@ modifyReference::(n : ref float) #hideast {
 }
 
 //operator[] :: (x : int, y : int){
-//	puts("Bracket overload works!\n");
+//	print("Bracket overload works!\n");
 //}
 
 newline::() #inline; #hideast {
 	putchar(10);
 }
 
-#extern printf::(...);
 #extern putchar::(c : char);
-#extern puts::(str : *char);
 #extern free::(p : *int);
 
 main :: (){
@@ -139,19 +73,6 @@ main :: (){
 	//f = float(1);
 
 	//var : bool;
-
-	s2 : string = string();
-	s2.address = malloc(10*2);
-	s2.length = 291;
-	printint(s2.length);
-	puts("after malloc");
-	for(j : 0..5){
-		puts("before set");
-		s2.address[j] = 'A';
-	}
-	puts("before puts s2.address");
-	puts(s2.address);
-
 
 	pipeVal = pipeTest(1);
 	printint(pipeVal);
@@ -164,24 +85,22 @@ main :: (){
 	//s.length = 8;
 	//printint(s.length);
 	//s.size();
-	puts("printing string...");
-	puts("length:");
+	printl("printing string...");
+	print("length: ");
 	printint(s.length);
-	newline();
+	printl();
 	s.print();
-	newline();
-	puts("Done!");
+	printl();
+	printl("Done!");
 
-	newline();
-
-	puts(s.address);
+	printl(s.address);
 
 	free(s.address);
 	//x_ptr : *int = &x;
 	//begin : *int = x_ptr;
 	//i = 0;
 	//i[3];
-	//puts("main function works!\n");
+	//print("main function works!\n");
 
 	//putchar(x);
 	//x = x+1;
@@ -192,7 +111,7 @@ main :: (){
 
 	//arr[2] = 72;
 
-	//puts("Hello World!");
+	//print("Hello World!");
 
 	////modifyReference(x);
 	//printint(x);

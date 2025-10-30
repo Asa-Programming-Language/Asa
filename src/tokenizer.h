@@ -62,6 +62,7 @@ enum TokenType {
 	Arrow_Right,
 
 	Ref,
+	Const,
 	Exact,
 
 	Bang,
@@ -157,6 +158,7 @@ const std::string tokenTypeStrings[] = {
 	"Arrow_Right",
 
 	"Ref",
+	"Const",
 	"Exact",
 
 	"Bang",

@@ -22,6 +22,14 @@ std::unordered_map<std::string, Type*> unresolvedTypes;
 std::stack<Type*> lastRetrievedElementType;
 std::stack<Value*> pipeOperationValue;
 
+// Stack to track loop contexts (for break/continue)
+struct LoopContext {
+	BasicBlock* continueBB;	 // Block to jump to for continue
+	BasicBlock* breakBB;	 // Block to jump to for break
+	std::string label;		 // Optional label for labeled break/continue
+};
+std::stack<LoopContext> loopContextStack;
+
 std::unordered_map<std::string, bool> typeSigns = {
 	{"int128", true},
 	{"int64", true},
@@ -52,13 +60,15 @@ struct argType {
 	ASTNodeType baseASTType;
 	uint8_t pointerLevel = 0;
 	bool isReference = false;
+	bool isConstant = false;
 	bool mustBeExactType = false;
-	argType(std::string ts, ASTNodeType bT, uint8_t pL = 0, bool r = false, bool ex = false)
+	argType(std::string ts, ASTNodeType bT, uint8_t pL = 0, bool r = false, bool ex = false, bool c = false)
 	{
 		typeString = ts;
 		baseASTType = bT;
 		pointerLevel = pL;
 		isReference = r;
+		isConstant = c;
 		mustBeExactType = ex;
 	}
 };
@@ -100,6 +110,8 @@ struct functionID {
 		for (int i = 0; i < arguments.size(); i++) {
 			if (arguments[i].isReference)
 				console::Write("ref ", console::magentaFGColor);
+			if (arguments[i].isConstant)
+				console::Write("const ", console::magentaFGColor);
 			console::Write(arguments[i].typeString, console::blueFGColor);
 			if (i < arguments.size() - 1)
 				console::Write(", ");
@@ -644,7 +656,7 @@ void initializeCodeGenerator()
 	PB.crossRegisterProxies(*TheLAM, *TheFAM, *TheCGAM, *TheMAM);
 }
 
-valueType* findNamedValue(ASTNode* node, ASTNode* childNode, std::string& identifier)
+valueType* findNamedValue(ASTNode* node, ASTNode* childNode, std::string& identifier, tokenPair*& token)
 {
 	// First look in self
 	if (node->namedValues.find(identifier) != node->namedValues.end())
@@ -658,7 +670,25 @@ valueType* findNamedValue(ASTNode* node, ASTNode* childNode, std::string& identi
 				return c->namedValues[identifier];
 		}
 	if (node->depth > 0)  // search recursively upward until found or end of global scope is reached
-		return findNamedValue(node->parentNode, node, identifier);
+		return findNamedValue(node->parentNode, node, identifier, token);
+
+	// Variable not found - check if we're in a member function and the identifier is a member variable
+	if (!currentStructName.empty()) {
+		std::string structName = currentStructName.top();
+		if (structDefinitions.find(structName) != structDefinitions.end()) {
+			structType* structDef = structDefinitions[structName];
+
+			// Check if the identifier matches a member variable name
+			if (structDef->memberNameIndexes.find(identifier) != structDef->memberNameIndexes.end()) {
+				// Found a member variable with this name!
+				printTokenError(token, "Variable '" + identifier + "' not found. Did you mean 'this." + identifier + "'?");
+				console::Write("Tip: ", console::yellowFGColor);
+				console::WriteLine("Member functions must use 'this' to access member variables.\n");
+				wasError = true;
+				return nullptr;
+			}
+		}
+	}
 
 	return nullptr;
 }
@@ -938,7 +968,9 @@ void* ASTNode::generateConstant(int pass)
 void* ASTNode::generateVariableExpression(int pass)
 {
 	// Look this variable up in the function.
-	valueType* val = findNamedValue(parentNode, this, token->first);
+	valueType* val = findNamedValue(parentNode, this, token->first, token);
+	if (wasError)
+		return nullptr;
 	if (!val) {
 		Value* exprVal = ConstantInt::get(Type::getInt32Ty(*TheContext), 0);
 		Type* type = nullptr;
@@ -1198,7 +1230,7 @@ void* ASTNode::generateExpressionStatement(int pass)
 	// If the left side is an identifier
 	if (leftNode->nodeType == Identifier_Node) {
 		// Simple variable: find alloca and use it as targetPtr
-		valueType* val = findNamedValue(parentNode, this, leftNode->token->first);
+		valueType* val = findNamedValue(parentNode, this, leftNode->token->first, token);
 		if (!val) {
 			targetPtr = CreateEntryBlockAlloca(theFunction, type, leftNode->token->first);
 			std::string actualType = "*int";
@@ -1208,8 +1240,16 @@ void* ASTNode::generateExpressionStatement(int pass)
 				actualType = (pointerLevel > 0 ? std::string(pointerLevel, '*') : "") + typeNode->token->first;
 			namedValues[leftNode->token->first] = new valueType(leftNode->token->first, actualType, targetPtr);
 		}
-		else
+		else {
+			// Check if trying to modify a const variable
+			if (val->isConstant) {
+				printTokenError(token, "Cannot modify const variable '" + leftNode->token->first + "'");
+				wasError = true;
+				return nullptr;
+			}
+
 			targetPtr = (AllocaInst*)(val->val);
+		}
 		targetType = ((AllocaInst*)targetPtr)->getAllocatedType();
 	}
 	else
@@ -1266,8 +1306,8 @@ void* ASTNode::generateUnaryExpression(int pass)
 	switch (nodeType) {
 		case Address_Of_Operation: {
 			ASTNode* varNode = childNodes[0];
-			valueType* val = findNamedValue(parentNode, this, varNode->token->first);
-			if (!val) {
+			valueType* val = findNamedValue(parentNode, this, varNode->token->first, token);
+			if (!val && !wasError) {
 				printTokenError(token, "Unknown variable name for address-of");
 				wasError = true;
 				return nullptr;
@@ -1477,7 +1517,8 @@ void* ASTNode::generateBinaryExpression(int pass)
 
 	// Auto-cast to highest precision if types differ
 	if (L->getType() != R->getType()) {
-		printTokenWarning(token, "Operand type mismatch, performing implicit conversion");
+		if (warningFlags == W_Conversion)
+			printTokenWarning(token, "Operand type mismatch, performing implicit conversion");
 		castToHighestAccuracy(L, R, token);
 		if (L->getType() != R->getType()) {
 			printTokenError(token, "Operands to multiply are not the same type (after automatic cast)");
@@ -1619,13 +1660,6 @@ void* ASTNode::generateAccessOperation(int pass)
 	if (!L || !R)
 		return nullptr;
 
-	// Check if L is a pointer
-	if (!L->getType()->isPointerTy()) {
-		printTokenError(token, "Left argument of access operator must be a pointer type");
-		wasError = true;
-		return nullptr;
-	}
-
 	// Check if R is an integer
 	if (!R->getType()->isIntegerTy()) {
 		printTokenError(token, "Right argument of access operator must be an integer");
@@ -1633,17 +1667,11 @@ void* ASTNode::generateAccessOperation(int pass)
 		return nullptr;
 	}
 
-	// FIXED: When accessing through a struct member that's a pointer (like s2.address[j]),
-	// L comes from member access as a pointer to where the pointer is stored.
-	// We need to load the actual pointer value first.
-	Type* ptrType = PointerType::getUnqual(*TheContext);  // Opaque pointer type in LLVM 21
-
 	// Get the element type from baseType (set by member access or previous operations)
 	// If not available, fall back to i8 for backward compatibility
 	Type* elementType = baseType ? baseType : Type::getInt8Ty(*TheContext);
 
 	// If baseType is a pointer, we need to determine what it points to
-	// For opaque pointers, we should track this in lastRetrievedElementType or baseType
 	if (baseType && baseType->isPointerTy()) {
 		// The element type should be tracked from the struct definition
 		// Use lastRetrievedElementType if available
@@ -1656,12 +1684,32 @@ void* ASTNode::generateAccessOperation(int pass)
 		}
 	}
 
-	// Load the pointer value (this gets the actual char* from the struct member)
-	Value* actualPtr = Builder->CreateLoad(ptrType, L, "ptr_deref");
-	L = actualPtr;
+	// Determine if we need to load the pointer first
+	// L is a pointer-to-pointer when it comes from a struct member (alloca of pointer)
+	// L is a direct pointer when it's a function parameter
+	Value* actualPtr = L;
+
+	// Check if L is an alloca instruction or a pointer to a pointer
+	// In that case, we need to load the actual pointer value
+	if (AllocaInst* allocaInst = dyn_cast<AllocaInst>(L)) {
+		// L is an alloca, so we need to load the pointer value stored in it
+		Type* ptrType = PointerType::getUnqual(*TheContext);
+		actualPtr = Builder->CreateLoad(ptrType, L, "ptr_deref");
+	}
+	else if (L->getType()->isPointerTy()) {
+		// Check if this is coming from a struct member access (GEP instruction)
+		// by checking if the last operation was a struct GEP
+		if (GetElementPtrInst* gep = dyn_cast<GetElementPtrInst>(L)) {
+			// This is a GEP from struct member access, load the pointer
+			Type* ptrType = PointerType::getUnqual(*TheContext);
+			actualPtr = Builder->CreateLoad(ptrType, L, "ptr_deref");
+		}
+		// Otherwise, L is already a direct pointer (e.g., function parameter)
+		// so we use it as-is
+	}
 
 	// Create GEP instruction
-	Value* gep = Builder->CreateGEP(elementType, L, R, "arrayidx");
+	Value* gep = Builder->CreateGEP(elementType, actualPtr, R, "arrayidx");
 
 	// If this is an lvalue (for assignment), return the pointer gep
 	if (lvalue)
@@ -1725,7 +1773,13 @@ void* ASTNode::generateMemberAccess(int pass)
 	}
 
 	if (childNodes[0]->nodeType == Identifier_Node) {
-		valueType* v = findNamedValue(this, nullptr, childNodes[0]->token->first);
+		valueType* v = findNamedValue(this, nullptr, childNodes[0]->token->first, token);
+
+		if (!v && !wasError) {
+			printTokenError(childNodes[0]->token, "Unknown variable name used");
+			wasError = true;
+			return nullptr;
+		}
 
 		if (structDefinitions.find(v->type) == structDefinitions.end()) {
 			printTokenError(token, "Type \"" + v->type + "\" has not been defined");
@@ -1772,6 +1826,13 @@ void* ASTNode::generateMemberAccess(int pass)
 				return nullptr;
 				//exit(1);
 			}
+
+			if (structDefinition->members[memberIndex].isConstant && lvalue) {
+				printTokenError(token, "Cannot modify const member '" + memberName + "'");
+				wasError = true;
+				return nullptr;
+			}
+
 			lastRetrievedElementType.push(elementType);
 
 			//// Create GEP to compute the address
@@ -2081,13 +2142,13 @@ void* ASTNode::generateCast(int pass)
 		printTokenError(token, "Cast expression expected name followed by new type like: #cast x : float;");
 		wasError = true;
 		return nullptr;
-		//exit(1);
 	}
 	std::string varName = childNodes[1]->childNodes[0]->token->first;
-	valueType* val = findNamedValue(parentNode, this, varName);
-	if (!val) {
+	valueType* val = findNamedValue(parentNode, this, varName, token);
+	if (!val && !wasError) {
 		printTokenError(childNodes[1]->childNodes[0]->token, "Unknown variable name used");
-		//exit(1);
+		wasError = true;
+		return nullptr;
 	}
 	AllocaInst* var = (AllocaInst*)(val->val);
 
@@ -2484,9 +2545,163 @@ void* ASTNode::generateStruct(int pass)
 }
 
 // Value*
+void* ASTNode::generateBreak(int pass)
+{
+	// Check if we have a label
+	std::string targetLabel = "";
+	if (childNodes.size() > 0 && childNodes[0]->nodeType == Identifier_Node) {
+		targetLabel = childNodes[0]->token->first;
+	}
+
+	// Make sure we're inside a loop
+	if (loopContextStack.empty()) {
+		printTokenError(token, "Break statement must be inside a loop");
+		wasError = true;
+		return nullptr;
+	}
+
+	// If no label, break from the innermost loop
+	if (targetLabel.empty()) {
+		BasicBlock* breakBB = loopContextStack.top().breakBB;
+		Builder->CreateBr(breakBB);
+
+		// Create a new unreachable block for any code after the break
+		Function* TheFunction = Builder->GetInsertBlock()->getParent();
+		BasicBlock* afterBreak = BasicBlock::Create(*TheContext, "after_break", TheFunction);
+		Builder->SetInsertPoint(afterBreak);
+
+		return nullptr;
+	}
+
+	// Labeled break - search through the stack for the matching label
+	std::stack<LoopContext> tempStack = loopContextStack;
+	bool found = false;
+	BasicBlock* targetBreakBB = nullptr;
+
+	while (!tempStack.empty()) {
+		LoopContext ctx = tempStack.top();
+		if (ctx.label == targetLabel) {
+			targetBreakBB = ctx.breakBB;
+			found = true;
+			break;
+		}
+		tempStack.pop();
+	}
+
+	if (!found) {
+		printTokenError(token, "Break label \"" + targetLabel + "\" not found in enclosing loops");
+		wasError = true;
+		return nullptr;
+	}
+
+	Builder->CreateBr(targetBreakBB);
+
+	// Create a new unreachable block for any code after the break
+	Function* TheFunction = Builder->GetInsertBlock()->getParent();
+	BasicBlock* afterBreak = BasicBlock::Create(*TheContext, "after_break", TheFunction);
+	Builder->SetInsertPoint(afterBreak);
+
+	return nullptr;
+}
+
+// Value*
+void* ASTNode::generateContinue(int pass)
+{
+	// Check if we have a label
+	std::string targetLabel = "";
+	if (childNodes.size() > 0 && childNodes[0]->nodeType == Identifier_Node) {
+		targetLabel = childNodes[0]->token->first;
+	}
+
+	// Make sure we're inside a loop
+	if (loopContextStack.empty()) {
+		printTokenError(token, "Continue statement must be inside a loop");
+		wasError = true;
+		return nullptr;
+	}
+
+	// If no label, continue to the innermost loop
+	if (targetLabel.empty()) {
+		BasicBlock* continueBB = loopContextStack.top().continueBB;
+		Builder->CreateBr(continueBB);
+
+		// Create a new unreachable block for any code after the continue
+		Function* TheFunction = Builder->GetInsertBlock()->getParent();
+		BasicBlock* afterContinue = BasicBlock::Create(*TheContext, "after_continue", TheFunction);
+		Builder->SetInsertPoint(afterContinue);
+
+		return nullptr;
+	}
+
+	// Labeled continue - search through the stack for the matching label
+	std::stack<LoopContext> tempStack = loopContextStack;
+	bool found = false;
+	BasicBlock* targetContinueBB = nullptr;
+
+	while (!tempStack.empty()) {
+		LoopContext ctx = tempStack.top();
+		if (ctx.label == targetLabel) {
+			targetContinueBB = ctx.continueBB;
+			found = true;
+			break;
+		}
+		tempStack.pop();
+	}
+
+	if (!found) {
+		printTokenError(token, "Continue label \"" + targetLabel + "\" not found in enclosing loops");
+		wasError = true;
+		return nullptr;
+	}
+
+	Builder->CreateBr(targetContinueBB);
+
+	// Create a new unreachable block for any code after the continue
+	Function* TheFunction = Builder->GetInsertBlock()->getParent();
+	BasicBlock* afterContinue = BasicBlock::Create(*TheContext, "after_continue", TheFunction);
+	Builder->SetInsertPoint(afterContinue);
+
+	return nullptr;
+}
+
+// Add a generator for Labeled_Loop:
+// Value*
+void* ASTNode::generateLabeledLoop(int pass)
+{
+	std::string label = token->first;
+
+	// Find the loop
+	if (childNodes.size() == 0) {
+		printTokenError(token, "Labeled loop is empty");
+		wasError = true;
+		return nullptr;
+	}
+
+	ASTNode* loopNode = childNodes[0];
+
+	// Verify it's actually a loop
+	if (loopNode->nodeType != For_Statement_Node && loopNode->nodeType != While_Statement_Node) {
+		printTokenError(token, "Label can only be applied to for or while loops");
+		wasError = true;
+		return nullptr;
+	}
+
+	// Store the label in the loop node and generate it
+	loopNode->label = label;
+	return (loopNode->*(loopNode->codegen))(pass);
+}
+
+// Now update the generateFor function to use the label:
+// Value*
 void* ASTNode::generateFor(int pass)
 {
 	std::string varName = "_iterator";
+	std::string label = "";	 // Optional label for the loop
+
+	// Check if this loop has a label (set by generateLabeledLoop)
+	if (!this->label.empty()) {
+		label = this->label;
+	}
 
 	if (childNodes[0]->nodeType == Iterator) {
 		varName = childNodes[0]->childNodes[0]->token->first;
@@ -2507,9 +2722,7 @@ void* ASTNode::generateFor(int pass)
 	if (!StartVal)
 		return nullptr;
 
-
-	// Make the new basic block for the loop header, inserting after current
-	// block.
+	// Make the new basic block for the loop header, inserting after current block.
 	Function* TheFunction = Builder->GetInsertBlock()->getParent();
 	BasicBlock* PreheaderBB = Builder->GetInsertBlock();
 	BasicBlock* LoopCondBB = BasicBlock::Create(*TheContext, "loopcond", TheFunction);
@@ -2540,13 +2753,16 @@ void* ASTNode::generateFor(int pass)
 	// Conditional branch
 	Builder->CreateCondBr(Cond, LoopBB, AfterBB);
 
-
 	// Start insertion in LoopBB.
 	Builder->SetInsertPoint(LoopBB);
 
-	//// Within the loop, the variable is defined equal to the PHI node.  If it
-	//// shadows an existing variable, we have to restore it, so save it now.
-	//Value* OldVal = namedValues[varName];
+	// Push loop context for break/continue support
+	LoopContext ctx;
+	ctx.continueBB = LoopCondBB;  // Continue goes back to condition check
+	ctx.breakBB = AfterBB;		  // Break goes to after the loop
+	ctx.label = label;			  // Empty for unlabeled loops
+	loopContextStack.push(ctx);
+
 	namedValues[varName] = new valueType(varName, "int32", Alloca);
 
 	// Emit the body of the loop
@@ -2555,47 +2771,115 @@ void* ASTNode::generateFor(int pass)
 	if (scopeBody->codegen == nullptr) {
 		printTokenError(scopeBody->token, "Node `" + ASTNodeTypeAsString(scopeBody->nodeType) + "` does not have a code generator");
 		wasError = true;
+		loopContextStack.pop();	 // Clean up context
 		return nullptr;
 	}
 	(scopeBody->*(scopeBody->codegen))(pass);
 	if (wasError) {
+		loopContextStack.pop();	 // Clean up context
 		exit(1);
 	}
 
+	// Pop loop context
+	loopContextStack.pop();
+
 	// Emit the step value.
-	Value* StepVal = nullptr;
-	//if (Step) {
-	//	StepVal = (Value*)(Step->*(Step->codegen))(pass);
-	//	if (!StepVal)
-	//		return nullptr;
-	//}
-	//else {
-	// If not specified, use 1
-	StepVal = ConstantInt::get(*TheContext, APInt(32, 1));
-	//}
+	Value* StepVal = ConstantInt::get(*TheContext, APInt(32, 1));
 
 	Value* NextVar = Builder->CreateAdd(CurVar, StepVal, "nextvar");
 	Builder->CreateStore(NextVar, Alloca);
 
-	//// Add incoming for PHI: from loopbody to next iteration
-	//Variable->addIncoming(NextVar, Builder->GetInsertBlock());
-
 	// Jump back to condition
 	Builder->CreateBr(LoopCondBB);
-
 
 	// After loop
 	Builder->SetInsertPoint(AfterBB);
 
-	// Create the "after loop" block and insert it.
-	BasicBlock* LoopEndBB = Builder->GetInsertBlock();
+	return nullptr;
+}
 
-	//// Restore the unshadowed variable.
-	//if (OldVal)
-	//	namedValues[varName] = OldVal;
-	//else
-	//	namedValues.erase(varName);
+// Similarly, if you have a while loop generator, update it too:
+// Value*
+void* ASTNode::generateWhile(int pass)
+{
+	std::string label = "";	 // Optional label
 
+	// Check if this loop has a label (set by generateCompilerDefine)
+	if (!this->label.empty()) {
+		label = this->label;
+	}
+
+	Function* TheFunction = Builder->GetInsertBlock()->getParent();
+
+	BasicBlock* LoopCondBB = BasicBlock::Create(*TheContext, "whilecond", TheFunction);
+	BasicBlock* LoopBB = BasicBlock::Create(*TheContext, "whileloop", TheFunction);
+	BasicBlock* AfterBB = BasicBlock::Create(*TheContext, "afterwhile", TheFunction);
+
+	// Branch to condition check
+	Builder->CreateBr(LoopCondBB);
+	Builder->SetInsertPoint(LoopCondBB);
+
+	// Evaluate condition
+	ASTNode* condExpr = childNodes[0];
+	if (condExpr->childNodes.size() == 0) {
+		printTokenError(condExpr->token, "Expected condition expression");
+		wasError = true;
+		return nullptr;
+	}
+	condExpr = condExpr->childNodes[0];
+
+	if (condExpr->codegen == nullptr) {
+		printTokenError(condExpr->token, "Node `" + ASTNodeTypeAsString(condExpr->nodeType) + "` does not have a code generator");
+		wasError = true;
+		return nullptr;
+	}
+
+	Value* CondV = (Value*)(condExpr->*(condExpr->codegen))(pass);
+	if (wasError) {
+		exit(1);
+	}
+	if (!CondV)
+		return nullptr;
+
+	// Convert condition to bool
+	CondV = Builder->CreateICmpNE(CondV, ConstantInt::get(*TheContext, APInt(1, 0)), "whilecond");
+
+	// Conditional branch
+	Builder->CreateCondBr(CondV, LoopBB, AfterBB);
+
+	// Loop body
+	Builder->SetInsertPoint(LoopBB);
+
+	// Push loop context
+	LoopContext ctx;
+	ctx.continueBB = LoopCondBB;
+	ctx.breakBB = AfterBB;
+	ctx.label = label;
+	loopContextStack.push(ctx);
+
+	// Generate loop body
+	ASTNode* scopeBody = childNodes[1];
+	if (scopeBody->codegen == nullptr) {
+		printTokenError(scopeBody->token, "Node `" + ASTNodeTypeAsString(scopeBody->nodeType) + "` does not have a code generator");
+		wasError = true;
+		loopContextStack.pop();
+		return nullptr;
+	}
+
+	(scopeBody->*(scopeBody->codegen))(pass);
+	if (wasError) {
+		loopContextStack.pop();
+		exit(1);
+	}
+
+	// Pop loop context
+	loopContextStack.pop();
+
+	// Jump back to condition
+	Builder->CreateBr(LoopCondBB);
+
+	// After loop
+	Builder->SetInsertPoint(AfterBB);
 
 	return nullptr;
 }
@@ -2680,7 +2964,7 @@ void* ASTNode::generatePrototype(int pass)
 		int pointerLevel = 1;
 
 		Type* aType = nullptr;
-		argList.push_back(argType(typeStr, Struct_Type, pointerLevel, isReference, false));
+		argList.push_back(argType(typeStr, Struct_Type, pointerLevel, isReference, false, false));
 
 		try {
 			bool wasDefined = true;
@@ -2716,13 +3000,14 @@ void* ASTNode::generatePrototype(int pass)
 				std::string typeStr = "";
 				bool isReference = false;
 				bool mustBeExactType = false;
+				bool isConstant = false;
 				int pointerLevel = 0;
 
 			gatherTypeModifiers:
 				if (typeNode->token->first == "ref") {
 					isReference = true;
 					mangledName += ".ref";
-					typeStr += "*";
+					//typeStr += "*";
 					pointerLevel++;
 					typeNode = typeNode->childNodes[0];
 					goto gatherTypeModifiers;
@@ -2734,6 +3019,11 @@ void* ASTNode::generatePrototype(int pass)
 					typeNode = typeNode->childNodes[0];
 					goto gatherTypeModifiers;
 				}
+				if (typeNode->token->first == "const") {
+					isConstant = true;
+					typeNode = typeNode->childNodes[0];
+					goto gatherTypeModifiers;
+				}
 				if (typeNode->token->first == "*") {
 					pointerLevel++;
 					mangledName += ".ptr";
@@ -2742,17 +3032,23 @@ void* ASTNode::generatePrototype(int pass)
 					goto gatherTypeModifiers;
 				}
 
+				//// Function arguments should only be constant if they are non-local, so a reference
+				//if (isConstant && !isReference)
+				//	isConstant = false;
+
 				mangledName += "." + typeNode->token->first;
 				typeStr += typeNode->token->first;
 
 
 				Type* aType = nullptr;
-				argList.push_back(argType(typeStr, getASTNodeTypeFromString(typeNode->token->first), pointerLevel, isReference, mustBeExactType));
-				userArgList.push_back(argType(typeStr, getASTNodeTypeFromString(typeNode->token->first), pointerLevel, isReference, mustBeExactType));
+				argType arg = argType(typeStr, getASTNodeTypeFromString(typeNode->token->first), pointerLevel, isReference, mustBeExactType, isConstant);
+				argList.push_back(arg);
+				userArgList.push_back(arg);
 
 				try {
 					bool wasDefined = true;
 					aType = getLLVMTypeFromString(typeNode->token->first, 0, typeNode->token, wasDefined, pass);
+
 					for (int i = 0; i < pointerLevel; i++) {
 						aType = aType->getPointerTo();
 					}
@@ -2820,7 +3116,17 @@ void* ASTNode::generatePrototype(int pass)
 	uint16_t Idx = 0;
 	for (auto& arg : fn->args()) {
 		arg.setName(argNames[Idx++]);
-		//namedValues[std::string(arg.getName())] = &arg;
+
+		if (argList[Idx].isConstant) {
+			Type* argType = arg.getType();
+
+			// readonly can only be applied to pointer types
+			if (argType->isPointerTy()) {
+				arg.addAttr(llvm::Attribute::ReadOnly);
+				// Optionally also add NoCapture to indicate the pointer isn't stored
+				// arg.addAttr(llvm::Attribute::NoCapture);
+			}
+		}
 	}
 
 	functionIDs.push_back(new functionID(fnName, mangledName, rTypeString, argList, userArgList, fn, variableNumArguments, isStruct, isStructReturn));
@@ -2915,8 +3221,11 @@ void* ASTNode::generateFunction(int pass)
 		//	for (int p = 0; p < theFunctionID->arguments[i].pointerLevel; p++)
 		//		baseType += "*";
 
-		namedValues[std::string(arg.getName())] =
-			new valueType(std::string(arg.getName()), baseType + theFunctionID->arguments[i].typeString, Alloca, true);
+		valueType* vt = new valueType(std::string(arg.getName()), baseType + theFunctionID->arguments[i].typeString, Alloca, true);
+
+		vt->isConstant = theFunctionID->arguments[i].isConstant;
+
+		namedValues[std::string(arg.getName())] = vt;
 
 		i++;
 	}
