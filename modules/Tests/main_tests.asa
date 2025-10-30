@@ -1,0 +1,34 @@
+
+
+Test1 :: module {
+	x :: (){
+		return 1;
+	}
+}
+
+PipeOperatorTest :: module{
+	fnX :: int(x : int){
+		return x*3;
+	}
+	fnY :: int(y : int){
+		return y*2;
+	}
+	pipeTest::int(z : int){
+		return fnX(z) -> fnY(%);
+	}
+}
+
+ModifyReference :: module{
+	modifyReference::(n : ref int) #hideast {
+		n = 4;
+	}
+	modifyReference::(n : ref float) #hideast {
+		n = 4;
+	}
+}
+
+#import Basic.Print;
+
+main::(){
+	#test 1+1==2;
+}

@@ -912,6 +912,10 @@ void* ASTNode::generateConstant(int pass)
 		return ConstantInt::get(*TheContext, APInt(1, token->first == "true" ? 1 : 0, false));
 	else if (nodeType == Float_Node)
 		return ConstantFP::get(*TheContext, APFloat(stod(token->first)));
+	else if (nodeType == Void_Node) {
+		// Return a null pointer constant (can be cast to any pointer type)
+		return ConstantPointerNull::get(PointerType::getUnqual(*TheContext));
+	}
 	else if (nodeType == String_Constant_Node) {
 		std::string strValue = unescapeString(token->first.substr(1, token->first.size() - 2), token);	// remove quotes from token
 
@@ -2133,6 +2137,38 @@ void* ASTNode::generateScopeBody(int pass)
 	}
 
 	return nullptr;
+}
+
+// Value*
+void* ASTNode::generateTest(int pass)
+{
+	return nullptr;
+	//if (childNodes.size() < 2 || childNodes[1]->childNodes.size() == 0 || childNodes[1]->childNodes[0]->childNodes.size() == 0) {
+	//	printTokenError(token, "Cast expression expected name followed by new type like: #cast x : float;");
+	//	wasError = true;
+	//	return nullptr;
+	//}
+	//std::string varName = childNodes[1]->childNodes[0]->token->first;
+	//valueType* val = findNamedValue(parentNode, this, varName, token);
+	//if (!val && !wasError) {
+	//	printTokenError(childNodes[1]->childNodes[0]->token, "Unknown variable name used");
+	//	wasError = true;
+	//	return nullptr;
+	//}
+	//AllocaInst* var = (AllocaInst*)(val->val);
+
+	//Value* value = Builder->CreateLoad(var->getAllocatedType(), var, varName + "_load");
+
+	//std::string tyVal = childNodes[1]->childNodes[0]->childNodes[0]->token->first;
+
+	//bool wasDefined = true;
+	//Type* toType = getLLVMTypeFromString(tyVal, 0, childNodes[1]->childNodes[0]->childNodes[0]->token, wasDefined, pass);
+	////if (wasDefined == false)
+	////	return nullptr;
+
+	//return castValue(value, toType, true, typeSigns[tyVal], token);
+
+	//return Builder->CreateStore(castedValue, var);
 }
 
 // Value*

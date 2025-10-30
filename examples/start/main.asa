@@ -28,12 +28,10 @@ Or individual components:
 //}
 
 operator|| :: bool(a : bool, b : bool) #inline; #hideast {
-	if(a){
+	if(a)
 		return true;
-	}
-	else if(b){
+	else if(b)
 		return true;
-	}
 	return false;
 }
 
@@ -48,21 +46,6 @@ TEST_MACRO :: {printl("Macro works!")};
 //	int b = 1;
 //}
 
-modifyReference::(n : ref int) #hideast {
-	n = 4;
-}
-modifyReference::(n : ref float) #hideast {
-	n = 4;
-}
-
-//operator[] :: (x : int, y : int){
-//	print("Bracket overload works!\n");
-//}
-
-newline::() #inline; #hideast {
-	putchar(10);
-}
-
 #extern putchar::(c : char);
 #extern free::(p : *int);
 
@@ -73,6 +56,7 @@ main :: (){
 	//f = float(1);
 
 	//var : bool;
+	constArray : int[] = void;
 
 	pipeVal = pipeTest(1);
 	printint(pipeVal);

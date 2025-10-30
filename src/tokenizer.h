@@ -15,6 +15,7 @@ enum TokenType {
 
 	// Literals
 	Identifier,
+	Void,
 	Integer,
 	Float,
 	String,
@@ -111,6 +112,7 @@ const std::string tokenTypeStrings[] = {
 	"Comment",
 
 	"Identifier",
+	"Void",
 	"Integer",
 	"Float",
 	"String",

@@ -44,6 +44,7 @@ enum ASTNodeType {
 	String_Constant_Node,
 	Character_Constant_Node,
 	Type_Node,
+	Void_Node,
 
 	Module_Scope,
 
@@ -153,6 +154,7 @@ const std::string ASTNodeTypeStrings[] = {
 	"String_Constant_Node",
 	"Character_Constant_Node",
 	"Type_Node",
+	"Void_Node",
 
 	"Module_Scope",
 
@@ -291,6 +293,7 @@ struct ASTNode {
 	void* generatePrototype(int pass = 0);
 	void* generateFunction(int pass = 0);
 	void* generateCast(int pass = 0);
+	void* generateTest(int pass = 0);
 	void* generateTypeInstance(int pass = 0);
 	void* generateCallExpression(int pass = 0);
 	void* generateNothing(int pass = 0);

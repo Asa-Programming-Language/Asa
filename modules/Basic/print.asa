@@ -7,42 +7,45 @@ Print :: module {
 	#extern puts :: int32 (str : const *char);
 	#extern putchar::(c : char);
 
-	print:: (s : const *char, ...){
+	print:: (s : const *char, ...) #inline; #hideast {
 		printf(s);
 		return;
 	}
 
-	printl:: (s : const *char, ...){
+	printl:: (s : const *char, ...) #inline; #hideast {
 		printf(s);
 		puts("");
 		return;
 	}
 
-	print ::(){
+	print ::() #inline; #hideast {
 		return;
 	}
 
-	printl::(){
+	printl::() #inline; #hideast {
 		puts("");
 		return;
+	}
+
+	newline::() #inline; #hideast {
+		putchar(10);
 	}
 
 	printint:: (n : int64){
 	    if (n < 0) {
 	        putchar('-');
 	        // Handle the corner case of INT_MIN
-	        if (n == -2147483648) {
+	        if (n == -2147483648){
 	            // Print "2147483648" directly
 	            putchar('2');
 	            n = 147483648;
-	        } else {
+	        } 
+			else 
 	            n = 0-n;
-	        }
 	    }
 	
-	    if (n >= 10) {
+	    if (n >= 10)
 	        printint(n / 10);
-	    }
 	
 	    putchar((n % 10) + '0');
 	}

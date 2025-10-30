@@ -182,6 +182,42 @@ bool GATHER_TO_SEMICOLON(const std::vector<tokenPair*>& tokens, std::vector<toke
 	return false;
 }
 
+bool GATHER_TO_SEMICOLON_MULTI_LINE(const std::vector<tokenPair*>& tokens, std::vector<tokenPair*>& subTokens, int& i, bool includeLast = false, bool allowRunOut = false)
+{
+	tokenPair* firstToken;
+	if (i < tokens.size() - 1) {
+		firstToken = NEXT_TOKEN(tokens, i);
+		//if (firstToken.second == Semi_Colon)
+		//	return true;
+	}
+	else {
+		return true;
+	}
+	i--;
+	for (;;) {
+		if (i >= tokens.size() - 1) {
+			if (!allowRunOut) {
+				printTokenError(firstToken, "Missing semicolon");
+				exit(1);
+			}
+			return true;
+		}
+		tokenPair* t = NEXT_TOKEN(tokens, i);
+
+		if (t->second == Nothing)
+			continue;
+
+		if (t->second == Semi_Colon) {
+			if (includeLast)
+				subTokens.push_back(t);
+			break;
+		}
+
+		subTokens.push_back(t);
+	}
+	return false;
+}
+
 bool GATHER_TO_SEMICOLON_OR_OTHER(const std::vector<tokenPair*>& tokens, std::vector<tokenPair*>& subTokens, int& i, TokenType other, bool includeLast = false, bool allowRunOut = false)
 {
 	tokenPair* firstToken;
@@ -467,54 +503,24 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 				conditionNode = generateAST(subTokens, depth + 1);
 				conditionNode->nodeType = Condition;
 
-				// Step through all tokens to gather body until braces are closed
-				GATHER_SCOPE_BODY(tokens, subTokens, 0, i, true);
+				// Check if the next token is a left curly brace, and if not handle single line
+				tokenPair* firstNextToken = getNextNonNothingToken(tokens, i);
+				i--;
+				if (firstNextToken->second == Left_Brace)
+					// Step through all tokens to gather body until braces are closed
+					GATHER_SCOPE_BODY(tokens, subTokens, 0, i, true);
+				else {
+					// Otherwise just get the next line until semicolon
+					subTokens = std::vector<tokenPair*>();
+					GATHER_TO_SEMICOLON_MULTI_LINE(tokens, subTokens, i, true, false);
+					subTokens.insert(subTokens.begin(), new tokenPair("{", Left_Brace));
+					subTokens.push_back(new tokenPair("}", Right_Brace));
+				}
 
 				bodyNode = generateAST(subTokens, depth + 1);
 				bodyNode->nodeType = Scope_Body;
 				bodyNode->codegen = &ASTNode::generateScopeBody;
 
-				//				// If the next token is Else_Statement gather body also and generate AST
-				//				tokenPair nextToken = getNextNonNothingToken(tokens, i);
-				//				if (nextToken.second == Else_Statement) {
-				//					subTokens = std::vector<tokenPair*>();
-				//
-				//				gatherAnotherElseIf:
-				//					tokenPair lookahead = getNextNonNothingToken(tokens, i);  // Look at the token after 'else'
-				//					// Else If
-				//					if (lookahead.second == If_Statement) {
-				//						// Parse as regular if
-				//						subTokens.push_back(lookahead);
-				//						GATHER_PAREN_EXPRESSION(tokens, subTokens, 0, i, true);
-				//						GATHER_SCOPE_BODY_APPEND(tokens, subTokens, 0, i, true);
-				//						// If the token after the body is another else/else if, get another
-				//						if ((lookahead = getNextNonNothingToken(tokens, i)).second == Else_Statement)
-				//							goto gatherAnotherElseIf;
-				//						i--;
-				//						printf("cToken: \"%s\"\n", lookahead.first.c_str());
-				//						printf("gathered else if:\n");
-				//						for (const auto& s : subTokens)
-				//							printf("%s", s.first.c_str());
-				//						printf("\n");
-				//						elseNode = generateAST(subTokens, depth + 1);
-				//					}
-				//					// Regular Else
-				//					else {
-				//						i--;
-				//						// Otherwise, gather the else-body block
-				//						//subTokens.push_back(tokens[i]);
-				//						GATHER_SCOPE_BODY_APPEND(tokens, subTokens, 0, i, true);
-				//						printf("gathered else:\n");
-				//						for (const auto& s : subTokens)
-				//							printf("%s", s.first.c_str());
-				//						printf("\n");
-				//						elseNode = generateAST(subTokens, depth + 1);
-				//					}
-				//				}
-				//				else {
-				//					i--;
-				//					elseNode = new ASTNode();  // No else
-				//				}
 
 				node->childNodes.push_back(conditionNode);
 				node->childNodes.push_back(bodyNode);
@@ -525,6 +531,7 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 
 				ASTNode* prevNode = node;
 				//printAST(prevNode);
+				// Handle else/else if chain
 				for (;;) {
 					subTokens = std::vector<tokenPair*>();
 					int sI = i;
@@ -537,7 +544,20 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 							// Parse as regular if
 							subTokens.push_back(nextToken2);  // add `if`
 							GATHER_PAREN_EXPRESSION(tokens, subTokens, 0, i, true);
-							GATHER_SCOPE_BODY_APPEND(tokens, subTokens, 0, i, true);
+
+							// Check if the next token is a left curly brace, and if not handle single line
+							tokenPair* firstNextToken = getNextNonNothingToken(tokens, i);
+							i--;
+							if (firstNextToken->second == Left_Brace)
+								// Step through all tokens to gather body until braces are closed
+								GATHER_SCOPE_BODY_APPEND(tokens, subTokens, 0, i, true);
+							else {
+								// Otherwise just get the next line until semicolon
+								GATHER_TO_SEMICOLON_MULTI_LINE(tokens, subTokens, i, true, false);
+								subTokens.insert(subTokens.begin(), new tokenPair("{", Left_Brace));
+								subTokens.push_back(new tokenPair("}", Right_Brace));
+							}
+
 							ASTNode* elseNode = generateAST(subTokens, depth + 1)->childNodes[0];
 							prevNode->childNodes[2] = elseNode;
 							prevNode = elseNode;
@@ -546,7 +566,19 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 						// Regular Else
 						else {
 							i = sI2;
-							GATHER_SCOPE_BODY(tokens, subTokens, 0, i, true);
+							// Check if the next token is a left curly brace, and if not handle single line
+							tokenPair* firstNextToken = getNextNonNothingToken(tokens, i);
+							i--;
+							if (firstNextToken->second == Left_Brace)
+								// Step through all tokens to gather body until braces are closed
+								GATHER_SCOPE_BODY(tokens, subTokens, 0, i, true);
+							else {
+								// Otherwise just get the next line until semicolon
+								subTokens = std::vector<tokenPair*>();
+								GATHER_TO_SEMICOLON_MULTI_LINE(tokens, subTokens, i, true, false);
+								subTokens.insert(subTokens.begin(), new tokenPair("{", Left_Brace));
+								subTokens.push_back(new tokenPair("}", Right_Brace));
+							}
 							ASTNode* elseNode = generateAST(subTokens, depth + 1);
 							elseNode->nodeType = Else_Statement_Node;
 							elseNode->codegen = &ASTNode::generateScopeBody;
@@ -585,8 +617,19 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 				conditionNode = generateAST(subTokens, depth + 1);
 				conditionNode->nodeType = Condition;
 
-				// Step through all tokens to gather body until braces are closed
-				GATHER_SCOPE_BODY(tokens, subTokens, 0, i, true);
+				// Check if the next token is a left curly brace, and if not handle single line
+				tokenPair* firstNextToken = getNextNonNothingToken(tokens, i);
+				i--;
+				if (firstNextToken->second == Left_Brace)
+					// Step through all tokens to gather body until braces are closed
+					GATHER_SCOPE_BODY(tokens, subTokens, 0, i, true);
+				else {
+					// Otherwise just get the next line until semicolon
+					subTokens = std::vector<tokenPair*>();
+					GATHER_TO_SEMICOLON_MULTI_LINE(tokens, subTokens, i, true, false);
+					subTokens.insert(subTokens.begin(), new tokenPair("{", Left_Brace));
+					subTokens.push_back(new tokenPair("}", Right_Brace));
+				}
 
 				bodyNode = generateAST(subTokens, depth + 1);
 				bodyNode->nodeType = Scope_Body;
@@ -645,8 +688,19 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 				rangeNode = generateAST(subTokens, depth + 1)->childNodes[0];
 				rangeNode->nodeType = Range_Node;
 
-				// Step through all tokens to gather body until braces are closed
-				GATHER_SCOPE_BODY(tokens, subTokens, 0, i, true);
+				// Check if the next token is a left curly brace, and if not handle single line
+				tokenPair* firstNextToken = getNextNonNothingToken(tokens, i);
+				i--;
+				if (firstNextToken->second == Left_Brace)
+					// Step through all tokens to gather body until braces are closed
+					GATHER_SCOPE_BODY(tokens, subTokens, 0, i, true);
+				else {
+					// Otherwise just get the next line until semicolon
+					subTokens = std::vector<tokenPair*>();
+					GATHER_TO_SEMICOLON_MULTI_LINE(tokens, subTokens, i, true, false);
+					subTokens.insert(subTokens.begin(), new tokenPair("{", Left_Brace));
+					subTokens.push_back(new tokenPair("}", Right_Brace));
+				}
 
 				bodyNode = generateAST(subTokens, depth + 1);
 				bodyNode->nodeType = Scope_Body;
@@ -996,6 +1050,9 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 				}
 				if (identifier->token->first == "new") {
 					node->codegen = &ASTNode::generateTypeInstance;
+				}
+				if (identifier->token->first == "test") {
+					node->codegen = &ASTNode::generateTest;
 				}
 
 				node->token->first = "#" + identifier->token->first;
@@ -1374,6 +1431,13 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 				node->nodeType = Argument_List;
 				parentNode->leafNodes.push_back(node);
 				break;
+			}
+
+			case Void: {
+				node->nodeType = Void_Node;
+				node->codegen = &ASTNode::generateConstant;
+				parentNode->leafNodes.push_back(node);
+				goto dontAddNode;
 			}
 
 			case Integer: {
