@@ -410,6 +410,18 @@ void printModuleLoaded(std::string& moduleName, std::string& modulePath)
 	std::cout << std::endl;
 }
 
+void findUnusedLeafNodes(ASTNode*& node)
+{
+	for (auto& l : node->leafNodes) {
+		printTokenError(l->token, "Failed to compile");
+		wasError = true;
+	}
+	if (wasError)
+		return;
+	for (auto& c : node->childNodes)
+		findUnusedLeafNodes(c);
+}
+
 std::vector<ASTNode*> ASTNodes = std::vector<ASTNode*>();
 
 std::map<TokenType, ASTNodeType> operatorDefaultNodeType = {
@@ -1494,13 +1506,7 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 				goto dontAddNode;
 			}
 
-			case True_Literal: {
-				node->nodeType = Boolean_Node;
-				node->codegen = &ASTNode::generateConstant;
-				parentNode->leafNodes.push_back(node);
-				goto dontAddNode;
-			}
-
+			case True_Literal:
 			case False_Literal: {
 				node->nodeType = Boolean_Node;
 				node->codegen = &ASTNode::generateConstant;

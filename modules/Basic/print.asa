@@ -31,8 +31,13 @@ Print :: module {
 		putchar(10);
 	}
 
-	print(n : int32){
+	print::(n : int32) {
 		printint(n);
+		return;
+	}
+
+	thisShouldError(n : uint64){
+
 	}
 
 	printint:: (n : int64){

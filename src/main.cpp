@@ -226,6 +226,11 @@ int main(int argc, char** argv)
 		printAST(rootNode);
 	}
 
+	// Find any unused leaf nodes, and throw error if there are any
+	findUnusedLeafNodes(rootNode);
+	if (wasError)
+		goto errorsEncountered;
+
 	// Force run main function
 	if (compilerFlags == Flags_Run) {
 		startTreeWalkExecution(rootNode);

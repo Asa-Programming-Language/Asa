@@ -17,6 +17,7 @@ using namespace llvm;
 
 void GO_BACK_TO_BEGINNING_OF_TERM(int& i);
 
+extern bool wasError;
 
 enum ASTNodeType {
 	// Null type
@@ -389,6 +390,7 @@ void assignParentNodes(ASTNode*& node, int depth = 0);
 void printTokenMarked(tokenPair*& token, std::string msgString = "", int sourceLineNumber = 0, const char* fileName = "");
 void printTokenError(tokenPair*& token, std::string errorString = "", int sourceLineNumber = 0, const char* fileName = "");
 void printTokenWarning(tokenPair*& token, std::string errorString = "", int sourceLineNumber = 0, const char* fileName = "");
+void findUnusedLeafNodes(ASTNode*& node);
 void printModuleLoaded(std::string& moduleName, std::string& modulePath);
 void generateOutputCode(ASTNode*& node, int depth = 0, int pass = 0);
 //std::vector<tokenPair> GATHER_SCOPE_BODY(int brLevel, int& i);

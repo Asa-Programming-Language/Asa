@@ -127,15 +127,15 @@ Strings :: module{
 		length : uint32;
 		//tS : testStruct;
 		
-		size::uint32() #inline; #hideast {
+		size::uint32() {
 			return this.length;
 		}
-		print::() #inline; #hideast {
+		print::() {
 			if(this.length > 0){
 				print(this.address);
 			}
 		}
-		dump::() #hideast; {
+		dump::() {
 			print("string: {\"value\":\"");
 			print(this.address);
 			print("\", length:");

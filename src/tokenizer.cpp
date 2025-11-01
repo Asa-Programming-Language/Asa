@@ -208,6 +208,16 @@ int tokenize(std::string& rawFile, std::vector<tokenPair*>& tokens, std::string&
 		}
 		// If current token is something
 		else {
+			// Handle escape sequences in strings and characters
+			if ((currentToken == String || currentToken == Character) && lastChar == '\\') {
+				tokenContent += c;
+				if (c != '\t') {
+					*lineValue += c;
+					indexInLine++;
+				}
+				continue;  // Skip the escape check below
+			}
+
 			// Check if it should end
 			for (auto const& [tokenType, str] : tokenEscapes) {
 				if (tokenType == currentToken)

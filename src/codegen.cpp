@@ -160,21 +160,21 @@ struct functionID {
 			ASTNodeType t2 = a[i].baseASTType;
 			bool mustBeExactType = userArguments[i].mustBeExactType;
 
-			// IMPORTANT: First check if both the base type AND pointer level match exactly
+			// First check if both the base type AND pointer level match exactly
 			if (userArguments[i].typeString == a[i].typeString &&
 				userArguments[i].pointerLevel == a[i].pointerLevel) {
 				differences += 0;
 				continue;
 			}
 
-			// If pointer levels differ, these are fundamentally different types
-			if (userArguments[i].pointerLevel != a[i].pointerLevel) {
-				// Exception: allow implicit conversions only between compatible base types
-				// and only if neither side requires exact typing
-				if (mustBeExactType || userArguments[i].pointerLevel > 0 || a[i].pointerLevel > 0) {
-					return 500;	 // Incompatible types
-				}
-			}
+			// // If pointer levels differ, these are fundamentally different types
+			// if (userArguments[i].pointerLevel != a[i].pointerLevel) {
+			// 	// Exception: allow implicit conversions only between compatible base types
+			// 	// and only if neither side requires exact typing
+			// 	if (mustBeExactType) {
+			// 		return 500;	 // Incompatible types
+			// 	}
+			// }
 
 			// If they are the same base type (ignoring signedness for LLVM types)
 			if (compareASTNodeTypes(t1, t2, wereTypesInferred)) {
@@ -187,7 +187,7 @@ struct functionID {
 				if (t2 >= Integer_Node && t2 <= Boolean_Node)  // If similar type
 					differences += abs(t1 - t2);
 				else
-					return 500;	 // Trying to match integer with non-integer
+					return 600;	 // Trying to match integer with non-integer
 			}
 			// Else if they are both float types (and same pointer level)
 			else if (t1 >= Double_Type && t1 <= Half_Type) {
@@ -196,11 +196,11 @@ struct functionID {
 				if (t2 >= Double_Type && t2 <= Half_Type)  // If similar type
 					differences += abs(t1 - t2);
 				else
-					return 500;	 // Trying to match float with non-float
+					return 600;	 // Trying to match float with non-float
 			}
 			// If we get here, the types don't match at all
 			else {
-				return 500;
+				return 800;
 			}
 		}
 		return differences;
@@ -324,6 +324,7 @@ functionID* getFunctionFromID(std::vector<functionID*>& fnIDs, std::string& name
 	int bestScore = 1000;
 	bool requiresExact = false;
 	for (auto& f : fnIDs) {
+		f->print();
 		uint16_t score = f->compareMatch(name, arguments, wereTypesInferred);
 		if (isMemberFunction != f->isMemberFunction)
 			continue;
@@ -3269,6 +3270,7 @@ void* ASTNode::generatePrototype(int pass)
 			console::Write("-- Pre-existing function definition found for: ");
 			console::Write(fnName, console::yellowFGColor);
 			console::WriteLine(" (" + theFunctionID->mangledName + ")", console::yellowFGColor);
+			//theFunctionID->print();
 		}
 		return theFunctionID->fnValue;
 	}
