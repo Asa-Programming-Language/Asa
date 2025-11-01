@@ -321,6 +321,32 @@ bool GATHER_TO_TOKEN(const std::vector<tokenPair*>& tokens, std::vector<tokenPai
 	return false;
 }
 
+void printTokenMarked(tokenPair*& token, std::string msgString, int sourceLineNumber, const char* fileName)
+{
+	if (verbosity >= 5) {
+		if (fileName != "" && fileName != "\0")
+			std::cerr << "Source file: " << fileName << std::endl;
+		if (sourceLineNumber > 0)
+			std::cerr << "Line: " << sourceLineNumber << std::endl;
+	}
+	if (msgString != "")
+		console::WriteLine(msgString);
+	console::Write("In: ", console::yellowFGColor);
+	console::WriteLine(*(token->filePath), console::yellowFGColor);
+	std::string lineNumberStr = std::to_string(token->lineNumber);
+	console::Write(lineNumberStr + " |  ", console::yellowFGColor);
+	console::WriteLine(*(token->lineValue));
+	for (int i = 0; i < lineNumberStr.size() + 4 + token->indexInLine - 1 + console::indentation * 4; i++)
+		console::Write(" ");
+	for (int i = 0; i < token->length; i++)
+		console::Write("^", console::blueFGColor);
+	console::WriteLine();
+	for (int i = 0; i < lineNumberStr.size() + 4 + token->indexInLine - 1 + console::indentation * 4; i++)
+		console::Write(" ");
+	console::Write("here", console::blueFGColor);
+	console::WriteLine("\n");
+}
+
 void printTokenError(tokenPair*& token, std::string errorString, int sourceLineNumber, const char* fileName)
 {
 	if (verbosity >= 5) {
@@ -335,12 +361,12 @@ void printTokenError(tokenPair*& token, std::string errorString, int sourceLineN
 	std::string lineNumberStr = std::to_string(token->lineNumber);
 	console::Write(lineNumberStr + " |  ", console::yellowFGColor);
 	console::WriteLine(*(token->lineValue));
-	for (int i = 0; i < lineNumberStr.size() + 4 + token->indexInLine - 1; i++)
+	for (int i = 0; i < lineNumberStr.size() + 4 + token->indexInLine - 1 + console::indentation * 4; i++)
 		console::Write(" ");
 	for (int i = 0; i < token->length; i++)
 		console::Write("^", console::redFGColor);
 	console::WriteLine();
-	for (int i = 0; i < lineNumberStr.size() + 4 + token->indexInLine - 1; i++)
+	for (int i = 0; i < lineNumberStr.size() + 4 + token->indexInLine - 1 + console::indentation * 4; i++)
 		console::Write(" ");
 	console::Write("here", console::redFGColor);
 	console::WriteLine("\n");
@@ -364,12 +390,12 @@ void printTokenWarning(tokenPair*& token, std::string errorString, int sourceLin
 	std::string lineNumberStr = std::to_string(token->lineNumber);
 	console::Write(lineNumberStr + " |  ", console::yellowFGColor);
 	console::WriteLine(*(token->lineValue));
-	for (int i = 0; i < lineNumberStr.size() + 4 + token->indexInLine - 1; i++)
+	for (int i = 0; i < lineNumberStr.size() + 4 + token->indexInLine - 1 + console::indentation * 4; i++)
 		console::Write(" ");
 	for (int i = 0; i < token->length; i++)
 		console::Write("^", console::yellowFGColor);
 	console::WriteLine();
-	for (int i = 0; i < lineNumberStr.size() + 4 + token->indexInLine - 1; i++)
+	for (int i = 0; i < lineNumberStr.size() + 4 + token->indexInLine - 1 + console::indentation * 4; i++)
 		console::Write(" ");
 	console::Write("here", console::yellowFGColor);
 	console::WriteLine("\n");

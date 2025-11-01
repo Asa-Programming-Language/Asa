@@ -245,20 +245,25 @@ int main(int argc, char** argv)
 	initializeCodeGenerator();
 	if (verbosity >= 4)
 		console::WriteLine("\n\nCompiling:", console::greenFGColor);
-	// First pass, type/struct definitions
-	generateOutputCode(rootNode, 0, 0);
-	// Function pass
-	generateOutputCode(rootNode, 0, 1);
-	// Final pass
-	generateOutputCode(rootNode, 0, 2);
+	// Pass 0: First pass, type/struct definitions
+	// Pass 1: Function pass
+	// Pass 2: Final pass
+	for (int p = 0; p <= 2; p++) {
+		generateOutputCode(rootNode, 0, p);
+	}
 	// Cleanup unused code
-	removeUnusedPrototypes();
+	if (!wasError)
+		removeUnusedPrototypes();
+
+	//DBuilder->finalize();
 
 	// Print out all of the generated code.
 	if (verbosity >= 5) {
 		console::WriteLine("\n\nOutput IR Code:", console::greenFGColor);
 		TheModule->print(errs(), nullptr);
 	}
+	if (wasError)
+		goto errorsEncountered;
 
 	// Write IR to <projectpath>/build/<basename>.ll
 	std::string irFilePath = projectDirectory + "build/" + baseFileName + ".ll";
@@ -283,13 +288,15 @@ int main(int argc, char** argv)
 		console::WriteLine("Passed", console::greenFGColor);
 	}
 
-	if (wasError) {
-		console::WriteLine("Errors were encountered while compiling.", console::redFGColor);
-	}
-
+errorsEncountered:
 	// Print out all function prototypes
 	if (verbosity >= 4)
 		printFunctionPrototypes();
+
+	if (wasError) {
+		console::WriteLine("Errors were encountered while compiling.", console::redFGColor);
+		exit(1);
+	}
 
 	//// Output the object file in project's build directory
 	//std::string objectFilePath = outputFileName + ".o";

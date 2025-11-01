@@ -386,6 +386,7 @@ void optimizeASTNode(ASTNode*& node);
 void addFileIncludes(ASTNode*& node);
 void addModuleImports(ASTNode*& node);
 void assignParentNodes(ASTNode*& node, int depth = 0);
+void printTokenMarked(tokenPair*& token, std::string msgString = "", int sourceLineNumber = 0, const char* fileName = "");
 void printTokenError(tokenPair*& token, std::string errorString = "", int sourceLineNumber = 0, const char* fileName = "");
 void printTokenWarning(tokenPair*& token, std::string errorString = "", int sourceLineNumber = 0, const char* fileName = "");
 void printModuleLoaded(std::string& moduleName, std::string& modulePath);

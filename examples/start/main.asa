@@ -65,19 +65,20 @@ main :: (){
 	s : string = string();
 	s = string("This is a char string converted to string type");
 
+	print(s.address);
 
 	//s.length = 8;
 	//printint(s.length);
 	//s.size();
 	printl("printing string...");
 	print("length: ");
-	printint(s.length);
+	print(s.length);
 	printl();
 	s.print();
 	printl();
 	printl("Done!");
 
-	printl(s.address);
+	printl(s);
 
 	free(s.address);
 	//x_ptr : *int = &x;

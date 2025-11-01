@@ -127,19 +127,19 @@ Strings :: module{
 		length : uint32;
 		//tS : testStruct;
 		
-		size::uint32(){
+		size::uint32() #inline; #hideast {
 			return this.length;
 		}
-		print::(){
+		print::() #inline; #hideast {
 			if(this.length > 0){
 				print(this.address);
 			}
 		}
-		dump::(){
+		dump::() #hideast; {
 			print("string: {\"value\":\"");
 			print(this.address);
 			print("\", length:");
-			print(this.length);
+			printint(this.length);
 			print("}\n");
 		}
 
@@ -202,5 +202,10 @@ Strings :: module{
 
 	cast :: *char(s : const ref string){
 		return s.address;
+	}
+
+	printl::(s : exact string) #hideast {
+		printl(s.address);
+		return;
 	}
 }

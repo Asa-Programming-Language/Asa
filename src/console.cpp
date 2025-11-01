@@ -31,6 +31,7 @@ namespace console {
 
 
 	bool useColor = true;
+	uint8_t indentation = 0;
 
 
 	bool consoleSupportsColor()
@@ -179,60 +180,70 @@ namespace console {
 
 	void NetworkPrint()
 	{
+		printIndent(indentation);
 		PrintColored("[", yellowFGColor, "");
 		PrintColored("Network", cyanFGColor, "");
 		PrintColored("]        - ", yellowFGColor, "");
 	}
 	void NetworkErrorPrint()
 	{
+		printIndent(indentation);
 		PrintColored("[", yellowFGColor, "");
 		PrintColored("Network-Error", redFGColor, "");
 		PrintColored("]  - ", yellowFGColor, "");
 	}
 	void MiningPrint()
 	{
+		printIndent(indentation);
 		PrintColored("[", yellowFGColor, "");
 		PrintColored("Mining", greenFGColor, "");
 		PrintColored("]         - ", yellowFGColor, "");
 	}
 	void MiningErrorPrint()
 	{
+		printIndent(indentation);
 		PrintColored("[", yellowFGColor, "");
 		PrintColored("Mining-Error", redFGColor, "");
 		PrintColored("]   - ", yellowFGColor, "");
 	}
 	void ContainerManagerPrint()
 	{
+		printIndent(indentation);
 		PrintColored("[", yellowFGColor, "");
 		PrintColored("Deluge", magentaFGColor, "");
 		PrintColored("]         - ", yellowFGColor, "");
 	}
 	void CompilerErrorPrint()
 	{
+		printIndent(indentation);
 		PrintColored("[", yellowFGColor, "");
 		PrintColored("Deluge-Error", redFGColor, "");
 		PrintColored("]   - ", yellowFGColor, "");
 	}
 	void BlockchainPrint()
 	{
+		printIndent(indentation);
 		PrintColored("[", yellowFGColor, "");
 		PrintColored("Blockchain", greenFGColor, "");
 		PrintColored("]     - ", yellowFGColor, "");
 	}
 	void DebugPrint()
 	{
+		printIndent(indentation);
 		PrintColored("[", yellowFGColor, "");
 		PrintColored("Debug", yellowFGColor, "");
 		PrintColored("]          - ", yellowFGColor, "");
 	}
 	void SystemPrint()
 	{
+		printIndent(indentation);
 		PrintColored("[", yellowFGColor, "");
 		PrintColored("System", blueFGColor, "");
 		PrintColored("]         - ", yellowFGColor, "");
 	}
 	void ErrorPrint()
 	{
+		printIndent(indentation);
 		PrintColored("[", yellowFGColor, "");
 		PrintColored("Error", redFGColor, "");
 		PrintColored("]          - ", yellowFGColor, "");
@@ -240,43 +251,27 @@ namespace console {
 
 	void WriteLine()
 	{
-#if MULTITHREADED_SAFE
-		printQueue.push("\n");
-		ConsoleQueueHandle();
-#else
+		printIndent(indentation);
 		std::cout << std::endl;
-#endif
 	}
 	void WriteLine(std::string message)
 	{
-#if MULTITHREADED_SAFE
-		printQueue.push(message + "\n");
-		ConsoleQueueHandle();
-#else
+		printIndent(indentation);
 		std::cout << message << std::endl;
-#endif
 	}
 	void WriteLine(std::string message, std::string fgColor, std::string bgColor)
 	{
+		printIndent(indentation);
 		PrintColored(message, fgColor, bgColor);
 		WriteLine();
 	}
 
 	void Write()
 	{
-		//std::cout;
-#if MULTITHREADED_SAFE
-		ConsoleQueueHandle();
-#endif
 	}
 	void Write(std::string message)
 	{
-#if MULTITHREADED_SAFE
-		printQueue.push(message);
-		ConsoleQueueHandle();
-#else
 		std::cout << message;
-#endif
 	}
 	void Write(std::string message, std::string color)
 	{
@@ -284,6 +279,7 @@ namespace console {
 	}
 	void Write(std::string message, std::string fgColor, std::string bgColor)
 	{
+		printIndent(indentation);
 		PrintColored(message, fgColor, bgColor);
 	}
 	void printIndent(int depth)
@@ -294,43 +290,43 @@ namespace console {
 	void WriteIndented(std::string message, std::string fgColor, std::string bgColor, int indents)
 	{
 		std::string ind = "";
-		for (size_t i = 0; i < indents; i++)
-			ind += "\t";
+		for (size_t i = 0; i < indentation + indents; i++)
+			ind += "    ";
 		PrintColored(ind + "  " + message, fgColor, bgColor);
 	}
 	void WriteLineIndented(std::string message, std::string fgColor, std::string bgColor, int indents)
 	{
 		std::string ind = "";
-		for (size_t i = 0; i < indents; i++)
-			ind += "\t";
+		for (size_t i = 0; i < indentation + indents; i++)
+			ind += "    ";
 		PrintColored(ind + "  " + message + "\n", fgColor, bgColor);
 	}
 	void WriteBulleted(std::string message, std::string fgColor, std::string bgColor, int indents, std::string bullet)
 	{
 		std::string ind = "";
-		for (size_t i = 0; i < indents; i++)
-			ind += "\t";
+		for (size_t i = 0; i < indentation + indents; i++)
+			ind += "    ";
 		PrintColored(ind + bullet + " " + message, fgColor, bgColor);
 	}
 	void WriteBulleted(std::string message, std::string fgColor, std::string bgColor, int indents)
 	{
 		std::string ind = "";
-		for (size_t i = 0; i < indents; i++)
-			ind += "\t";
+		for (size_t i = 0; i < indentation + indents; i++)
+			ind += "    ";
 		PrintColored(ind + "- " + message, fgColor, bgColor);
 	}
 	void WriteBulleted(std::string message, int indents, std::string bullet)
 	{
 		std::string ind = "";
-		for (size_t i = 0; i < indents; i++)
-			ind += "\t";
+		for (size_t i = 0; i < indentation + indents; i++)
+			ind += "    ";
 		PrintColored(ind + bullet + " " + message, "", "");
 	}
 	void WriteBulleted(std::string message, int indents)
 	{
 		std::string ind = "";
-		for (size_t i = 0; i < indents; i++)
-			ind += "\t";
+		for (size_t i = 0; i < indentation + indents; i++)
+			ind += "    ";
 		PrintColored(ind + "- " + message, "", "");
 	}
 	void WriteLineCharArrayOfLen(char* message, int len)

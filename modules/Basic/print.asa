@@ -7,12 +7,12 @@ Print :: module {
 	#extern puts :: int32 (str : const *char);
 	#extern putchar::(c : char);
 
-	print:: (s : const *char, ...) #inline; #hideast {
+	print:: (s : exact *char, ...) #inline; #hideast {
 		printf(s);
 		return;
 	}
 
-	printl:: (s : const *char, ...) #inline; #hideast {
+	printl:: (s : exact *char, ...) #inline; #hideast {
 		printf(s);
 		puts("");
 		return;
@@ -29,6 +29,10 @@ Print :: module {
 
 	newline::() #inline; #hideast {
 		putchar(10);
+	}
+
+	print(n : int32){
+		printint(n);
 	}
 
 	printint:: (n : int64){

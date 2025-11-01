@@ -55,6 +55,8 @@ namespace console {
 	};
 
 	extern bool useColor;
+	extern uint8_t indentation;
+
 	bool consoleSupportsColor();
 
 	void PrintError(std::string s, int lineNumber = 0, std::string fileName = "");

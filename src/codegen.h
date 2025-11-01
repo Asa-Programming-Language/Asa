@@ -13,6 +13,7 @@ using namespace llvm::sys;
 
 extern std::unique_ptr<LLVMContext> TheContext;
 extern std::unique_ptr<Module> TheModule;
+extern std::unique_ptr<DIBuilder> DBuilder;
 extern std::unique_ptr<IRBuilder<>> Builder;
 extern std::map<std::string, Value*> NamedValues;
 
