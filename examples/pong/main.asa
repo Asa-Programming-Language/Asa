@@ -15,7 +15,7 @@ vector2 :: struct{
 	y = 0;
 
 	create:: (){
-		return this
+		return this;
 	}
 	create:: (xNew, yNew){
 		x = xNew;

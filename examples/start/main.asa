@@ -1,13 +1,15 @@
-#import Basic.Print;
+#import Builtin:Print;
+//#import Builtin:ColorPrint;
 
-#import Builtin.Casts;
+#import Builtin:Casts;
 //#import Builtin.Operators;
-#import Builtin.Memory;
-#import Builtin.Strings;
+#import Builtin:Memory;
+#import Builtin:String;
 
-#import Tests.PipeOperatorTest;
+#import Tests:PipeOperatorTest;
+#import Tests:Testing;
 
-#import Rendering.Window;
+#import Rendering:Window;
 
 //#import GameLogic;
 
@@ -49,6 +51,10 @@ TEST_MACRO :: {printl("Macro works!")};
 #extern putchar::(c : char);
 #extern free::(p : *int);
 
+testReference::(x : ref int){
+	x = 1;
+}
+
 
 main :: (){
 	//printf("Hello World!");
@@ -57,31 +63,55 @@ main :: (){
 	//f = float(1);
 
 	//var : bool;
-	constArray : int[] = void;
+	greenFG : *char = "\x1B[32m";
 
-	pipeVal = pipeTest(1);
-	printint(pipeVal);
-	newline();
+	xMain : int = 9;
+	testReference(xMain);
+	print("Reference modification: ");
+	print(xMain);
+	printl(" should be 1");
 
-	s : string = string();
-	s = string("This is a char string converted to string type");
+	//throw "This is a test error!";
 
-	print(s.address);
+	test 2 == 2;
+	test 5 == 2;
 
-	//s.length = 8;
-	//printint(s.length);
-	//s.size();
-	printl("printing string...");
-	print("length: ");
-	print(s.length);
-	printl();
-	s.print();
-	printl();
-	printl("Done!");
+	//constArray : int[] = void;
 
-	printl(s);
+	//pipeVal = pipeTest(1);
+	//printint(pipeVal);
+	//newline();
 
-	free(s.address);
+	//s : string = string();
+	//s = string("This is a char string converted to string type");
+
+	//printl(s.address);
+
+	//s.dump();
+
+	////test : *char = void;
+	////test[0] = 8923;
+	////print(test);
+	////s.length = 8;
+	////printint(s.length);
+	////s.size();
+	//printl("printing string...");
+	//print("length: ");
+	//print(s.length);
+	//printl();
+	//s.print();
+	//printl();
+	//printl("Done!");
+
+	//colorPrint("This is a color test, it should be GREEN", greenFG);
+
+	//printl(s);
+
+	//s.set("Change string data using set method");
+
+	//printl(s);
+
+	//free(s.address);
 	//x_ptr : *int = &x;
 	//begin : *int = x_ptr;
 	//i = 0;

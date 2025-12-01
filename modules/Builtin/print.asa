@@ -1,5 +1,9 @@
 
 Print :: module {
+
+	#import Builtin:Operators;
+	//#import Builtin:Casts;
+	//#import Builtin:Memory;
 	
 	//#library "libc";
 	//print :: {#foreign "printf"};
@@ -31,8 +35,14 @@ Print :: module {
 		putchar(10);
 	}
 
-	print::(n : int32) {
+	print::(n : int64) {
 		printint(n);
+		return;
+	}
+
+	printl::(n : int64) {
+		printint(n);
+		printl();
 		return;
 	}
 
@@ -53,12 +63,38 @@ Print :: module {
 	            n = 0-n;
 	    }
 	
-	    if (n >= 10)
+	    if (n >= 10){
 	        printint(n / 10);
+		}
 	
 	    putchar((n % 10) + '0');
 	}
 
+	// TODO: In the future, printint should be as follows:
+	//print :: (n : exact int64){
+	//	printint<intType=int64>(n);
+	//}
+
+	//printint :: (n : intType)
+	//	#mod intType = int64;
+	//{
+	//    if (n < 0) {
+	//        putchar('-');
+	//        // Handle the corner case of INT_MIN
+	//        if (n == -2147483648){
+	//            // Print "2147483648" directly
+	//            putchar('2');
+	//            n = 147483648;
+	//        } 
+	//		else 
+	//            n = 0-n;
+	//    }
+	//
+	//    if (n >= 10)
+	//        printint(n / 10);
+	//
+	//    putchar((n % 10) + '0');
+	//}
 }
 
 main ::(){

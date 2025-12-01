@@ -134,6 +134,8 @@ std::map<const std::string, const TokenType> subTokenTypes = {
 	{"break", Break_Statement},
 	{"continue", Continue_Statement},
 	{"goto", Goto_Statement},
+	{"test", Test_Statement},
+	{"throw", Throw_Statement},
 	{"struct", Struct_Define},
 	{"module", Module_Define},
 	{"operator", Operator_Keyword},
@@ -305,6 +307,7 @@ int labelSubTokens(std::vector<tokenPair*>& tokens)
 int joinCommentTokens(std::vector<tokenPair*>& tokens)
 {
 	tokens.insert(tokens.begin(), new tokenPair());
+	tokens.push_back(new tokenPair());
 	int i = 0;
 	bool inComment = false;
 	bool multiLineComment = false;
@@ -318,35 +321,33 @@ int joinCommentTokens(std::vector<tokenPair*>& tokens)
 				if (t->first.substr(0, 2) == "/*")
 					multiLineComment = true;
 				startIndex = i;
-				tokens[startIndex]->second = Comment;
 				newTokenContents = t->first + " ";
 			}
 		}
 		else if (inComment) {
-			newTokenContents += t->first + " ";
-			//tokens.erase(tokens.begin() + i);
-			// If end of comment, combine all parts into single token and delete others
+			// Check if this is the end of comment
 			if (multiLineComment) {
 				if (t->first.substr(0, 2) == "*/") {
+					newTokenContents += t->first + " ";
 					i++;
 					goto endComment;
 				}
 			}
-			else if (t->second == EndOfLine)
+			else if (t->second == EndOfLine || t->second == EndOfFile) {
 				goto endComment;
+			}
 
+			// If not end of comment, append to contents
+			newTokenContents += t->first + " ";
 			continue;
 
 		endComment:
-			if (t->second == EndOfLine) {  // If newline, redact last character
-				//i--;
-				newTokenContents = newTokenContents.substr(0, newTokenContents.length() - 4);
-			}
 			inComment = false;
 			multiLineComment = false;
 			tokens[startIndex]->first = newTokenContents;
+			tokens[startIndex]->second = Comment;
 			tokens.erase(tokens.begin() + startIndex + 1, tokens.begin() + i);
-			i = startIndex + 1;
+			i = startIndex;
 		}
 	}
 	return 0;

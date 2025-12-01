@@ -426,6 +426,7 @@ std::vector<ASTNode*> ASTNodes = std::vector<ASTNode*>();
 
 std::map<TokenType, ASTNodeType> operatorDefaultNodeType = {
 	{Dot_Dot, Range_Node},
+	{Comma, Comma_Node},
 	{Bang_Equal, Compare_Not},
 	{Equal_Equal, Compare_Equal},
 	{Less, Compare_Less},
@@ -443,6 +444,7 @@ std::map<TokenType, ASTNodeType> operatorDefaultNodeType = {
 	{Dot, Member_Access},
 	{Arrow_Right, Pipe_Operation},
 	{Percent, Expression_Modulo},
+	{At, Expression_Modulo},
 };
 
 std::map<ASTNodeType, int> operatorPrecedence = {
@@ -462,6 +464,7 @@ std::map<ASTNodeType, int> operatorPrecedence = {
 	{Compare_Greater, 20},			// >
 	{Compare_GreaterEqual, 20},		// >=
 	{Range_Node, 15},				// ..
+	{Comma_Node, 12},				// ,
 	{Pipe_Operation, 10},			// ->
 };
 
@@ -844,6 +847,7 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 
 			// Operators:
 			// builtin:
+			case Comma:
 			case Dot_Dot:
 			case Dot:
 			case Bang_Equal:
@@ -862,6 +866,10 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 			case Left_Bracket:
 			case Arrow_Right:
 			// general:
+			case Minus_Equal:
+			case Plus_Equal:
+			case Minus_Minus:
+			case Plus_Plus:
 			case Bar:
 			case Bar_Bar:
 			case Ampersand:
@@ -987,8 +995,8 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 						node->nodeType = Pointer_Node;
 						isUnaryL = true;
 					}
-					// No expression operator % when used in conjunction with pipe operator
-					else if (isUnaryR && tokenType == Percent) {
+					// No expression operator @ when used in conjunction with pipe operator
+					else if (isUnaryR && tokenType == At) {
 						node->nodeType = Pipe_Placeholder;
 						node->codegen = &ASTNode::generatePipePlaceholder;
 						noOp = true;
@@ -1536,21 +1544,29 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 				goto dontAddNode;
 			}
 
+			case Test_Statement:
+				node->nodeType = Test_Node;
+				node->codegen = &ASTNode::generateTest;
+				goto getStatementArgument;
+			case Throw_Statement:
+				node->nodeType = Throw_Node;
+				node->codegen = &ASTNode::generateThrow;
+				goto getStatementArgument;
 			case Return_Statement:
 				node->nodeType = Return_Node;
 				node->codegen = &ASTNode::generateReturn;
-				goto positionChangeStatement;
+				goto getStatementArgument;
 			case Break_Statement:
 				node->nodeType = Break_Node;
 				node->codegen = &ASTNode::generateBreak;
-				goto positionChangeStatement;
+				goto getStatementArgument;
 			case Continue_Statement:
 				node->nodeType = Continue_Node;
 				node->codegen = &ASTNode::generateContinue;
-				goto positionChangeStatement;
+				goto getStatementArgument;
 			case Goto_Statement: {
 				node->nodeType = Goto_Node;
-			positionChangeStatement:
+			getStatementArgument:
 
 				ASTNode* argumentTerm = new ASTNode();
 				std::vector<tokenPair*> subTokens = std::vector<tokenPair*>();
@@ -1612,7 +1628,7 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 
 			default: {
 				if (verbosity >= 4)
-					printTokenWarning(token, "Undefined node");
+					printTokenWarning(token, "Undefined node, token type: \"" + tokenAsString(tokenType) + "\"");
 				goto dontAddNodeForce;
 			}
 		}
@@ -2111,14 +2127,14 @@ void addModuleImports(ASTNode*& node)
 				// Load module if module name is provided
 				if (node->childNodes.size() > 1) {
 					ASTNode* moduleNameNode = node->childNodes[1]->childNodes[0];
-					if (moduleNameNode->nodeType == Member_Access) {
-						std::string modulePath = moduleNameNode->childNodes[0]->token->first;
+					if (moduleNameNode->nodeType == Identifier_Node) {
+						std::string modulePath = moduleNameNode->token->first;
 						bool moduleFound = false;
-						ASTNode* secondExpression = moduleNameNode->childNodes[1];
-						// Get sub member accesses
-						while (secondExpression->nodeType == Member_Access) {
-							modulePath += "/" + secondExpression->childNodes[0]->token->first;
-							secondExpression = secondExpression->childNodes[1];
+						ASTNode* secondExpression = moduleNameNode->childNodes[0];
+						// Get sub components
+						while (secondExpression->childNodes.size() > 0) {
+							modulePath += "/" + secondExpression->token->first;
+							secondExpression = secondExpression->childNodes[0];
 						}
 						std::string moduleName = secondExpression->token->first;
 
@@ -2297,8 +2313,11 @@ void generateOutputCode(ASTNode*& node, int depth, int pass)
 				console::Write(": generating struct for: ");
 				console::WriteLine(node->token->first, console::yellowFGColor);
 			}
-			if (node->codegen != nullptr)
+			if (node->codegen != nullptr) {
 				(node->*(node->codegen))(pass);
+				if (wasError)
+					goto errorDuringCodegen;
+			}
 			break;
 		}
 
@@ -2312,8 +2331,11 @@ void generateOutputCode(ASTNode*& node, int depth, int pass)
 				console::Write(": generating cast for: ");
 				console::WriteLine(node->token->first, console::yellowFGColor);
 			}
-			if (node->codegen != nullptr)
+			if (node->codegen != nullptr) {
 				auto fnVal = (Function*)(node->*(node->codegen))(pass);
+				if (wasError)
+					goto errorDuringCodegen;
+			}
 			break;
 		}
 
@@ -2327,8 +2349,11 @@ void generateOutputCode(ASTNode*& node, int depth, int pass)
 				console::Write(": generating for: ");
 				console::WriteLine(node->token->first, console::yellowFGColor);
 			}
-			if (node->codegen != nullptr)
+			if (node->codegen != nullptr) {
 				auto fnVal = (Function*)(node->*(node->codegen))(pass);
+				if (wasError)
+					goto errorDuringCodegen;
+			}
 			break;
 		}
 
@@ -2342,8 +2367,11 @@ void generateOutputCode(ASTNode*& node, int depth, int pass)
 				console::Write(": generating for: ");
 				console::WriteLine(node->token->first, console::yellowFGColor);
 			}
-			if (node->codegen != nullptr)
+			if (node->codegen != nullptr) {
 				auto fnVal = (Function*)(node->*(node->codegen))(pass);
+				if (wasError)
+					goto errorDuringCodegen;
+			}
 			break;
 		}
 
@@ -2354,8 +2382,11 @@ void generateOutputCode(ASTNode*& node, int depth, int pass)
 				console::Write(std::to_string(pass), console::greenFGColor);
 				console::WriteLine(": generating scope body");
 			}
-			for (auto& c : node->childNodes)
+			for (auto& c : node->childNodes) {
 				generateOutputCode(c, depth + 1, pass);
+				if (wasError)
+					goto errorDuringCodegen;
+			}
 
 			break;
 		}
@@ -2363,4 +2394,8 @@ void generateOutputCode(ASTNode*& node, int depth, int pass)
 		default:
 			break;
 	}
+	return;
+
+errorDuringCodegen:
+	exit(1);
 }

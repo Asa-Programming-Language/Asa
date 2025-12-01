@@ -4,6 +4,9 @@
 std::unique_ptr<LLVMContext> TheContext;
 std::unique_ptr<Module> TheModule;
 std::unique_ptr<DIBuilder> DBuilder;
+static DICompileUnit* TheCU;
+static DIFile* TheFile;
+static std::vector<DIScope*> LexicalBlocks;
 std::unique_ptr<IRBuilder<>> Builder;
 static std::unique_ptr<FunctionPassManager> TheFPM;
 static std::unique_ptr<LoopAnalysisManager> TheLAM;
@@ -167,14 +170,13 @@ struct functionID {
 				continue;
 			}
 
-			// // If pointer levels differ, these are fundamentally different types
-			// if (userArguments[i].pointerLevel != a[i].pointerLevel) {
-			// 	// Exception: allow implicit conversions only between compatible base types
-			// 	// and only if neither side requires exact typing
-			// 	if (mustBeExactType) {
-			// 		return 500;	 // Incompatible types
-			// 	}
-			// }
+			// If pointer levels differ, these are fundamentally different types
+			if (userArguments[i].pointerLevel != a[i].pointerLevel) {
+				return 1000;
+				//if (mustBeExactType) {
+				//	return 500;	 // Incompatible types
+				//}
+			}
 
 			// If they are the same base type (ignoring signedness for LLVM types)
 			if (compareASTNodeTypes(t1, t2, wereTypesInferred)) {
@@ -182,7 +184,7 @@ struct functionID {
 			}
 			// Else if they are both integer types (and same pointer level)
 			else if (t1 >= Integer_Node && t1 <= Boolean_Node) {
-				if (mustBeExactType)  // If the argument type must be exact
+				if (mustBeExactType)  // If the argument type must be exact, but aren't
 					return 500;
 				if (t2 >= Integer_Node && t2 <= Boolean_Node)  // If similar type
 					differences += abs(t1 - t2);
@@ -191,7 +193,7 @@ struct functionID {
 			}
 			// Else if they are both float types (and same pointer level)
 			else if (t1 >= Double_Type && t1 <= Half_Type) {
-				if (mustBeExactType)  // If the argument type must be exact
+				if (mustBeExactType)  // If the argument type must be exact but aren't
 					return 500;
 				if (t2 >= Double_Type && t2 <= Half_Type)  // If similar type
 					differences += abs(t1 - t2);
@@ -285,6 +287,41 @@ std::vector<functionID*> functionIDs = std::vector<functionID*>();
 std::unordered_map<std::string, structType*> structDefinitions = std::unordered_map<std::string, structType*>();
 std::stack<std::string> currentStructName = std::stack<std::string>();
 
+DIType* createDIType(Type* llvmType, const std::string& typeString)
+{
+	if (!llvmType || !DBuilder)
+		return nullptr;
+
+	// Handle basic types
+	if (llvmType->isIntegerTy()) {
+		unsigned bitWidth = llvmType->getIntegerBitWidth();
+		unsigned encoding = dwarf::DW_ATE_signed;
+
+		// Check if unsigned
+		if (typeString.find("uint") != std::string::npos ||
+			typeString == "bool" || typeString == "char" || typeString == "uchar") {
+			encoding = dwarf::DW_ATE_unsigned;
+		}
+
+		return DBuilder->createBasicType(typeString, bitWidth, encoding);
+	}
+	else if (llvmType->isFloatTy()) {
+		return DBuilder->createBasicType("float", 32, dwarf::DW_ATE_float);
+	}
+	else if (llvmType->isDoubleTy()) {
+		return DBuilder->createBasicType("double", 64, dwarf::DW_ATE_float);
+	}
+	else if (llvmType->isPointerTy()) {
+		// For pointers, create a pointer type
+		DIType* pointeeTy = DBuilder->createBasicType("void", 8, dwarf::DW_ATE_address);
+		return DBuilder->createPointerType(pointeeTy,
+			TheModule->getDataLayout().getPointerSizeInBits());
+	}
+
+	// Default fallback
+	return nullptr;
+}
+
 structType* getStructTypeFromLLVMType(Type*& t)
 {
 	for (const auto& [key, value] : structDefinitions) {
@@ -324,7 +361,6 @@ functionID* getFunctionFromID(std::vector<functionID*>& fnIDs, std::string& name
 	int bestScore = 1000;
 	bool requiresExact = false;
 	for (auto& f : fnIDs) {
-		f->print();
 		uint16_t score = f->compareMatch(name, arguments, wereTypesInferred);
 		if (isMemberFunction != f->isMemberFunction)
 			continue;
@@ -337,6 +373,8 @@ functionID* getFunctionFromID(std::vector<functionID*>& fnIDs, std::string& name
 				requiresExact = false;
 		}
 	}
+	if (bestScore > 500)
+		return nullptr;
 	// If the best function match requires exact typing (and different types are passed) throw error
 	if (requiresExact) {
 		printTokenError(t, "Function match not found, closest prototype requires exact types. Did you try casting?");
@@ -364,6 +402,8 @@ functionID* getExactFunctionFromID(std::vector<functionID*>& fnIDs, std::string&
 				requiresExact = false;
 		}
 	}
+	if (bestScore > 500)
+		return nullptr;
 	// If the best function match requires exact typing (and different types are passed) throw error
 	if (requiresExact) {
 		//printTokenError(t, "Function match not found, closest prototype requires exact types.\nDid you try casting?");
@@ -663,17 +703,25 @@ void initializeCodeGenerator()
 	// Open a new context and module.
 	TheContext = std::make_unique<LLVMContext>();
 	TheModule = std::make_unique<Module>("asa_global", *TheContext);
+
+	TheModule->addModuleFlag(Module::Warning, "Debug Info Version", DEBUG_METADATA_VERSION);
+	// For Darwin/macOS compatibility (optional but recommended)
+	TheModule->addModuleFlag(Module::Warning, "Dwarf Version", 4);
 	DBuilder = std::make_unique<DIBuilder>(*TheModule);
 
-	// Debug information for the file
-	llvm::DIFile* unitFile = DBuilder->createFile(baseFileName, projectDirectory);
-	llvm::DICompileUnit* theCU = DBuilder->createCompileUnit(
-		llvm::dwarf::DW_LANG_C,	 // Or the appropriate DW_LANG for your language
-		DBuilder->createFile(baseFileName, "."),
-		COMPILER_PRINTOUT,
-		/* IsOptimized = */ false,
-		/* Flags = */ "",
-		/* RV = */ 0);
+	// Create debug builder
+	DBuilder = std::make_unique<DIBuilder>(*TheModule);
+
+	// Create compile unit
+	TheFile = DBuilder->createFile(baseFileName, projectDirectory);
+	TheCU = DBuilder->createCompileUnit(
+		dwarf::DW_LANG_C,  // Or create your own language constant
+		TheFile,
+		COMPILER_PRINTOUT,		// Producer
+		optimizationLevel > 0,	// IsOptimized
+		"",						// Flags
+		0						// Runtime Version
+	);
 
 	// Create a new builder for the module.
 	Builder = std::make_unique<IRBuilder<>>(*TheContext);
@@ -710,26 +758,38 @@ valueType* findNamedValue(ASTNode* node, ASTNode* childNode, std::string& identi
 	// First look in self
 	if (node->namedValues.find(identifier) != node->namedValues.end())
 		return node->namedValues[identifier];
-	if (node->depth > 0)  // Dont look in child nodes of global TODO: organize vars better than this
-		for (auto& c : node->childNodes) {
-			if (node->depth > 0)	 // only go past position it is used if in global scope
-				if (c == childNode)	 // otherwise dont go past the node where it is used
-					break;
+
+	// Search through child nodes, but with proper scoping rules
+	for (auto& c : node->childNodes) {
+		// At nested scopes (depth > 0), only search up to the point where it's used
+		if (node->depth > 0 && c == childNode)
+			break;
+
+		// At global scope (depth == 0), only search in direct children that are
+		// expression statements or variable declarations, not in function bodies
+		if (node->depth == 0) {
+			// Only check the child's own namedValues, don't recurse into it
 			if (c->namedValues.find(identifier) != c->namedValues.end())
 				return c->namedValues[identifier];
 		}
-	if (node->depth > 0)  // search recursively upward until found or end of global scope is reached
+		else {
+			// At nested scopes, check child and its descendants
+			if (c->namedValues.find(identifier) != c->namedValues.end())
+				return c->namedValues[identifier];
+		}
+	}
+
+	// Search recursively upward, but stop at global scope
+	if (node->depth > 0)
 		return findNamedValue(node->parentNode, node, identifier, token);
 
-	// Variable not found - check if we're in a member function and the identifier is a member variable
+	// Variable not found - check if we're in a member function
 	if (!currentStructName.empty()) {
 		std::string structName = currentStructName.top();
 		if (structDefinitions.find(structName) != structDefinitions.end()) {
 			structType* structDef = structDefinitions[structName];
 
-			// Check if the identifier matches a member variable name
 			if (structDef->memberNameIndexes.find(identifier) != structDef->memberNameIndexes.end()) {
-				// Found a member variable with this name!
 				printTokenError(token, "Variable '" + identifier + "' not found. Did you mean 'this." + identifier + "'?");
 				console::Write("Tip: ", console::yellowFGColor);
 				console::WriteLine("Member functions must use 'this' to access member variables.\n");
@@ -1148,23 +1208,213 @@ void* ASTNode::generateVariableExpression(int pass)
 
 		Builder->CreateStore(exprVal, targetPtr);
 
+		//// Add debug info for the variable
+		//if (!LexicalBlocks.empty()) {
+		//	DIScope* Scope = LexicalBlocks.back();
+		//	unsigned LineNo = token->lineNumber;
+
+		//	DILocalVariable* D = DBuilder->createAutoVariable(
+		//		Scope,					// Scope
+		//		token->first,			// Name
+		//		TheFile,				// File
+		//		LineNo,					// Line
+		//		/* DIType* */ nullptr,	// Type (you'll need to create appropriate DIType)
+		//		true					// AlwaysPreserve
+		//	);
+
+		//	DBuilder->insertDeclare(
+		//		targetPtr,												 // Storage
+		//		D,														 // Variable descriptor
+		//		DBuilder->createExpression(),							 // Expression
+		//		DILocation::get(Scope->getContext(), LineNo, 0, Scope),	 // Location
+		//		Builder->GetInsertBlock()								 // Insert at end of block
+		//	);
+		//}
+
 		if (isRef || lvalue)
 			return targetPtr;
 		else
 			return Builder->CreateLoad(targetPtr->getAllocatedType(), targetPtr, token->first + "_load");
 	}
 	AllocaInst* A = (AllocaInst*)(val->val);
-	baseType = val->val->getType();
+	baseType = A->getAllocatedType();
 
-	// If this is a pointer parameter, we don't need to load it again if it's being used as an lvalue
-	if (val->isFunctionArgument && A->getAllocatedType()->isPointerTy() && (isRef || lvalue)) {
-		return Builder->CreateLoad(A->getAllocatedType(), A, token->first + "_ptr_load");
+	// Handle references: need to dereference when used as rvalue
+	if (val->isReference && !isRef && !lvalue) {
+		// For a reference used in an expression (rvalue):
+		// 1. Load the pointer from the alloca
+		Value* ptr = Builder->CreateLoad(A->getAllocatedType(), A, token->first + "_ref_ptr");
+		// 2. Load the actual value from that pointer
+		return Builder->CreateLoad(A->getAllocatedType(), ptr, token->first + "_ref_deref");
 	}
 
 	if (isRef || lvalue)
 		return A;
 	else
 		return Builder->CreateLoad(A->getAllocatedType(), A, token->first + "_load");
+}
+
+void* ASTNode::generateThrow(int pass)
+{
+	// If it has a child node, we will output it's value as a string
+	ASTNode* exprNode = nullptr;
+	Value* outVal = nullptr;
+	if (childNodes.size() > 0) {
+		exprNode = childNodes[0]->childNodes[0];
+		if (exprNode->codegen == nullptr) {
+			printTokenError(exprNode->token, "Node `" + ASTNodeTypeAsString(exprNode->nodeType) + "` does not have a code generator");
+			wasError = true;
+			return nullptr;
+		}
+		outVal = (Value*)(exprNode->*(exprNode->codegen))(pass);
+	}
+	if (wasError) {
+		return nullptr;
+	}
+
+	// Create and print the prefix message first
+	std::string throwPrefix = "Exception:  file: \"" + *(token->filePath) + "\"   line: " + std::to_string(token->lineNumber) + "\n    ";
+	Value* prefixStr = Builder->CreateGlobalStringPtr(throwPrefix);
+
+	// Look up print function for the prefix (char* type)
+	argumentList prefixArgList;
+	prefixArgList.push_back(argType("char", Char_Type, 1));
+	std::string printFnName = "print";
+	functionID* prefixPrintFnID = getFunctionFromID(functionIDs, printFnName, prefixArgList, token, true, false);
+
+	if (prefixPrintFnID) {
+		std::vector<Value*> prefixArgs;
+		prefixArgs.push_back(prefixStr);
+		Builder->CreateCall(prefixPrintFnID->fnValue, prefixArgs);
+		prefixPrintFnID->uses++;
+	}
+
+	// If we have a value to print, call the builtin print function
+	if (outVal) {
+		// Build argument list for print function lookup
+		argumentList argList;
+		std::string typeStr = "";
+
+		// TODO: Make this better for non-high-level expressions
+		if (exprNode->nodeType == String_Constant_Node) {
+			typeStr = "*char";
+		}
+		else {
+			typeStr = getStringTypeFromLLVMType(outVal->getType());
+		}
+
+		// Extract pointer level from typeStr
+		uint8_t pointerLevel = 0;
+		std::string baseTypeStr = typeStr;
+		while (baseTypeStr.length() > 0 && baseTypeStr[0] == '*') {
+			pointerLevel++;
+			baseTypeStr = baseTypeStr.substr(1);
+		}
+
+		argList.push_back(argType(baseTypeStr, getASTNodeTypeFromString(baseTypeStr), pointerLevel));
+
+		// Look up the print function
+		std::string printFnName = "printl";
+		functionID* printFnID = getFunctionFromID(functionIDs, printFnName, argList, token, true, false);
+
+		if (printFnID) {
+			// Call the print function
+			std::vector<Value*> printArgs;
+			printArgs.push_back(outVal);
+			Builder->CreateCall(printFnID->fnValue, printArgs);
+			printFnID->uses++;
+		}
+	}
+
+	// Declare exit function if not already declared
+	FunctionType* exitFuncType = FunctionType::get(
+		Type::getVoidTy(*TheContext),
+		{Type::getInt32Ty(*TheContext)},
+		false);
+	FunctionCallee exitFunc = TheModule->getOrInsertFunction("exit", exitFuncType);
+
+	// Call exit(1) to terminate the program
+	Builder->CreateCall(exitFunc, {ConstantInt::get(Type::getInt32Ty(*TheContext), 1)});
+
+	// Create an unreachable instruction since exit() doesn't return
+	Builder->CreateUnreachable();
+
+	return nullptr;
+}
+
+void* ASTNode::generateTest(int pass)
+{
+	// Make sure it has a child node, it we be evaluated to a true or false value
+	ASTNode* exprNode = nullptr;
+	Value* checkVal = nullptr;
+	if (childNodes.size() > 0) {
+		exprNode = childNodes[0]->childNodes[0];
+		if (exprNode->codegen == nullptr) {
+			printTokenError(exprNode->token, "Node `" + ASTNodeTypeAsString(exprNode->nodeType) + "` does not have a code generator");
+			wasError = true;
+			return nullptr;
+		}
+		checkVal = (Value*)(exprNode->*(exprNode->codegen))(pass);
+	}
+	if (wasError) {
+		return nullptr;
+	}
+
+	if (!checkVal) {
+		printTokenError(token, "Test expression must evaluate to a value");
+		wasError = true;
+		return nullptr;
+	}
+
+	// Convert condition to a bool by comparing non-equal to i1 0 (check if true)
+	Value* CondV = Builder->CreateICmpNE(checkVal, ConstantInt::get(*TheContext, APInt(1, 0)), "testcond");
+
+	Function* TheFunction = Builder->GetInsertBlock()->getParent();
+
+	// Create blocks for pass (continue) and fail (throw) cases
+	BasicBlock* PassBB = BasicBlock::Create(*TheContext, "test_pass", TheFunction);
+	BasicBlock* FailBB = BasicBlock::Create(*TheContext, "test_fail");
+
+	// Branch based on condition: if true go to PassBB, if false go to FailBB
+	Builder->CreateCondBr(CondV, PassBB, FailBB);
+
+	// Emit fail block (test failed, throw error)
+	TheFunction->insert(TheFunction->end(), FailBB);
+	Builder->SetInsertPoint(FailBB);
+
+	// Declare exit function if not already declared
+	FunctionType* exitFuncType = FunctionType::get(
+		Type::getVoidTy(*TheContext),
+		{Type::getInt32Ty(*TheContext)},
+		false);
+	FunctionCallee exitFunc = TheModule->getOrInsertFunction("exit", exitFuncType);
+
+	// Create and print the prefix message first
+	std::string testPrefix = "Test Failed:  file: \"" + *(token->filePath) + "\"   line: " + std::to_string(token->lineNumber) + "\n    " + *(token->lineValue);
+	Value* prefixStr = Builder->CreateGlobalStringPtr(testPrefix);
+	// Look up print function for the prefix (char* type)
+	argumentList prefixArgList;
+	prefixArgList.push_back(argType("char", Char_Type, 1));
+	std::string printFnName = "printl";
+	functionID* prefixPrintFnID = getFunctionFromID(functionIDs, printFnName, prefixArgList, token, true, false);
+
+	if (prefixPrintFnID) {
+		std::vector<Value*> prefixArgs;
+		prefixArgs.push_back(prefixStr);
+		Builder->CreateCall(prefixPrintFnID->fnValue, prefixArgs);
+		prefixPrintFnID->uses++;
+	}
+
+	// Call exit(1) to terminate the program
+	Builder->CreateCall(exitFunc, {ConstantInt::get(Type::getInt32Ty(*TheContext), 1)});
+
+	// Create an unreachable instruction since exit() doesn't return
+	Builder->CreateUnreachable();
+
+	// Emit pass block (test passed, continue execution)
+	Builder->SetInsertPoint(PassBB);
+
+	return nullptr;
 }
 
 void* ASTNode::generateReturn(int pass)
@@ -1230,6 +1480,13 @@ void* ASTNode::generateReturn(int pass)
 // Value*
 void* ASTNode::generateExpression(int pass)
 {
+	if (!LexicalBlocks.empty() && token) {
+		Builder->SetCurrentDebugLocation(
+			DILocation::get(LexicalBlocks.back()->getContext(),
+				token->lineNumber,	 // Line
+				token->indexInLine,	 // Column
+				LexicalBlocks.back()));
+	}
 	if (childNodes.size() == 0)
 		return nullptr;
 	ASTNode* exprNode = childNodes[0];
@@ -1260,6 +1517,15 @@ void* ASTNode::generateExpressionStatement(int pass)
 		return nullptr;
 	}
 
+	// Set debug location if available
+	if (!LexicalBlocks.empty() && token) {
+		Builder->SetCurrentDebugLocation(
+			DILocation::get(LexicalBlocks.back()->getContext(),
+				token->lineNumber,	// Line
+				0,					// Column (use 0 if you don't track columns)
+				LexicalBlocks.back()));
+	}
+
 	// Evaluate right side (rvalue)
 	Value* exprVal = (Value*)(exprNode->*(exprNode->codegen))(pass);
 	if (wasError) {
@@ -1277,7 +1543,7 @@ void* ASTNode::generateExpressionStatement(int pass)
 	// If the left side is a pointer lvalue
 	if (leftNode->nodeType != Identifier_Node) {
 		leftNode->lvalue = true;
-		// Otherwise left side is an expression, evaluate to pointer (lvalue address)
+		// left side is an expression, evaluate to pointer (lvalue address)
 		if (leftNode->codegen == nullptr) {
 			printTokenError(leftNode->token, "Node `" + ASTNodeTypeAsString(leftNode->nodeType) + "` does not have a code generator");
 			wasError = true;
@@ -1366,6 +1632,33 @@ void* ASTNode::generateExpressionStatement(int pass)
 			else
 				actualType = (pointerLevel > 0 ? std::string(pointerLevel, '*') : "") + typeNode->token->first;
 			namedValues[leftNode->token->first] = new valueType(leftNode->token->first, actualType, targetPtr);
+
+			// Add debug info ONLY if we have a valid scope and the stack is not empty
+			if (DBuilder && !LexicalBlocks.empty() && token) {
+				DIScope* Scope = LexicalBlocks.back();
+				unsigned LineNo = token->lineNumber;
+
+				// Create DIType
+				DIType* DebugType = createDIType(type, actualType);
+
+				if (DebugType) {
+					DILocalVariable* D = DBuilder->createAutoVariable(
+						Scope,
+						leftNode->token->first,
+						TheFile,  // Make sure TheFile is accessible
+						LineNo,
+						DebugType,
+						true  // AlwaysPreserve
+					);
+
+					DBuilder->insertDeclare(
+						targetPtr,
+						D,
+						DBuilder->createExpression(),
+						DILocation::get(Scope->getContext(), LineNo, 0, Scope),
+						Builder->GetInsertBlock());
+				}
+			}
 		}
 		else {
 			// Check if trying to modify a const variable
@@ -1376,8 +1669,18 @@ void* ASTNode::generateExpressionStatement(int pass)
 			}
 
 			targetPtr = (AllocaInst*)(val->val);
+
+			// If this is a reference, load the pointer before storing through it
+			if (val->isReference) {
+				// Load the actual pointer from the alloca
+				targetPtr = Builder->CreateLoad(((AllocaInst*)targetPtr)->getAllocatedType(), targetPtr, leftNode->token->first + "_ref_store_ptr");
+				// targetType is the type the pointer points to
+				targetType = ((AllocaInst*)(val->val))->getAllocatedType();
+			}
+			else {
+				targetType = ((AllocaInst*)targetPtr)->getAllocatedType();
+			}
 		}
-		targetType = ((AllocaInst*)targetPtr)->getAllocatedType();
 	}
 	else
 		targetType = type;
@@ -1630,7 +1933,7 @@ void* ASTNode::generateBinaryExpression(int pass)
 		return nullptr;
 
 	// Check for operator overloads first
-	if (nodeType == Redefined_Operator_Expr || checkForOperatorOverload()) {
+	if (nodeType == Redefined_Operator_Expr || checkForOperatorOverload(L, R)) {
 		return generateOperatorOverloadCall(L, R);
 	}
 
@@ -1737,21 +2040,69 @@ void* ASTNode::generatePipePlaceholder(int pass)
 	return nullptr;
 }
 
-bool ASTNode::checkForOperatorOverload()
+bool ASTNode::checkForOperatorOverload(Value* L, Value* R)
 {
+	// Operator overloads have the format: operator.<OperatorName>.<ReturnType>.<Dot separated arg types>
+	//                             like: operator.Add.string.string.string
+	//                             for:  "h" + "i"
 	std::string operatorName = "operator." + tokenAsString(token->second);
-	functionID* calleeID = getFunctionFromID(functionIDs, operatorName, token);
-	return calleeID != nullptr;
+
+	// Build argumentList from L and R types
+	argumentList argList;
+	std::string lTypeStr = getStringTypeFromLLVMType(L->getType());
+	uint8_t lPointerLevel = 0;
+	std::string lBaseTypeStr = lTypeStr;
+	while (lBaseTypeStr.length() > 0 && lBaseTypeStr[0] == '*') {
+		lPointerLevel++;
+		lBaseTypeStr = lBaseTypeStr.substr(1);
+	}
+	argList.push_back(argType(lBaseTypeStr, getASTNodeTypeFromString(lBaseTypeStr), lPointerLevel));
+
+	std::string rTypeStr = getStringTypeFromLLVMType(R->getType());
+	uint8_t rPointerLevel = 0;
+	std::string rBaseTypeStr = rTypeStr;
+	while (rBaseTypeStr.length() > 0 && rBaseTypeStr[0] == '*') {
+		rPointerLevel++;
+		rBaseTypeStr = rBaseTypeStr.substr(1);
+	}
+	argList.push_back(argType(rBaseTypeStr, getASTNodeTypeFromString(rBaseTypeStr), rPointerLevel));
+
+	functionID* calleeID = getExactFunctionFromID(functionIDs, operatorName, argList, token, true);
+	//functionID* calleeID = getFunctionFromID(functionIDs, operatorName, argList, token, true);
+	return calleeID != nullptr && calleeID->fnValue != nullptr;
 }
 
 Value* ASTNode::generateOperatorOverloadCall(Value* L, Value* R)
 {
 	std::string operatorName = "operator." + tokenAsString(token->second);
-	functionID* calleeID = getFunctionFromID(functionIDs, operatorName, token);
 
-	if (!calleeID) {
-		if (!wasError)
-			printTokenError(token, "Expected operator overload not found");
+	// Build argumentList from L and R types
+	argumentList argList;
+	std::string lTypeStr = getStringTypeFromLLVMType(L->getType());
+	uint8_t lPointerLevel = 0;
+	std::string lBaseTypeStr = lTypeStr;
+	while (lBaseTypeStr.length() > 0 && lBaseTypeStr[0] == '*') {
+		lPointerLevel++;
+		lBaseTypeStr = lBaseTypeStr.substr(1);
+	}
+	argList.push_back(argType(lBaseTypeStr, getASTNodeTypeFromString(lBaseTypeStr), lPointerLevel));
+
+	std::string rTypeStr = getStringTypeFromLLVMType(R->getType());
+	uint8_t rPointerLevel = 0;
+	std::string rBaseTypeStr = rTypeStr;
+	while (rBaseTypeStr.length() > 0 && rBaseTypeStr[0] == '*') {
+		rPointerLevel++;
+		rBaseTypeStr = rBaseTypeStr.substr(1);
+	}
+	argList.push_back(argType(rBaseTypeStr, getASTNodeTypeFromString(rBaseTypeStr), rPointerLevel));
+
+	functionID* calleeID = getFunctionFromID(functionIDs, operatorName, argList, token, true);
+
+	if (!calleeID || !calleeID->fnValue) {
+		if (!wasError) {
+			wasError = true;
+			printTokenError(token, "Expected operator overload for undefined operator `" + tokenAsString(token->second) + "`, but none were not found");
+		}
 		return nullptr;
 	}
 
@@ -2031,8 +2382,8 @@ void* ASTNode::generateMemberAccess(int pass)
 				return nullptr;
 			// Add rest of argument values
 			for (int i = 0; i < args.size(); i++) {
-				if (CalleeFID->arguments[i].isReference) {
-					if (args[0]->childNodes.size() != 1 || args[0]->childNodes[0]->nodeType != Identifier_Node) {
+				if (CalleeFID->userArguments[i].isReference) {
+					if (args[i]->childNodes.size() != 1 || args[i]->childNodes[0]->nodeType != Identifier_Node) {
 						printTokenError(token, "Cannot pass value as reference");
 						wasError = true;
 						return nullptr;
@@ -2184,7 +2535,7 @@ void* ASTNode::generateMemberAccess(int pass)
 			// Add rest of argument values
 			for (int i = 0; i < args.size(); i++) {
 				if (CalleeFID->arguments[i].isReference) {
-					if (args[0]->childNodes.size() != 1 || args[0]->childNodes[0]->nodeType != Identifier_Node) {
+					if (args[i]->childNodes.size() != 1 || args[i]->childNodes[0]->nodeType != Identifier_Node) {
 						printTokenError(token, "Cannot pass value as reference");
 						wasError = true;
 						return nullptr;
@@ -2242,38 +2593,6 @@ void* ASTNode::generateScopeBody(int pass)
 	}
 
 	return nullptr;
-}
-
-// Value*
-void* ASTNode::generateTest(int pass)
-{
-	return nullptr;
-	//if (childNodes.size() < 2 || childNodes[1]->childNodes.size() == 0 || childNodes[1]->childNodes[0]->childNodes.size() == 0) {
-	//	printTokenError(token, "Cast expression expected name followed by new type like: #cast x : float;");
-	//	wasError = true;
-	//	return nullptr;
-	//}
-	//std::string varName = childNodes[1]->childNodes[0]->token->first;
-	//valueType* val = findNamedValue(parentNode, this, varName, token);
-	//if (!val && !wasError) {
-	//	printTokenError(childNodes[1]->childNodes[0]->token, "Unknown variable name used");
-	//	wasError = true;
-	//	return nullptr;
-	//}
-	//AllocaInst* var = (AllocaInst*)(val->val);
-
-	//Value* value = Builder->CreateLoad(var->getAllocatedType(), var, varName + "_load");
-
-	//std::string tyVal = childNodes[1]->childNodes[0]->childNodes[0]->token->first;
-
-	//bool wasDefined = true;
-	//Type* toType = getLLVMTypeFromString(tyVal, 0, childNodes[1]->childNodes[0]->childNodes[0]->token, wasDefined, pass);
-	////if (wasDefined == false)
-	////	return nullptr;
-
-	//return castValue(value, toType, true, typeSigns[tyVal], token);
-
-	//return Builder->CreateStore(castedValue, var);
 }
 
 // Value*
@@ -2380,6 +2699,7 @@ void* ASTNode::generateCallExpression(int pass)
 		if (args[i]->childNodes.size() == 1)
 			identifierNode = args[i]->childNodes[0];
 
+		// TODO: Make this better for non-high-level expressions
 		// Try to get the type string from the expression
 		if (identifierNode->nodeType == Identifier_Node) {
 			valueType* val = findNamedValue(parentNode, this, identifierNode->token->first, token);
@@ -2419,7 +2739,7 @@ void* ASTNode::generateCallExpression(int pass)
 	}
 
 	// Look up the function ID using the caller's argList (without sret)
-	if (verbosity >= 5 || true) {  // Force debug output
+	if (verbosity >= 5) {
 		console::WriteLine("\nDEBUG: Looking for function: " + token->first);
 		console::WriteLine("Arguments passed:");
 		for (size_t i = 0; i < argList.size(); i++) {
@@ -2687,15 +3007,13 @@ void* ASTNode::generateStruct(int pass)
 			else if (fieldNode->nodeType == Compiler_Define_Function &&
 					 generatingType == 1 && pass > 1) {
 				// Generate function
-				Function* memberFunction =
-					(Function*)(fieldNode->*(fieldNode->codegen))(pass);
+				Function* memberFunction = (Function*)(fieldNode->*(fieldNode->codegen))(pass);
 				if (wasError) {
 					currentStructName.pop();
 					return nullptr;
 				}
 				// Get pointer to generated function from global
-				functionID* fnID =
-					getFunctionIDFromFunctionPointer(functionIDs, memberFunction);
+				functionID* fnID = getFunctionIDFromFunctionPointer(functionIDs, memberFunction);
 				memberFunctions.push_back(fnID);
 			}
 		}
@@ -3136,7 +3454,7 @@ void* ASTNode::generatePrototype(int pass)
 	if (currentStructName.size() > 0) {
 		std::string typeStr = currentStructName.top();
 		bool isReference = true;
-		int pointerLevel = 1;
+		int pointerLevel = 0;  // References don't count as pointer level
 
 		Type* aType = nullptr;
 		argList.push_back(argType(typeStr, Struct_Type, pointerLevel, isReference, false, false));
@@ -3147,6 +3465,10 @@ void* ASTNode::generatePrototype(int pass)
 			//if (wasDefined == false)
 			//	return nullptr;
 			for (int i = 0; i < pointerLevel; i++) {
+				aType = aType->getPointerTo();
+			}
+			// Add pointer level for reference (LLVM representation)
+			if (isReference) {
 				aType = aType->getPointerTo();
 			}
 		}
@@ -3181,8 +3503,7 @@ void* ASTNode::generatePrototype(int pass)
 				if (typeNode->token->first == "ref") {
 					isReference = true;
 					mangledName += ".ref";
-					//typeStr += "*";
-					pointerLevel++;
+					// Don't modify typeStr or pointerLevel - references are tracked separately
 					typeNode = typeNode->childNodes[0];
 					goto gatherTypeModifiers;
 				}
@@ -3224,6 +3545,12 @@ void* ASTNode::generatePrototype(int pass)
 					aType = getLLVMTypeFromString(typeNode->token->first, 0, typeNode->token, wasDefined, pass);
 
 					for (int i = 0; i < pointerLevel; i++) {
+						aType = aType->getPointerTo();
+					}
+
+					// If this is a reference, add an extra pointer level for LLVM representation
+					// (references are implemented as pointers in LLVM)
+					if (isReference) {
 						aType = aType->getPointerTo();
 					}
 				}
@@ -3359,9 +3686,46 @@ void* ASTNode::generateFunction(int pass)
 		return nullptr;
 	}
 
-	// Create a new basic block to start insertion into.
+	// Create debug info for the function
+	unsigned LineNo = token->lineNumber;  // Assuming token has line info
+	unsigned ScopeLine = LineNo;
+
+	// Create subroutine type
+	SmallVector<Metadata*, 8> EltTys;
+	DIType* DblTy = DBuilder->createBasicType("double", 64, dwarf::DW_ATE_float);
+	EltTys.push_back(DblTy);  // Add return type and parameters as needed
+
+	DISubroutineType* SubroutineType = DBuilder->createSubroutineType(
+		DBuilder->getOrCreateTypeArray(EltTys));
+
+	// Create function debug info
+	DISubprogram* SP = DBuilder->createFunction(
+		TheFile,						// Scope
+		functionName,					// Name
+		StringRef(),					// Linkage name
+		TheFile,						// File
+		LineNo,							// Line number
+		SubroutineType,					// Type
+		ScopeLine,						// Scope line
+		DINode::FlagPrototyped,			// Flags
+		DISubprogram::SPFlagDefinition	// SP Flags
+	);
+
+	theFunction->setSubprogram(SP);
+	LexicalBlocks.push_back(SP);
+
+	// Create entry block and emit debug location
 	BasicBlock* fnBlock = BasicBlock::Create(*TheContext, "entry", theFunction);
 	Builder->SetInsertPoint(fnBlock);
+
+	// Set debug location for entry
+	Builder->SetCurrentDebugLocation(
+		DILocation::get(SP->getContext(), LineNo, 0, SP));
+
+
+	//// Create a new basic block to start insertion into.
+	//BasicBlock* fnBlock = BasicBlock::Create(*TheContext, "entry", theFunction);
+	//Builder->SetInsertPoint(fnBlock);
 
 	// Record the function arguments in the NamedValues map.
 	// If it is a struct, first add a "this" argument like: (this : ref structName, ...)
@@ -3396,7 +3760,7 @@ void* ASTNode::generateFunction(int pass)
 		//	for (int p = 0; p < theFunctionID->arguments[i].pointerLevel; p++)
 		//		baseType += "*";
 
-		valueType* vt = new valueType(std::string(arg.getName()), baseType + theFunctionID->arguments[i].typeString, Alloca, true);
+		valueType* vt = new valueType(std::string(arg.getName()), baseType + theFunctionID->arguments[i].typeString, Alloca, true, theFunctionID->arguments[i].isReference);
 
 		vt->isConstant = theFunctionID->arguments[i].isConstant;
 
@@ -3513,7 +3877,7 @@ int outputObjectFile(std::string& objectFilePath)
 int generateExecutable(const std::string& irFilePath, const std::string& exeFilePath)
 {
 	// llc to convert <name>.ll to assembly
-	std::string commandLLC = "llc  -relocation-model=pic " + irFilePath + " -o " + irFilePath + ".s";
+	std::string commandLLC = "llc -relocation-model=pic " + irFilePath + " -o " + irFilePath + ".s";
 	int result = std::system(commandLLC.c_str());
 	if (result != 0)
 		exit(1);

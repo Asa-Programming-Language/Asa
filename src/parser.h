@@ -66,6 +66,7 @@ enum ASTNodeType {
 	Bitwise_Shift_Right,
 	Pipe_Operation,
 	Pipe_Placeholder,
+	Comma_Node,
 
 	Range_Node,
 
@@ -101,6 +102,9 @@ enum ASTNodeType {
 	Continue_Node,
 	Break_Node,
 	Goto_Node,
+
+	Test_Node,
+	Throw_Node,
 
 	Iterator,
 	Condition,
@@ -176,6 +180,7 @@ const std::string ASTNodeTypeStrings[] = {
 	"Bitwise_Shift_Right",
 	"Pipe_Operation",
 	"Pipe_Placeholder",
+	"Comma_Node",
 
 	"Range_Node",
 
@@ -212,6 +217,9 @@ const std::string ASTNodeTypeStrings[] = {
 	"Break_Node",
 	"Goto_Node",
 
+	"Test_Node",
+	"Throw_Node",
+
 	"Iterator",
 	"Condition",
 	"Scope_Body",
@@ -240,9 +248,10 @@ struct valueType {
 	std::string type;
 	bool isFunctionArgument = false;
 	bool isConstant = false;
+	bool isReference = false;
 	Value* val;
-	valueType(std::string n, std::string t, Value* v, bool arg = false)
-		: name(n), type(t), val(v), isFunctionArgument(arg) {};
+	valueType(std::string n, std::string t, Value* v, bool arg = false, bool ref = false)
+		: name(n), type(t), val(v), isFunctionArgument(arg), isReference(ref) {};
 };
 
 struct ASTNode {
@@ -295,6 +304,7 @@ struct ASTNode {
 	void* generateFunction(int pass = 0);
 	void* generateCast(int pass = 0);
 	void* generateTest(int pass = 0);
+	void* generateThrow(int pass = 0);
 	void* generateTypeInstance(int pass = 0);
 	void* generateCallExpression(int pass = 0);
 	void* generateNothing(int pass = 0);
@@ -304,7 +314,7 @@ struct ASTNode {
 	// Helper functions:
 
 	Value* generateOperatorOverloadCall(Value* L, Value* R);
-	bool checkForOperatorOverload();
+	bool checkForOperatorOverload(Value* L, Value* R);
 	Value* generatePointerBinaryOp(Value* L, Value* R);
 	Value* generateFloatBinaryOp(Value* L, Value* R);
 	Value* generateIntegerBinaryOp(Value* L, Value* R);

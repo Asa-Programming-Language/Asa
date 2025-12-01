@@ -1,0 +1,53 @@
+
+ColorPrint :: module {
+
+	#import Builtin:Print;
+	#import Builtin:String;
+
+	// Foreground colors
+	blackFG = "\x1B[30m";
+	redFG = "\x1B[31m";
+	greenFG = "\x1B[32m";
+	yellowFG = "\x1B[33m";
+	blueFG = "\x1B[34m";
+	magentaFG = "\x1B[35m";
+	cyanFG = "\x1B[36m";
+	whiteFG = "\x1B[37m";
+	brightBlackFG = "\x1B[90m";
+	brightRedFG = "\x1B[91m";
+	brightGreenFG = "\x1B[92m";
+	brightYellowFG = "\x1B[93m";
+	brightBlueFG = "\x1B[94m";
+	brightMagentaFG = "\x1B[95m";
+	brightCyanFG = "\x1B[96m";
+	brightWhiteFG = "\x1B[97m";
+
+	//Background colors
+	blackBG = "\x1B[40m";
+	redBG = "\x1B[41m";
+	greenBG = "\x1B[42m";
+	yellowBG = "\x1B[43m";
+	blueBG = "\x1B[44m";
+	magentaBG = "\x1B[45m";
+	cyanBG = "\x1B[46m";
+	whiteBG = "\x1B[47m";
+	brightBlackBG = "\x1B[100m";
+	brightRedBG = "\x1B[101m";
+	brightGreenBG = "\x1B[102m";
+	brightYellowBG = "\x1B[103m";
+	brightBlueBG = "\x1B[104m";
+	brightMagentaBG = "\x1B[105m";
+	brightCyanBG = "\x1B[106m";
+	brightWhiteBG = "\x1B[107m";
+
+	// Reset colors
+	resetColor : *char = "\033[0m";
+
+
+	colorPrint:: (s : exact *char, col : exact *char, ...) {
+		resetColor : *char = "\033[0m";
+		printf(col + s + resetColor);
+		return;
+	}
+}
+

@@ -91,6 +91,8 @@ enum TokenType {
 	Break_Statement,
 	Else_Statement,
 	Goto_Statement,
+	Test_Statement,
+	Throw_Statement,
 	Struct_Define,
 	Module_Define,
 
@@ -188,6 +190,8 @@ const std::string tokenTypeStrings[] = {
 	"Break_Statement",
 	"Else_Statement",
 	"Goto_Statement",
+	"Test_Statement",
+	"Throw_Statement",
 	"Struct_Define",
 	"Module_Define",
 
@@ -240,8 +244,8 @@ typedef tokenDataType tokenPair;
 extern std::vector<tokenPair*> allTokens;
 extern std::vector<std::string*> lines;
 
+// Increments i, then returns the next token in `tokens`
 #define NEXT_TOKEN(tokens, i) tokens[++i];
-//tokenPair NEXT_TOKEN(int& i);
 
 int tokenize(std::string& rawFile, std::vector<tokenPair*>& tokens, std::string& fileName);
 int labelSubTokens(std::vector<tokenPair*>& tokens);

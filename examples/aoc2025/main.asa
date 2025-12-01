@@ -1,0 +1,23 @@
+#import Builtin:Print;
+#import Builtin:Memory;
+
+//#extern putchar::(c : char);
+//#extern malloc::*char(s : int);
+//#extern free::(p : *int);
+//#extern fopen::*file(c : *char);
+//#extern fgets::(c : *char, s : int, p : *file);
+
+file :: struct{
+
+}
+
+main :: (){
+	//f : *file = fopen("main.asa");
+	//buffer : *char = malloc(512);
+	//fgets(buffer, 512, f);
+
+
+
+	return;
+}
+

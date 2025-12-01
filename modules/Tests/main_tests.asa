@@ -14,7 +14,7 @@ PipeOperatorTest :: module{
 		return y*2;
 	}
 	pipeTest::int(z : int){
-		return fnX(z) -> fnY(%);
+		return fnX(z) -> fnY(@);
 	}
 }
 
@@ -27,8 +27,15 @@ ModifyReference :: module{
 	}
 }
 
-#import Basic.Print;
+#import Builtin:Print;
+#import Builtin:String;
 
 main::(){
-	#test 1+1==2;
+	// Arithmetic
+	test 1+1==2;
+	test 2-1==1;
+	test 2*12==24;
+	test 100/4==25;
+	printl(string(5));
+	//test 5%3==2, printl("Left side " + string(5%3) + " != " + string(2));
 }

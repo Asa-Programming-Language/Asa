@@ -193,7 +193,7 @@ std::vector<Test> tests = {
 	// Module includes
 	Test(
 		R"(
-		#import Tests.Test1;
+		#import Tests:Test1;
 	)",
 		A(Scope_Body, // Global
 			{
@@ -202,10 +202,9 @@ std::vector<Test> tests = {
 						A(Identifier_Node, {}),
 						A(Scope_Body, 
 							{
-								A(Member_Access,
+								A(Identifier_Node,
 									{
-										A(Identifier_Node),
-										A(Identifier_Node),
+										A(Type_Node),
 									}
 								)
 							}
