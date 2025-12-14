@@ -15,6 +15,9 @@ build
 tags
 tags.lock
 tags.temp
+*.ll
+*.ll.s
+*.deb
 
 # CLion
 #  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
