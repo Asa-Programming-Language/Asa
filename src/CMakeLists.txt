@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.15)
 
-project(asa_compiler CXX)
+project(asa_compiler CXX C)
 set (CMAKE_CXX_STANDARD 17)
 
 # Make sure build type si set
@@ -8,7 +8,9 @@ if(NOT CMAKE_BUILD_TYPE)
 	set(CMAKE_BUILD_TYPE Debug)
 endif()
 
+
 message(STATUS "Build type is: ${CMAKE_BUILD_TYPE}")
+set(CMAKE_INSTALL_PREFIX ".")
 
 
 # Handle including LLVM
@@ -20,7 +22,6 @@ message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 include_directories(${LLVM_INCLUDE_DIRS})
 separate_arguments(LLVM_DEFINITIONS_LIST NATIVE_COMMAND ${LLVM_DEFINITIONS})
 add_definitions(${LLVM_DEFINITIONS_LIST})
-
 
 #set(CMAKE_CXX_FLAGS "-Wall -Wextra")
 set(CMAKE_CXX_FLAGS_DEBUG "-g -Og")
@@ -46,5 +47,6 @@ llvm_map_components_to_libnames(llvm_libs ${LLVM_TARGETS_TO_BUILD} support core 
 # Link against LLVM libraries
 target_link_libraries(asa ${llvm_libs})
 
-file(COPY "../modules" DESTINATION "./")
+install(TARGETS asa RUNTIME)
+file(COPY "../modules" DESTINATION "./bin")
 #file(COPY "fonts" DESTINATION "./")

@@ -307,7 +307,6 @@ int labelSubTokens(std::vector<tokenPair*>& tokens)
 int joinCommentTokens(std::vector<tokenPair*>& tokens)
 {
 	tokens.insert(tokens.begin(), new tokenPair());
-	tokens.push_back(new tokenPair());
 	int i = 0;
 	bool inComment = false;
 	bool multiLineComment = false;

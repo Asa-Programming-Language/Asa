@@ -425,6 +425,7 @@ void findUnusedLeafNodes(ASTNode*& node)
 std::vector<ASTNode*> ASTNodes = std::vector<ASTNode*>();
 
 std::map<TokenType, ASTNodeType> operatorDefaultNodeType = {
+	{Colon, Colon_Separator_Node},
 	{Dot_Dot, Range_Node},
 	{Comma, Comma_Node},
 	{Bang_Equal, Compare_Not},
@@ -449,6 +450,7 @@ std::map<TokenType, ASTNodeType> operatorDefaultNodeType = {
 
 std::map<ASTNodeType, int> operatorPrecedence = {
 	{Operator_Overload_Node, 100},	// anything else
+	{Colon_Separator_Node, 99},		// :
 	{Member_Access, 90},			// .
 	{Access_Operation, 80},			// []
 	{Expression_Paren_Term, 70},	// ()
@@ -791,62 +793,63 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 				break;
 			}
 
-			case Colon: {
-				ASTNode* firstTerm = new ASTNode();
-				ASTNode* secondTerm = new ASTNode();
+			//case Colon: {
+			//	ASTNode* firstTerm = new ASTNode();
+			//	ASTNode* secondTerm = new ASTNode();
 
-				// Instead of backtracking to get the first term, pop the leafNodes vector
-				if (parentNode->leafNodes.size() == 0) {
-					printTokenError(token, "Binary operator expected left argument");
-					exit(1);
-				}
-				else {
-					firstTerm = parentNode->leafNodes.back();
-					parentNode->leafNodes.pop_back();
-					node = firstTerm;
-					node->nodeType = Identifier_Node;
-				}
+			//	// Instead of backtracking to get the first term, pop the leafNodes vector
+			//	if (parentNode->leafNodes.size() == 0) {
+			//		printTokenError(token, "Binary operator expected left argument");
+			//		exit(1);
+			//	}
+			//	else {
+			//		firstTerm = parentNode->leafNodes.back();
+			//		parentNode->leafNodes.pop_back();
+			//		node = firstTerm;
+			//		node->nodeType = Identifier_Node;
+			//	}
 
-				// Step through all following tokens until parens are closed
-				int parenLevel = 1;
-				std::vector<tokenPair*> subTokens = std::vector<tokenPair*>();
-				for (;;) {
-					if (i >= tokens.size() - 1)
-						break;
-					tokenPair* t = NEXT_TOKEN(tokens, i);
+			//	// Step through all following tokens until parens are closed
+			//	int parenLevel = 1;
+			//	std::vector<tokenPair*> subTokens = std::vector<tokenPair*>();
+			//	for (;;) {
+			//		if (i >= tokens.size() - 1)
+			//			break;
+			//		tokenPair* t = NEXT_TOKEN(tokens, i);
 
-					if (t->second == Left_Paren)
-						parenLevel++;
-					if (t->second == Right_Paren)
-						parenLevel--;
+			//		if (t->second == Left_Paren)
+			//			parenLevel++;
+			//		if (t->second == Right_Paren)
+			//			parenLevel--;
 
-					if (parenLevel == 0)
-						break;
-					if (t->second == Equal || t->second == Semi_Colon) {
-						i--;
-						break;
-					}
-					if (t->second == EndOfLine) {
-						break;
-					}
+			//		if (parenLevel == 0)
+			//			break;
+			//		if (t->second == Equal || t->second == Semi_Colon) {
+			//			i--;
+			//			break;
+			//		}
+			//		if (t->second == EndOfLine) {
+			//			break;
+			//		}
 
-					subTokens.push_back(t);
-				}
-				if (subTokens.size() == 0) {
-					printTokenError(token, "Operator expected right argument");
-					exit(1);
-				}
-				secondTerm = generateAST(subTokens, depth + 1)->childNodes[0];
-				secondTerm->nodeType = Type_Node;
+			//		subTokens.push_back(t);
+			//	}
+			//	if (subTokens.size() == 0) {
+			//		printTokenError(token, "Operator expected right argument");
+			//		exit(1);
+			//	}
+			//	secondTerm = generateAST(subTokens, depth + 1)->childNodes[0];
+			//	secondTerm->nodeType = Type_Node;
 
-				node->childNodes.push_back(secondTerm);
+			//	node->childNodes.push_back(secondTerm);
 
-				goto addNodeAsLeaf;
-				break;
-			}
+			//	goto addNodeAsLeaf;
+			//	break;
+			//}
 
 			// Operators:
 			// builtin:
+			case Colon:
 			case Comma:
 			case Dot_Dot:
 			case Dot:
@@ -2127,16 +2130,23 @@ void addModuleImports(ASTNode*& node)
 				// Load module if module name is provided
 				if (node->childNodes.size() > 1) {
 					ASTNode* moduleNameNode = node->childNodes[1]->childNodes[0];
-					if (moduleNameNode->nodeType == Identifier_Node) {
-						std::string modulePath = moduleNameNode->token->first;
+					if (moduleNameNode->nodeType == Identifier_Node || moduleNameNode->nodeType == Colon_Separator_Node) {
+						std::string modulePath = "";
 						bool moduleFound = false;
-						ASTNode* secondExpression = moduleNameNode->childNodes[0];
-						// Get sub components
-						while (secondExpression->childNodes.size() > 0) {
-							modulePath += "/" + secondExpression->token->first;
-							secondExpression = secondExpression->childNodes[0];
+						std::string moduleName = "";
+						if (moduleNameNode->childNodes.size() > 0) {
+							ASTNode* firstExpression = moduleNameNode->childNodes[0];
+							modulePath += "/" + firstExpression->token->first;
+							ASTNode* secondExpression = moduleNameNode->childNodes[1];
+							// Get sub components
+							while (secondExpression->childNodes.size() > 0) {
+								modulePath += "/" + secondExpression->token->first;
+								moduleName = secondExpression->token->first;
+								secondExpression = secondExpression->childNodes[1];
+							}
 						}
-						std::string moduleName = secondExpression->token->first;
+						else
+							modulePath = moduleNameNode->token->first;
 
 						if (importedModuleNames.find(moduleName) != importedModuleNames.end()) {
 							node->nodeType = Nothing_Node;
@@ -2153,39 +2163,47 @@ void addModuleImports(ASTNode*& node)
 						importedModuleNames.insert(moduleName);
 
 						if (!moduleFound) {
-							printTokenError(moduleNameNode->token, "Failed to import module, not found", __LINE__);
+							printTokenError(moduleNameNode->token, "Failed to import module with name: \"" + modulePath + "\", not found", __LINE__);
 							exit(1);
 						}
 					}
-					else if (moduleNameNode->nodeType == Identifier_Node) {
-						bool moduleFound = false;
-						std::string moduleName = moduleNameNode->token->first;
+					//else if (moduleNameNode->nodeType == Colon_Separator_Node) {
+					//	bool moduleFound = false;
+					//	std::string moduleName = moduleNameNode->token->first;
+					//	ASTNode* secondExpression = moduleNameNode->childNodes[0];
+					//	// Get sub components
+					//	while (secondExpression->childNodes.size() > 0) {
+					//		modulePath += "/" + secondExpression->token->first;
+					//		secondExpression = secondExpression->childNodes[0];
+					//	}
 
-						if (importedModuleNames.find(moduleName) != importedModuleNames.end()) {
-							node->nodeType = Nothing_Node;
-							return;
-						}
+					//	if (importedModuleNames.find(moduleName) != importedModuleNames.end()) {
+					//		node->nodeType = Nothing_Node;
+					//		return;
+					//	}
 
-						std::string searchPath[2] = {projectDirectory, executableDirectory + "modules/"};
-						if (directoryExists(searchPath[0]))
-							moduleFound = loadModule(searchPath[0], moduleName);
-						if (!moduleFound && directoryExists(searchPath[1]))
-							moduleFound = loadModule(searchPath[1], moduleName);
+					//	std::string searchPath[2] = {projectDirectory, executableDirectory + "modules/"};
+					//	if (directoryExists(searchPath[0]))
+					//		moduleFound = loadModule(searchPath[0], moduleName);
+					//	if (!moduleFound && directoryExists(searchPath[1]))
+					//		moduleFound = loadModule(searchPath[1], moduleName);
 
-						importedModuleNames.insert(moduleName);
+					//	importedModuleNames.insert(moduleName);
 
-						if (!moduleFound) {
-							printTokenError(moduleNameNode->token, "Failed to import module, not found", __LINE__);
-							exit(1);
-						}
-					}
+					//	if (!moduleFound) {
+					//		printTokenError(moduleNameNode->token, "Failed to import module, not found", __LINE__);
+					//		exit(1);
+					//	}
+					//}
 					else {
 						printTokenError(moduleNameNode->token, "Expected module name", __LINE__);
+						printAST(node);
 						exit(1);
 					}
 				}
 				else {
 					printTokenError(node->childNodes[0]->token, "Expected module name", __LINE__);
+					printAST(node);
 					exit(1);
 				}
 

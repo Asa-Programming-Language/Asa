@@ -67,6 +67,7 @@ enum ASTNodeType {
 	Pipe_Operation,
 	Pipe_Placeholder,
 	Comma_Node,
+	Colon_Separator_Node,
 
 	Range_Node,
 
@@ -181,6 +182,7 @@ const std::string ASTNodeTypeStrings[] = {
 	"Pipe_Operation",
 	"Pipe_Placeholder",
 	"Comma_Node",
+	"Colon_Separator_Node",
 
 	"Range_Node",
 

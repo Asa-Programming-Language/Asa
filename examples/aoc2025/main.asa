@@ -1,4 +1,4 @@
-#import Builtin:Print;
+//#import Builtin:Print;
 #import Builtin:Memory;
 
 //#extern putchar::(c : char);
@@ -7,9 +7,9 @@
 //#extern fopen::*file(c : *char);
 //#extern fgets::(c : *char, s : int, p : *file);
 
-file :: struct{
-
-}
+//file :: struct{
+//
+//}
 
 main :: (){
 	//f : *file = fopen("main.asa");
@@ -18,6 +18,5 @@ main :: (){
 
 
 
-	return;
 }
 

@@ -15,7 +15,7 @@ This repository contains all of the source code for the Asa programming language
 > There are no releases currently, and much of the current code is subject to change
 
 ## Building from source
-This method has only been tested on Debian Linux version 12.2, but may be applicabe to other versions and operating systems.
+This method has only been tested on Debian Linux version 12.2, but may be applicable to other versions and operating systems.
 
 1. **Clone the repository**
 
@@ -26,7 +26,8 @@ This method has only been tested on Debian Linux version 12.2, but may be applic
 2. **Install required packages**
 
    ```bash
-   sudo apt-get install -y cmake ninja libedit-dev #TODO:
+   # CMake version 3.25 is the only tested version
+   sudo apt-get install -y cmake libedit-dev #TODO: update with new required packages
    ```
 
 3. **Clone and build LLVM from source**
@@ -38,11 +39,12 @@ This method has only been tested on Debian Linux version 12.2, but may be applic
    git checkout 3623fe6;
    ```
    Build:
+   > It is recommended to use Ninja to build LLVM, since it saves time. ***If you don't have ninja installed,*** you can install it with: `sudo apt-get install ninja`. Or, if you prefer to use make, you can replace `Ninja` below with: `"Unix Makefiles"` (including quotes).
    ```bash
-   cmake -S llvm -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DLLVM_ENABLE_RUNTIMES="libcxx;libcxxabi" -DLLVM_TARGETS_TO_BUILD=X86 -DLLVM_PARALLEL_LINK_JOBS=1 -DCMAKE_EXE_LINKER_FLAGS="-Wl,--reduce-memory-overheads -Wl,--hash-size=1021" -DLLVM_ENABLE_RUNTIMES="libunwind"
+   cmake -S llvm -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DLLVM_ENABLE_RUNTIMES="libcxx;libcxxabi" -DLLVM_TARGETS_TO_BUILD=X86 -DLLVM_PARALLEL_LINK_JOBS=1 -DCMAKE_EXE_LINKER_FLAGS="-Wl,--reduce-memory-overheads -Wl,--hash-size=1021" -DLLVM_ENABLE_RUNTIMES="libunwind"; # This command builds cmake, but only the components required by Asa. This saves time and space
    cd build;
-   ninja;
-   sudo ninja install;
+   cmake --build;
+   sudo cmake --install;
    ```
 
 4. **Build and run ASA**
