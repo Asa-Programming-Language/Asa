@@ -11,5 +11,7 @@ cmake -G Ninja ../src;
 echo -e "\nRunning Ninja...";
 ninja -j4;
 cmake --install .;
+echo -e "\nIncrementing build number...";
+../src/increment_build.sh;
 echo -e "\nStarting asa...";
 ./asa --runtests;
