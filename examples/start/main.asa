@@ -63,7 +63,7 @@ main :: (){
 	//f = float(1);
 
 	//var : bool;
-	greenFG : *char = "\x1B[32m";
+	//greenFG : *char = "\x1B[32m";
 
 	xMain : int = 9;
 	testReference(xMain);

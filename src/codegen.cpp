@@ -163,6 +163,27 @@ struct functionID {
 		}
 		return false;
 	}
+	// Check if two type strings are equivalent (handling type synonyms)
+	bool areTypesEquivalent(const std::string& type1, const std::string& type2)
+	{
+		if (type1 == type2)
+			return true;
+
+		// Handle int8/char synonyms
+		if ((type1 == "int8" || type1 == "char") && (type2 == "int8" || type2 == "char"))
+			return true;
+		if ((type1 == "uint8" || type1 == "uchar") && (type2 == "uint8" || type2 == "uchar"))
+			return true;
+
+		// Handle int/int32 synonyms
+		if ((type1 == "int" || type1 == "int32") && (type2 == "int" || type2 == "int32"))
+			return true;
+		if ((type1 == "uint" || type1 == "uint32") && (type2 == "uint" || type2 == "uint32"))
+			return true;
+
+		return false;
+	}
+
 	uint16_t compareMatch(std::string n, argumentList a, bool wereTypesInferred = false)
 	{
 		uint16_t differences = 0;
@@ -178,7 +199,7 @@ struct functionID {
 			bool mustBeExactType = userArguments[i].mustBeExactType;
 
 			// First check if both the base type AND pointer level match exactly
-			if (userArguments[i].typeString == a[i].typeString &&
+			if (areTypesEquivalent(userArguments[i].typeString, a[i].typeString) &&
 				userArguments[i].pointerLevel == a[i].pointerLevel) {
 				differences += 0;
 				continue;
@@ -190,8 +211,8 @@ struct functionID {
 
 			// If pointer levels differ, these are fundamentally different types
 			if (userArguments[i].pointerLevel != a[i].pointerLevel) {
-				console::indentation--;
-				return 1000;
+				differences = 1000;
+				goto returnDifferences;
 				//if (mustBeExactType) {
 				//	return 500;	 // Incompatible types
 				//}
@@ -204,35 +225,37 @@ struct functionID {
 			// Else if they are both integer types (and same pointer level)
 			else if (t1 >= Integer_Node && t1 <= Boolean_Node) {
 				if (mustBeExactType) {	// If the argument type must be exact, but aren't
-					console::indentation--;
-					return 500;
+					differences = 500;
+					goto returnDifferences;
 				}
 				if (t2 >= Integer_Node && t2 <= Boolean_Node)  // If similar type
 					differences += abs(t1 - t2);
 				else {
-					console::indentation--;
-					return 600;	 // Trying to match integer with non-integer
+					differences = 600;	// Trying to match integer with non-integer
+					goto returnDifferences;
 				}
 			}
 			// Else if they are both float types (and same pointer level)
 			else if (t1 >= Double_Type && t1 <= Half_Type) {
 				if (mustBeExactType) {	// If the argument type must be exact but aren't
-					console::indentation--;
-					return 500;
+					differences = 500;
+					goto returnDifferences;
 				}
 				if (t2 >= Double_Type && t2 <= Half_Type)  // If similar type
 					differences += abs(t1 - t2);
 				else {
-					console::indentation--;
-					return 600;	 // Trying to match float with non-float
+					differences = 600;	// Trying to match float with non-float
+					goto returnDifferences;
 				}
 			}
 			// If we get here, the types don't match at all
 			else {
-				console::indentation--;
-				return 800;
+				differences = 800;
+				goto returnDifferences;
 			}
 		}
+	returnDifferences:
+		console::WriteLine("returning difference of: " + std::to_string(differences));
 		console::indentation--;
 		return differences;
 	}
@@ -438,14 +461,18 @@ functionID* getExactFunctionFromID(std::vector<functionID*>& fnIDs, std::string&
 		}
 	}
 	if (bestScore > 500)
-		return nullptr;
+		goto exactFnNotFound;
 	// If the best function match requires exact typing (and different types are passed) throw error
 	if (requiresExact) {
+		goto exactFnNotFound;
 		//printTokenError(t, "Function match not found, closest prototype requires exact types.\nDid you try casting?");
-		return nullptr;
 	}
-	if (bestScore == 0)
+	if (bestScore == 0) {
 		return best;
+		console::Write("found");
+	}
+exactFnNotFound:
+	console::Write("not found");
 	return nullptr;
 }
 functionID* getFunctionFromID(std::vector<functionID*>& fnIDs, std::string& name, std::vector<ASTNode*>& argValues, tokenPair*& t)
@@ -599,9 +626,15 @@ std::string getStringTypeFromLLVMType(llvm::Type* type)
 	// Count pointer indirections
 	int pointerLevel = 0;
 	llvm::Type* baseType = type;
+
+	// For opaque pointers in LLVM 15+, we can't introspect pointer element types
+	// So we skip the dereference loop for now - just count that it's a pointer
+	// This means pointer types will show as "unknown" which is a limitation
+	// that needs to be addressed by tracking type info separately
 	while (baseType->isPointerTy()) {
 		pointerLevel++;
-		//baseType = baseType->getPointerElementType();
+		// getPointerElementType() is deprecated in LLVM 15+
+		// baseType = baseType->getPointerElementType();
 		break;
 	}
 
@@ -637,14 +670,24 @@ std::string getStringTypeFromLLVMType(llvm::Type* type)
 	else {
 		baseTypeName = "unknown";
 
-		// Finally, search through all defined struct types
-		for (const auto& [key, value] : structDefinitions) {
-			if ((Type*)(value->structVal) == (Type*)baseType) {
-				baseTypeName = value->name;
-				break;
+		// For struct types, get the name directly from LLVM
+		if (baseType->isStructTy()) {
+			llvm::StructType* structType = static_cast<llvm::StructType*>(baseType);
+			if (structType->hasName()) {
+				console::WriteLine("getting struct name...");
+				std::string fullName = structType->getName().str();
+				console::WriteLine("got \"" + fullName + "\"");
+				// Strip "struct." prefix if present
+				if (fullName.rfind("struct.", 0) == 0) {
+					baseTypeName = fullName.substr(7);
+				}
+				else {
+					baseTypeName = fullName;
+				}
 			}
 		}
 	}
+	console::WriteLine("Returning: " + baseTypeName);
 
 	// Prefix with pointer asterisks
 	std::string pointerPrefix(pointerLevel, '*');
@@ -1185,7 +1228,7 @@ void* ASTNode::generateConstant(int pass)
 			return nullptr;
 		}
 
-		return ConstantInt::get(*TheContext, APInt(8, strValue[0], true));
+		return ConstantInt::get(*TheContext, APInt(8, strValue[0], false));
 	}
 
 	printTokenError(token, "Value could not be parsed as constant");
@@ -2133,9 +2176,10 @@ bool ASTNode::checkForOperatorOverload(Value* L, Value* R)
 	argList.push_back(argType(rBaseTypeStr, getASTNodeTypeFromString(rBaseTypeStr), rPointerLevel));
 
 	console::WriteLine("Checking for operator overload: " + operatorName);
-	printFunctionPrototypes();
+	//printFunctionPrototypes();
 
 	functionID* calleeID = getExactFunctionFromID(functionIDs, operatorName, argList, token, true);
+	console::WriteLine("Got calleeID");
 	//functionID* calleeID = getFunctionFromID(functionIDs, operatorName, argList, token, true);
 	if (calleeID != nullptr && calleeID->fnValue != nullptr)
 		return true;
@@ -2347,6 +2391,12 @@ void* ASTNode::generateMemberAccess(int pass)
 		if (childNodes[1]->nodeType == Identifier_Node) {
 			if (structDefinition->memberNameIndexes.find(memberName) == structDefinition->memberNameIndexes.end()) {
 				printTokenError(childNodes[1]->token, "Struct definition does not contain member");
+				console::indentation++;
+				console::WriteLine("It does have:");
+				console::indentation++;
+				for (const auto& name : structDefinition->memberNameIndexes)
+					console::WriteLine(name.first, console::cyanFGColor);
+				console::indentation -= 2;
 				wasError = true;
 				return nullptr;
 			}
@@ -2510,6 +2560,12 @@ void* ASTNode::generateMemberAccess(int pass)
 		if (childNodes[1]->nodeType == Identifier_Node) {
 			if (structDefinition->memberNameIndexes.find(memberName) == structDefinition->memberNameIndexes.end()) {
 				printTokenError(childNodes[1]->token, "Struct definition does not contain member");
+				console::indentation++;
+				console::WriteLine("It does have:");
+				console::indentation++;
+				for (const auto& name : structDefinition->memberNameIndexes)
+					console::WriteLine(name.first, console::cyanFGColor);
+				console::indentation -= 2;
 				wasError = true;
 				return nullptr;
 			}
@@ -2675,15 +2731,23 @@ void* ASTNode::generateScopeBody(int pass)
 // Value*
 void* ASTNode::generateCast(int pass)
 {
-	if (childNodes.size() < 2 || childNodes[1]->childNodes.size() == 0 || childNodes[1]->childNodes[0]->childNodes.size() == 0) {
+	if (childNodes.size() < 2 ||
+		childNodes[1]->nodeType != Scope_Body ||
+		childNodes[1]->childNodes.size() == 0 ||
+		childNodes[1]->childNodes[0]->nodeType != Colon_Separator_Node ||
+		childNodes[1]->childNodes[0]->childNodes.size() == 0) {
+
 		printTokenError(token, "Cast expression expected name followed by new type like: #cast x : float;");
+		printAST(this);
 		wasError = true;
 		return nullptr;
 	}
-	std::string varName = childNodes[1]->childNodes[0]->token->first;
+	ASTNode* colonNode = childNodes[1]->childNodes[0];
+	std::string varName = colonNode->childNodes[0]->token->first;
 	valueType* val = findNamedValue(parentNode, this, varName, token);
 	if (!val && !wasError) {
-		printTokenError(childNodes[1]->childNodes[0]->token, "Unknown variable name used");
+		printTokenError(colonNode->childNodes[0]->token, "Unknown variable name used");
+		printAST(this);
 		wasError = true;
 		return nullptr;
 	}
@@ -2691,10 +2755,10 @@ void* ASTNode::generateCast(int pass)
 
 	Value* value = Builder->CreateLoad(var->getAllocatedType(), var, varName + "_load");
 
-	std::string tyVal = childNodes[1]->childNodes[0]->childNodes[0]->token->first;
+	std::string tyVal = colonNode->childNodes[1]->token->first;
 
 	bool wasDefined = true;
-	Type* toType = getLLVMTypeFromString(tyVal, 0, childNodes[1]->childNodes[0]->childNodes[0]->token, wasDefined, pass);
+	Type* toType = getLLVMTypeFromString(tyVal, 0, colonNode->childNodes[1]->token, wasDefined, pass);
 	//if (wasDefined == false)
 	//	return nullptr;
 
@@ -3047,13 +3111,13 @@ void* ASTNode::generateStruct(int pass)
 	std::unordered_map<std::string, uint16_t> memberNameIndexes = std::unordered_map<std::string, uint16_t>();
 	uint16_t i = 0;
 	for (; generatingType < 2; generatingType++)
-		for (auto& fieldNode : childNodes[0]->childNodes) {
+		for (auto fieldNode : childNodes[0]->childNodes) {
 
 			// If it is a member variable declaration
 			if ((fieldNode->nodeType == Identifier_Node || fieldNode->nodeType == Colon_Separator_Node) && generatingType == 0 && pass > 0) {
 				if (fieldNode->childNodes.size() == 0) {
-					printTokenError(fieldNode->token,
-						"Member declaration must have type");
+					printTokenError(fieldNode->token, "Member declaration must have type");
+					printAST(fieldNode);
 					wasError = true;
 					currentStructName.pop();
 					return nullptr;
@@ -3062,10 +3126,7 @@ void* ASTNode::generateStruct(int pass)
 				ASTNode* typeNode = fieldNode->childNodes[1];
 				std::string memberType = typeNode->token->first;
 
-				// If the left side is a typed identifier, like: `name : int`, then set leftNode equal to just the identifier
-				if (fieldNode->nodeType == Colon_Separator_Node)
-					if (fieldNode->childNodes.size() > 0)
-						fieldNode = fieldNode->childNodes[0];
+				fieldNode = fieldNode->childNodes[0];
 
 				std::string memberName = fieldNode->token->first;
 				int pointerLevel = 0;
