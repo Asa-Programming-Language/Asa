@@ -1,8 +1,8 @@
-#import Basic.Print;
+#import Basic:Print;
 
-#import Builtin.Casts;
-#import Builtin.Memory;
-#import Builtin.Strings;
+#import Builtin:Casts;
+#import Builtin:Memory;
+#import Builtin:Strings;
 
 
 create :: string() #inline; #replaceable; {

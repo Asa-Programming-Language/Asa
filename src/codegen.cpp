@@ -107,11 +107,22 @@ struct functionID {
 	}
 	void print()
 	{
-		if (uses == 0)
-			return;
 		if (returnType != "")
 			console::Write(returnType + " ", console::blueFGColor);
 		console::Write(name, console::greenFGColor);
+
+		console::Write("(");
+		for (int i = 0; i < userArguments.size(); i++) {
+			if (userArguments[i].isReference)
+				console::Write("ref ", console::magentaFGColor);
+			if (userArguments[i].isConstant)
+				console::Write("const ", console::magentaFGColor);
+			console::Write(userArguments[i].typeString, console::blueFGColor);
+			if (i < userArguments.size() - 1)
+				console::Write(", ");
+		}
+		console::Write(")");
+
 		console::Write("(");
 		for (int i = 0; i < arguments.size(); i++) {
 			if (arguments[i].isReference)
@@ -123,6 +134,7 @@ struct functionID {
 				console::Write(", ");
 		}
 		console::Write(")");
+
 		if (isStructReturn) {
 			console::Write(" (");
 			console::Write("returns struct", console::yellowFGColor);
@@ -158,6 +170,8 @@ struct functionID {
 			return 1000;
 		if (userArguments.size() != a.size())
 			return 1000 - 1;
+		console::WriteLine("Comparing: " + name, console::blueFGColor);
+		console::indentation++;
 		for (int i = 0; i < userArguments.size(); i++) {
 			ASTNodeType t1 = userArguments[i].baseASTType;
 			ASTNodeType t2 = a[i].baseASTType;
@@ -169,9 +183,14 @@ struct functionID {
 				differences += 0;
 				continue;
 			}
+			if (userArguments[i].typeString != a[i].typeString)
+				console::WriteLine("[" + std::to_string(i) + "] typeString: " + userArguments[i].typeString + "!=" + a[i].typeString);
+			if (userArguments[i].pointerLevel != a[i].pointerLevel)
+				console::WriteLine("[" + std::to_string(i) + "] pointerLevel: " + std::to_string(userArguments[i].pointerLevel) + "!=" + std::to_string(a[i].pointerLevel));
 
 			// If pointer levels differ, these are fundamentally different types
 			if (userArguments[i].pointerLevel != a[i].pointerLevel) {
+				console::indentation--;
 				return 1000;
 				//if (mustBeExactType) {
 				//	return 500;	 // Incompatible types
@@ -184,27 +203,37 @@ struct functionID {
 			}
 			// Else if they are both integer types (and same pointer level)
 			else if (t1 >= Integer_Node && t1 <= Boolean_Node) {
-				if (mustBeExactType)  // If the argument type must be exact, but aren't
+				if (mustBeExactType) {	// If the argument type must be exact, but aren't
+					console::indentation--;
 					return 500;
+				}
 				if (t2 >= Integer_Node && t2 <= Boolean_Node)  // If similar type
 					differences += abs(t1 - t2);
-				else
+				else {
+					console::indentation--;
 					return 600;	 // Trying to match integer with non-integer
+				}
 			}
 			// Else if they are both float types (and same pointer level)
 			else if (t1 >= Double_Type && t1 <= Half_Type) {
-				if (mustBeExactType)  // If the argument type must be exact but aren't
+				if (mustBeExactType) {	// If the argument type must be exact but aren't
+					console::indentation--;
 					return 500;
+				}
 				if (t2 >= Double_Type && t2 <= Half_Type)  // If similar type
 					differences += abs(t1 - t2);
-				else
+				else {
+					console::indentation--;
 					return 600;	 // Trying to match float with non-float
+				}
 			}
 			// If we get here, the types don't match at all
 			else {
+				console::indentation--;
 				return 800;
 			}
 		}
+		console::indentation--;
 		return differences;
 	}
 	uint16_t compareMatch(std::string n, std::vector<ASTNode*> a)
@@ -335,8 +364,12 @@ structType* getStructTypeFromLLVMType(Type*& t)
 void printFunctionPrototypes()
 {
 	console::WriteLine("\nFunction Prototypes:", console::greenFGColor);
-	for (const auto& f : functionIDs)
+	console::indentation++;
+	for (const auto& f : functionIDs) {
+		console::Write("> ");
 		f->print();
+	}
+	console::indentation--;
 }
 
 void printFunctionDifferences(argumentList& arguments, functionID*& other)
@@ -393,6 +426,8 @@ functionID* getExactFunctionFromID(std::vector<functionID*>& fnIDs, std::string&
 	bool requiresExact = false;
 	for (auto& f : fnIDs) {
 		uint16_t score = f->compareMatch(name, arguments, wereTypesInferred);
+		console::Write("score: " + std::to_string(score) + "  ");
+		f->print();
 		if (score < bestScore) {
 			best = f;
 			bestScore = score;
@@ -926,6 +961,7 @@ llvm::Value* castValue(llvm::Value* value, llvm::Type* destType, bool isSrcSigne
 
 
 	printTokenError(token, "Unsupported cast");
+	wasError = true;
 	return nullptr;
 }
 
@@ -1197,6 +1233,11 @@ void* ASTNode::generateVariableExpression(int pass)
 				exprVal = castValue(exprVal, type, true, false, token, true);
 			else {
 				printTokenError(token, "Unknown type");
+				wasError = true;
+				return nullptr;
+			}
+			if (wasError || exprVal == nullptr) {
+				printTokenError(token, "Unable to cast");
 				wasError = true;
 				return nullptr;
 			}
@@ -1541,7 +1582,7 @@ void* ASTNode::generateExpressionStatement(int pass)
 	Type* targetType = nullptr;
 
 	// If the left side is a pointer lvalue
-	if (leftNode->nodeType != Identifier_Node) {
+	if (leftNode->nodeType != Identifier_Node && leftNode->nodeType != Colon_Separator_Node) {
 		leftNode->lvalue = true;
 		// left side is an expression, evaluate to pointer (lvalue address)
 		if (leftNode->codegen == nullptr) {
@@ -1583,7 +1624,7 @@ void* ASTNode::generateExpressionStatement(int pass)
 	int pointerLevel = 0;
 	if (!leftNode->lvalue) {
 		if (leftNode->childNodes.size() > 0) {
-			typeNode = leftNode->childNodes[0];
+			typeNode = leftNode->childNodes[1];
 		getNextPointerLevel:
 			if (typeNode->token->first == "*") {
 				pointerLevel++;
@@ -1618,7 +1659,18 @@ void* ASTNode::generateExpressionStatement(int pass)
 			wasError = true;
 			return nullptr;
 		}
+		if (wasError || exprVal == nullptr) {
+			printTokenError(token, "Unable to cast");
+			wasError = true;
+			return nullptr;
+		}
 	}
+
+	// If the left side is a typed identifier, like: `name : int`, then set leftNode equal to just the identifier
+	if (leftNode->nodeType == Colon_Separator_Node)
+		if (leftNode->childNodes.size() > 0)
+			leftNode = leftNode->childNodes[0];
+
 
 	// If the left side is an identifier
 	if (leftNode->nodeType == Identifier_Node) {
@@ -1905,11 +1957,13 @@ void* ASTNode::generateBinaryExpression(int pass)
 {
 	if (childNodes.size() < 2) {
 		printTokenError(token, "Binary expression requires left and right arguments");
+		wasError = true;
 		return nullptr;
 	}
 
 	if (!childNodes[0]->codegen || !childNodes[1]->codegen) {
 		printTokenError(token, "Binary expression operands missing code generators");
+		wasError = true;
 		return nullptr;
 	}
 
@@ -1929,8 +1983,11 @@ void* ASTNode::generateBinaryExpression(int pass)
 	Value* L = (Value*)(childNodes[0]->*(childNodes[0]->codegen))(pass);
 	Value* R = (Value*)(childNodes[1]->*(childNodes[1]->codegen))(pass);
 
-	if (!L || !R)
+	if (!L || !R) {
+		printTokenError(token, "Error generating term");
+		wasError = true;
 		return nullptr;
+	}
 
 	// Check for operator overloads first
 	if (nodeType == Redefined_Operator_Expr || checkForOperatorOverload(L, R)) {
@@ -1942,8 +1999,12 @@ void* ASTNode::generateBinaryExpression(int pass)
 		if (warningFlags == W_Conversion)
 			printTokenWarning(token, "Operand type mismatch, performing implicit conversion");
 		castToHighestAccuracy(L, R, token);
+		if (wasError) {
+			return nullptr;
+		}
 		if (L->getType() != R->getType()) {
 			printTokenError(token, "Operands to multiply are not the same type (after automatic cast)");
+			wasError = true;
 			return nullptr;
 		}
 	}
@@ -1954,12 +2015,14 @@ void* ASTNode::generateBinaryExpression(int pass)
 		case ValueCategory::Integer:
 			if (!L->getType()->isIntegerTy() || !R->getType()->isIntegerTy()) {
 				printTokenError(token, "Multiply: operands are not both integers");
+				wasError = true;
 				return nullptr;
 			}
 			return generateIntegerBinaryOp(L, R);
 		case ValueCategory::Float:
 			if (!L->getType()->isFloatTy() || !R->getType()->isFloatTy()) {
 				printTokenError(token, "Multiply: operands are not both integers");
+				wasError = true;
 				return nullptr;
 			}
 			return generateFloatBinaryOp(L, R);
@@ -1967,6 +2030,7 @@ void* ASTNode::generateBinaryExpression(int pass)
 			return generatePointerBinaryOp(L, R);
 		default:
 			printTokenError(token, "Unsupported operand types for binary operation");
+			wasError = true;
 			return nullptr;
 	}
 }
@@ -2040,10 +2104,11 @@ void* ASTNode::generatePipePlaceholder(int pass)
 	return nullptr;
 }
 
+// TODO: Broken operator overload
 bool ASTNode::checkForOperatorOverload(Value* L, Value* R)
 {
-	// Operator overloads have the format: operator.<OperatorName>.<ReturnType>.<Dot separated arg types>
-	//                             like: operator.Add.string.string.string
+	// Operator overloads have the format: operator.<OperatorName>
+	//                             like: operator.Add(string, string)
 	//                             for:  "h" + "i"
 	std::string operatorName = "operator." + tokenAsString(token->second);
 
@@ -2067,9 +2132,21 @@ bool ASTNode::checkForOperatorOverload(Value* L, Value* R)
 	}
 	argList.push_back(argType(rBaseTypeStr, getASTNodeTypeFromString(rBaseTypeStr), rPointerLevel));
 
+	console::WriteLine("Checking for operator overload: " + operatorName);
+	printFunctionPrototypes();
+
 	functionID* calleeID = getExactFunctionFromID(functionIDs, operatorName, argList, token, true);
 	//functionID* calleeID = getFunctionFromID(functionIDs, operatorName, argList, token, true);
-	return calleeID != nullptr && calleeID->fnValue != nullptr;
+	if (calleeID != nullptr && calleeID->fnValue != nullptr)
+		return true;
+	else {
+		if (calleeID == nullptr)
+			console::WriteLine("No calleeID");
+		else if (calleeID->fnValue == nullptr)
+			console::WriteLine("No calleeID->fnValue");
+		printTokenWarning(token, "Unable to find an operator overload");
+		return false;
+	}
 }
 
 Value* ASTNode::generateOperatorOverloadCall(Value* L, Value* R)
@@ -2621,7 +2698,12 @@ void* ASTNode::generateCast(int pass)
 	//if (wasDefined == false)
 	//	return nullptr;
 
-	return castValue(value, toType, true, typeSigns[tyVal], token);
+	Value* casted = castValue(value, toType, true, typeSigns[tyVal], token);
+
+	if (wasError)
+		return nullptr;
+
+	return casted;
 
 	//return Builder->CreateStore(castedValue, var);
 }
@@ -2966,9 +3048,9 @@ void* ASTNode::generateStruct(int pass)
 	uint16_t i = 0;
 	for (; generatingType < 2; generatingType++)
 		for (auto& fieldNode : childNodes[0]->childNodes) {
+
 			// If it is a member variable declaration
-			if (fieldNode->nodeType == Identifier_Node && generatingType == 0 &&
-				pass > 0) {
+			if ((fieldNode->nodeType == Identifier_Node || fieldNode->nodeType == Colon_Separator_Node) && generatingType == 0 && pass > 0) {
 				if (fieldNode->childNodes.size() == 0) {
 					printTokenError(fieldNode->token,
 						"Member declaration must have type");
@@ -2976,16 +3058,23 @@ void* ASTNode::generateStruct(int pass)
 					currentStructName.pop();
 					return nullptr;
 				}
+
+				ASTNode* typeNode = fieldNode->childNodes[1];
+				std::string memberType = typeNode->token->first;
+
+				// If the left side is a typed identifier, like: `name : int`, then set leftNode equal to just the identifier
+				if (fieldNode->nodeType == Colon_Separator_Node)
+					if (fieldNode->childNodes.size() > 0)
+						fieldNode = fieldNode->childNodes[0];
+
 				std::string memberName = fieldNode->token->first;
-				ASTNode* typeNode = fieldNode;
-				std::string memberType = fieldNode->childNodes[0]->token->first;
 				int pointerLevel = 0;
 
 			recurseAddMemberPointer:
-				typeNode = typeNode->childNodes[0];
 
 				if (typeNode->token->first == "*") {
 					pointerLevel++;
+					typeNode = typeNode->childNodes[0];
 					goto recurseAddMemberPointer;
 				}
 
@@ -3487,12 +3576,13 @@ void* ASTNode::generatePrototype(int pass)
 		argNames.push_back("this");
 	}
 	bool variableNumArguments = false;
-	for (auto& a : argsNode->childNodes) {
+	for (auto& a : argsNode->childNodes) {	// `a` is the expression term containing the entire argument as an expression
 		if (a->childNodes.size() > 0) {
 			if (variableNumArguments)  // If there is a named argument after ... then it is invalid
 				goto invalidArgument;
-			if (a->childNodes[0]->nodeType != Argument_List) {
-				ASTNode* typeNode = a->childNodes[0]->childNodes[0];
+			if (a->childNodes[0]->nodeType == Colon_Separator_Node) {
+				ASTNode* nameNode = a->childNodes[0]->childNodes[0];
+				ASTNode* typeNode = a->childNodes[0]->childNodes[1];
 				std::string typeStr = "";
 				bool isReference = false;
 				bool mustBeExactType = false;
@@ -3564,7 +3654,7 @@ void* ASTNode::generatePrototype(int pass)
 				//else if (typeName == "string")
 				//Type::getStringTy(*TheContext);
 				argTypes.push_back(aType);
-				argNames.push_back(a->childNodes[0]->token->first);
+				argNames.push_back(nameNode->token->first);
 				//std::cout << "Arg added: '" << a->childNodes[0]->token->first << "' of type: '" << typeName << "'\n";
 			}
 			// Handle ellipses ...
@@ -3572,6 +3662,8 @@ void* ASTNode::generatePrototype(int pass)
 				//std::string typeName = a->childNodes[0]->childNodes[0]->token->first;
 				variableNumArguments = true;
 			}
+			else
+				goto invalidArgument;
 			continue;
 		invalidArgument:
 			printTokenError(a->token, "Invalid argument type given");
@@ -3662,8 +3754,9 @@ void* ASTNode::generateFunction(int pass)
 
 	// If the function wasn't generated, try later
 	if (!theFunction) {
+		printTokenError(token, "There was a failure to create a function");
+		wasError = true;
 		return nullptr;
-		//printTokenError(token, "There was a failure to create a function");
 	}
 
 	if (!theFunction->empty() && replaceableDefinition == false) {

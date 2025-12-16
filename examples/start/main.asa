@@ -6,7 +6,7 @@
 #import Builtin:Memory;
 #import Builtin:String;
 
-#import Tests:PipeOperatorTest;
+//#import Tests:PipeOperatorTest;
 #import Tests:Testing;
 
 #import Rendering:Window;
@@ -22,7 +22,7 @@ You can import the full library like:
 #import Rendering;
 
 Or individual components:
-#import Rendering.Window;
+#import Rendering:Window;
 */
 
 //string :: struct {

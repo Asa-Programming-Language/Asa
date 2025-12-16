@@ -1,8 +1,8 @@
 
-#import Rendering.Window;
-#import Rendering.Image;
-#import Math.Vectors;
-#import Input.Keyboard;
+#import Rendering:Window;
+#import Rendering:Image;
+#import Math:Vectors;
+#import Input:Keyboard;
 
 
 gameObject :: struct{

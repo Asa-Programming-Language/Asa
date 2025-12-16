@@ -202,9 +202,10 @@ std::vector<Test> tests = {
 						A(Identifier_Node, {}),
 						A(Scope_Body, 
 							{
-								A(Identifier_Node,
+								A(Colon_Separator_Node,
 									{
-										A(Type_Node),
+										A(Identifier_Node),
+										A(Identifier_Node),
 									}
 								)
 							}
@@ -215,7 +216,8 @@ std::vector<Test> tests = {
 				A(Compiler_Define_Function, // x
 					{
 						A(Identifier_Node,{}), // x name
-						A(Type_Node,{}),
+						A(Type_Node,
+							{A(Identifier_Node)}),
 						A(Arguments,
 							{A(Expression_Term, {})}
 						),

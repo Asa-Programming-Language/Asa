@@ -1,7 +1,7 @@
 
 
 Test1 :: module {
-	x :: (){
+	x :: int(){
 		return 1;
 	}
 }
@@ -28,6 +28,7 @@ ModifyReference :: module{
 }
 
 #import Builtin:Print;
+#import Builtin:Things:OtherThings;
 #import Builtin:String;
 
 main::(){

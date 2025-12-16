@@ -37,7 +37,7 @@ const std::map<TokenType, const char*> tokenEscapes = {
 	{Identifier, " .,/;()+=-\\|<>?:!@#$%^&*{}[]\"'\n\t\r"},
 	{Integer, " ,/;()+=-\\|<>?:!@#$%^&*{}[]\"'\n\t\r"},
 	{String, "\""},
-	{Character, "'"},
+	{Character, "'\n"},
 	{Punctuation, " ,/;()+=-\\|<>?:!@#$%^&*{}[]\"'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789.\n\t\r"},
 	{EndOfLine, " ,/;()+=-\\|<>?:!@#$%^&*{}[]\"'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789.\n\t\r"},
 };

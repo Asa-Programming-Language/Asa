@@ -961,7 +961,7 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 					}
 				}
 				// If an access operation with brackets like: arr[i]
-				else {
+				else if (isAccessOperation) {
 					node->codegen = &ASTNode::generateAccessOperation;
 					for (;;) {
 						if (i >= tokens.size() - 1)
@@ -1009,8 +1009,16 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 						exit(1);
 					}
 				}
-				else
-					secondTerm = generateAST(subTokens, depth + 1)->childNodes[0];
+				else {
+					ASTNode* secondAST = generateAST(subTokens, depth + 1);
+					if (secondAST->childNodes.size() > 0)
+						secondTerm = secondAST->childNodes[0];
+					else {
+						printTokenError(subTokens[0], "Unexpected expression");
+						printAST(secondAST);
+						exit(1);
+					}
+				}
 				//secondTerm->nodeType = Expression_Term;
 
 				if (!noOp) {
@@ -2117,6 +2125,27 @@ bool loadModule(std::string& modulePath, std::string& moduleName)
 	return false;
 }
 
+void getModuleNameAndPath(ASTNode*& node, std::string& modulePath, std::string& moduleName)
+{
+	if (node->childNodes.size() == 2) {
+		// Recursively add to front of path from first expression
+		ASTNode* firstExpression = node->childNodes[0];
+		std::string tmpPath = "";
+		getModuleNameAndPath(firstExpression, tmpPath, moduleName);
+		modulePath = tmpPath + "/" + modulePath;
+
+		ASTNode* secondExpression = node->childNodes[1];
+		moduleName = secondExpression->token->first;
+	}
+	else if (node->childNodes.size() == 0)
+		modulePath = node->token->first;
+	else {
+		printTokenError(node->token, "Invalid module name expression");
+		wasError = true;
+		return;
+	}
+}
+
 void addModuleImports(ASTNode*& node)
 {
 	for (int i = 0; i < node->childNodes.size(); i++)
@@ -2129,24 +2158,15 @@ void addModuleImports(ASTNode*& node)
 
 				// Load module if module name is provided
 				if (node->childNodes.size() > 1) {
+					// Get node within the import scope body
 					ASTNode* moduleNameNode = node->childNodes[1]->childNodes[0];
 					if (moduleNameNode->nodeType == Identifier_Node || moduleNameNode->nodeType == Colon_Separator_Node) {
-						std::string modulePath = "";
+						std::string modulePath = ".";
 						bool moduleFound = false;
 						std::string moduleName = "";
-						if (moduleNameNode->childNodes.size() > 0) {
-							ASTNode* firstExpression = moduleNameNode->childNodes[0];
-							modulePath += "/" + firstExpression->token->first;
-							ASTNode* secondExpression = moduleNameNode->childNodes[1];
-							// Get sub components
-							while (secondExpression->childNodes.size() > 0) {
-								modulePath += "/" + secondExpression->token->first;
-								moduleName = secondExpression->token->first;
-								secondExpression = secondExpression->childNodes[1];
-							}
-						}
-						else
-							modulePath = moduleNameNode->token->first;
+
+						getModuleNameAndPath(moduleNameNode, modulePath, moduleName);
+						modulePath = std::filesystem::path(modulePath).lexically_normal().string();
 
 						if (importedModuleNames.find(moduleName) != importedModuleNames.end()) {
 							node->nodeType = Nothing_Node;
@@ -2155,17 +2175,27 @@ void addModuleImports(ASTNode*& node)
 						}
 
 						std::string searchPath[2] = {projectDirectory + modulePath, executableDirectory + "modules/" + modulePath};
-						if (directoryExists(searchPath[0]))
-							moduleFound = loadModule(searchPath[0], moduleName);
-						if (!moduleFound && directoryExists(searchPath[1]))
-							moduleFound = loadModule(searchPath[1], moduleName);
-
-						importedModuleNames.insert(moduleName);
+						for (int i = 0; i < sizeof(searchPath) / sizeof(searchPath[0]); i++) {
+							if (directoryExists(searchPath[i])) {
+								moduleFound = loadModule(searchPath[i], moduleName);
+								break;
+							}
+						}
 
 						if (!moduleFound) {
-							printTokenError(moduleNameNode->token, "Failed to import module with name: \"" + modulePath + "\", not found", __LINE__);
+							printTokenError(moduleNameNode->token, "Failed to import module with name: \"" + moduleName + "\", not found", __LINE__);
+							console::WriteLine("Looked in the following directories:", console::yellowFGColor);
+							console::indentation++;
+							for (int i = 0; i < sizeof(searchPath) / sizeof(searchPath[0]); i++)
+								console::WriteLine(searchPath[i], console::redFGColor);
+							console::indentation--;
+							if (verbosity >= 5) {
+								printAST(node);
+							}
 							exit(1);
 						}
+
+						importedModuleNames.insert(moduleName);
 					}
 					//else if (moduleNameNode->nodeType == Colon_Separator_Node) {
 					//	bool moduleFound = false;

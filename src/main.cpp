@@ -138,7 +138,7 @@ int main(int argc, char** argv)
 		if (e != 0) {
 			console::WriteLine("Invalid file path provided");
 			if (verbosity >= 3)
-				console::WriteLine("Path \"" + initialFileString + "\" could not be opened", console::yellowFGColor);
+				console::WriteLine("Path \"" + fileName + "\" could not be opened", console::yellowFGColor);
 			exit(1);
 		}
 	}
@@ -149,6 +149,11 @@ int main(int argc, char** argv)
 	projectDirectory = std::filesystem::weakly_canonical(std::filesystem::path(fileName)).parent_path().string() + "/";
 	baseFileName = std::filesystem::path(fileName).filename();
 	std::string fullFileName = projectDirectory + baseFileName;
+
+	if (verbosity >= 5) {
+		console::WriteLine("Asa compiler directory: " + executableDirectory);
+		console::WriteLine("Project directory: " + projectDirectory);
+	}
 
 
 	// If output name not provided, create

@@ -1,6 +1,6 @@
 
-#import Basic.Print;
-#import Builtin.Operators;
+#import Basic:Print;
+#import Builtin:Operators;
 
 fib::uint64(number : uint64){
 	a : uint64 = 1;

@@ -46,9 +46,9 @@ Print :: module {
 		return;
 	}
 
-	thisShouldError(n : uint64){
+	//thisShouldError(n : uint64){
 
-	}
+	//}
 
 	printint:: (n : int64){
 	    if (n < 0) {

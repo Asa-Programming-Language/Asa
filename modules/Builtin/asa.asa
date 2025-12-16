@@ -247,7 +247,7 @@ String :: module{
 		return newStr;
 	}
 
-	operator+ :: string(thisStr : exact string, ch : exact char){
+	operator+ :: string(thisStr : string, ch : char){
 		newStr : string = string();
 	
 		len : uint32 = thisStr.length + 1;
