@@ -191,7 +191,8 @@ struct functionID {
 			return 1000;
 		if (userArguments.size() != a.size())
 			return 1000 - 1;
-		console::WriteLine("Comparing: " + name, console::blueFGColor);
+		if (verbosity >= 6)
+			console::WriteLine("Comparing: " + name, console::blueFGColor);
 		console::indentation++;
 		for (int i = 0; i < userArguments.size(); i++) {
 			ASTNodeType t1 = userArguments[i].baseASTType;
@@ -204,10 +205,12 @@ struct functionID {
 				differences += 0;
 				continue;
 			}
-			if (userArguments[i].typeString != a[i].typeString)
-				console::WriteLine("[" + std::to_string(i) + "] typeString: " + userArguments[i].typeString + "!=" + a[i].typeString);
-			if (userArguments[i].pointerLevel != a[i].pointerLevel)
-				console::WriteLine("[" + std::to_string(i) + "] pointerLevel: " + std::to_string(userArguments[i].pointerLevel) + "!=" + std::to_string(a[i].pointerLevel));
+			if (verbosity >= 6) {
+				if (userArguments[i].typeString != a[i].typeString)
+					console::WriteLine("[" + std::to_string(i) + "] typeString: " + userArguments[i].typeString + "!=" + a[i].typeString);
+				if (userArguments[i].pointerLevel != a[i].pointerLevel)
+					console::WriteLine("[" + std::to_string(i) + "] pointerLevel: " + std::to_string(userArguments[i].pointerLevel) + "!=" + std::to_string(a[i].pointerLevel));
+			}
 
 			// If pointer levels differ, these are fundamentally different types
 			if (userArguments[i].pointerLevel != a[i].pointerLevel) {
@@ -255,7 +258,8 @@ struct functionID {
 			}
 		}
 	returnDifferences:
-		console::WriteLine("returning difference of: " + std::to_string(differences));
+		if (verbosity >= 6)
+			console::WriteLine("returning difference of: " + std::to_string(differences));
 		console::indentation--;
 		return differences;
 	}
@@ -449,8 +453,8 @@ functionID* getExactFunctionFromID(std::vector<functionID*>& fnIDs, std::string&
 	bool requiresExact = false;
 	for (auto& f : fnIDs) {
 		uint16_t score = f->compareMatch(name, arguments, wereTypesInferred);
-		console::Write("score: " + std::to_string(score) + "  ");
-		f->print();
+		if (verbosity >= 6)
+			console::Write("score: " + std::to_string(score) + "  ");
 		if (score < bestScore) {
 			best = f;
 			bestScore = score;
@@ -469,10 +473,12 @@ functionID* getExactFunctionFromID(std::vector<functionID*>& fnIDs, std::string&
 	}
 	if (bestScore == 0) {
 		return best;
-		console::Write("found");
+		if (verbosity >= 6)
+			console::WriteLine("Exact function match found");
 	}
 exactFnNotFound:
-	console::Write("not found");
+	if (verbosity >= 6)
+		console::WriteLine("Exact function match not found");
 	return nullptr;
 }
 functionID* getFunctionFromID(std::vector<functionID*>& fnIDs, std::string& name, std::vector<ASTNode*>& argValues, tokenPair*& t)
@@ -687,7 +693,8 @@ std::string getStringTypeFromLLVMType(llvm::Type* type)
 			}
 		}
 	}
-	console::WriteLine("Returning: " + baseTypeName);
+	if (verbosity >= 6)
+		console::WriteLine("Returning: " + baseTypeName);
 
 	// Prefix with pointer asterisks
 	std::string pointerPrefix(pointerLevel, '*');
@@ -2175,20 +2182,19 @@ bool ASTNode::checkForOperatorOverload(Value* L, Value* R)
 	}
 	argList.push_back(argType(rBaseTypeStr, getASTNodeTypeFromString(rBaseTypeStr), rPointerLevel));
 
-	console::WriteLine("Checking for operator overload: " + operatorName);
 	//printFunctionPrototypes();
 
 	functionID* calleeID = getExactFunctionFromID(functionIDs, operatorName, argList, token, true);
-	console::WriteLine("Got calleeID");
 	//functionID* calleeID = getFunctionFromID(functionIDs, operatorName, argList, token, true);
 	if (calleeID != nullptr && calleeID->fnValue != nullptr)
 		return true;
 	else {
-		if (calleeID == nullptr)
-			console::WriteLine("No calleeID");
-		else if (calleeID->fnValue == nullptr)
-			console::WriteLine("No calleeID->fnValue");
-		printTokenWarning(token, "Unable to find an operator overload");
+		if (verbosity >= 6) {
+			if (calleeID == nullptr)
+				console::WriteLine("No calleeID");
+			else if (calleeID->fnValue == nullptr)
+				console::WriteLine("No calleeID->fnValue");
+		}
 		return false;
 	}
 }

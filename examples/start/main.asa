@@ -74,7 +74,7 @@ main :: (){
 	//throw "This is a test error!";
 
 	test 2 == 2;
-	test 5 == 2;
+	//test 5 == 2;
 
 	//constArray : int[] = void;
 
