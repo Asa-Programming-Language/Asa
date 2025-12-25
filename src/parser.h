@@ -256,6 +256,18 @@ struct valueType {
 		: name(n), type(t), val(v), isFunctionArgument(arg), isReference(ref) {};
 };
 
+struct ASAType {
+	Type* llvmType = nullptr;
+	Type* baseLLVMType = nullptr;
+	bool isRef = false;
+	bool isConst = false;
+	std::string strVal = "";
+	uint8_t pointerLevel = 0;
+
+	ASAType(Type* baseLLVMType, bool isRef, bool isConst, std::string strVal, uint8_t pointerLevel)
+		: baseLLVMType(baseLLVMType), isRef(isRef), isConst(isConst), strVal(strVal), pointerLevel(pointerLevel) {};
+};
+
 struct ASTNode {
 	ASTNode* parentNode = nullptr;
 	std::vector<ASTNode*> childNodes = std::vector<ASTNode*>();
@@ -271,13 +283,13 @@ struct ASTNode {
 	bool showInASTOutput = true;
 	bool replaceableDefinition = false;
 	bool currentNodeDoneGenerating = false;
-	Type* baseType = nullptr;
+	//Type* llvmType;
+	//Type* baseType = nullptr;
+	ASAType* asaType = nullptr;
 	// Add leaf nodes here as they are still yet to be used.
 	std::vector<ASTNode*> leafNodes = std::vector<ASTNode*>();
 
 	std::unordered_map<std::string, ASTNode*> interpreterScopeValues = std::unordered_map<std::string, ASTNode*>();
-
-	Type* llvmType;
 
 	std::map<std::string, valueType*> namedValues = std::map<std::string, valueType*>();
 

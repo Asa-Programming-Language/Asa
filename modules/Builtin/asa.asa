@@ -1,120 +1,201 @@
 
+// Module: Casts
+// Description: A builtin module defining casts between all of the builtin types
 Casts :: module {
-	// Float casting
+	// Group: Float Casts
+	// Description: Cast operators for converting various types to float
+
+	// Function: float(int)
+	// Description: Converts an int to float
 	cast:: float(x : int) #inline; #hideast {
 		return #cast x : float;
 	}
+	// Function: float(char)
+	// Description: Converts a char to float
 	cast:: float(x : char) #inline; #hideast {
 		return #cast x : float;
 	}
+	// Function: float(float)
+	// Description: Identity cast for float
 	cast:: float(x : float) #inline; #hideast {
 		return #cast x : float;
 	}
+	// Function: float(double)
+	// Description: Converts a double to float
 	cast:: float(x : double) #inline; #hideast {
 		return #cast x : float;
 	}
+	// Function: float(bool)
+	// Description: Converts a bool to float
 	cast:: float(x : bool) #inline; #hideast {
 		return #cast x : float;
 	}
-	// Double
+
+	// Group: Double Casts
+	// Description: Cast operators for converting various types to double
+
+	// Function: double(int)
+	// Description: Converts an int to double
 	cast:: double(x : int) #inline; #hideast {
 		return #cast x : double;
 	}
+	// Function: double(char)
+	// Description: Converts a char to double
 	cast:: double(x : char) #inline; #hideast {
 		return #cast x : double;
 	}
+	// Function: double(float)
+	// Description: Converts a float to double
 	cast:: double(x : float) #inline; #hideast {
 		return #cast x : double;
 	}
+	// Function: double(double)
+	// Description: Identity cast for double
 	cast:: double(x : double) #inline; #hideast {
 		return #cast x : double;
 	}
+	// Function: double(bool)
+	// Description: Converts a bool to double
 	cast:: double(x : bool) #inline; #hideast {
 		return #cast x : double;
 	}
 
-	// Int casting
+	// Group: Int Casts
+	// Description: Cast operators for converting various types to signed integers
+
+	// Function: int(float)
+	// Description: Converts a float to int, truncating decimal portion
 	cast:: int(x : float) #inline; #hideast {
 		return #cast x : int;
 	}
+	// Function: int(double)
+	// Description: Converts a double to int, truncating decimal portion
 	cast:: int(x : double) #inline; #hideast {
 		return #cast x : int;
 	}
+	// Function: int(int)
+	// Description: Identity cast for int
 	cast:: int(x : int) #inline; #hideast {
 		return #cast x : int;
 	}
+	// Function: int(uint)
+	// Description: Converts an unsigned int to signed int
 	cast:: int(x : uint) #inline; #hideast {
 		return #cast x : int;
 	}
+	// Function: int(bool)
+	// Description: Converts a bool to int
 	cast:: int(x : bool) #inline; #hideast {
 		return #cast x : int;
 	}
 
+	// Function: uint(float)
+	// Description: Converts a float to unsigned int, truncating decimal portion
 	cast:: uint(x : float) #inline; #hideast {
 		return #cast x : uint;
 	}
+	// Function: uint(double)
+	// Description: Converts a double to unsigned int, truncating decimal portion
 	cast:: uint(x : double) #inline; #hideast {
 		return #cast x : uint;
 	}
+	// Function: uint(int)
+	// Description: Converts a signed int to unsigned int
 	cast:: uint(x : int) #inline; #hideast {
 		return #cast x : uint;
 	}
+	// Function: uint(uint)
+	// Identity cast for uint
 	cast:: uint(x : uint) #inline; #hideast {
 		return #cast x : uint;
 	}
+	// Function: uint(bool)
+	// Description: Converts a bool to unsigned int
 	cast:: uint(x : bool) #inline; #hideast {
 		return #cast x : uint;
 	}
 
+	// Function: uint64(float)
+	// Description: Converts a float to 64-bit unsigned int
 	cast:: uint64(x : float) #inline; #hideast {
 		return #cast x : uint64;
 	}
+	// Function: uint64(double)
+	// Description: Converts a double to 64-bit unsigned int
 	cast:: uint64(x : double) #inline; #hideast {
 		return #cast x : uint64;
 	}
+	// Function: uint64(int)
+	// Description: Converts an int to 64-bit unsigned int
 	cast:: uint64(x : int) #inline; #hideast {
 		return #cast x : uint64;
 	}
+	// Function: uint64(uint)
+	// Description: Converts an unsigned int to 64-bit unsigned int
 	cast:: uint64(x : uint) #inline; #hideast {
 		return #cast x : uint64;
 	}
+	// Function: uint64(bool)
+	// Description: Converts a bool to 64-bit unsigned int
 	cast:: uint64(x : bool) #inline; #hideast {
 		return #cast x : uint64;
 	}
 
+	// Function: int64(float)
+	// Description: Converts a float to 64-bit signed int
 	cast:: int64(x : float) #inline; #hideast {
 		return #cast x : int64;
 	}
+	// Function: int64(double)
+	// Description: Converts a double to 64-bit signed int
 	cast:: int64(x : double) #inline; #hideast {
 		return #cast x : int64;
 	}
+	// Function: int64(int)
+	// Description: Converts an int to 64-bit signed int
 	cast:: int64(x : int) #inline; #hideast {
 		return #cast x : int64;
 	}
+	// Function: int64(uint)
+	// Description: Converts an unsigned int to 64-bit signed int
 	cast:: int64(x : uint) #inline; #hideast {
 		return #cast x : int64;
 	}
+	// Function: int64(bool)
+	// Description: Converts a bool to 64-bit signed int
 	cast:: int64(x : bool) #inline; #hideast {
 		return #cast x : int64;
 	}
 
+	// Function: uint16(float)
+	// Description: Converts a float to 16-bit unsigned int
 	cast:: uint16(x : float) #inline; #hideast {
 		return #cast x : uint16;
 	}
+	// Function: uint16(double)
+	// Description: Converts a double to 16-bit unsigned int
 	cast:: uint16(x : double) #inline; #hideast {
 		return #cast x : uint16;
 	}
+	// Function: uint16(int)
+	// Description: Converts an int to 16-bit unsigned int
 	cast:: uint16(x : int) #inline; #hideast {
 		return #cast x : uint16;
 	}
+	// Function: uint16(uint)
+	// Description: Converts an unsigned int to 16-bit unsigned int
 	cast:: uint16(x : uint) #inline; #hideast {
 		return #cast x : uint16;
 	}
+	// Function: uint16(bool)
+	// Description: Converts a bool to 16-bit unsigned int
 	cast:: uint16(x : bool) #inline; #hideast {
 		return #cast x : uint16;
 	}
 }
 
+// Module: Operators
+// Description: A builtin module expanding operators for builtin types
 Operators::module{
 	//operator++ :: int64(i : ref int64) #inline; #hideast {
 	//	i = i+1;
@@ -135,46 +216,74 @@ Operators::module{
 }
 
 
+// Module: Memory
+// Description: A builtin module adding useful memory management tools
 Memory :: module{
+	// Function: malloc(int)
+	// Description: | 
+	//     Allocates a block of memory
+	//
+	// Arguments:
+	//     b: int64 The number of bytes to allocate
+	//
+	// Returns: A pointer to the allocated memory block
 	#extern malloc::*int(b : int64);
+
+	// Function: free(pointer)
+	// Description: |
+	//     Frees a block of memory previously allocated by malloc
+	//
+	// Arguments:
+	//     p: Pointer to the memory block to free
 	#extern free::(p : *int);
 }
 
+// Module: String
+// Description: |
+//     A builtin module defining the string type
+//     See Also: <string>
 String :: module{
 	//#import Builtin.Operators;
 
 	#import Builtin:Print;
 	#import Builtin:Memory;
 
+	// Struct: string
+	// Description: |
+	//     The string data type
+	//
+	//     You can declare a string using double quotes:
+	//     ```asa
+	//     s : string = "Hello, World!";
+	//     ```
 	string :: struct {
 		address : *char;
 		length : uint32;
 		//tS : testStruct;
 		
-		size::uint32() {
+		// Function: size()
+		// Returns: The length in characters of the string
+		size :: uint32() {
 			return this.length;
 		}
-		print::() {
-			if(this.length > 0){
-				print(this.address);
-			}
-		}
-		dump::() {
+		// Function: dump()
+		// Description: Prints all of the info related to the string instance to the terminal
+		dump :: () {
 			print("string: {\"value\":\"");
 			print(this.address);
 			print("\", length:");
 			printint(this.length);
 			print("}\n");
 		}
-		set::(s : *char){
-			this.address = s;
-			for(i : 0..4096){
-				if(s[i] == 0){
-					this.length = i;
-					break;
-				}
-			}
-		}
+		//set::(s : *char){
+		//	this.address = s;
+		//	for(i : 0..4096){
+		//		if(s[i] == 0){
+		//			this.length = i;
+		//			break;
+		//		}
+		//	}
+		//}
 
 		//operator+ :: string(s : ref string, c : char) #inline {
 		//	s.length += 1;
@@ -208,9 +317,21 @@ String :: module{
 		//}
 	}
 
+	// Constructor: string()
+	// Description: Creates an empty string
+	//
+	// Returns: A new empty string instance
 	create :: string() #inline; #replaceable; {
 		return *(#new string);
 	}
+
+	// Constructor: string(*char)
+	// Description: Creates a string from a null-terminated character array
+	//
+	// Arguments:
+	//     c: Pointer to a null-terminated character array
+	//
+	// Returns: A new string containing the characters from the array
 	create :: string(c : exact *char) {
 		s : string = string();
 	
@@ -229,67 +350,90 @@ String :: module{
 		return s;
 	}
 
-	//operator+ :: string(thisStr : exact string, otherStr : exact string){
-	//	newStr : string = string();
+	// Operator: +(string, string)
+	// Description: Concatenates two strings together
 	//
-	//	len : uint32 = thisStr.length + otherStr.length;
-	//	newStr.address = malloc(len*2);
-	//	newStr.length = len;
-	//	for(i : 0..thisStr.length){
-	//		newStr.address[i] = thisStr[i];
-	//	}
-	//	for(i : 0..otherStr.length){
-	//		// TODO: Currently having an expression within access operator doesnt work,
-	//		//       like: newStr.address[i + thisStr.length]  // Gives error
-	//		newAddr = i + thisStr.length;
-	//		newStr.address[newAddr] = otherStr[i];
-	//	}
-	//	return newStr;
-	//}
-
-	//operator+ :: string(thisStr : exact string, ch : exact char){
-	//return "";
-	//	//newStr : string = string();
+	// Arguments:
+	//     thisStr: The first string
+	//     otherStr: The second string
 	//
-	//	//len : uint32 = thisStr.length + 1;
-	//	//newStr.address = malloc(len*2);
-	//	//newStr.length = len;
-	//	//for(i : 0..thisStr.length){
-	//	//	newStr.address[i] = thisStr[i];
-	//	//}
-	//	//newStr.address[thisStr.length] = ch;
-	//	//return newStr;
-	//}
+	// Returns: A new string containing the concatenation of both strings
+	operator+ :: string(thisStr : exact string, otherStr : exact string){
+		newStr : string = string();
 	
-	//operator+ :: *char(thisStr : exact *char, otherStr : exact *char){
-	//	newStr : *char = void;
-	//
-	//	lenA : uint32 = 0;
-	//	lenB : uint32 = 0;
-	//	len : uint32 = 0;
-	//	for(i : 0..65535){
-	//		if(thisStr[i] == 0){
-	//			lenA = i-1;
-	//			break;
-	//		}
-	//	}
-	//	for(i : 0..65535){
-	//		if(otherStr[i] == 0){
-	//			lenB = i;
-	//			break;
-	//		}
-	//	}
-	//	len : uint32 = lenA + lenB;
+		len : uint32 = thisStr.length + otherStr.length;
+		newStr.address = malloc(len*2);
+		newStr.length = len;
+		for(i : 0..thisStr.length){
+			newStr.address[i] = thisStr[i];
+		}
+		for(i : 0..otherStr.length){
+			// TODO: Currently having an expression within access operator doesnt work,
+			//       like: newStr.address[i + thisStr.length]  // Gives error
+			newAddr = i + thisStr.length;
+			newStr.address[newAddr] = otherStr[i];
+		}
+		return newStr;
+	}
 
-	//	newStr = malloc(len*2);
-	//	for(i : 0..lenA){
-	//		newStr[i] = thisStr[i];
-	//	}
-	//	for(i : 0..lenB){
-	//		newStr[i] = otherStr[i];
-	//	}
-	//	return newStr;
-	//}
+	// Operator: +(string, char)
+	// Description: Concatenates a string with a character
+	//
+	// Arguments:
+	//     thisStr: The string
+	//     ch: The character to be added
+	//
+	// Returns: A new string containing the concatenation of the string and character
+	operator+ :: string(thisStr : exact string, ch : exact char){
+		newStr : string = string();
+	
+		len : uint32 = thisStr.length + 1;
+		newStr.address = malloc(len*2);
+		newStr.length = len;
+		for(i : 0..thisStr.length){
+			newStr.address[i] = thisStr[i];
+		}
+		newStr.address[thisStr.length] = ch;
+		return newStr;
+	}
+
+	// Operator: +(*char, *char)
+	// Description: Concatenates two null-terminated character arrays
+	//
+	// Arguments:
+	//     thisStr: The first character array
+	//     otherStr: The second character array
+	//
+	// Returns: A pointer to a new character array containing the concatenation
+	operator+ :: *char(thisStr : exact *char, otherStr : exact *char){
+		newStr : *char = void;
+	
+		lenA : uint32 = 0;
+		lenB : uint32 = 0;
+		len : uint32 = 0;
+		for(i : 0..65535){
+			if(thisStr[i] == 0){
+				lenA = i-1;
+				break;
+			}
+		}
+		for(i : 0..65535){
+			if(otherStr[i] == 0){
+				lenB = i;
+				break;
+			}
+		}
+		len : uint32 = lenA + lenB;
+
+		newStr = malloc(len*2);
+		for(i : 0..lenA){
+			newStr[i] = thisStr[i];
+		}
+		for(i : 0..lenB){
+			newStr[i] = otherStr[i];
+		}
+		return newStr;
+	}
 
 
 	//cast :: *char(s : const ref string){
@@ -317,7 +461,9 @@ String :: module{
 	//	s = s + string(n % 10 + '0');
 	//}
 
-	printl::(s : exact string) #hideast {
+	// Function: printl(string)
+	// Description: A function to overload <printl(*char)> for strings
+	printl :: (s : exact string) #hideast {
 		printl(s.address);
 		return;
 	}

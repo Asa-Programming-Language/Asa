@@ -199,7 +199,7 @@ int main(int argc, char** argv)
 		bool noImports = true;
 		// File includes
 		addFileIncludes(rootNode);
-		for (int i = 0; i < importedNodes.size(); i++)
+		for (int i = importedNodes.size() - 1; i >= 0; i--)
 			rootNode->childNodes.insert(rootNode->childNodes.begin(), importedNodes[i]);
 		if (importedNodes.size() > 0)
 			noImports = false;
@@ -207,7 +207,7 @@ int main(int argc, char** argv)
 
 		// Module imports
 		addModuleImports(rootNode);
-		for (int i = 0; i < importedNodes.size(); i++)
+		for (int i = importedNodes.size() - 1; i >= 0; i--)
 			rootNode->childNodes.insert(rootNode->childNodes.begin(), importedNodes[i]);
 		if (importedNodes.size() > 0)
 			noImports = false;
@@ -256,8 +256,8 @@ int main(int argc, char** argv)
 	if (verbosity >= 4)
 		console::WriteLine("\n\nCompiling:", console::greenFGColor);
 	// Pass 0: First pass, type/struct definitions
-	// Pass 1: Function pass
-	// Pass 2: Final pass
+	// Pass 1: Function prototypes and struct contents
+	// Pass 2: Variable and function contents
 	for (int p = 0; p <= 2; p++) {
 		generateOutputCode(rootNode, 0, p);
 	}

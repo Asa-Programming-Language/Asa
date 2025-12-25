@@ -685,7 +685,7 @@ std::string getStringTypeFromLLVMType(llvm::Type* type)
 				console::WriteLine("got \"" + fullName + "\"");
 				// Strip "struct." prefix if present
 				if (fullName.rfind("struct.", 0) == 0) {
-					baseTypeName = fullName.substr(7);
+					baseTypeName = SplitString(fullName, ".")[1];
 				}
 				else {
 					baseTypeName = fullName;
@@ -2265,9 +2265,14 @@ void* ASTNode::generateAccessOperation(int pass)
 		return nullptr;
 	}
 
+	if (!baseType) {
+		printTokenError(token, "Was unable to resolve type");
+		wasError = true;
+		return nullptr;
+	}
+
 	// Get the element type from baseType (set by member access or previous operations)
-	// If not available, fall back to i8 for backward compatibility
-	Type* elementType = baseType ? baseType : Type::getInt8Ty(*TheContext);
+	Type* elementType = baseType;
 
 	// If baseType is a pointer, we need to determine what it points to
 	if (baseType && baseType->isPointerTy()) {
@@ -2277,8 +2282,9 @@ void* ASTNode::generateAccessOperation(int pass)
 			elementType = lastRetrievedElementType.top();
 		}
 		else {
-			// Default to i8 if we can't determine the type
-			elementType = Type::getInt8Ty(*TheContext);
+			printTokenError(token, "Was unable to resolve type");
+			wasError = true;
+			return nullptr;
 		}
 	}
 
@@ -2891,8 +2897,8 @@ void* ASTNode::generateCallExpression(int pass)
 	}
 
 	// Look up the function ID using the caller's argList (without sret)
-	if (verbosity >= 5) {
-		console::WriteLine("\nDEBUG: Looking for function: " + token->first);
+	if (verbosity >= 6) {
+		console::WriteLine("\nLooking for function: " + token->first);
 		console::WriteLine("Arguments passed:");
 		for (size_t i = 0; i < argList.size(); i++) {
 			console::WriteLine("  [" + std::to_string(i) + "] type: " + argList[i].typeString +

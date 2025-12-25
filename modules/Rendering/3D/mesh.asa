@@ -1,0 +1,36 @@
+
+// Module: Mesh
+// Description: A module for handling and drawing meshes to a window
+Mesh :: module{
+
+	#import Builtin:String;
+
+	// Struct: mesh
+	// Description: A data type that holds information related to a 3D mesh
+	mesh :: struct {
+
+		// Function: load(string)
+		// Description: Loads in mesh data from a file, overwriting any previously loaded data
+		// Arguments:
+		//     path: The path to the mesh file
+		load :: (path : string){
+			
+		}
+	}
+
+	// Function: mesh()
+	// Description: Creates a new blank mesh object
+	// Returns: The newly created mesh object
+	create :: mesh(){
+
+	}
+
+	// Function: mesh(string)
+	// Description: Creates a new mesh object from a file
+	// Arguments:
+	//     path: The path to the mesh file
+	// Returns: The newly created mesh object
+	create :: mesh(path : string){
+		
+	}
+}

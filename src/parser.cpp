@@ -2162,8 +2162,8 @@ void addModuleImports(ASTNode*& node)
 					ASTNode* moduleNameNode = node->childNodes[1]->childNodes[0];
 					if (moduleNameNode->nodeType == Identifier_Node || moduleNameNode->nodeType == Colon_Separator_Node) {
 						std::string modulePath = ".";
-						bool moduleFound = false;
 						std::string moduleName = "";
+						bool moduleFound = false;
 
 						getModuleNameAndPath(moduleNameNode, modulePath, moduleName);
 						modulePath = std::filesystem::path(modulePath).lexically_normal().string();
@@ -2183,7 +2183,7 @@ void addModuleImports(ASTNode*& node)
 						}
 
 						if (!moduleFound) {
-							printTokenError(moduleNameNode->token, "Failed to import module with name: \"" + moduleName + "\", not found", __LINE__);
+							printTokenError(moduleNameNode->token, "Failed to import module with name: \"" + moduleName + "\" and expected path: \"" + modulePath + "\", not found", __LINE__);
 							console::WriteLine("Looked in the following directories:", console::yellowFGColor);
 							console::indentation++;
 							for (int i = 0; i < sizeof(searchPath) / sizeof(searchPath[0]); i++)

@@ -1,5 +1,5 @@
 #import Builtin:Print;
-//#import Builtin:ColorPrint;
+#import Builtin:ColorPrint;
 
 #import Builtin:Casts;
 //#import Builtin.Operators;
@@ -67,6 +67,7 @@ main :: (){
 
 	xMain : int = 9;
 	testReference(xMain);
+	print(greenFG);
 	print("Reference modification: ");
 	print(xMain);
 	printl(" should be 1");

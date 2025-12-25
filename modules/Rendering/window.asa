@@ -1,4 +1,10 @@
-
+// Module: Window
+// Description: A module for window and rendering functionality
 Window :: module{
-	
+
+	// Struct: window
+	// Description: An object that holds information related to a graphical window
+	Window :: struct{
+		
+	}
 }

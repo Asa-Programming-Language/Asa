@@ -1,53 +1,125 @@
-
+// Module: ColorPrint
+// Description: A builtin module for printing colored text to the terminal using ANSI escape codes
 ColorPrint :: module {
 
 	#import Builtin:Print;
 	#import Builtin:String;
 
-	// Foreground colors
-	blackFG = "\x1B[30m";
-	redFG = "\x1B[31m";
-	greenFG = "\x1B[32m";
-	yellowFG = "\x1B[33m";
-	blueFG = "\x1B[34m";
-	magentaFG = "\x1B[35m";
-	cyanFG = "\x1B[36m";
-	whiteFG = "\x1B[37m";
-	brightBlackFG = "\x1B[90m";
-	brightRedFG = "\x1B[91m";
-	brightGreenFG = "\x1B[92m";
-	brightYellowFG = "\x1B[93m";
-	brightBlueFG = "\x1B[94m";
-	brightMagentaFG = "\x1B[95m";
-	brightCyanFG = "\x1B[96m";
-	brightWhiteFG = "\x1B[97m";
+	// Constant: resetColor
+	// Description: ANSI escape code to reset all color formatting back to terminal defaults
+	resetColor : string = "\033[0m";
 
-	//Background colors
-	blackBG = "\x1B[40m";
-	redBG = "\x1B[41m";
-	greenBG = "\x1B[42m";
-	yellowBG = "\x1B[43m";
-	blueBG = "\x1B[44m";
-	magentaBG = "\x1B[45m";
-	cyanBG = "\x1B[46m";
-	whiteBG = "\x1B[47m";
-	brightBlackBG = "\x1B[100m";
-	brightRedBG = "\x1B[101m";
-	brightGreenBG = "\x1B[102m";
-	brightYellowBG = "\x1B[103m";
-	brightBlueBG = "\x1B[104m";
-	brightMagentaBG = "\x1B[105m";
-	brightCyanBG = "\x1B[106m";
-	brightWhiteBG = "\x1B[107m";
-
-	// Reset colors
-	resetColor : *char = "\033[0m";
-
-
-	colorPrint:: (s : exact *char, col : exact *char, ...) {
-		resetColor : *char = "\033[0m";
-		printf(col + s + resetColor);
+	// Function: colorPrint(string, color)
+	// Description: Prints a string to the terminal with the specified color, then resets color formatting
+	//
+	// Arguments:
+	//     s: The string to print
+	//     col: The color code to use, see <Fore> and <Back>
+	colorPrint:: (s : string, col : string) {
+		print(col + s + resetColor);
 		return;
+	}
+
+	// Function: colorPrint(string, fg color, bg color)
+	// Description: Prints a string to the terminal with the specified foreground and background colors, then resets color formatting
+	//
+	// Arguments:
+	//     s: The string to print
+	//     fg: The color code to use for the foreground see <Fore>
+	//     bg: The color code to use for the background see <Back>
+	colorPrint:: (s : string, fg : string, bg : string) {
+		print(fg + bg + s + resetColor);
+		return;
+	}
+
+	// Module: Fore
+	// Description: |
+	//     Module containing the foreground color codes used for printing colors.
+	//     
+	//     The proper way to use these is like `:::asa Fore:red`, for example:
+	//     ```asa
+	//     colorPrint("Red text", Fore:red);
+	//     ```
+	Fore :: module{
+		// Constants: Color names
+		// Values:
+		//     black: black color
+		//     red: red color
+		//     green: green color
+		//     yellow: yellow color
+		//     blue: blue color
+		//     magenta: magenta color
+		//     cyan: cyan color
+		//     white: white color
+		//     brightBlack: brightBlack color
+		//     brightRed: brightRed color
+		//     brightGreen: brightGreen color
+		//     brightYellow: brightYellow color
+		//     brightBlue: brightBlue color
+		//     brightMagenta: brightMagenta color
+		//     brightCyan: brightCyan color
+		//     brightWhite: brightWhite color
+		black : string = "\x1B[30m";
+		red : string = "\x1B[31m";
+		green : string = "\x1B[32m";
+		yellow : string = "\x1B[33m";
+		blue : string = "\x1B[34m";
+		magenta : string = "\x1B[35m";
+		cyan : string = "\x1B[36m";
+		white : string = "\x1B[37m";
+		brightBlack : string = "\x1B[90m";
+		brightRed : string = "\x1B[91m";
+		brightGreen : string = "\x1B[92m";
+		brightYellow : string = "\x1B[93m";
+		brightBlue : string = "\x1B[94m";
+		brightMagenta : string = "\x1B[95m";
+		brightCyan : string = "\x1B[96m";
+		brightWhite : string = "\x1B[97m";
+	}
+
+	// Module: Back
+	// Description: | 
+	//     Module containing the background color codes used for printing colors.
+	//     
+	//     The proper way to use these is like `:::asa Back:red`, for example:
+	//     ```asa
+	//     colorPrint("Red background text", Back:red);
+	//     ```
+	Back :: module{
+		// Constants: Color names
+		// Values:
+		//     black: black color
+		//     red: red color
+		//     green: green color
+		//     yellow: yellow color
+		//     blue: blue color
+		//     magenta: magenta color
+		//     cyan: cyan color
+		//     white: white color
+		//     brightBlack: brightBlack color
+		//     brightRed: brightRed color
+		//     brightGreen: brightGreen color
+		//     brightYellow: brightYellow color
+		//     brightBlue: brightBlue color
+		//     brightMagenta: brightMagenta color
+		//     brightCyan: brightCyan color
+		//     brightWhite: brightWhite color
+		black : string = "\x1B[40m";
+		red : string = "\x1B[41m";
+		green : string = "\x1B[42m";
+		yellow : string = "\x1B[43m";
+		blue : string = "\x1B[44m";
+		magenta : string = "\x1B[45m";
+		cyan : string = "\x1B[46m";
+		white : string = "\x1B[47m";
+		brightBlack : string = "\x1B[100m";
+		brightRed : string = "\x1B[101m";
+		brightGreen : string = "\x1B[102m";
+		brightYellow : string = "\x1B[103m";
+		brightBlue : string = "\x1B[104m";
+		brightMagenta : string = "\x1B[105m";
+		brightCyan : string = "\x1B[106m";
+		brightWhite : string = "\x1B[107m";
 	}
 }
 
