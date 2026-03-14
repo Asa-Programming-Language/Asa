@@ -23,7 +23,7 @@ bool wasError = false;
 llvm::Value* castValue(llvm::Value* value, llvm::Type* destType, bool isSrcSigned, bool isToSigned, tokenPair*& token, bool destTypeIsStruct = false);
 
 std::unordered_map<std::string, Type*> unresolvedTypes;
-std::stack<Type*> lastRetrievedElementType;
+std::stack<ASAType*> lastRetrievedElementType;
 std::stack<Value*> pipeOperationValue;
 
 // Stack to track loop contexts (for break/continue)
@@ -321,6 +321,7 @@ struct structType {
 	StructType* structVal = nullptr;
 	tokenPair* token = nullptr;
 	ASTNode* sourceNode = nullptr;
+	ASAType* asaType = nullptr;
 	structType() {}
 	structType(std::string& n, tokenPair*& tP, StructType*& sT, argumentList a, std::vector<functionID*>& mF, std::unordered_map<std::string, uint16_t>& mI)
 	{
@@ -626,6 +627,7 @@ Type* getLLVMTypeFromString(std::string typeName, int pointerLevelOffset, tokenP
 		aType = aType->getPointerTo();
 	return aType;
 }
+
 
 std::string getStringTypeFromLLVMType(llvm::Type* type)
 {
@@ -1252,7 +1254,7 @@ void* ASTNode::generateVariableExpression(int pass)
 		return nullptr;
 	if (!val) {
 		Value* exprVal = ConstantInt::get(Type::getInt32Ty(*TheContext), 0);
-		Type* type = nullptr;
+		Type* llvmType = nullptr;
 		Function* theFunction = Builder->GetInsertBlock()->getParent();
 		uint16_t pointerLevel = 0;
 		std::string typeName = "";
@@ -1274,13 +1276,13 @@ void* ASTNode::generateVariableExpression(int pass)
 				goto getNextPointerLevel;
 			}
 			bool wasDefined = true;
-			type = getLLVMTypeFromString(typeName, 0, typeNode->token, wasDefined, pass);
+			llvmType = getLLVMTypeFromString(typeName, 0, typeNode->token, wasDefined, pass);
 			for (int i = 0; i < pointerLevel; i++)
-				type = type->getPointerTo();
+				llvmType = llvmType->getPointerTo();
 			if (typeSigns.find(typeName) != typeSigns.end())  // If builtin type
-				exprVal = castValue(exprVal, type, true, typeSigns[typeNode->token->first], token);
+				exprVal = castValue(exprVal, llvmType, true, typeSigns[typeNode->token->first], token);
 			else if (structDefinitions.find(typeName) != structDefinitions.end())  // If defined struct
-				exprVal = castValue(exprVal, type, true, false, token, true);
+				exprVal = castValue(exprVal, llvmType, true, false, token, true);
 			else {
 				printTokenError(token, "Unknown type");
 				wasError = true;
@@ -1292,8 +1294,8 @@ void* ASTNode::generateVariableExpression(int pass)
 				return nullptr;
 			}
 		}
-		baseType = type;
-		AllocaInst* targetPtr = CreateEntryBlockAlloca(theFunction, type, token->first);
+		asaType->baseLLVMType = llvmType;
+		AllocaInst* targetPtr = CreateEntryBlockAlloca(theFunction, llvmType, token->first);
 		std::string actualType = (pointerLevel > 0 ? std::string(pointerLevel, '*') : "") + typeName;
 		namedValues[token->first] = new valueType(token->first, actualType, targetPtr);
 
@@ -1328,7 +1330,7 @@ void* ASTNode::generateVariableExpression(int pass)
 			return Builder->CreateLoad(targetPtr->getAllocatedType(), targetPtr, token->first + "_load");
 	}
 	AllocaInst* A = (AllocaInst*)(val->val);
-	baseType = A->getAllocatedType();
+	asaType->baseLLVMType = A->getAllocatedType();
 
 	// Handle references: need to dereference when used as rvalue
 	if (val->isReference && !isRef && !lvalue) {
@@ -2265,21 +2267,21 @@ void* ASTNode::generateAccessOperation(int pass)
 		return nullptr;
 	}
 
-	if (!baseType) {
+	if (!asaType) {
 		printTokenError(token, "Was unable to resolve type");
 		wasError = true;
 		return nullptr;
 	}
 
 	// Get the element type from baseType (set by member access or previous operations)
-	Type* elementType = baseType;
+	Type* elementType = asaType->baseLLVMType;
 
 	// If baseType is a pointer, we need to determine what it points to
-	if (baseType && baseType->isPointerTy()) {
+	if (asaType->baseLLVMType && asaType->baseLLVMType->isPointerTy()) {
 		// The element type should be tracked from the struct definition
 		// Use lastRetrievedElementType if available
 		if (!lastRetrievedElementType.empty()) {
-			elementType = lastRetrievedElementType.top();
+			elementType = lastRetrievedElementType.top()->baseLLVMType;
 		}
 		else {
 			printTokenError(token, "Was unable to resolve type");
@@ -2438,13 +2440,14 @@ void* ASTNode::generateMemberAccess(int pass)
 				return nullptr;
 			}
 
-			lastRetrievedElementType.push(elementType);
 
 			//// Create GEP to compute the address
 			//Value* gep = Builder->CreateGEP(elementType, basePtr, index, "arrayidx");
 
 			auto gep = Builder->CreateStructGEP(structDefinition->structVal, basePtr, memberIndex, "struct_member");
-			baseType = elementType;
+			asaType = new ASAType(elementType);
+
+			lastRetrievedElementType.push(asaType);
 
 			// If this is an lvalue (for assignment), return the pointer gep
 			if (lvalue)
@@ -2538,10 +2541,10 @@ void* ASTNode::generateMemberAccess(int pass)
 					return nullptr;
 			}
 			bool wasDefined = true;
-			lastRetrievedElementType.push(getLLVMTypeFromString(CalleeFID->returnType, 0, token, wasDefined, pass));
+			lastRetrievedElementType.push(new ASAType(getLLVMTypeFromString(CalleeFID->returnType, 0, token, wasDefined, pass)));
 
 			isCallMemberFunction = false;
-			baseType = lastRetrievedElementType.top();
+			asaType = lastRetrievedElementType.top();
 
 			Value* callResult = nullptr;
 			Type* retType = CalleeF->getReturnType();
@@ -2558,7 +2561,7 @@ void* ASTNode::generateMemberAccess(int pass)
 	}
 	// If left is not pointer, assume another member access or index operator
 	else {
-		structType* structDefinition = getStructTypeFromLLVMType(lastRetrievedElementType.top());
+		structType* structDefinition = getStructTypeFromLLVMType(lastRetrievedElementType.top()->baseLLVMType);
 		lastRetrievedElementType.pop();
 
 		if (structDefinition == nullptr) {
@@ -2596,13 +2599,14 @@ void* ASTNode::generateMemberAccess(int pass)
 				wasError = true;
 				return nullptr;
 			}
-			lastRetrievedElementType.push(elementType);
 
 			//// Create GEP to compute the address
 			//Value* gep = Builder->CreateGEP(elementType, basePtr, index, "arrayidx");
 
 			auto gep = Builder->CreateStructGEP(structDefinition->structVal, basePtr, memberIndex, "struct_member");
-			baseType = elementType;
+			asaType = new ASAType(elementType);
+
+			lastRetrievedElementType.push(asaType);
 
 			// If this is an lvalue (for assignment), return the pointer gep
 			if (lvalue)
@@ -2696,10 +2700,10 @@ void* ASTNode::generateMemberAccess(int pass)
 					return nullptr;
 			}
 			bool wasDefined = true;
-			lastRetrievedElementType.push(getLLVMTypeFromString(CalleeFID->returnType, 0, token, wasDefined, pass));
+			lastRetrievedElementType.push(new ASAType(getLLVMTypeFromString(CalleeFID->returnType, 0, token, wasDefined, pass)));
 
 			isCallMemberFunction = false;
-			baseType = lastRetrievedElementType.top();
+			asaType = lastRetrievedElementType.top();
 
 			Value* callResult = nullptr;
 			Type* retType = CalleeF->getReturnType();
@@ -4040,7 +4044,7 @@ int outputObjectFile(std::string& objectFilePath)
 	return 0;
 }
 
-int generateExecutable(const std::string& irFilePath, const std::string& exeFilePath)
+int generateExecutable(const std::string& irFilePath, const std::string& exeFilePath, const std::string& clangOptions)
 {
 	// llc to convert <name>.ll to assembly
 	std::string commandLLC = "llc -relocation-model=pic " + irFilePath + " -o " + irFilePath + ".s";
@@ -4048,7 +4052,7 @@ int generateExecutable(const std::string& irFilePath, const std::string& exeFile
 	if (result != 0)
 		exit(1);
 	// clang as the linker
-	std::string commandClang = "clang -fPIE -o " + exeFilePath + " " + irFilePath + ".s -g";
+	std::string commandClang = "clang -fPIE -o " + clangOptions + " " + exeFilePath + " " + irFilePath + ".s -g";
 	result = std::system(commandClang.c_str());
 	if (result != 0)
 		exit(1);

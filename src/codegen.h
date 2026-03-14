@@ -20,6 +20,6 @@ extern std::map<std::string, Value*> NamedValues;
 
 void initializeCodeGenerator();
 int outputObjectFile(std::string& objectFilePath);
-int generateExecutable(const std::string& irFilePath, const std::string& exeFilePath);
+int generateExecutable(const std::string& irFilePath, const std::string& exeFilePath, const std::string& clangOptions);
 void removeUnusedPrototypes();
 void printFunctionPrototypes();

@@ -259,6 +259,7 @@ struct valueType {
 struct ASAType {
 	Type* llvmType = nullptr;
 	Type* baseLLVMType = nullptr;
+	bool inferredType = false;
 	bool isRef = false;
 	bool isConst = false;
 	std::string strVal = "";
@@ -266,6 +267,8 @@ struct ASAType {
 
 	ASAType(Type* baseLLVMType, bool isRef, bool isConst, std::string strVal, uint8_t pointerLevel)
 		: baseLLVMType(baseLLVMType), isRef(isRef), isConst(isConst), strVal(strVal), pointerLevel(pointerLevel) {};
+	ASAType(Type* baseLLVMType)
+		: baseLLVMType(baseLLVMType) {};
 };
 
 struct ASTNode {

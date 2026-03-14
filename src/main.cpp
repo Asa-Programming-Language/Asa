@@ -12,6 +12,8 @@ int main(int argc, char** argv)
 
 	std::string fileName = "";
 
+	std::string clangOptions = "";
+
 	executableDirectory = std::filesystem::weakly_canonical(std::filesystem::path(argv[0])).parent_path().string() + "/";
 
 	console::SetColor(console::redFGColor);
@@ -20,6 +22,7 @@ int main(int argc, char** argv)
 		int option_index = 0;
 		static struct option long_options[] = {
 			{"compile", no_argument, 0, 'c'},
+			{"clangoptions", required_argument, 0, 'C'},
 			{"verbose", no_argument, 0, 'v'},
 			{"quiet", no_argument, 0, 'q'},
 			{"silent", no_argument, 0, 's'},
@@ -34,7 +37,7 @@ int main(int argc, char** argv)
 			{"version", no_argument, 0, 'V'},
 			{0, 0, 0, 0}};
 
-		c = getopt_long(argc, argv, "cvqsdDtrVw:f:o:O:0",
+		c = getopt_long(argc, argv, "cCvqsdDtrVw:f:o:O:0",
 			long_options, &option_index);
 		if (c == -1)
 			break;
@@ -47,6 +50,10 @@ int main(int argc, char** argv)
 				break;
 
 			case 'c':
+				break;
+
+			case 'C':
+				clangOptions = std::string(optarg);
 				break;
 
 			case 'v':
@@ -313,7 +320,7 @@ errorsEncountered:
 	//outputObjectFile(objectFilePath);
 
 	// Link the object file into executable
-	generateExecutable(irFilePath, outputFileName);
+	generateExecutable(irFilePath, outputFileName, clangOptions);
 	if (verbosity >= 1)
 		console::WriteLine("Wrote executable to " + outputFileName);
 
