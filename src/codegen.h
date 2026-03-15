@@ -10,6 +10,8 @@
 using namespace llvm;
 using namespace llvm::sys;
 
+struct ASTNode;
+
 
 extern std::unique_ptr<LLVMContext> TheContext;
 extern std::unique_ptr<Module> TheModule;
@@ -23,3 +25,10 @@ int outputObjectFile(std::string& objectFilePath);
 int generateExecutable(const std::string& irFilePath, const std::string& exeFilePath, const std::string& clangOptions);
 void removeUnusedPrototypes();
 void printFunctionPrototypes();
+
+extern std::map<std::string, std::string> compilerDefines;
+
+extern Function* globalInitFn;
+void declareModuleScopeVariable(ASTNode* exprStmtNode, ASTNode* ownerNode, bool isModuleVar);
+void processModuleForDeclarations(ASTNode* moduleCompilerDefineNode);
+void finalizeGlobalInit();

@@ -20,6 +20,17 @@ ColorPrint :: module {
 		return;
 	}
 
+	// Function: colorPrint(string, color)
+	// Description: Prints a string to the terminal with a newline with the specified color, then resets color formatting
+	//
+	// Arguments:
+	//     s: The string to print
+	//     col: The color code to use, see <Fore> and <Back>
+	colorPrintl:: (s : string, col : string) {
+		print(col + s + resetColor + "\n");
+		return;
+	}
+
 	// Function: colorPrint(string, fg color, bg color)
 	// Description: Prints a string to the terminal with the specified foreground and background colors, then resets color formatting
 	//
@@ -32,13 +43,25 @@ ColorPrint :: module {
 		return;
 	}
 
+	// Function: colorPrintl(string, fg color, bg color)
+	// Description: Prints a string to the terminal with a newline with the specified foreground and background colors, then resets color formatting
+	//
+	// Arguments:
+	//     s: The string to print
+	//     fg: The color code to use for the foreground see <Fore>
+	//     bg: The color code to use for the background see <Back>
+	colorPrintl:: (s : string, fg : string, bg : string) {
+		print(fg + bg + s + resetColor + "\n");
+		return;
+	}
+
 	// Module: Fore
 	// Description: |
 	//     Module containing the foreground color codes used for printing colors.
 	//     
-	//     The proper way to use these is like `:::asa Fore:red`, for example:
+	//     The proper way to use these is like `:::asa Fore.red`, for example:
 	//     ```asa
-	//     colorPrint("Red text", Fore:red);
+	//     colorPrint("Red text", Fore.red);
 	//     ```
 	Fore :: module{
 		// Constants: Color names
@@ -81,9 +104,9 @@ ColorPrint :: module {
 	// Description: | 
 	//     Module containing the background color codes used for printing colors.
 	//     
-	//     The proper way to use these is like `:::asa Back:red`, for example:
+	//     The proper way to use these is like `:::asa Back.red`, for example:
 	//     ```asa
-	//     colorPrint("Red background text", Back:red);
+	//     colorPrint("Red background text", Back.red);
 	//     ```
 	Back :: module{
 		// Constants: Color names

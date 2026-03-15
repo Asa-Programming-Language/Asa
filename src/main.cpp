@@ -272,6 +272,9 @@ int main(int argc, char** argv)
 	if (!wasError)
 		removeUnusedPrototypes();
 
+	// Finalize module-scope global variable initializers
+	finalizeGlobalInit();
+
 	DBuilder->finalize();
 
 	// Print out all of the generated code.

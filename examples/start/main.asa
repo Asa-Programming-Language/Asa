@@ -29,6 +29,10 @@ Or individual components:
 //	c : int;
 //}
 
+TestMod :: module {
+	testVal : int = 42;
+}
+
 operator|| :: bool(a : bool, b : bool) #inline; #hideast {
 	if(a)
 		return true;
@@ -67,15 +71,19 @@ main :: (){
 
 	xMain : int = 9;
 	testReference(xMain);
-	print(greenFG);
+	printl(TestMod.testVal);
+	print(Fore.green);
 	print("Reference modification: ");
 	print(xMain);
 	printl(" should be 1");
 
+	colorPrintl("This text should be red", Fore.red);
+
 	//throw "This is a test error!";
 
-	test 2 == 2;
-	test 5 == 2;
+	//test 5 == 2;
+
+	test(4 == 3, "This should be an error");
 
 	//constArray : int[] = void;
 

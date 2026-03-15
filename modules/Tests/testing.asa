@@ -1,4 +1,31 @@
 
 Testing :: module {
-
+	
+	#import Builtin:String;
+	#import Builtin:Print;
+	#import Builtin:ColorPrint;
+	
+	// Function: test(expression, failureMessage)
+	// Description: | 
+	//     Tests the given expression by executing it. If it has an error or returns a value of `false`, then the `failureMessage` will be printed.
+	//
+	//     TODO:
+	//     The `expression` is a lambda or boolean expression. For example:
+	//     ```asa
+	//     test(true == false, "This should give an error");
+	//     test({ x = 4; }, "This should not give an error");
+	//     test((){ x = 4; }, "This should not give an error");
+	//     test(bool(){ x = 4; }, "This should not give an error");
+	//     test(bool(){ return false; }, "This should give an error");
+	//     test(bool(){ return true; }, "This should not give an error");
+	//     ```
+	//
+	// Arguments:
+	//     expression: The expression to execute
+	//     failureMessage: The message to print should the test fail
+	test :: (expression : bool, failureMessage : string){
+		if (expression == false){
+			colorPrintl(failureMessage, Fore.red);
+		}
+	}
 }

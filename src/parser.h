@@ -104,7 +104,6 @@ enum ASTNodeType {
 	Break_Node,
 	Goto_Node,
 
-	Test_Node,
 	Throw_Node,
 
 	Iterator,
@@ -219,7 +218,6 @@ const std::string ASTNodeTypeStrings[] = {
 	"Break_Node",
 	"Goto_Node",
 
-	"Test_Node",
 	"Throw_Node",
 
 	"Iterator",
@@ -285,6 +283,7 @@ struct ASTNode {
 	std::string label = "";
 	bool showInASTOutput = true;
 	bool replaceableDefinition = false;
+	bool isModuleScope = false;    // true for Compiler_Define nodes representing named modules
 	bool currentNodeDoneGenerating = false;
 	//Type* llvmType;
 	//Type* baseType = nullptr;
@@ -320,11 +319,11 @@ struct ASTNode {
 	void* generatePrototype(int pass = 0);
 	void* generateFunction(int pass = 0);
 	void* generateCast(int pass = 0);
-	void* generateTest(int pass = 0);
 	void* generateThrow(int pass = 0);
 	void* generateTypeInstance(int pass = 0);
 	void* generateCallExpression(int pass = 0);
 	void* generateNothing(int pass = 0);
+	void* generateCompilerDefine(int pass = 0);
 
 	void* (ASTNode::*codegen)(int pass) = nullptr;
 

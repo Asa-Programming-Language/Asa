@@ -19,6 +19,29 @@ static std::unique_ptr<StandardInstrumentations> TheSI;
 std::unordered_map<std::string, llvm::GlobalVariable*> globalStringLiteralConstants;
 bool isCallMemberFunction = false;
 bool wasError = false;
+std::map<std::string, std::string> compilerDefines;
+
+struct GlobalInit {
+	llvm::GlobalVariable* gv;
+	ASTNode* exprStmtNode;
+};
+
+Function* globalInitFn = nullptr;
+std::vector<GlobalInit> globalInitList;
+
+// Module registry: module name -> its Compiler_Define ASTNode.
+// Used by member-access codegen (Fore.black -> look in registry["Fore"]->namedValues).
+std::unordered_map<std::string, ASTNode*> moduleRegistry;
+
+// Returns the allocated element type for either an AllocaInst or GlobalVariable.
+inline Type* getValueStoredType(Value* ptr)
+{
+	if (auto* A = dyn_cast<AllocaInst>(ptr))
+		return A->getAllocatedType();
+	if (auto* G = dyn_cast<GlobalVariable>(ptr))
+		return G->getValueType();
+	return ptr->getType();
+}
 
 llvm::Value* castValue(llvm::Value* value, llvm::Type* destType, bool isSrcSigned, bool isToSigned, tokenPair*& token, bool destTypeIsStruct = false);
 
@@ -212,13 +235,24 @@ struct functionID {
 					console::WriteLine("[" + std::to_string(i) + "] pointerLevel: " + std::to_string(userArguments[i].pointerLevel) + "!=" + std::to_string(a[i].pointerLevel));
 			}
 
-			// If pointer levels differ, these are fundamentally different types
+			// If pointer levels differ, these are fundamentally different types —
+			// with two implicit conversion exceptions involving string:
+			//   string → *char  (extracts .address at call site)
+			//   *char  → string (wraps in struct at call site)
 			if (userArguments[i].pointerLevel != a[i].pointerLevel) {
+				bool isStringToCharPtr =
+					userArguments[i].pointerLevel == 1 &&
+					(userArguments[i].typeString == "char" || userArguments[i].typeString == "int8") &&
+					a[i].pointerLevel == 0 && a[i].typeString == "string";
+				bool isCharPtrToString =
+					userArguments[i].pointerLevel == 0 && userArguments[i].typeString == "string" &&
+					a[i].pointerLevel == 1 && (a[i].typeString == "char" || a[i].typeString == "int8");
+				if (isStringToCharPtr || isCharPtrToString) {
+					differences += 10;
+					continue;
+				}
 				differences = 1000;
 				goto returnDifferences;
-				//if (mustBeExactType) {
-				//	return 500;	 // Incompatible types
-				//}
 			}
 
 			// If they are the same base type (ignoring signedness for LLVM types)
@@ -682,9 +716,7 @@ std::string getStringTypeFromLLVMType(llvm::Type* type)
 		if (baseType->isStructTy()) {
 			llvm::StructType* structType = static_cast<llvm::StructType*>(baseType);
 			if (structType->hasName()) {
-				console::WriteLine("getting struct name...");
 				std::string fullName = structType->getName().str();
-				console::WriteLine("got \"" + fullName + "\"");
 				// Strip "struct." prefix if present
 				if (fullName.rfind("struct.", 0) == 0) {
 					baseTypeName = SplitString(fullName, ".")[1];
@@ -843,26 +875,41 @@ void initializeCodeGenerator()
 valueType* findNamedValue(ASTNode* node, ASTNode* childNode, std::string& identifier, tokenPair*& token)
 {
 	// First look in self
-	if (node->namedValues.find(identifier) != node->namedValues.end())
+	if (node->namedValues.find(identifier) != node->namedValues.end()) {
 		return node->namedValues[identifier];
+	}
 
 	// Search through child nodes, but with proper scoping rules
 	for (auto& c : node->childNodes) {
 		// At nested scopes (depth > 0), only search up to the point where it's used
-		if (node->depth > 0 && c == childNode)
+		if (node->depth > 0 && c == childNode) {
 			break;
+		}
+
+		// Module-scope nodes (Fore, Back, etc.) hold their variables privately;
+		// those are only reachable via explicit Module.member access, not by name.
+		if (c->isModuleScope)
+			continue;
 
 		// At global scope (depth == 0), only search in direct children that are
 		// expression statements or variable declarations, not in function bodies
 		if (node->depth == 0) {
+			// Function definitions store their parameters in namedValues, but those
+			// are local to the function and must NOT be visible at global scope.
+			if (c->nodeType == Compiler_Define_Function ||
+				c->nodeType == Compiler_Define_Cast ||
+				c->nodeType == Compiler_Define_Struct)
+				continue;
 			// Only check the child's own namedValues, don't recurse into it
-			if (c->namedValues.find(identifier) != c->namedValues.end())
+			if (c->namedValues.find(identifier) != c->namedValues.end()) {
 				return c->namedValues[identifier];
+			}
 		}
 		else {
 			// At nested scopes, check child and its descendants
-			if (c->namedValues.find(identifier) != c->namedValues.end())
+			if (c->namedValues.find(identifier) != c->namedValues.end()) {
 				return c->namedValues[identifier];
+			}
 		}
 	}
 
@@ -893,6 +940,11 @@ std::string getMemberAccessTypeString(ASTNode* node, ASTNode* parentNode, tokenP
 {
 	// Base case: if it's just an identifier, look it up normally
 	if (node->nodeType == Identifier_Node) {
+		// Check if it's a module name (not a variable)
+		auto modIt = moduleRegistry.find(node->token->first);
+		if (modIt != moduleRegistry.end())
+			return "__module__:" + node->token->first;
+
 		valueType* val = findNamedValue(parentNode, nullptr, node->token->first, token);
 		if (!val && !wasError) {
 			printTokenError(token, "Unknown variable name: " + node->token->first);
@@ -917,6 +969,25 @@ std::string getMemberAccessTypeString(ASTNode* node, ASTNode* parentNode, tokenP
 		std::string leftType = getMemberAccessTypeString(leftNode, parentNode, token);
 		if (leftType.empty() || wasError)
 			return "";
+
+		// Check if left side is a module (type string "__module__:ModuleName")
+		if (leftType.size() > 11 && leftType.substr(0, 11) == "__module__:") {
+			std::string modName = leftType.substr(11);
+			auto modIt = moduleRegistry.find(modName);
+			if (modIt != moduleRegistry.end()) {
+				std::string memberName = rightNode->token->first;
+				auto varIt = modIt->second->namedValues.find(memberName);
+				if (varIt != modIt->second->namedValues.end())
+					return varIt->second->type;
+				// Also check nested sub-modules
+				auto subModIt = moduleRegistry.find(modName + "." + memberName);
+				if (subModIt != moduleRegistry.end())
+					return "__module__:" + modName + "." + memberName;
+			}
+			printTokenError(token, "Module has no member '" + rightNode->token->first + "'");
+			wasError = true;
+			return "";
+		}
 
 		// Remove pointer markers to get the struct name
 		std::string structName = leftType;
@@ -970,6 +1041,139 @@ std::string getMemberAccessTypeString(ASTNode* node, ASTNode* parentNode, tokenP
 	printTokenError(token, "Cannot determine type of expression");
 	wasError = true;
 	return "";
+}
+
+
+// Declare one Expression_Statement as an LLVM global.
+// ownerNode: the node in whose namedValues the valueType is stored.
+//   Root-level vars: ownerNode == exprStmtNode (so findNamedValue can find it).
+//   Module vars: ownerNode == the Compiler_Define module node.
+void declareModuleScopeVariable(ASTNode* exprStmtNode, ASTNode* ownerNode, bool isModuleVar)
+{
+	if (exprStmtNode->childNodes.size() < 2) return;
+	ASTNode* leftNode = exprStmtNode->childNodes[0];
+	if (leftNode->nodeType != Colon_Separator_Node || leftNode->childNodes.size() < 2) return;
+
+	ASTNode* nameNode = leftNode->childNodes[0];
+	ASTNode* typeNode = leftNode->childNodes[1];
+	std::string varName = nameNode->token->first;
+
+	// Walk pointer stars
+	int pointerLevel = 0;
+	while (typeNode->token->first == "*" && !typeNode->childNodes.empty()) {
+		pointerLevel++;
+		typeNode = typeNode->childNodes[0];
+	}
+	std::string typeName = typeNode->token->first;
+
+	bool wasDefined = true;
+	int pass = 1;
+	Type* llvmType = getLLVMTypeFromString(typeName, 0, typeNode->token, wasDefined, pass);
+	if (!llvmType || !wasDefined) return;
+	for (int i = 0; i < pointerLevel; i++)
+		llvmType = llvmType->getPointerTo();
+
+	std::string globalName = varName;
+	GlobalVariable* gv = new GlobalVariable(
+		*TheModule, llvmType, false,
+		GlobalValue::InternalLinkage,
+		Constant::getNullValue(llvmType),
+		globalName);
+
+	std::string actualType = std::string(pointerLevel, '*') + typeName;
+	valueType* vt = new valueType(varName, actualType, gv);
+
+	// For root-level vars, store in the expression stmt's own namedValues so
+	// findNamedValue (which checks direct children of root) can find it.
+	// For module vars, store in the module node's namedValues (accessible only
+	// via Fore.black member access, not by direct lookup because isModuleScope
+	// makes findNamedValue skip it).
+	ownerNode->namedValues[varName] = vt;
+
+	globalInitList.push_back({gv, exprStmtNode});
+
+	if (!globalInitFn) {
+		FunctionType* ft = FunctionType::get(Type::getVoidTy(*TheContext), false);
+		globalInitFn = Function::Create(
+			ft, Function::InternalLinkage, "__asa_global_init", *TheModule);
+	}
+}
+
+// Register a Compiler_Define (module) node and declare all its variable globals.
+void processModuleForDeclarations(ASTNode* moduleCompilerDefineNode)
+{
+	std::string moduleName = moduleCompilerDefineNode->token->first;
+	moduleCompilerDefineNode->isModuleScope = true;
+	moduleRegistry[moduleName] = moduleCompilerDefineNode;
+
+	// Navigate: Compiler_Define -> Scope_Body -> Module_Define_Node -> inner Scope_Body
+	if (moduleCompilerDefineNode->childNodes.empty()) return;
+	ASTNode* outerScope = moduleCompilerDefineNode->childNodes[0];
+	if (outerScope->nodeType != Scope_Body || outerScope->childNodes.empty()) return;
+	ASTNode* moduleDef = outerScope->childNodes[0];
+	if (moduleDef->nodeType != Module_Define_Node || moduleDef->childNodes.empty()) return;
+	ASTNode* innerScope = moduleDef->childNodes[0];
+	if (innerScope->nodeType != Scope_Body) return;
+
+	for (auto& child : innerScope->childNodes) {
+		if (child->nodeType == Expression_Statement)
+			declareModuleScopeVariable(child, moduleCompilerDefineNode, true);
+		// Recurse into nested sub-modules
+		else if (child->nodeType == Compiler_Define)
+			processModuleForDeclarations(child);
+	}
+}
+
+// Fill in __asa_global_init's body and finalize it.
+void finalizeGlobalInit()
+{
+	if (!globalInitFn || globalInitList.empty()) return;
+
+	BasicBlock* BB = BasicBlock::Create(*TheContext, "entry", globalInitFn);
+	Builder->SetInsertPoint(BB);
+
+	for (auto& gi : globalInitList) {
+		ASTNode* node = gi.exprStmtNode;
+		GlobalVariable* gv = gi.gv;
+
+		if (node->childNodes.size() < 2) continue;
+		ASTNode* exprTerm = node->childNodes[1];
+		if (!exprTerm || !exprTerm->codegen) continue;
+
+		Value* initVal = (Value*)(exprTerm->*(exprTerm->codegen))(2);
+		if (wasError) { wasError = false; continue; }
+		if (!initVal) continue;
+
+		Type* gvType = gv->getValueType();
+		if (initVal->getType() != gvType) {
+			if (gvType->isStructTy() && initVal->getType()->isPointerTy()) {
+				// If it's a string struct { ptr, i32 } and we have a *char, build it properly
+				StructType* st = cast<StructType>(gvType);
+				if (st->getNumElements() == 2 &&
+					st->getElementType(0)->isPointerTy() &&
+					st->getElementType(1)->isIntegerTy(32)) {
+					FunctionCallee strlenFn = TheModule->getOrInsertFunction("strlen",
+						FunctionType::get(Type::getInt64Ty(*TheContext),
+							{PointerType::getUnqual(*TheContext)}, false));
+					Value* lenVal = Builder->CreateCall(strlenFn, {initVal}, "strlen");
+					Value* lenTrunc = Builder->CreateTrunc(lenVal, Type::getInt32Ty(*TheContext), "len");
+					Value* strStruct = UndefValue::get(gvType);
+					strStruct = Builder->CreateInsertValue(strStruct, initVal, {0});
+					strStruct = Builder->CreateInsertValue(strStruct, lenTrunc, {1});
+					initVal = strStruct;
+				} else {
+					initVal = Builder->CreateLoad(gvType, initVal, "gv_load");
+				}
+			} else {
+				initVal = castValue(initVal, gvType, false, false, node->token);
+				if (wasError || !initVal) { wasError = false; continue; }
+			}
+		}
+		Builder->CreateStore(initVal, gv);
+	}
+
+	Builder->CreateRetVoid();
+	Builder->ClearInsertionPoint();
 }
 
 
@@ -1226,7 +1430,16 @@ void* ASTNode::generateConstant(int pass)
 			globalStr,
 			indices);
 
-		return strPtr;	// Returns i8* pointing to the string
+		// Return a string struct { ptr, length } unless we're inside the string
+		// module itself (where raw *char is needed for bootstrapping).
+		if (compilerDefines["IN_STRING_MODULE"] != "true" &&
+			structDefinitions.count("string") && structDefinitions["string"]->structVal) {
+			StructType* strTy = cast<StructType>((Type*)structDefinitions["string"]->structVal);
+			Constant* lenConst = ConstantInt::get(Type::getInt32Ty(*TheContext), (uint32_t)strValue.size());
+			return ConstantStruct::get(strTy, {strPtr, lenConst});
+		}
+
+		return strPtr;	// Fallback: returns i8* pointing to the string
 	}
 	else if (nodeType == Character_Constant_Node) {
 		std::string strValue = unescapeString(token->first.substr(1, token->first.size() - 2), token);	// remove quotes from token
@@ -1294,7 +1507,8 @@ void* ASTNode::generateVariableExpression(int pass)
 				return nullptr;
 			}
 		}
-		asaType->baseLLVMType = llvmType;
+		if (!asaType) asaType = new ASAType(llvmType);
+		else asaType->baseLLVMType = llvmType;
 		AllocaInst* targetPtr = CreateEntryBlockAlloca(theFunction, llvmType, token->first);
 		std::string actualType = (pointerLevel > 0 ? std::string(pointerLevel, '*') : "") + typeName;
 		namedValues[token->first] = new valueType(token->first, actualType, targetPtr);
@@ -1329,22 +1543,23 @@ void* ASTNode::generateVariableExpression(int pass)
 		else
 			return Builder->CreateLoad(targetPtr->getAllocatedType(), targetPtr, token->first + "_load");
 	}
-	AllocaInst* A = (AllocaInst*)(val->val);
-	asaType->baseLLVMType = A->getAllocatedType();
+	Value* A = val->val;
+	Type* valType = getValueStoredType(A);
+	if (!asaType) asaType = new ASAType(valType);
+	else asaType->baseLLVMType = valType;
+	// Store the type string so pointer element types can be resolved later (e.g., for c[i])
+	asaType->strVal = val->type;
 
 	// Handle references: need to dereference when used as rvalue
 	if (val->isReference && !isRef && !lvalue) {
-		// For a reference used in an expression (rvalue):
-		// 1. Load the pointer from the alloca
-		Value* ptr = Builder->CreateLoad(A->getAllocatedType(), A, token->first + "_ref_ptr");
-		// 2. Load the actual value from that pointer
-		return Builder->CreateLoad(A->getAllocatedType(), ptr, token->first + "_ref_deref");
+		Value* ptr = Builder->CreateLoad(valType, A, token->first + "_ref_ptr");
+		return Builder->CreateLoad(valType, ptr, token->first + "_ref_deref");
 	}
 
 	if (isRef || lvalue)
 		return A;
 	else
-		return Builder->CreateLoad(A->getAllocatedType(), A, token->first + "_load");
+		return Builder->CreateLoad(valType, A, token->first + "_load");
 }
 
 void* ASTNode::generateThrow(int pass)
@@ -1435,81 +1650,6 @@ void* ASTNode::generateThrow(int pass)
 	return nullptr;
 }
 
-void* ASTNode::generateTest(int pass)
-{
-	// Make sure it has a child node, it we be evaluated to a true or false value
-	ASTNode* exprNode = nullptr;
-	Value* checkVal = nullptr;
-	if (childNodes.size() > 0) {
-		exprNode = childNodes[0]->childNodes[0];
-		if (exprNode->codegen == nullptr) {
-			printTokenError(exprNode->token, "Node `" + ASTNodeTypeAsString(exprNode->nodeType) + "` does not have a code generator");
-			wasError = true;
-			return nullptr;
-		}
-		checkVal = (Value*)(exprNode->*(exprNode->codegen))(pass);
-	}
-	if (wasError) {
-		return nullptr;
-	}
-
-	if (!checkVal) {
-		printTokenError(token, "Test expression must evaluate to a value");
-		wasError = true;
-		return nullptr;
-	}
-
-	// Convert condition to a bool by comparing non-equal to i1 0 (check if true)
-	Value* CondV = Builder->CreateICmpNE(checkVal, ConstantInt::get(*TheContext, APInt(1, 0)), "testcond");
-
-	Function* TheFunction = Builder->GetInsertBlock()->getParent();
-
-	// Create blocks for pass (continue) and fail (throw) cases
-	BasicBlock* PassBB = BasicBlock::Create(*TheContext, "test_pass", TheFunction);
-	BasicBlock* FailBB = BasicBlock::Create(*TheContext, "test_fail");
-
-	// Branch based on condition: if true go to PassBB, if false go to FailBB
-	Builder->CreateCondBr(CondV, PassBB, FailBB);
-
-	// Emit fail block (test failed, throw error)
-	TheFunction->insert(TheFunction->end(), FailBB);
-	Builder->SetInsertPoint(FailBB);
-
-	// Declare exit function if not already declared
-	FunctionType* exitFuncType = FunctionType::get(
-		Type::getVoidTy(*TheContext),
-		{Type::getInt32Ty(*TheContext)},
-		false);
-	FunctionCallee exitFunc = TheModule->getOrInsertFunction("exit", exitFuncType);
-
-	// Create and print the prefix message first
-	std::string testPrefix = "Test Failed:  file: \"" + *(token->filePath) + "\"   line: " + std::to_string(token->lineNumber) + "\n    " + *(token->lineValue);
-	Value* prefixStr = Builder->CreateGlobalStringPtr(testPrefix);
-	// Look up print function for the prefix (char* type)
-	argumentList prefixArgList;
-	prefixArgList.push_back(argType("char", Char_Type, 1));
-	std::string printFnName = "printl";
-	functionID* prefixPrintFnID = getFunctionFromID(functionIDs, printFnName, prefixArgList, token, true, false);
-
-	if (prefixPrintFnID) {
-		std::vector<Value*> prefixArgs;
-		prefixArgs.push_back(prefixStr);
-		Builder->CreateCall(prefixPrintFnID->fnValue, prefixArgs);
-		prefixPrintFnID->uses++;
-	}
-
-	// Call exit(1) to terminate the program
-	Builder->CreateCall(exitFunc, {ConstantInt::get(Type::getInt32Ty(*TheContext), 1)});
-
-	// Create an unreachable instruction since exit() doesn't return
-	Builder->CreateUnreachable();
-
-	// Emit pass block (test passed, continue execution)
-	Builder->SetInsertPoint(PassBB);
-
-	return nullptr;
-}
-
 void* ASTNode::generateReturn(int pass)
 {
 	ASTNode* exprNode = childNodes[0];
@@ -1564,7 +1704,22 @@ void* ASTNode::generateReturn(int pass)
 	}
 	else {
 		// Non-struct return, handle normally
-		Builder->CreateRet(RetVal);
+		Type* retType = Builder->GetInsertBlock()->getParent()->getReturnType();
+		if (!RetVal) {
+			if (retType->isVoidTy()) {
+				Builder->CreateRetVoid();
+			}
+			else {
+				// main gets implicit return 0; all other typed functions warn
+				Function* currentFn = Builder->GetInsertBlock()->getParent();
+				if (currentFn->getName() != "main")
+					printTokenWarning(token, "returning void in function that expects a return value");
+				Builder->CreateRet(Constant::getNullValue(retType));
+			}
+		}
+		else {
+			Builder->CreateRet(RetVal);
+		}
 	}
 
 	return nullptr;
@@ -1594,6 +1749,9 @@ void* ASTNode::generateExpression(int pass)
 	if (wasError) {
 		return nullptr;
 	}
+	// Propagate asaType from child so access operations (c[i]) can resolve element type
+	if (!asaType && exprNode->asaType)
+		asaType = exprNode->asaType;
 	return exprVal;
 }
 
@@ -1772,17 +1930,15 @@ void* ASTNode::generateExpressionStatement(int pass)
 				return nullptr;
 			}
 
-			targetPtr = (AllocaInst*)(val->val);
+			targetPtr = val->val;
 
 			// If this is a reference, load the pointer before storing through it
 			if (val->isReference) {
-				// Load the actual pointer from the alloca
-				targetPtr = Builder->CreateLoad(((AllocaInst*)targetPtr)->getAllocatedType(), targetPtr, leftNode->token->first + "_ref_store_ptr");
-				// targetType is the type the pointer points to
-				targetType = ((AllocaInst*)(val->val))->getAllocatedType();
+				targetPtr = Builder->CreateLoad(getValueStoredType(val->val), targetPtr, leftNode->token->first + "_ref_store_ptr");
+				targetType = getValueStoredType(val->val);
 			}
 			else {
-				targetType = ((AllocaInst*)targetPtr)->getAllocatedType();
+				targetType = getValueStoredType(targetPtr);
 			}
 		}
 	}
@@ -2235,7 +2391,24 @@ Value* ASTNode::generateOperatorOverloadCall(Value* L, Value* R)
 		return nullptr;
 	}
 
+	calleeID->uses++;
+
 	std::vector<Value*> ArgsV = {L, R};
+
+	// If the operator returns a struct, we need to pass an sret pointer as the first arg
+	if (calleeID->isStructReturn) {
+		auto structIt = structDefinitions.find(calleeID->returnType);
+		if (structIt == structDefinitions.end() || !structIt->second->structVal) {
+			printTokenError(token, "Struct return type not defined for operator overload");
+			wasError = true;
+			return nullptr;
+		}
+		AllocaInst* sretAlloc = Builder->CreateAlloca(structIt->second->structVal, nullptr, "op_sret");
+		ArgsV.insert(ArgsV.begin(), sretAlloc);
+		Builder->CreateCall(calleeID->fnValue, ArgsV);
+		return Builder->CreateLoad(structIt->second->structVal, sretAlloc, "op_overload");
+	}
+
 	return Builder->CreateCall(calleeID->fnValue, ArgsV, "op_overload");
 }
 
@@ -2267,6 +2440,10 @@ void* ASTNode::generateAccessOperation(int pass)
 		return nullptr;
 	}
 
+	// Inherit asaType from the child if not already set
+	if (!asaType && childNodes[0]->asaType)
+		asaType = childNodes[0]->asaType;
+
 	if (!asaType) {
 		printTokenError(token, "Was unable to resolve type");
 		wasError = true;
@@ -2278,15 +2455,40 @@ void* ASTNode::generateAccessOperation(int pass)
 
 	// If baseType is a pointer, we need to determine what it points to
 	if (asaType->baseLLVMType && asaType->baseLLVMType->isPointerTy()) {
-		// The element type should be tracked from the struct definition
-		// Use lastRetrievedElementType if available
-		if (!lastRetrievedElementType.empty()) {
+		// Try to resolve element type from the type string (e.g., "*char" -> "char")
+		std::string typeStr = asaType->strVal;
+		while (!typeStr.empty() && typeStr[0] == '*')
+			typeStr = typeStr.substr(1);
+		if (!typeStr.empty()) {
+			bool wd = true;
+			int resolvePass = 2;
+			Type* resolved = getLLVMTypeFromString(typeStr, 0, token, wd, resolvePass);
+			if (resolved)
+				elementType = resolved;
+		}
+		else if (!lastRetrievedElementType.empty()) {
 			elementType = lastRetrievedElementType.top()->baseLLVMType;
 		}
 		else {
 			printTokenError(token, "Was unable to resolve type");
 			wasError = true;
 			return nullptr;
+		}
+	}
+	// If baseType is a struct, find the first pointer member and use its element type
+	else if (asaType->baseLLVMType && asaType->baseLLVMType->isStructTy()) {
+		auto structIt = structDefinitions.find(asaType->strVal);
+		if (structIt != structDefinitions.end() && structIt->second) {
+			for (const auto& member : structIt->second->members) {
+				if (member.pointerLevel > 0) {
+					bool wd = true;
+					int resolvePass = 2;
+					Type* resolved = getLLVMTypeFromString(member.typeString, 0, token, wd, resolvePass);
+					if (resolved)
+						elementType = resolved;
+					break;
+				}
+			}
 		}
 	}
 
@@ -2333,6 +2535,31 @@ void* ASTNode::generateMemberAccess(int pass)
 		wasError = true;
 		return nullptr;
 	}
+	// Module member access: Fore.black resolves via module registry, not struct GEP.
+	if (childNodes[0]->nodeType == Identifier_Node) {
+		auto modIt = moduleRegistry.find(childNodes[0]->token->first);
+		if (modIt != moduleRegistry.end()) {
+			std::string memberName = childNodes[1]->token->first;
+			ASTNode* modNode = modIt->second;
+			auto varIt = modNode->namedValues.find(memberName);
+			if (varIt != modNode->namedValues.end()) {
+				valueType* vt = varIt->second;
+				Value* gv = vt->val;
+				Type* gvType = getValueStoredType(gv);
+				asaType = new ASAType(gvType);
+				lastRetrievedElementType.push(asaType);
+				if (lvalue)
+					return gv;
+				Value* loaded = Builder->CreateLoad(gvType, gv, memberName + "_load");
+				return loaded;
+			}
+			printTokenError(childNodes[1]->token,
+				"Module '" + childNodes[0]->token->first + "' has no member '" + memberName + "'");
+			wasError = true;
+			return nullptr;
+		}
+	}
+
 	if (childNodes[0]->codegen == nullptr) {
 		printTokenError(childNodes[0]->token, "Node `" + ASTNodeTypeAsString(childNodes[0]->nodeType) + "` does not have a code generator");
 		wasError = true;
@@ -2445,11 +2672,11 @@ void* ASTNode::generateMemberAccess(int pass)
 			//Value* gep = Builder->CreateGEP(elementType, basePtr, index, "arrayidx");
 
 			auto gep = Builder->CreateStructGEP(structDefinition->structVal, basePtr, memberIndex, "struct_member");
-			asaType = new ASAType(elementType);
-
+			std::string memberStrVal = "";
+			for (int _p = 0; _p < structDefinition->members[memberIndex].pointerLevel; ++_p) memberStrVal += "*";
+			memberStrVal += structDefinition->members[memberIndex].typeString;
+			asaType = new ASAType(elementType, false, structDefinition->members[memberIndex].isConstant, memberStrVal, (uint8_t)structDefinition->members[memberIndex].pointerLevel);
 			lastRetrievedElementType.push(asaType);
-
-			// If this is an lvalue (for assignment), return the pointer gep
 			if (lvalue)
 				return gep;
 			// If rvalue, return value
@@ -2767,9 +2994,9 @@ void* ASTNode::generateCast(int pass)
 		wasError = true;
 		return nullptr;
 	}
-	AllocaInst* var = (AllocaInst*)(val->val);
+	Value* var = val->val;
 
-	Value* value = Builder->CreateLoad(var->getAllocatedType(), var, varName + "_load");
+	Value* value = Builder->CreateLoad(getValueStoredType(var), var, varName + "_load");
 
 	std::string tyVal = colonNode->childNodes[1]->token->first;
 
@@ -2880,7 +3107,12 @@ void* ASTNode::generateCallExpression(int pass)
 			}
 		}
 		else if (identifierNode->nodeType == String_Constant_Node) {
-			typeStr = "*char";
+			// String literals produce a string struct unless inside the string module
+			if (compilerDefines["IN_STRING_MODULE"] != "true" &&
+				structDefinitions.count("string") && structDefinitions["string"]->structVal)
+				typeStr = "string";
+			else
+				typeStr = "*char";
 		}
 		else {
 			typeStr = getStringTypeFromLLVMType(argVal->getType());
@@ -2975,6 +3207,28 @@ void* ASTNode::generateCallExpression(int pass)
 		Value* argVal = (Value*)(args[i]->*(args[i]->codegen))(pass);
 		if (wasError) {
 			return nullptr;
+		}
+		// Implicit string ↔ *char conversions at call sites
+		int formalIdx = i + (isStructReturn ? 1 : 0);
+		const argType& formal = CalleeFID->arguments[formalIdx];
+		if (argVal && argVal->getType()->isStructTy() &&
+			formal.pointerLevel == 1 &&
+			(formal.typeString == "char" || formal.typeString == "int8")) {
+			// string → *char: extract .address (element 0)
+			argVal = Builder->CreateExtractValue(argVal, {0}, "str_addr");
+		} else if (argVal && argVal->getType()->isPointerTy() &&
+			formal.pointerLevel == 0 && formal.typeString == "string" &&
+			structDefinitions.count("string") && structDefinitions["string"]->structVal) {
+			// *char → string: build string struct with strlen
+			StructType* strTy = cast<StructType>((Type*)structDefinitions["string"]->structVal);
+			FunctionCallee strlenFn = TheModule->getOrInsertFunction("strlen",
+				FunctionType::get(Type::getInt64Ty(*TheContext), {PointerType::getUnqual(*TheContext)}, false));
+			Value* lenVal = Builder->CreateCall(strlenFn, {argVal}, "strlen");
+			Value* lenTrunc = Builder->CreateTrunc(lenVal, Type::getInt32Ty(*TheContext), "len");
+			Value* strStruct = UndefValue::get(strTy);
+			strStruct = Builder->CreateInsertValue(strStruct, argVal, {0});
+			strStruct = Builder->CreateInsertValue(strStruct, lenTrunc, {1});
+			argVal = strStruct;
 		}
 		ArgsV.push_back(argVal);
 		if (!ArgsV.back())
@@ -3193,6 +3447,17 @@ void* ASTNode::generateStruct(int pass)
 		structDefinitions[structName]->memberNameIndexes = memberNameIndexes;
 		structDefinitions[structName]->structVal->setBody(fieldTypes, false);
 		return nullptr;
+	}
+
+	// Pass 1: If struct already exists (created in pass 0 as empty), update its body
+	// in-place so all existing references (global vars, etc.) see the correct fields.
+	if (pass == 1 && structDefinitions.count(structName)) {
+		StructType* existingTy = (StructType*)structDefinitions[structName]->structVal;
+		existingTy->setBody(fieldTypes, false);
+		currentStructName.pop();
+		structDefinitions[structName]->members = members;
+		structDefinitions[structName]->memberNameIndexes = memberNameIndexes;
+		return existingTy;
 	}
 
 	StructType* structTy = StructType::create(*TheContext, fieldTypes, "struct." + structName);
@@ -3601,6 +3866,10 @@ void* ASTNode::generatePrototype(int pass)
 		}
 	}
 
+	// Like C, main always returns i32 even when declared without a return type.
+	if (fnName == "main" && retType->isVoidTy())
+		retType = Type::getInt32Ty(*TheContext);
+
 	argumentList userArgList = argList;
 
 	// Handle struct return by modifying function signature
@@ -3689,7 +3958,7 @@ void* ASTNode::generatePrototype(int pass)
 				if (typeNode->token->first == "*") {
 					pointerLevel++;
 					mangledName += ".ptr";
-					typeStr += "*";
+					// pointerLevel tracks pointer depth; typeStr holds only the base type name
 					typeNode = typeNode->childNodes[0];
 					goto gatherTypeModifiers;
 				}
@@ -3886,7 +4155,14 @@ void* ASTNode::generateFunction(int pass)
 
 	// Create entry block and emit debug location
 	BasicBlock* fnBlock = BasicBlock::Create(*TheContext, "entry", theFunction);
+	// Clear any stale debug location from a previously generated function before
+	// setting the insert point, so no instructions inherit the wrong subprogram.
+	Builder->SetCurrentDebugLocation(DebugLoc());
 	Builder->SetInsertPoint(fnBlock);
+
+	// Call the global variable init function at the start of main
+	if (functionName == "main" && globalInitFn)
+		Builder->CreateCall(globalInitFn, {});
 
 	// Set debug location for entry
 	Builder->SetCurrentDebugLocation(
@@ -3927,8 +4203,8 @@ void* ASTNode::generateFunction(int pass)
 
 		// Build the "actual type" string the rest of your compiler expects (pointer stars + type name)
 		std::string baseType = "";
-		//	for (int p = 0; p < theFunctionID->arguments[i].pointerLevel; p++)
-		//		baseType += "*";
+		for (int p = 0; p < theFunctionID->arguments[i].pointerLevel; p++)
+			baseType += "*";
 
 		valueType* vt = new valueType(std::string(arg.getName()), baseType + theFunctionID->arguments[i].typeString, Alloca, true, theFunctionID->arguments[i].isReference);
 
@@ -3967,6 +4243,9 @@ void* ASTNode::generateFunction(int pass)
 		Builder->CreateRet(defaultRet);
 	}
 
+	// Pop this function's scope now that its body is fully generated.
+	LexicalBlocks.pop_back();
+
 	// Validate the generated code, checking for consistency.
 	verifyFunction(*theFunction);
 
@@ -3986,6 +4265,30 @@ void* ASTNode::generateFunction(int pass)
 // Nothing
 void* ASTNode::generateNothing(int pass)
 {
+	return nullptr;
+}
+
+// #define NAME VALUE;
+// Sets a compiler-time flag in compilerDefines. Processed on every pass so
+// that flags are correctly scoped during each codegen phase.
+void* ASTNode::generateCompilerDefine(int pass)
+{
+	if (childNodes.size() < 2) return nullptr;
+
+	// childNodes[0] = "define" keyword node
+	// childNodes[1] = scope body containing NAME and VALUE tokens
+	// Walk the body's tree collecting leaf tokens in order
+	std::vector<std::string> tokens;
+	std::function<void(ASTNode*)> collectTokens = [&](ASTNode* n) {
+		if (n->token && !n->token->first.empty() && n->childNodes.empty())
+			tokens.push_back(n->token->first);
+		for (auto& c : n->childNodes)
+			collectTokens(c);
+	};
+	collectTokens(childNodes[1]);
+
+	if (tokens.size() >= 2)
+		compilerDefines[tokens[0]] = tokens[1];
 	return nullptr;
 }
 

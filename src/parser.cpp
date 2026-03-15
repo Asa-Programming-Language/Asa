@@ -1108,8 +1108,8 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 				if (identifier->token->first == "new") {
 					node->codegen = &ASTNode::generateTypeInstance;
 				}
-				if (identifier->token->first == "test") {
-					node->codegen = &ASTNode::generateTest;
+				if (identifier->token->first == "define") {
+					node->codegen = &ASTNode::generateCompilerDefine;
 				}
 
 				node->token->first = "#" + identifier->token->first;
@@ -1555,10 +1555,6 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 				goto dontAddNode;
 			}
 
-			case Test_Statement:
-				node->nodeType = Test_Node;
-				node->codegen = &ASTNode::generateTest;
-				goto getStatementArgument;
 			case Throw_Statement:
 				node->nodeType = Throw_Node;
 				node->codegen = &ASTNode::generateThrow;
@@ -2420,6 +2416,20 @@ void generateOutputCode(ASTNode*& node, int depth, int pass)
 				if (wasError)
 					goto errorDuringCodegen;
 			}
+			break;
+		}
+
+		case Expression_Statement: {
+			// Module-scope (root-level) variable declaration: compile as LLVM global.
+			if (pass == 1)
+				declareModuleScopeVariable(node, node, false);
+			break;
+		}
+
+		case Compiler_Define: {
+			// Named module node (e.g. Fore :: module { ... }): register and declare globals.
+			if (pass == 1)
+				processModuleForDeclarations(node);
 			break;
 		}
 

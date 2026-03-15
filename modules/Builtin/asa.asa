@@ -461,6 +461,13 @@ String :: module{
 	//	s = s + string(n % 10 + '0');
 	//}
 
+	// Function: print(string)
+	// Description: A function to overload <print(*char)> for strings
+	print :: (s : exact string) #hideast {
+		print(s.address);
+		return;
+	}
+
 	// Function: printl(string)
 	// Description: A function to overload <printl(*char)> for strings
 	printl :: (s : exact string) #hideast {
