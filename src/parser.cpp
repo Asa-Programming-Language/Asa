@@ -1904,6 +1904,12 @@ void resolveCompileTimeDirectives(ASTNode*& node, std::string moduleCtx, std::st
 			node->codegen = &ASTNode::generateConstant;
 			node->childNodes.clear();
 		}
+		else if (name == "typeof") {
+			node->codegen = &ASTNode::generateTypeofDirective;
+		}
+		else if (name == "sizeof") {
+			node->codegen = &ASTNode::generateSizeofDirective;
+		}
 		else if (name == "nameof") {
 			if (node->childNodes.size() < 2 || node->childNodes[1]->childNodes.empty()) {
 				printTokenError(node->token, "#nameof requires an expression argument");

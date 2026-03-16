@@ -97,9 +97,9 @@ Testing :: module {
 		total : int = passCount + failCount;
 		printl("");
 		print("Results: ");
-		printint(passCount);
+		print(passCount);
 		print("/");
-		printint(total);
+		print(total);
 		printl(" passed");
 		if (failCount > 0) {
 			colorPrintl("Tests FAILED", Fore.red);

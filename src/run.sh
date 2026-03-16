@@ -10,10 +10,15 @@ find ../modules -name "*.ll" -type f -delete;
 echo -e "\nRunning cmake...";
 cmake -G Ninja ../src;
 echo -e "\nRunning Ninja...";
-ninja -j2
+ninja_output=$(ninja -j2 2>&1);
+echo "$ninja_output";
 cmake --install .;
-echo -e "\nIncrementing build number...";
-../src/increment_build.sh;
+if echo "$ninja_output" | grep -q "no work to do"; then
+	echo -e "\nNo changes, skipping build number increment.";
+else
+	echo -e "\nIncrementing build number...";
+	../src/increment_build.sh;
+fi
 echo -e "\nRunning compiler tests...";
 ./asa --runtests;
 echo -e "\nRunning language tests...";

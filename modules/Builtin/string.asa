@@ -1,0 +1,236 @@
+
+// Module: String
+// Description: |
+//     A builtin module defining the string type
+//     See Also: <string>
+String :: module{
+	#import Builtin:Print;
+	#import Builtin:Memory;
+	#import Builtin:Casts;
+
+	// Struct: string
+	// Description: |
+	//     The string data type
+	//
+	//     You can declare a string using double quotes:
+	//     ```asa
+	//     s : string = "Hello, World!";
+	//     ```
+	string :: struct {
+		address : *char;
+		length : uint32 = 0;
+
+		// Function: size()
+		// Returns: The length in characters of the string
+		size :: uint32() {
+			return this.length;
+		}
+		// Function: dump()
+		// Description: Prints all of the info related to the string instance to the terminal
+		dump :: () {
+			print("string: {\"value\":\"");
+			print(this.address);
+			print("\", length:");
+			print(this.length);
+			print("}\n");
+		}
+	}
+
+	// Constructor: string()
+	// Description: Creates an empty string
+	//
+	// Returns: A new empty string instance
+	create :: string() #inline; #replaceable; {
+		return *(#new string);
+	}
+
+	// Constructor: string(*char)
+	// Description: Creates a string from a null-terminated character array
+	//
+	// Arguments:
+	//     c: Pointer to a null-terminated character array
+	//
+	// Returns: A new string containing the characters from the array
+	create :: string(c : exact *char) {
+		s : string = string();
+
+		len : uint32 = 0;
+		for(i : 0..65535){
+			if(c[i] == 0){
+				len = i;
+				break;
+			}
+		}
+		s.address = malloc(len*2);
+		s.length = len;
+		for(i : 0..(len)){
+			s.address[i] = c[i];
+		}
+		return s;
+	}
+
+	// Operator: +(string, string)
+	// Description: Concatenates two strings together
+	//
+	// Arguments:
+	//     thisStr: The first string
+	//     otherStr: The second string
+	//
+	// Returns: A new string containing the concatenation of both strings
+	operator+ :: string(thisStr : exact string, otherStr : exact string){
+		newStr : string = string();
+
+		len : uint32 = thisStr.length + otherStr.length;
+		newStr.address = malloc(len*2);
+		newStr.length = len;
+		for(i : 0..thisStr.length){
+			newStr.address[i] = thisStr[i];
+		}
+		for(i : 0..otherStr.length){
+			// TODO: Currently having an expression within access operator doesnt work,
+			//       like: newStr.address[i + thisStr.length]  // Gives error
+			newAddr = i + thisStr.length;
+			newStr.address[newAddr] = otherStr[i];
+		}
+		return newStr;
+	}
+
+	// Operator: +(string, char)
+	// Description: Concatenates a string with a character
+	//
+	// Arguments:
+	//     thisStr: The string
+	//     ch: The character to be added
+	//
+	// Returns: A new string containing the concatenation of the string and character
+	operator+ :: string(thisStr : exact string, ch : exact char){
+		newStr : string = string();
+
+		len : uint32 = thisStr.length + 1;
+		newStr.address = malloc(len*2);
+		newStr.length = len;
+		for(i : 0..thisStr.length){
+			newStr.address[i] = thisStr[i];
+		}
+		newStr.address[thisStr.length] = ch;
+		return newStr;
+	}
+
+	// Operator: +(string, int64)
+	// Description: Concatenates a string with the decimal representation of an integer
+	//
+	// Arguments:
+	//     thisStr: The string
+	//     n: The integer to append
+	//
+	// Returns: A new string containing the concatenation
+	operator+ :: string(thisStr : exact string, n : int64){
+		return thisStr + string(n);
+	}
+
+	// Operator: +(int64, string)
+	// Description: Concatenates the decimal representation of an integer with a string
+	//
+	// Arguments:
+	//     n: The integer to prepend
+	//     otherStr: The string to append
+	//
+	// Returns: A new string containing the concatenation
+	operator+ :: string(n : int64, otherStr : exact string){
+		return string(n) + otherStr;
+	}
+
+	// Operator: +(*char, *char)
+	// Description: Concatenates two null-terminated character arrays
+	//
+	// Arguments:
+	//     thisStr: The first character array
+	//     otherStr: The second character array
+	//
+	// Returns: A pointer to a new character array containing the concatenation
+	operator+ :: *char(thisStr : exact *char, otherStr : exact *char){
+		newStr : *char = void;
+
+		lenA : uint32 = 0;
+		lenB : uint32 = 0;
+		len : uint32 = 0;
+		for(i : 0..65535){
+			if(thisStr[i] == 0){
+				lenA = i-1;
+				break;
+			}
+		}
+		for(i : 0..65535){
+			if(otherStr[i] == 0){
+				lenB = i;
+				break;
+			}
+		}
+		len : uint32 = lenA + lenB;
+
+		newStr = malloc(len*2);
+		for(i : 0..lenA){
+			newStr[i] = thisStr[i];
+		}
+		for(i : 0..lenB){
+			newStr[i] = otherStr[i];
+		}
+		return newStr;
+	}
+
+	// Constructor: string(int64)
+	// Description: Converts an integer to its decimal string representation
+	//
+	// Arguments:
+	//     n: The integer to convert
+	//
+	// Returns: A new string containing the decimal representation of n
+	cast :: string(n : int64) {
+		s : string = string();
+		if (n < 0) {
+			s = s + '-';
+			if (n == -2147483648) {
+				return s + "2147483648";
+			}
+			n = 0 - n;
+		}
+		if (n >= 10) {
+			s = s + string(n / 10);
+		}
+		digitVal : int64 = (n % 10) + 48;
+		s = s + char(digitVal);
+		return s;
+	}
+
+	// Operator: ==(*char, *char)
+	// Description: Compares two null-terminated character arrays for equality
+	//
+	// Returns: true if the contents are identical, false otherwise
+	operator== :: bool(a : exact *char, b : exact *char) #inline; #hideast {
+		return strcmp(a, b) == 0;
+	}
+
+	// Operator: ==(string, string)
+	// Description: Compares two strings for equality by content
+	//
+	// Returns: true if both strings have equal length and identical characters
+	operator== :: bool(a : exact string, b : exact string) #inline; #hideast {
+		if (a.length != b.length)
+			return false;
+		return strcmp(a.address, b.address) == 0;
+	}
+
+	// Function: print(string)
+	// Description: A function to overload <print(*char)> for strings
+	print :: (s : exact string) #hideast {
+		print(s.address);
+		return;
+	}
+
+	// Function: printl(string)
+	// Description: A function to overload <printl(*char)> for strings
+	printl :: (s : exact string) #hideast {
+		printl(s.address);
+		return;
+	}
+}

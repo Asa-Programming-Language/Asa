@@ -5,6 +5,7 @@ DirectiveTests :: module {
 
 	#import Tests:Testing;
 	#import Builtin:String;
+	#import Builtin:Print;
 
 	// Function: runDirectiveTests()
 	// Description: Runs all compile-time directive tests.
@@ -64,5 +65,27 @@ DirectiveTests :: module {
 
 		// #nameof on a dotted path should return just the last identifier
 		test(#nameof(someVar) == #nameof(someVar), "#nameof result is consistent");
+
+		// #typeof should return the type name of a variable as a string
+		intVar : int = 0;
+		test(#typeof(intVar) == "int", "#typeof(int var) should return \"int\"");
+		floatVar : float = 0.0;
+		test(#typeof(floatVar) == "float", "#typeof(float var) should return \"float\"");
+		strVar : string = "hello";
+		test(#typeof(strVar) == "string", "#typeof(string var) should return \"string\"");
+
+		// #sizeof should return the byte size of a type
+		test(#sizeof(int) == 4, "#sizeof(int) should be 4");
+		test(#sizeof(uint) == 4, "#sizeof(uint) should be 4");
+		test(#sizeof(int64) > 4, "#sizeof(int64) should be > 4");
+		test(#sizeof(int32) == 4, "#sizeof(int32) should be 4");
+		test(#sizeof(int16) == 2, "#sizeof(int16) should be 2");
+		test(#sizeof(int8) == 1, "#sizeof(int8) should be 1");
+		test(#sizeof(bool) == 1, "#sizeof(bool) should be 1");
+		test(#sizeof(char) == 1, "#sizeof(char) should be 1");
+
+		// #sizeof of a variable should use the variable's type
+		sizeVar : int = 0;
+		test(#sizeof(sizeVar) == 4, "#sizeof(int variable) should be 4");
 	}
 }

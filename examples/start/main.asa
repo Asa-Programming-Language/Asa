@@ -46,19 +46,6 @@ operator|| :: bool(a : bool, b : bool) #inline; #hideast {
 //}
 
 TEST_MACRO :: {printl("Macro works!")};
-//
-//customObject :: struct{
-//	int a = 5;
-//	int b = 1;
-//}
-
-#extern putchar::(c : char);
-#extern free::(p : *int);
-
-testReference::(x : ref int){
-	x = 1;
-}
-
 
 main :: (){
 	//printf("Hello World!");
@@ -69,99 +56,16 @@ main :: (){
 	//var : bool;
 	//greenFG : *char = "\x1B[32m";
 
-	xMain : int = 9;
-	testReference(xMain);
-	printl(TestMod.testVal);
-	print(Fore.green);
-	print("Reference modification: ");
-	print(xMain);
-	printl(" should be 1");
+	colorPrintl("This text should be green", Fore.green);
 
-	colorPrintl("This text should be red", Fore.red);
+	printl("string size in bytes is: " + Fore.blue + #sizeof(string) + Fore.reset);
+	printl("int64 size in bytes is: " + Fore.blue + #sizeof(int64) + Fore.reset);
+	printl("int32 size in bytes is: " + Fore.blue + #sizeof(int32) + Fore.reset);
+	printl("int16 size in bytes is: " + Fore.blue + #sizeof(int16) + Fore.reset);
+	printl("int8 size in bytes is: " + Fore.blue + #sizeof(int8) + Fore.reset);
 
-	//throw "This is a test error!";
 
-	//test 5 == 2;
-
-	test(4 == 3, "This should be an error");
-
-	//constArray : int[] = void;
-
-	//pipeVal = pipeTest(1);
-	//printint(pipeVal);
-	//newline();
-
-	//s : string = string();
-	//s = string("This is a char string converted to string type");
-
-	//printl(s.address);
-
-	//s.dump();
-
-	////test : *char = void;
-	////test[0] = 8923;
-	////print(test);
-	////s.length = 8;
-	////printint(s.length);
-	////s.size();
-	//printl("printing string...");
-	//print("length: ");
-	//print(s.length);
-	//printl();
-	//s.print();
-	//printl();
-	//printl("Done!");
-
-	//colorPrint("This is a color test, it should be GREEN", greenFG);
-
-	//printl(s);
-
-	//s.set("Change string data using set method");
-
-	//printl(s);
-
-	//free(s.address);
-	//x_ptr : *int = &x;
-	//begin : *int = x_ptr;
-	//i = 0;
-	//i[3];
-	//print("main function works!\n");
-
-	//putchar(x);
-	//x = x+1;
-	//putchar(*x_ptr);
-	//putchar(32);
-	//
-	//arr : *int = malloc(8*4);
-
-	//arr[2] = 72;
-
-	//print("Hello World!");
-
-	////modifyReference(x);
-	//printint(x);
-
-	//newline();
-	//putchar(arr[2]);
-
-	//newline();
-
-	//if(1 || 0){
-	//	putchar(72);
-	//}
-	//if(1 || 1){
-	//	putchar(73);
-	//}
-	//if(0 || 0){
-	//	putchar(72);
-	//}
-	//
-	//for (i:0..3){
-	//	putchar(32);
-	//	for (j:0..(i+1)){
-	//		printint(j);
-	//	}
-	//}
+	test(4 == 3, "This should be an error, seeing this means success");
 
 	//newline();
 	//for (i : 0..100){  // for(<range>){} automatically iterates through range type

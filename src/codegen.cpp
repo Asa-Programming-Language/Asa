@@ -350,6 +350,7 @@ struct structType {
 	std::string name = "";
 	argumentList members = argumentList();
 	std::unordered_map<std::string, uint16_t> memberNameIndexes;
+	std::unordered_map<std::string, ASTNode*> memberDefaultNodes;  // member name → default value AST node
 	uint32_t uses = 0;
 	std::vector<functionID*> memberFunctions;
 	StructType* structVal = nullptr;
@@ -1190,31 +1191,31 @@ llvm::Value* castValue(llvm::Value* value, llvm::Type* destType, bool isSrcSigne
 		return value;
 
 	if (srcType->isIntegerTy() && destType->isIntegerTy())
-		return Builder->CreateIntCast(value, destType, isSrcSigned);
+		return Builder->CreateIntCast(value, destType, isSrcSigned, "cast");
 
 	if (srcType->isIntegerTy() && destType->isFloatingPointTy())
-		return isSrcSigned ? Builder->CreateSIToFP(value, destType)
-						   : Builder->CreateUIToFP(value, destType);
+		return isSrcSigned ? Builder->CreateSIToFP(value, destType, "cast")
+						   : Builder->CreateUIToFP(value, destType, "cast");
 
 	if (srcType->isFloatingPointTy() && destType->isIntegerTy())
-		return isToSigned ? Builder->CreateFPToSI(value, destType)
-						  : Builder->CreateFPToUI(value, destType);
+		return isToSigned ? Builder->CreateFPToSI(value, destType, "cast")
+						  : Builder->CreateFPToUI(value, destType, "cast");
 
 	if (srcType->isFloatingPointTy() && destType->isFloatingPointTy())
-		return Builder->CreateFPCast(value, destType);
+		return Builder->CreateFPCast(value, destType, "cast");
 
 	if (srcType->isPointerTy() && destType->isPointerTy())
-		return Builder->CreatePointerCast(value, destType);
+		return Builder->CreatePointerCast(value, destType, "cast");
 
 	if (srcType->isPointerTy() && destType->isIntegerTy())
-		return Builder->CreatePtrToInt(value, destType);
+		return Builder->CreatePtrToInt(value, destType, "cast");
 
 	if (srcType->isIntegerTy() && destType->isPointerTy())
-		return Builder->CreateIntToPtr(value, destType);
+		return Builder->CreateIntToPtr(value, destType, "cast");
 
 	// Use bitcast only if size matches and none of the above applies
 	if (llvm::CastInst::isBitOrNoopPointerCastable(srcType, destType, TheModule->getDataLayout()))
-		return Builder->CreateBitCast(value, destType);
+		return Builder->CreateBitCast(value, destType, "cast");
 
 
 	printTokenError(token, "Unsupported cast");
@@ -2027,8 +2028,13 @@ void* ASTNode::generateUnaryExpression(int pass)
 				wasError = true;
 				return nullptr;
 			}
-			// Load the value from the pointer
-			Type* elementType = Type::getInt32Ty(*TheContext);	// TODO: whatever type is appropriate
+			// Determine element type from allocation when available
+			Type* elementType;
+			if (AllocaInst* allocaVal = dyn_cast<AllocaInst>(ptrVal)) {
+				elementType = allocaVal->getAllocatedType();
+			} else {
+				elementType = Type::getInt32Ty(*TheContext);	// TODO: proper type tracking for non-alloca pointers
+			}
 			return Builder->CreateLoad(elementType, ptrVal, "deref_tmp");
 		}
 
@@ -3085,6 +3091,26 @@ void* ASTNode::generateTypeInstance(int pass)
 										ConstantInt::get(Type::getInt1Ty(*TheContext), 0)	// is_volatile
 									});
 
+	// Apply non-zero default values for members that declare them
+	for (auto& [memberName, defaultNode] : typeVal->memberDefaultNodes) {
+		auto idxIt = typeVal->memberNameIndexes.find(memberName);
+		if (idxIt == typeVal->memberNameIndexes.end())
+			continue;
+		uint16_t idx = idxIt->second;
+		Value* memberPtr = Builder->CreateStructGEP(typeVal->structVal, var, idx, memberName + "_init");
+		Value* defaultVal = (Value*)(defaultNode->*(defaultNode->codegen))(pass);
+		if (wasError)
+			return nullptr;
+		if (!defaultVal)
+			continue;
+		Type* memberType = typeVal->structVal->getElementType(idx);
+		bool isSigned = typeSigns.count(typeVal->members[idx].typeString) ? typeSigns[typeVal->members[idx].typeString] : false;
+		defaultVal = castValue(defaultVal, memberType, true, isSigned, token);
+		if (wasError)
+			return nullptr;
+		Builder->CreateStore(defaultVal, memberPtr);
+	}
+
 	return var;
 }
 
@@ -3408,9 +3434,19 @@ void* ASTNode::generateStruct(int pass)
 	std::vector<std::string> fieldNames = std::vector<std::string>();
 	std::vector<functionID*> memberFunctions = std::vector<functionID*>();
 	std::unordered_map<std::string, uint16_t> memberNameIndexes = std::unordered_map<std::string, uint16_t>();
+	std::unordered_map<std::string, ASTNode*> memberDefaultNodes = std::unordered_map<std::string, ASTNode*>();
 	uint16_t i = 0;
 	for (; generatingType < 2; generatingType++)
 		for (auto fieldNode : childNodes[0]->childNodes) {
+
+			// Unwrap member declaration with default value: Expression_Statement(Colon(name, type), defaultVal)
+			ASTNode* defaultValNode = nullptr;
+			if (fieldNode->nodeType == Expression_Statement &&
+				fieldNode->childNodes.size() >= 2 &&
+				fieldNode->childNodes[0]->nodeType == Colon_Separator_Node) {
+				defaultValNode = fieldNode->childNodes[1];
+				fieldNode = fieldNode->childNodes[0];
+			}
 
 			// If it is a member variable declaration
 			if ((fieldNode->nodeType == Identifier_Node || fieldNode->nodeType == Colon_Separator_Node) && generatingType == 0 && pass > 0) {
@@ -3449,6 +3485,9 @@ void* ASTNode::generateStruct(int pass)
 				fieldNames.push_back(memberName);
 				memberNameIndexes[memberName] = i;
 
+				if (defaultValNode != nullptr)
+					memberDefaultNodes[memberName] = defaultValNode;
+
 				members.push_back(argType(memberType, getASTNodeTypeFromString(memberType), pointerLevel));
 				i++;
 			}
@@ -3474,6 +3513,7 @@ void* ASTNode::generateStruct(int pass)
 		structDefinitions[structName]->members = members;
 		structDefinitions[structName]->memberFunctions = memberFunctions;
 		structDefinitions[structName]->memberNameIndexes = memberNameIndexes;
+		structDefinitions[structName]->memberDefaultNodes = memberDefaultNodes;
 		structDefinitions[structName]->structVal->setBody(fieldTypes, false);
 		return nullptr;
 	}
@@ -3486,13 +3526,16 @@ void* ASTNode::generateStruct(int pass)
 		currentStructName.pop();
 		structDefinitions[structName]->members = members;
 		structDefinitions[structName]->memberNameIndexes = memberNameIndexes;
+		structDefinitions[structName]->memberDefaultNodes = memberDefaultNodes;
 		return existingTy;
 	}
 
 	StructType* structTy = StructType::create(*TheContext, fieldTypes, "struct." + structName);
 
 	currentStructName.pop();
-	structDefinitions[structName] = new structType(structName, token, structTy, members, memberFunctions, memberNameIndexes);
+	auto newStructDef = new structType(structName, token, structTy, members, memberFunctions, memberNameIndexes);
+	newStructDef->memberDefaultNodes = memberDefaultNodes;
+	structDefinitions[structName] = newStructDef;
 
 	return structTy;
 }
@@ -4319,6 +4362,129 @@ void* ASTNode::generateCompilerDefine(int pass)
 	if (tokens.size() >= 2)
 		compilerDefines[tokens[0]] = tokens[1];
 	return nullptr;
+}
+
+// Returns a string value (struct or *char fallback) for a compile-time string constant,
+// using the same global cache and struct-building logic as String_Constant_Node.
+static Value* makeStringConstant(const std::string& str)
+{
+	GlobalVariable* globalStr = nullptr;
+	if (globalStringLiteralConstants.count(str)) {
+		globalStr = globalStringLiteralConstants[str];
+	}
+	else {
+		Constant* strConst = ConstantDataArray::getString(*TheContext, str, true);
+		globalStr = new GlobalVariable(
+			*TheModule,
+			strConst->getType(),
+			true,
+			GlobalValue::PrivateLinkage,
+			strConst,
+			"str");
+		globalStr->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
+		globalStr->setAlignment(Align(1));
+		globalStringLiteralConstants[str] = globalStr;
+	}
+
+	Constant* zero = ConstantInt::get(Type::getInt32Ty(*TheContext), 0);
+	std::vector<Constant*> indices = {zero, zero};
+	Constant* strPtr = ConstantExpr::getGetElementPtr(globalStr->getValueType(), globalStr, indices);
+
+	// Return a string struct when the string type is defined (matches String_Constant_Node behavior)
+	if (compilerDefines["IN_STRING_MODULE"] != "true" &&
+		structDefinitions.count("string") && structDefinitions["string"]->structVal) {
+		StructType* strTy = cast<StructType>((Type*)structDefinitions["string"]->structVal);
+		Constant* lenConst = ConstantInt::get(Type::getInt32Ty(*TheContext), (uint32_t)str.size());
+		return ConstantStruct::get(strTy, {strPtr, lenConst});
+	}
+	return strPtr;
+}
+
+// #typeof(expr) — returns the ASA type name of expr as a string.
+// For identifiers, looks up namedValues to avoid emitting any IR.
+// For other expressions, generates the expression and reads the LLVM type.
+void* ASTNode::generateTypeofDirective(int pass)
+{
+	if (pass == 0) return nullptr;
+	if (childNodes.size() < 2 || childNodes[1]->childNodes.empty()) {
+		printTokenError(token, "#typeof requires an expression argument");
+		wasError = true;
+		return nullptr;
+	}
+
+	ASTNode* argExpr = childNodes[1]->childNodes[0];
+	std::string typeStr;
+
+	// Fast path: identifier — look up in namedValues, no IR emitted
+	if (argExpr->nodeType == Identifier_Node) {
+		valueType* val = findNamedValue(parentNode, this, argExpr->token->first, token);
+		if (val)
+			typeStr = val->type;
+	}
+
+	// Fallback: generate the expression and read the LLVM type
+	if (typeStr.empty()) {
+		Value* val = (Value*)(argExpr->*(argExpr->codegen))(pass);
+		if (!val || wasError) return nullptr;
+		if (argExpr->asaType && argExpr->asaType->baseLLVMType)
+			typeStr = getStringTypeFromLLVMType(argExpr->asaType->baseLLVMType);
+		else
+			typeStr = getStringTypeFromLLVMType(val->getType());
+	}
+
+	Value* result = makeStringConstant(typeStr);
+	if (!asaType) asaType = new ASAType(result->getType());
+	else asaType->baseLLVMType = result->getType();
+	return result;
+}
+
+// #sizeof(T) — returns the alloc size in bytes of T as an int64 constant.
+// T can be a type name (e.g. int, string, MyStruct) or a variable name.
+void* ASTNode::generateSizeofDirective(int pass)
+{
+	if (pass == 0) return nullptr;
+	if (childNodes.size() < 2 || childNodes[1]->childNodes.empty()) {
+		printTokenError(token, "#sizeof requires a type or variable argument");
+		wasError = true;
+		return nullptr;
+	}
+
+	ASTNode* argNode = childNodes[1]->childNodes[0];
+	Type* llvmType = nullptr;
+
+	if (argNode->nodeType == Identifier_Node) {
+		// Try as a direct type name first
+		bool wasDefined = true;
+		llvmType = getLLVMTypeFromString(argNode->token->first, 0, token, wasDefined, pass);
+		if (!wasDefined || !llvmType) {
+			// Try as a variable — use its stored type string
+			valueType* val = findNamedValue(parentNode, this, argNode->token->first, token);
+			if (val) {
+				wasDefined = true;
+				llvmType = getLLVMTypeFromString(val->type, 0, token, wasDefined, pass);
+				if (!wasDefined) llvmType = nullptr;
+			}
+		}
+	}
+
+	// Fallback: generate the expression and read the LLVM type
+	if (!llvmType) {
+		Value* val = (Value*)(argNode->*(argNode->codegen))(pass);
+		if (val) llvmType = val->getType();
+	}
+
+	if (!llvmType) {
+		printTokenError(token, "#sizeof: cannot determine type of argument");
+		wasError = true;
+		return nullptr;
+	}
+
+	const DataLayout& DL = TheModule->getDataLayout();
+	uint64_t size = DL.getTypeAllocSize(llvmType);
+	Value* sizeVal = ConstantInt::get(Type::getInt64Ty(*TheContext), size);
+	if (!asaType) asaType = new ASAType(sizeVal->getType());
+	else asaType->baseLLVMType = sizeVal->getType();
+	return sizeVal;
 }
 
 int outputObjectFile(std::string& objectFilePath)

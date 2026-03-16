@@ -98,6 +98,8 @@ ColorPrint :: module {
 		brightMagenta : string = "\x1B[95m";
 		brightCyan : string = "\x1B[96m";
 		brightWhite : string = "\x1B[97m";
+
+		reset : string = "\033[0m";
 	}
 
 	// Module: Back
@@ -143,6 +145,8 @@ ColorPrint :: module {
 		brightMagenta : string = "\x1B[105m";
 		brightCyan : string = "\x1B[106m";
 		brightWhite : string = "\x1B[107m";
+
+		reset : string = "\033[0m";
 	}
 }
 

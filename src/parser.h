@@ -325,6 +325,8 @@ struct ASTNode {
 	void* generateCallExpression(int pass = 0);
 	void* generateNothing(int pass = 0);
 	void* generateCompilerDefine(int pass = 0);
+	void* generateTypeofDirective(int pass = 0);
+	void* generateSizeofDirective(int pass = 0);
 
 	void* (ASTNode::*codegen)(int pass) = nullptr;
 
