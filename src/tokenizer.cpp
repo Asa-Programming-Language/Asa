@@ -184,6 +184,8 @@ int tokenize(std::string& rawFile, std::vector<tokenPair*>& tokens, std::string&
 	int startIndexInLine = 0;
 	std::string* lineValue = new std::string("");
 	rawFile = "\n" + rawFile + "\n";  // add extra character at end as buffer for lookahead
+	bool inLineComment = false;
+	bool inBlockComment = false;
 	for (int i = 1; i < rawFile.size(); i++) {
 		char c = rawFile[i];
 		char nextChar = rawFile[i + 1];
@@ -192,6 +194,36 @@ int tokenize(std::string& rawFile, std::vector<tokenPair*>& tokens, std::string&
 		//	lineNumber++;
 		// If no token is building, check what the new one should be
 		if (currentToken == Nothing) {
+			// Track comment state so special chars inside comments don't start new tokens
+			if (!inLineComment && !inBlockComment) {
+				if (c == '/' && nextChar == '/')
+					inLineComment = true;
+				else if (c == '/' && nextChar == '*')
+					inBlockComment = true;
+			}
+			if (inLineComment) {
+				if (c == '\n')
+					inLineComment = false;
+				else {
+					if (c != '\t') {
+						*lineValue += c;
+						indexInLine++;
+					}
+					continue;
+				}
+			}
+			if (inBlockComment) {
+				if (c == '*' && nextChar == '/') {
+					inBlockComment = false;
+					i++;  // consume the '/'
+				}
+				if (c != '\t') {
+					*lineValue += c;
+					indexInLine++;
+				}
+				continue;
+			}
+
 			for (auto const& [tokenType, str] : tokenStarts) {
 				if (charInArray(c, str)) {
 					if (tokenType == Nothing)

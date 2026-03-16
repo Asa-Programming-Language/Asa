@@ -284,6 +284,7 @@ struct ASTNode {
 	bool showInASTOutput = true;
 	bool replaceableDefinition = false;
 	bool isModuleScope = false;    // true for Compiler_Define nodes representing named modules
+	std::string enclosingModule = "";  // set on imported nodes to record source module name
 	bool currentNodeDoneGenerating = false;
 	//Type* llvmType;
 	//Type* baseType = nullptr;
@@ -410,6 +411,7 @@ int printAST(ASTNode* startNode, int depth = 0);
 void fixPrecedence(ASTNode*& node);
 void unifyNodes(ASTNode*& node);
 void optimizeASTNode(ASTNode*& node);
+void resolveCompileTimeDirectives(ASTNode*& node, std::string moduleCtx = "", std::string funcCtx = "");
 void addFileIncludes(ASTNode*& node);
 void addModuleImports(ASTNode*& node);
 void assignParentNodes(ASTNode*& node, int depth = 0);

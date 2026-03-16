@@ -1,0 +1,7 @@
+// Module: CompilerImportTest
+// Description: Minimal module used by the compiler AST import test.
+CompilerImportTest :: module {
+	x :: int(){
+		return 1;
+	}
+}

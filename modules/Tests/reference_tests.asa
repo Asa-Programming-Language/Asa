@@ -1,0 +1,82 @@
+
+// Module: ReferenceTests
+// Description: Tests for pass-by-reference parameter behavior.
+ReferenceTests :: module {
+
+	#import Tests:Testing;
+
+	setToZero :: (x : ref int) {
+		x = 0;
+	}
+
+	setToValue :: (x : ref int, val : int) {
+		x = val;
+	}
+
+	doubleIt :: (x : ref int) {
+		x = x * 2;
+	}
+
+	addTo :: (x : ref int, n : int) {
+		x = x + n;
+	}
+
+	isPositive :: bool(x : ref int) {
+		return x > 0;
+	}
+
+	copyInto :: (src : ref int, dst : ref int) {
+		dst = src;
+	}
+
+	// Function: runReferenceTests()
+	// Description: Runs all reference parameter tests.
+	runReferenceTests :: () {
+		beginSection("References");
+
+		// Simple assignment through ref
+		a : int = 42;
+		setToZero(a);
+		test(a == 0, "ref: should be set to 0");
+
+		// Assignment with value argument
+		b : int = 1;
+		setToValue(b, 99);
+		test(b == 99, "ref: should be set to 99");
+
+		// Arithmetic through ref
+		c : int = 5;
+		doubleIt(c);
+		test(c == 10, "ref: should be doubled from 5 to 10");
+
+		c = 3;
+		addTo(c, 7);
+		test(c == 10, "ref: 3 + 7 should be 10");
+
+		// Chained ref calls
+		d : int = 2;
+		doubleIt(d);
+		doubleIt(d);
+		test(d == 8, "ref: doubling twice should give 8");
+
+		// Reading from ref without modifying
+		e : int = 7;
+		test(isPositive(e), "ref: 7 should be positive");
+		setToZero(e);
+		test(isPositive(e) == false, "ref: 0 should not be positive");
+
+		// Copying between two refs
+		src : int = 55;
+		dst : int = 0;
+		copyInto(src, dst);
+		test(dst == 55, "ref: dst should be 55 after copy");
+		test(src == 55, "ref: src should be unchanged after copy");
+
+		// Independent refs are not aliased
+		x : int = 5;
+		y : int = 5;
+		setToZero(x);
+		test(x == 0, "ref: x should be zeroed");
+		test(y == 5, "ref: y should be unaffected");
+	}
+}

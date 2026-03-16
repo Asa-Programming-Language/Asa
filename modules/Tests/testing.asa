@@ -1,31 +1,111 @@
 
+// Module: Testing
+// Description: |
+//     Test framework for ASA. Tracks pass/fail counts across all test calls
+//     and prints a summary at the end. Import this module to use the test runner.
+//
+//     Example:
+//     ```asa
+//     #import Tests:Testing;
+//
+//     beginSection("Arithmetic");
+//     test(1 + 1 == 2, "1 + 1 should equal 2");
+//     test(2 * 3 == 6, "2 * 3 should equal 6");
+//     printSummary();
+//     ```
 Testing :: module {
-	
+
 	#import Builtin:String;
 	#import Builtin:Print;
 	#import Builtin:ColorPrint;
-	
+
+	#extern exit :: (code : int32);
+
+	// Variable: passCount
+	// Description: Number of tests that have passed so far.
+	passCount : int = 0;
+
+	// Variable: failCount
+	// Description: Number of tests that have failed so far.
+	failCount : int = 0;
+
+	// Variable: currentSection
+	// Description: Name of the currently active test section, shown in failure messages.
+	currentSection : string = "";
+
 	// Function: test(expression, failureMessage)
-	// Description: | 
-	//     Tests the given expression by executing it. If it has an error or returns a value of `false`, then the `failureMessage` will be printed.
+	// Description: |
+	//     Evaluates an expression. Currently accepts a boolean. In the future,
+	//     any expression type will be accepted — lambdas, values, etc. On pass,
+	//     increments passCount silently. On failure, increments failCount and
+	//     prints the failure message in red along with the current section name.
 	//
 	//     TODO:
-	//     The `expression` is a lambda or boolean expression. For example:
+	//     The `expression` argument will accept any expression type:
 	//     ```asa
-	//     test(true == false, "This should give an error");
-	//     test({ x = 4; }, "This should not give an error");
-	//     test((){ x = 4; }, "This should not give an error");
-	//     test(bool(){ x = 4; }, "This should not give an error");
-	//     test(bool(){ return false; }, "This should give an error");
-	//     test(bool(){ return true; }, "This should not give an error");
+	//     test(true == false, "This should fail");
+	//     test({ x = 4; }, "This should not fail");
+	//     test(bool(){ return false; }, "This should fail");
+	//     test(bool(){ return true; }, "This should not fail");
 	//     ```
 	//
 	// Arguments:
-	//     expression: The expression to execute
-	//     failureMessage: The message to print should the test fail
-	test :: (expression : bool, failureMessage : string){
-		if (expression == false){
-			colorPrintl(failureMessage, Fore.red);
+	//     expression: The expression to evaluate
+	//     failureMessage: The message to display if the test fails
+	test :: (expression : bool, failureMessage : string) {
+		if (expression) {
+			passCount = passCount + 1;
+		} else {
+			failCount = failCount + 1;
+			print(Fore.red);
+			print("  FAIL");
+			if (currentSection.length > 0) {
+				print(" [");
+				print(currentSection);
+				print("]");
+			}
+			print(": ");
+			printl(failureMessage);
+			print(Fore.white);
+		}
+	}
+
+	// Function: beginSection(name)
+	// Description: |
+	//     Sets the current test section name. This name is shown in brackets
+	//     alongside any failure messages until the next beginSection() call.
+	//
+	// Arguments:
+	//     name: The section label to display
+	//
+	// Example:
+	//     ```asa
+	//     beginSection("Arithmetic");
+	//     test(1 + 1 == 2, "addition");
+	//     ```
+	beginSection :: (name : string) {
+		currentSection = name;
+		print("  ");
+		printl(name);
+	}
+
+	// Function: printSummary()
+	// Description: |
+	//     Prints a pass/fail summary of all test() calls so far.
+	//     Exits the process with code 1 if any tests failed, 0 if all passed.
+	printSummary :: () {
+		total : int = passCount + failCount;
+		printl("");
+		print("Results: ");
+		printint(passCount);
+		print("/");
+		printint(total);
+		printl(" passed");
+		if (failCount > 0) {
+			colorPrintl("Tests FAILED", Fore.red);
+			exit(1);
+		} else {
+			colorPrintl("All tests passed", Fore.green);
 		}
 	}
 }

@@ -1,0 +1,40 @@
+
+// Module: ComparisonTests
+// Description: Tests for comparison and boolean operators.
+ComparisonTests :: module {
+
+	#import Tests:Testing;
+
+	// Function: runComparisonTests()
+	// Description: Runs all comparison and boolean operator tests.
+	runComparisonTests :: () {
+		beginSection("Comparisons");
+
+		// Equality
+		test(1 == 1,   "1 == 1");
+		test(0 == 0,   "0 == 0");
+
+		// Inequality
+		test(1 != 2,   "1 != 2");
+		test(0 != 1,   "0 != 1");
+
+		// Less / greater
+		test(1 < 2,    "1 < 2");
+		test(2 > 1,    "2 > 1");
+		test(1 <= 1,   "1 <= 1");
+		test(1 <= 2,   "1 <= 2");
+		test(2 >= 2,   "2 >= 2");
+		test(3 >= 2,   "3 >= 2");
+
+		// Boolean literals
+		test(true == true,   "true == true");
+		test(false == false, "false == false");
+		test(true != false,  "true != false");
+
+		// Comparisons involving expressions
+		test(2 + 2 == 4,   "2 + 2 == 4");
+		test(3 * 3 == 9,   "3 * 3 == 9");
+		test(10 / 2 == 5,  "10 / 2 == 5");
+		test(10 % 3 != 0,  "10 % 3 != 0");
+	}
+}

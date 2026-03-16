@@ -30,5 +30,5 @@ extern std::map<std::string, std::string> compilerDefines;
 
 extern Function* globalInitFn;
 void declareModuleScopeVariable(ASTNode* exprStmtNode, ASTNode* ownerNode, bool isModuleVar);
-void processModuleForDeclarations(ASTNode* moduleCompilerDefineNode);
+void processModuleForDeclarations(ASTNode* moduleCompilerDefineNode, std::string parentName = "");
 void finalizeGlobalInit();

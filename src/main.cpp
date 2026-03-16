@@ -231,6 +231,8 @@ int main(int argc, char** argv)
 	assignParentNodes(rootNode);
 	// Unify nested nodes
 	unifyNodes(rootNode);
+	// Resolve compile-time constant directives (#linenum, #line, etc.)
+	resolveCompileTimeDirectives(rootNode);
 
 	// Print AST
 	if (verbosity >= 4) {

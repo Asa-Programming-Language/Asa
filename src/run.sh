@@ -14,5 +14,7 @@ ninja -j2
 cmake --install .;
 echo -e "\nIncrementing build number...";
 ../src/increment_build.sh;
-echo -e "\nStarting asa...";
+echo -e "\nRunning compiler tests...";
 ./asa --runtests;
+echo -e "\nRunning language tests...";
+./asa ../modules/Tests/main_tests.asa && ../modules/Tests/build/main_tests && echo -e "\nAll language tests passed ✔" || echo -e "\nLanguage tests FAILED ✖";

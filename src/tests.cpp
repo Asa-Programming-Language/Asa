@@ -193,7 +193,7 @@ std::vector<Test> tests = {
 	// Module includes
 	Test(
 		R"(
-		#import Tests:Test1;
+		#import Tests:CompilerImportTest;
 	)",
 		A(Scope_Body, // Global
 			{

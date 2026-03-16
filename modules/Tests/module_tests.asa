@@ -1,0 +1,37 @@
+
+// Module: ModuleTests
+// Description: Tests for module variable access and nested module access.
+ModuleTests :: module {
+
+	#import Tests:Testing;
+
+	NumConsts :: module {
+		zero : int = 0;
+		one  : int = 1;
+		ten  : int = 10;
+		neg  : int = 0 - 7;
+	}
+
+	Nested :: module {
+		Inner :: module {
+			val : int = 42;
+		}
+	}
+
+	// Function: runModuleTests()
+	// Description: Runs all module variable access tests.
+	runModuleTests :: () {
+		beginSection("Modules");
+
+		test(NumConsts.zero == 0,       "NumConsts.zero should be 0");
+		test(NumConsts.one  == 1,       "NumConsts.one should be 1");
+		test(NumConsts.ten  == 10,      "NumConsts.ten should be 10");
+		test(NumConsts.neg  == 0 - 7,   "NumConsts.neg should be -7");
+
+		test(NumConsts.one + NumConsts.ten == 11,   "one + ten should be 11");
+		test(NumConsts.ten * NumConsts.ten == 100,  "ten * ten should be 100");
+		test(NumConsts.ten > NumConsts.one,          "ten should be greater than one");
+
+		test(Nested.Inner.val == 42, "Nested.Inner.val should be 42");
+	}
+}

@@ -432,6 +432,7 @@ std::map<TokenType, ASTNodeType> operatorDefaultNodeType = {
 	{Equal_Equal, Compare_Equal},
 	{Less, Compare_Less},
 	{Greater, Compare_Greater},
+	{Less_Equal, Compare_LessEqual},
 	{Greater_Equal, Compare_GreaterEqual},
 	{Plus, Expression_Plus},
 	{Minus, Expression_Minus},
@@ -457,6 +458,7 @@ std::map<ASTNodeType, int> operatorPrecedence = {
 	{Address_Of_Operation, 50},		// &
 	{Expression_Times, 40},			// *
 	{Expression_Divide, 40},		// /
+	{Expression_Modulo, 40},		// %
 	{Expression_Plus, 30},			// +
 	{Expression_Minus, 30},			// -
 	{Compare_Equal, 20},			// ==
@@ -1086,6 +1088,39 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 				//identifier->tokenType = tt->second;
 				identifier->nodeType = Identifier_Node;
 
+				// Paren-enclosed argument — function-call-style inline directive (e.g. #nameof(x)).
+				// Gather only the paren contents and treat the whole directive as a value leaf,
+				// so it composes with surrounding expressions without consuming them.
+				if (i + 1 < (int)tokens.size() && tokens[i + 1]->second == Left_Paren) {
+					std::vector<tokenPair*> argTokens;
+					GATHER_PAREN_EXPRESSION(tokens, argTokens, 0, i, false);
+					ASTNode* argNode = generateAST(argTokens, depth + 1);
+					argNode->nodeType = Scope_Body;
+					argNode->codegen = &ASTNode::generateScopeBody;
+					node->token->first = "#" + identifier->token->first;
+					node->childNodes.push_back(identifier);
+					node->childNodes.push_back(argNode);
+					goto addNodeAsLeaf;
+				}
+
+				// Only gather a body when the next token could plausibly start one
+				// (identifier, literal, or opening brace).  Operator symbols,
+				// commas, closing parens, and statement-enders mean the directive is
+				// being used as a value expression (e.g. `#linenum > 0`) — consuming
+				// further tokens would silently absorb the surrounding expression.
+				if (i + 1 < (int)tokens.size()) {
+					TokenType nextTok = tokens[i + 1]->second;
+					bool couldStartBody =
+						nextTok == Identifier || nextTok == Integer || nextTok == Float ||
+						nextTok == String    || nextTok == Character ||
+						nextTok == Left_Brace;
+					if (!couldStartBody) {
+						node->token->first = "#" + identifier->token->first;
+						node->childNodes.push_back(identifier);
+						goto addNodeAsLeaf;  // treat as expression leaf so operators can use it as left operand
+					}
+				}
+
 				std::vector<tokenPair*> subTokens = std::vector<tokenPair*>();
 
 				// Step through all following tokens until end of line via semicolon
@@ -1227,6 +1262,8 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 					bodyNode->codegen = &ASTNode::generateScopeBody;
 
 					node->token = identifier->token;
+					if (tt->second == Module_Define)
+						node->isModuleScope = true;
 					node->childNodes.push_back(bodyNode);
 
 					// Check if extra type following :: but before {
@@ -1791,6 +1828,99 @@ void unifyNodes(ASTNode*& node)
 }
 
 
+void resolveCompileTimeDirectives(ASTNode*& node, std::string moduleCtx, std::string funcCtx)
+{
+	// Propagate context downward: update for children before recursing
+	std::string childModuleCtx = moduleCtx;
+	std::string childFuncCtx = funcCtx;
+	if (node->nodeType == Compiler_Define && node->isModuleScope)
+		childModuleCtx = node->token->first;
+	else if (!node->enclosingModule.empty())
+		childModuleCtx = node->enclosingModule;
+	if (node->nodeType == Compiler_Define_Function)
+		childFuncCtx = node->token->first;
+
+	for (int i = 0; i < node->childNodes.size(); i++)
+		resolveCompileTimeDirectives(node->childNodes[i], childModuleCtx, childFuncCtx);
+
+	if (node->nodeType == Compile_Time_Directive && node->childNodes.size() > 0) {
+		const std::string& name = node->childNodes[0]->token->first;
+		if (name == "linenum") {
+			node->nodeType = Integer_Node;
+			node->token->first = std::to_string(node->token->lineNumber);
+			node->codegen = &ASTNode::generateConstant;
+			node->childNodes.clear();
+		}
+		else if (name == "line") {
+			std::string lineStr = node->token->lineValue ? *node->token->lineValue : "";
+			node->nodeType = String_Constant_Node;
+			node->token->first = "\"" + lineStr + "\"";
+			node->codegen = &ASTNode::generateConstant;
+			node->childNodes.clear();
+		}
+		else if (name == "filename") {
+			std::string filePath = node->token->filePath ? *node->token->filePath : "";
+			node->nodeType = String_Constant_Node;
+			node->token->first = "\"" + filePath + "\"";
+			node->codegen = &ASTNode::generateConstant;
+			node->childNodes.clear();
+		}
+		else if (name == "linecol") {
+			node->nodeType = Integer_Node;
+			node->token->first = std::to_string(node->token->indexInLine);
+			node->codegen = &ASTNode::generateConstant;
+			node->childNodes.clear();
+		}
+		else if (name == "funcname") {
+			if (funcCtx.empty()) {
+				printTokenError(node->token, "#funcname used outside of a function");
+				exit(1);
+			}
+			node->nodeType = String_Constant_Node;
+			node->token->first = "\"" + funcCtx + "\"";
+			node->codegen = &ASTNode::generateConstant;
+			node->childNodes.clear();
+		}
+		else if (name == "modulename") {
+			if (moduleCtx.empty()) {
+				printTokenError(node->token, "#modulename used outside of a module");
+				exit(1);
+			}
+			node->nodeType = String_Constant_Node;
+			node->token->first = "\"" + moduleCtx + "\"";
+			node->codegen = &ASTNode::generateConstant;
+			node->childNodes.clear();
+		}
+		else if (name == "asa_version") {
+			node->nodeType = String_Constant_Node;
+			node->token->first = "\"" VERSION "\"";
+			node->codegen = &ASTNode::generateConstant;
+			node->childNodes.clear();
+		}
+		else if (name == "counter") {
+			static int counterValue = 0;
+			node->nodeType = Integer_Node;
+			node->token->first = std::to_string(counterValue++);
+			node->codegen = &ASTNode::generateConstant;
+			node->childNodes.clear();
+		}
+		else if (name == "nameof") {
+			if (node->childNodes.size() < 2 || node->childNodes[1]->childNodes.empty()) {
+				printTokenError(node->token, "#nameof requires an expression argument");
+				exit(1);
+			}
+			// Walk to the rightmost leaf to get the simple name (e.g. A.B.C → "C")
+			ASTNode* cur = node->childNodes[1]->childNodes[0];
+			while (cur->childNodes.size() >= 2)
+				cur = cur->childNodes.back();
+			node->nodeType = String_Constant_Node;
+			node->token->first = "\"" + cur->token->first + "\"";
+			node->codegen = &ASTNode::generateConstant;
+			node->childNodes.clear();
+		}
+	}
+}
+
 void optimizeASTNode(ASTNode*& node)
 {
 	for (int i = 0; i < node->childNodes.size(); i++) {
@@ -2108,7 +2238,10 @@ bool loadModule(std::string& modulePath, std::string& moduleName)
 					ASTNode* moduleNode = localRoot->childNodes[j]->childNodes[0]->childNodes[0];
 					if (localRoot->childNodes[j]->token->first == moduleName) {
 						for (int i = 0; i < moduleNode->childNodes[0]->childNodes.size(); i++) {
-							importedNodes.push_back(moduleNode->childNodes[0]->childNodes[i]);
+							ASTNode* importedNode = moduleNode->childNodes[0]->childNodes[i];
+							if (importedNode->enclosingModule.empty())
+								importedNode->enclosingModule = moduleName;
+							importedNodes.push_back(importedNode);
 							//rootNode->childNodes.push_back(localRoot->childNodes[i]);
 						}
 						if (verbosity >= 3)

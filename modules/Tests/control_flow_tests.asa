@@ -1,0 +1,84 @@
+
+// Module: ControlFlowTests
+// Description: Tests for if/else, for loops, while loops, and break.
+ControlFlowTests :: module {
+
+	#import Tests:Testing;
+
+	// Function: runControlFlowTests()
+	// Description: Runs all control flow tests.
+	runControlFlowTests :: () {
+		beginSection("Control Flow");
+
+		// if/else
+		x : int = 0;
+		if (true) {
+			x = 1;
+		}
+		test(x == 1, "if(true) body runs");
+
+		if (false) {
+			x = 99;
+		} else {
+			x = 2;
+		}
+		test(x == 2, "if(false) else body runs");
+
+		if (1 > 2) {
+			x = 99;
+		} else if (2 > 1) {
+			x = 3;
+		}
+		test(x == 3, "else if branch runs");
+
+		// for loop — sum 0+1+2+3+4 = 10
+		sum : int = 0;
+		for (i : 0..5) {
+			sum = sum + i;
+		}
+		test(sum == 10, "for 0..5 sums to 10");
+
+		// for loop — iteration count
+		count : int = 0;
+		for (j : 0..8) {
+			count = count + 1;
+		}
+		test(count == 8, "for 0..8 iterates 8 times");
+
+		// nested for loops
+		product : int = 0;
+		for (a : 0..3) {
+			for (b : 0..3) {
+				product = product + 1;
+			}
+		}
+		test(product == 9, "nested for 3x3 = 9 iterations");
+
+		// while loop
+		n : int = 0;
+		while (n < 5) {
+			n = n + 1;
+		}
+		test(n == 5, "while increments to 5");
+
+		// while with break
+		k : int = 0;
+		while (k < 100) {
+			k = k + 1;
+			if (k == 7) {
+				break;
+			}
+		}
+		test(k == 7, "while breaks at 7");
+
+		// for loop with break
+		found : int = 0;
+		for (i : 0..20) {
+			if (i == 5) {
+				found = i;
+				break;
+			}
+		}
+		test(found == 5, "for breaks at 5");
+	}
+}

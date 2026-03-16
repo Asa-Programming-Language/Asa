@@ -220,7 +220,7 @@ Operators::module{
 // Description: A builtin module adding useful memory management tools
 Memory :: module{
 	// Function: malloc(int)
-	// Description: | 
+	// Description: |
 	//     Allocates a block of memory
 	//
 	// Arguments:
@@ -236,6 +236,16 @@ Memory :: module{
 	// Arguments:
 	//     p: Pointer to the memory block to free
 	#extern free::(p : *int);
+
+	// Function: strcmp(*char, *char)
+	// Description: Compares two null-terminated character arrays lexicographically
+	//
+	// Arguments:
+	//     a: First null-terminated string
+	//     b: Second null-terminated string
+	//
+	// Returns: 0 if equal, negative if a < b, positive if a > b
+	#extern strcmp::int(a : *char, b : *char);
 }
 
 // Module: String
@@ -460,6 +470,24 @@ String :: module{
 	//
 	//	s = s + string(n % 10 + '0');
 	//}
+
+	// Operator: ==(*char, *char)
+	// Description: Compares two null-terminated character arrays for equality
+	//
+	// Returns: true if the contents are identical, false otherwise
+	operator== :: bool(a : exact *char, b : exact *char) #inline; #hideast {
+		return strcmp(a, b) == 0;
+	}
+
+	// Operator: ==(string, string)
+	// Description: Compares two strings for equality by content
+	//
+	// Returns: true if both strings have equal length and identical characters
+	operator== :: bool(a : exact string, b : exact string) #inline; #hideast {
+		if (a.length != b.length)
+			return false;
+		return strcmp(a.address, b.address) == 0;
+	}
 
 	// Function: print(string)
 	// Description: A function to overload <print(*char)> for strings

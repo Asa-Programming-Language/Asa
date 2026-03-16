@@ -1,42 +1,21 @@
 
+#import Tests:Testing;
+#import Tests:ArithmeticTests;
+#import Tests:ComparisonTests;
+#import Tests:ControlFlowTests;
+#import Tests:StringTests;
+#import Tests:ReferenceTests;
+#import Tests:ModuleTests;
+#import Tests:DirectiveTests;
 
-Test1 :: module {
-	x :: int(){
-		return 1;
-	}
-}
-
-PipeOperatorTest :: module{
-	fnX :: int(x : int){
-		return x*3;
-	}
-	fnY :: int(y : int){
-		return y*2;
-	}
-	pipeTest::int(z : int){
-		return fnX(z) -> fnY(@);
-	}
-}
-
-ModifyReference :: module{
-	modifyReference::(n : ref int) #hideast {
-		n = 4;
-	}
-	modifyReference::(n : ref float) #hideast {
-		n = 4;
-	}
-}
-
-#import Builtin:Print;
-#import Builtin:Things:OtherThings;
-#import Builtin:String;
-
-main::(){
-	// Arithmetic
-	test 1+1==2;
-	test 2-1==1;
-	test 2*12==24;
-	test 100/4==25;
-	printl(string(5));
-	//test 5%3==2, printl("Left side " + string(5%3) + " != " + string(2));
+main :: () {
+	runArithmeticTests();
+	runComparisonTests();
+	runControlFlowTests();
+	runStringTests();
+	runReferenceTests();
+	runModuleTests();
+	runDirectiveTests();
+	printSummary();
+	return;
 }

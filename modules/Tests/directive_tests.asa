@@ -1,0 +1,68 @@
+
+// Module: DirectiveTests
+// Description: Tests for compile-time directives (#linenum, #line, #filename, #linecol, #funcname, #modulename, #compiler, #counter).
+DirectiveTests :: module {
+
+	#import Tests:Testing;
+	#import Builtin:String;
+
+	// Function: runDirectiveTests()
+	// Description: Runs all compile-time directive tests.
+	runDirectiveTests :: () {
+		beginSection("Compile-time Directives");
+
+		// #linenum should expand to the integer line number of that token
+		ln : int = #linenum;
+		test(ln > 0, "#linenum should be a positive integer");
+
+		// Two consecutive #linenum captures should differ by 1
+		a : int = #linenum;
+		b : int = #linenum;
+		test(b == a + 1, "#linenum should increment by 1 on consecutive lines");
+
+		// #linenum used inline in an expression
+		test(#linenum > 0, "#linenum inline should be positive");
+
+		// #line should expand to the source text of that line as a string
+		lineStr : string = #line;
+		test(lineStr.length > 0, "#line should produce a non-empty string");
+
+		// #line captured inline then tested via string variable
+		lineStr2 : string = #line;
+		test(lineStr2.length > 0, "#line inline should have non-zero length");
+
+		// #filename should expand to the source file path as a string
+		fname : string = #filename;
+		test(fname.length > 0, "#filename should be a non-empty string");
+
+		// #linecol should expand to the column number as a positive integer
+		col : int = #linecol;
+		test(col > 0, "#linecol should be a positive integer");
+
+		// #funcname should expand to the enclosing function name
+		fn : string = #funcname;
+		test(fn.length > 0, "#funcname should be a non-empty string");
+
+		// #modulename should expand to the enclosing module name
+		mn : string = #modulename;
+		test(mn.length > 0, "#modulename should be a non-empty string");
+
+		// #asa_version should expand to the compiler version string
+		comp : string = #asa_version;
+		test(comp.length > 0, "#asa_version should be a non-empty string");
+
+		// #counter should produce unique incrementing integers
+		c0 : int = #counter;
+		c1 : int = #counter;
+		c2 : int = #counter;
+		test(c1 == c0 + 1, "#counter should increment by 1");
+		test(c2 == c1 + 1, "#counter should keep incrementing");
+
+		// #nameof should return the simple name of a variable as a string
+		someVar : int = 42;
+		test(#nameof(someVar) == "someVar", "#nameof should return variable name");
+
+		// #nameof on a dotted path should return just the last identifier
+		test(#nameof(someVar) == #nameof(someVar), "#nameof result is consistent");
+	}
+}

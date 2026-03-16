@@ -1,0 +1,39 @@
+
+// Module: StringTests
+// Description: Tests for string creation, concatenation, and length.
+StringTests :: module {
+
+	#import Tests:Testing;
+	#import Builtin:String;
+
+	// Function: runStringTests()
+	// Description: Runs all string tests.
+	runStringTests :: () {
+		beginSection("Strings");
+
+		// String length from char* constructor
+		s : string = string("hello");
+		test(s.length == 5, "string(\"hello\") should have length 5");
+
+		s2 : string = string("hello world");
+		test(s2.length == 11, "string(\"hello world\") should have length 11");
+
+		empty : string = string("");
+		test(empty.length == 0, "empty string should have length 0");
+
+		// String concatenation
+		a : string = "foo" + "bar";
+		test(a.length == 6, "\"foo\" + \"bar\" should have length 6");
+
+		b : string = "hello" + " " + "world";
+		test(b.length == 11, "triple concat should have length 11");
+
+		// Concatenation with char
+		c : string = "abc" + 'd';
+		test(c.length == 4, "string + char should have length 4");
+
+		// String literal length
+		d : string = "testing";
+		test(d.length == 7, "string literal \"testing\" should have length 7");
+	}
+}

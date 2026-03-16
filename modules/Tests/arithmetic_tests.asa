@@ -1,0 +1,37 @@
+
+// Module: ArithmeticTests
+// Description: Tests for integer arithmetic operations and operator precedence.
+ArithmeticTests :: module {
+
+	#import Tests:Testing;
+
+	// Function: runArithmeticTests()
+	// Description: Runs all arithmetic tests.
+	runArithmeticTests :: () {
+		beginSection("Arithmetic");
+
+		// Basic operations
+		test(1 + 1 == 2,   "1 + 1 == 2");
+		test(5 - 3 == 2,   "5 - 3 == 2");
+		test(3 * 4 == 12,  "3 * 4 == 12");
+		test(10 / 2 == 5,  "10 / 2 == 5");
+		test(10 % 3 == 1,  "10 % 3 == 1");
+		test(7 % 7 == 0,   "7 % 7 == 0");
+
+		// Negative numbers
+		test(0 - 5 == 0 - 5,     "negative literal");
+		test(0 - 3 < 0,           "negative is less than zero");
+		test(0 - 1 * 2 == 0 - 2,  "negative * positive");
+
+		// Operator precedence: * and / before + and -
+		test(2 + 3 * 4 == 14,     "2 + 3 * 4 == 14");
+		test(10 - 2 * 3 == 4,     "10 - 2 * 3 == 4");
+		test(12 / 4 + 1 == 4,     "12 / 4 + 1 == 4");
+		test(2 * 3 + 4 * 5 == 26, "2*3 + 4*5 == 26");
+
+		// Chained operations
+		test(100 / 4 == 25,        "100 / 4 == 25");
+		test(2 * 12 == 24,         "2 * 12 == 24");
+		test(1 + 2 + 3 + 4 == 10,  "1+2+3+4 == 10");
+	}
+}

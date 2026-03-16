@@ -1100,11 +1100,12 @@ void declareModuleScopeVariable(ASTNode* exprStmtNode, ASTNode* ownerNode, bool 
 }
 
 // Register a Compiler_Define (module) node and declare all its variable globals.
-void processModuleForDeclarations(ASTNode* moduleCompilerDefineNode)
+void processModuleForDeclarations(ASTNode* moduleCompilerDefineNode, std::string parentName)
 {
 	std::string moduleName = moduleCompilerDefineNode->token->first;
+	std::string fullName = parentName.empty() ? moduleName : (parentName + "." + moduleName);
 	moduleCompilerDefineNode->isModuleScope = true;
-	moduleRegistry[moduleName] = moduleCompilerDefineNode;
+	moduleRegistry[fullName] = moduleCompilerDefineNode;
 
 	// Navigate: Compiler_Define -> Scope_Body -> Module_Define_Node -> inner Scope_Body
 	if (moduleCompilerDefineNode->childNodes.empty()) return;
@@ -1118,9 +1119,9 @@ void processModuleForDeclarations(ASTNode* moduleCompilerDefineNode)
 	for (auto& child : innerScope->childNodes) {
 		if (child->nodeType == Expression_Statement)
 			declareModuleScopeVariable(child, moduleCompilerDefineNode, true);
-		// Recurse into nested sub-modules
+		// Recurse into nested sub-modules, registering with compound name (e.g. "Nested.Inner")
 		else if (child->nodeType == Compiler_Define)
-			processModuleForDeclarations(child);
+			processModuleForDeclarations(child, fullName);
 	}
 }
 
@@ -1552,8 +1553,18 @@ void* ASTNode::generateVariableExpression(int pass)
 
 	// Handle references: need to dereference when used as rvalue
 	if (val->isReference && !isRef && !lvalue) {
+		// valType is the pointer type (e.g. int*); load the pointer, then deref through it using the base type
 		Value* ptr = Builder->CreateLoad(valType, A, token->first + "_ref_ptr");
-		return Builder->CreateLoad(valType, ptr, token->first + "_ref_deref");
+		bool wasDefined = true;
+		Type* baseType = getLLVMTypeFromString(val->type, 0, token, wasDefined, pass);
+		if (!baseType || !wasDefined) {
+			printTokenError(token, "Cannot resolve ref base type for dereference");
+			wasError = true;
+			return nullptr;
+		}
+		if (!asaType) asaType = new ASAType(baseType);
+		else asaType->baseLLVMType = baseType;
+		return Builder->CreateLoad(baseType, ptr, token->first + "_ref_deref");
 	}
 
 	if (isRef || lvalue)
@@ -2535,26 +2546,44 @@ void* ASTNode::generateMemberAccess(int pass)
 		wasError = true;
 		return nullptr;
 	}
-	// Module member access: Fore.black resolves via module registry, not struct GEP.
-	if (childNodes[0]->nodeType == Identifier_Node) {
-		auto modIt = moduleRegistry.find(childNodes[0]->token->first);
-		if (modIt != moduleRegistry.end()) {
+	// Module member access: resolve via module registry, not struct GEP.
+	// Handles both single-level (Mod.member) and chained (Mod.Sub.member) access.
+	{
+		std::string leftModType;
+		if (childNodes[0]->nodeType == Identifier_Node) {
+			auto modIt = moduleRegistry.find(childNodes[0]->token->first);
+			if (modIt != moduleRegistry.end())
+				leftModType = "__module__:" + childNodes[0]->token->first;
+		}
+		else if (childNodes[0]->nodeType == Member_Access) {
+			// Use type resolution to detect chained module access (e.g. Nested.Inner)
+			bool savedError = wasError;
+			leftModType = getMemberAccessTypeString(childNodes[0], parentNode, token);
+			if (wasError && leftModType.empty()) {
+				wasError = savedError;  // Reset error if not a module chain
+				leftModType = "";
+			}
+		}
+		if (!leftModType.empty() && leftModType.size() > 11 && leftModType.substr(0, 11) == "__module__:") {
+			std::string modName = leftModType.substr(11);
 			std::string memberName = childNodes[1]->token->first;
-			ASTNode* modNode = modIt->second;
-			auto varIt = modNode->namedValues.find(memberName);
-			if (varIt != modNode->namedValues.end()) {
-				valueType* vt = varIt->second;
-				Value* gv = vt->val;
-				Type* gvType = getValueStoredType(gv);
-				asaType = new ASAType(gvType);
-				lastRetrievedElementType.push(asaType);
-				if (lvalue)
-					return gv;
-				Value* loaded = Builder->CreateLoad(gvType, gv, memberName + "_load");
-				return loaded;
+			auto modIt = moduleRegistry.find(modName);
+			if (modIt != moduleRegistry.end()) {
+				ASTNode* modNode = modIt->second;
+				auto varIt = modNode->namedValues.find(memberName);
+				if (varIt != modNode->namedValues.end()) {
+					valueType* vt = varIt->second;
+					Value* gv = vt->val;
+					Type* gvType = getValueStoredType(gv);
+					asaType = new ASAType(gvType);
+					lastRetrievedElementType.push(asaType);
+					if (lvalue)
+						return gv;
+					return Builder->CreateLoad(gvType, gv, memberName + "_load");
+				}
 			}
 			printTokenError(childNodes[1]->token,
-				"Module '" + childNodes[0]->token->first + "' has no member '" + memberName + "'");
+				"Module '" + modName + "' has no member '" + memberName + "'");
 			wasError = true;
 			return nullptr;
 		}
