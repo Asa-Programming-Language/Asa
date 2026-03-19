@@ -3,7 +3,7 @@
 // Description: A module for handling and drawing meshes to a window
 Mesh :: module{
 
-	#import Builtin:String;
+	#import Builtin.String;
 
 	// Struct: mesh
 	// Description: A data type that holds information related to a 3D mesh

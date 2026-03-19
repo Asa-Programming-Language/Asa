@@ -1051,9 +1051,11 @@ std::string getMemberAccessTypeString(ASTNode* node, ASTNode* parentNode, tokenP
 //   Module vars: ownerNode == the Compiler_Define module node.
 void declareModuleScopeVariable(ASTNode* exprStmtNode, ASTNode* ownerNode, bool isModuleVar)
 {
-	if (exprStmtNode->childNodes.size() < 2) return;
+	if (exprStmtNode->childNodes.size() < 2)
+		return;
 	ASTNode* leftNode = exprStmtNode->childNodes[0];
-	if (leftNode->nodeType != Colon_Separator_Node || leftNode->childNodes.size() < 2) return;
+	if (leftNode->nodeType != Colon_Separator_Node || leftNode->childNodes.size() < 2)
+		return;
 
 	ASTNode* nameNode = leftNode->childNodes[0];
 	ASTNode* typeNode = leftNode->childNodes[1];
@@ -1070,7 +1072,8 @@ void declareModuleScopeVariable(ASTNode* exprStmtNode, ASTNode* ownerNode, bool 
 	bool wasDefined = true;
 	int pass = 1;
 	Type* llvmType = getLLVMTypeFromString(typeName, 0, typeNode->token, wasDefined, pass);
-	if (!llvmType || !wasDefined) return;
+	if (!llvmType || !wasDefined)
+		return;
 	for (int i = 0; i < pointerLevel; i++)
 		llvmType = llvmType->getPointerTo();
 
@@ -1109,13 +1112,17 @@ void processModuleForDeclarations(ASTNode* moduleCompilerDefineNode, std::string
 	moduleRegistry[fullName] = moduleCompilerDefineNode;
 
 	// Navigate: Compiler_Define -> Scope_Body -> Module_Define_Node -> inner Scope_Body
-	if (moduleCompilerDefineNode->childNodes.empty()) return;
+	if (moduleCompilerDefineNode->childNodes.empty())
+		return;
 	ASTNode* outerScope = moduleCompilerDefineNode->childNodes[0];
-	if (outerScope->nodeType != Scope_Body || outerScope->childNodes.empty()) return;
+	if (outerScope->nodeType != Scope_Body || outerScope->childNodes.empty())
+		return;
 	ASTNode* moduleDef = outerScope->childNodes[0];
-	if (moduleDef->nodeType != Module_Define_Node || moduleDef->childNodes.empty()) return;
+	if (moduleDef->nodeType != Module_Define_Node || moduleDef->childNodes.empty())
+		return;
 	ASTNode* innerScope = moduleDef->childNodes[0];
-	if (innerScope->nodeType != Scope_Body) return;
+	if (innerScope->nodeType != Scope_Body)
+		return;
 
 	for (auto& child : innerScope->childNodes) {
 		if (child->nodeType == Expression_Statement)
@@ -1129,7 +1136,8 @@ void processModuleForDeclarations(ASTNode* moduleCompilerDefineNode, std::string
 // Fill in __asa_global_init's body and finalize it.
 void finalizeGlobalInit()
 {
-	if (!globalInitFn || globalInitList.empty()) return;
+	if (!globalInitFn || globalInitList.empty())
+		return;
 
 	BasicBlock* BB = BasicBlock::Create(*TheContext, "entry", globalInitFn);
 	Builder->SetInsertPoint(BB);
@@ -1138,13 +1146,19 @@ void finalizeGlobalInit()
 		ASTNode* node = gi.exprStmtNode;
 		GlobalVariable* gv = gi.gv;
 
-		if (node->childNodes.size() < 2) continue;
+		if (node->childNodes.size() < 2)
+			continue;
 		ASTNode* exprTerm = node->childNodes[1];
-		if (!exprTerm || !exprTerm->codegen) continue;
+		if (!exprTerm || !exprTerm->codegen)
+			continue;
 
 		Value* initVal = (Value*)(exprTerm->*(exprTerm->codegen))(2);
-		if (wasError) { wasError = false; continue; }
-		if (!initVal) continue;
+		if (wasError) {
+			wasError = false;
+			continue;
+		}
+		if (!initVal)
+			continue;
 
 		Type* gvType = gv->getValueType();
 		if (initVal->getType() != gvType) {
@@ -1163,12 +1177,17 @@ void finalizeGlobalInit()
 					strStruct = Builder->CreateInsertValue(strStruct, initVal, {0});
 					strStruct = Builder->CreateInsertValue(strStruct, lenTrunc, {1});
 					initVal = strStruct;
-				} else {
+				}
+				else {
 					initVal = Builder->CreateLoad(gvType, initVal, "gv_load");
 				}
-			} else {
+			}
+			else {
 				initVal = castValue(initVal, gvType, false, false, node->token);
-				if (wasError || !initVal) { wasError = false; continue; }
+				if (wasError || !initVal) {
+					wasError = false;
+					continue;
+				}
 			}
 		}
 		Builder->CreateStore(initVal, gv);
@@ -1509,8 +1528,10 @@ void* ASTNode::generateVariableExpression(int pass)
 				return nullptr;
 			}
 		}
-		if (!asaType) asaType = new ASAType(llvmType);
-		else asaType->baseLLVMType = llvmType;
+		if (!asaType)
+			asaType = new ASAType(llvmType);
+		else
+			asaType->baseLLVMType = llvmType;
 		AllocaInst* targetPtr = CreateEntryBlockAlloca(theFunction, llvmType, token->first);
 		std::string actualType = (pointerLevel > 0 ? std::string(pointerLevel, '*') : "") + typeName;
 		namedValues[token->first] = new valueType(token->first, actualType, targetPtr);
@@ -1547,8 +1568,10 @@ void* ASTNode::generateVariableExpression(int pass)
 	}
 	Value* A = val->val;
 	Type* valType = getValueStoredType(A);
-	if (!asaType) asaType = new ASAType(valType);
-	else asaType->baseLLVMType = valType;
+	if (!asaType)
+		asaType = new ASAType(valType);
+	else
+		asaType->baseLLVMType = valType;
 	// Store the type string so pointer element types can be resolved later (e.g., for c[i])
 	asaType->strVal = val->type;
 
@@ -1563,8 +1586,10 @@ void* ASTNode::generateVariableExpression(int pass)
 			wasError = true;
 			return nullptr;
 		}
-		if (!asaType) asaType = new ASAType(baseType);
-		else asaType->baseLLVMType = baseType;
+		if (!asaType)
+			asaType = new ASAType(baseType);
+		else
+			asaType->baseLLVMType = baseType;
 		return Builder->CreateLoad(baseType, ptr, token->first + "_ref_deref");
 	}
 
@@ -1730,6 +1755,14 @@ void* ASTNode::generateReturn(int pass)
 			}
 		}
 		else {
+			if (RetVal->getType() != retType) {
+				Function* currentFn = Builder->GetInsertBlock()->getParent();
+				functionID* fnID = getFunctionIDFromFunctionPointer(functionIDs, currentFn);
+				bool isSigned = fnID ? typeSigns.count(fnID->returnType) && typeSigns[fnID->returnType] : true;
+				RetVal = castValue(RetVal, retType, true, isSigned, token);
+				if (wasError)
+					return nullptr;
+			}
 			Builder->CreateRet(RetVal);
 		}
 	}
@@ -2032,8 +2065,9 @@ void* ASTNode::generateUnaryExpression(int pass)
 			Type* elementType;
 			if (AllocaInst* allocaVal = dyn_cast<AllocaInst>(ptrVal)) {
 				elementType = allocaVal->getAllocatedType();
-			} else {
-				elementType = Type::getInt32Ty(*TheContext);	// TODO: proper type tracking for non-alloca pointers
+			}
+			else {
+				elementType = Type::getInt32Ty(*TheContext);  // TODO: proper type tracking for non-alloca pointers
 			}
 			return Builder->CreateLoad(elementType, ptrVal, "deref_tmp");
 		}
@@ -2566,7 +2600,7 @@ void* ASTNode::generateMemberAccess(int pass)
 			bool savedError = wasError;
 			leftModType = getMemberAccessTypeString(childNodes[0], parentNode, token);
 			if (wasError && leftModType.empty()) {
-				wasError = savedError;  // Reset error if not a module chain
+				wasError = savedError;	// Reset error if not a module chain
 				leftModType = "";
 			}
 		}
@@ -2708,7 +2742,8 @@ void* ASTNode::generateMemberAccess(int pass)
 
 			auto gep = Builder->CreateStructGEP(structDefinition->structVal, basePtr, memberIndex, "struct_member");
 			std::string memberStrVal = "";
-			for (int _p = 0; _p < structDefinition->members[memberIndex].pointerLevel; ++_p) memberStrVal += "*";
+			for (int _p = 0; _p < structDefinition->members[memberIndex].pointerLevel; ++_p)
+				memberStrVal += "*";
 			memberStrVal += structDefinition->members[memberIndex].typeString;
 			asaType = new ASAType(elementType, false, structDefinition->members[memberIndex].isConstant, memberStrVal, (uint8_t)structDefinition->members[memberIndex].pointerLevel);
 			lastRetrievedElementType.push(asaType);
@@ -3271,9 +3306,10 @@ void* ASTNode::generateCallExpression(int pass)
 			(formal.typeString == "char" || formal.typeString == "int8")) {
 			// string → *char: extract .address (element 0)
 			argVal = Builder->CreateExtractValue(argVal, {0}, "str_addr");
-		} else if (argVal && argVal->getType()->isPointerTy() &&
-			formal.pointerLevel == 0 && formal.typeString == "string" &&
-			structDefinitions.count("string") && structDefinitions["string"]->structVal) {
+		}
+		else if (argVal && argVal->getType()->isPointerTy() &&
+				 formal.pointerLevel == 0 && formal.typeString == "string" &&
+				 structDefinitions.count("string") && structDefinitions["string"]->structVal) {
 			// *char → string: build string struct with strlen
 			StructType* strTy = cast<StructType>((Type*)structDefinitions["string"]->structVal);
 			FunctionCallee strlenFn = TheModule->getOrInsertFunction("strlen",
@@ -4345,7 +4381,8 @@ void* ASTNode::generateNothing(int pass)
 // that flags are correctly scoped during each codegen phase.
 void* ASTNode::generateCompilerDefine(int pass)
 {
-	if (childNodes.size() < 2) return nullptr;
+	if (childNodes.size() < 2)
+		return nullptr;
 
 	// childNodes[0] = "define" keyword node
 	// childNodes[1] = scope body containing NAME and VALUE tokens
@@ -4405,7 +4442,8 @@ static Value* makeStringConstant(const std::string& str)
 // For other expressions, generates the expression and reads the LLVM type.
 void* ASTNode::generateTypeofDirective(int pass)
 {
-	if (pass == 0) return nullptr;
+	if (pass == 0)
+		return nullptr;
 	if (childNodes.size() < 2 || childNodes[1]->childNodes.empty()) {
 		printTokenError(token, "#typeof requires an expression argument");
 		wasError = true;
@@ -4425,7 +4463,8 @@ void* ASTNode::generateTypeofDirective(int pass)
 	// Fallback: generate the expression and read the LLVM type
 	if (typeStr.empty()) {
 		Value* val = (Value*)(argExpr->*(argExpr->codegen))(pass);
-		if (!val || wasError) return nullptr;
+		if (!val || wasError)
+			return nullptr;
 		if (argExpr->asaType && argExpr->asaType->baseLLVMType)
 			typeStr = getStringTypeFromLLVMType(argExpr->asaType->baseLLVMType);
 		else
@@ -4433,8 +4472,10 @@ void* ASTNode::generateTypeofDirective(int pass)
 	}
 
 	Value* result = makeStringConstant(typeStr);
-	if (!asaType) asaType = new ASAType(result->getType());
-	else asaType->baseLLVMType = result->getType();
+	if (!asaType)
+		asaType = new ASAType(result->getType());
+	else
+		asaType->baseLLVMType = result->getType();
 	return result;
 }
 
@@ -4442,7 +4483,8 @@ void* ASTNode::generateTypeofDirective(int pass)
 // T can be a type name (e.g. int, string, MyStruct) or a variable name.
 void* ASTNode::generateSizeofDirective(int pass)
 {
-	if (pass == 0) return nullptr;
+	if (pass == 0)
+		return nullptr;
 	if (childNodes.size() < 2 || childNodes[1]->childNodes.empty()) {
 		printTokenError(token, "#sizeof requires a type or variable argument");
 		wasError = true;
@@ -4462,7 +4504,8 @@ void* ASTNode::generateSizeofDirective(int pass)
 			if (val) {
 				wasDefined = true;
 				llvmType = getLLVMTypeFromString(val->type, 0, token, wasDefined, pass);
-				if (!wasDefined) llvmType = nullptr;
+				if (!wasDefined)
+					llvmType = nullptr;
 			}
 		}
 	}
@@ -4470,7 +4513,8 @@ void* ASTNode::generateSizeofDirective(int pass)
 	// Fallback: generate the expression and read the LLVM type
 	if (!llvmType) {
 		Value* val = (Value*)(argNode->*(argNode->codegen))(pass);
-		if (val) llvmType = val->getType();
+		if (val)
+			llvmType = val->getType();
 	}
 
 	if (!llvmType) {
@@ -4482,8 +4526,10 @@ void* ASTNode::generateSizeofDirective(int pass)
 	const DataLayout& DL = TheModule->getDataLayout();
 	uint64_t size = DL.getTypeAllocSize(llvmType);
 	Value* sizeVal = ConstantInt::get(Type::getInt64Ty(*TheContext), size);
-	if (!asaType) asaType = new ASAType(sizeVal->getType());
-	else asaType->baseLLVMType = sizeVal->getType();
+	if (!asaType)
+		asaType = new ASAType(sizeVal->getType());
+	else
+		asaType->baseLLVMType = sizeVal->getType();
 	return sizeVal;
 }
 

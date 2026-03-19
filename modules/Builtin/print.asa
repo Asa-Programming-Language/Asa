@@ -3,10 +3,10 @@
 // Description: A builtin module for printing things to the terminal
 Print :: module {
 
-	#import Builtin:Operators;
-	#import Builtin:String;
-	//#import Builtin:Casts;
-	//#import Builtin:Memory;
+	#import Builtin.Operators;
+	#import Builtin.String;
+	//#import Builtin.Casts;
+	//#import Builtin.Memory;
 
 	//#library "libc";
 	//print :: {#foreign "printf"};

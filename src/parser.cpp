@@ -517,6 +517,7 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 	}
 
 	// Iterate all tokens
+	std::vector<ASTNode*> pendingAttributes;
 	for (int i = 0; i < tokens.size(); i++) {
 		ASTNode* node = new ASTNode();
 		ASTNodes.push_back(node);
@@ -885,7 +886,37 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 			case Caret_Caret:
 			case Percent:
 			case Percent_Percent:
-			case At:
+			case At: {
+				// Attribute syntax: @name: or @name(args):  — only at statement start
+				if (tokenType == At && parentNode->leafNodes.size() == 0 &&
+					i + 1 < (int)tokens.size() && tokens[i + 1]->second == Identifier) {
+					// Consume the attribute name
+					tokenPair* nameTok = NEXT_TOKEN(tokens, i);
+					node->nodeType = Attribute_Node;
+					node->token = nameTok;
+					// Optional argument list
+					if (i + 1 < (int)tokens.size() && tokens[i + 1]->second == Left_Paren) {
+						std::vector<tokenPair*> argTokens;
+						GATHER_PAREN_EXPRESSION(tokens, argTokens, 0, i, false);
+						ASTNode* argNode = generateAST(argTokens, depth + 1);
+						argNode->nodeType = Scope_Body;
+						argNode->codegen = &ASTNode::generateScopeBody;
+						node->childNodes.push_back(argNode);
+					}
+					// Consume the required trailing colon
+					if (i + 1 < (int)tokens.size() && tokens[i + 1]->second == Colon)
+						i++;
+					else {
+						printTokenError(nameTok, "Expected ':' after attribute name");
+						wasError = true;
+						return nullptr;
+					}
+					pendingAttributes.push_back(node);
+					goto dontAddNodeForce;
+				}
+				// Fall through to operator handling
+				[[fallthrough]];
+			}
 			case At_At: {
 				bool isUnaryR = false;	// Operates on right
 				bool isUnaryL = false;	// Left
@@ -1112,12 +1143,12 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 					TokenType nextTok = tokens[i + 1]->second;
 					bool couldStartBody =
 						nextTok == Identifier || nextTok == Integer || nextTok == Float ||
-						nextTok == String    || nextTok == Character ||
+						nextTok == String || nextTok == Character ||
 						nextTok == Left_Brace;
 					if (!couldStartBody) {
 						node->token->first = "#" + identifier->token->first;
 						node->childNodes.push_back(identifier);
-						goto addNodeAsLeaf;  // treat as expression leaf so operators can use it as left operand
+						goto addNodeAsLeaf;	 // treat as expression leaf so operators can use it as left operand
 					}
 				}
 
@@ -1145,6 +1176,12 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 				}
 				if (identifier->token->first == "define") {
 					node->codegen = &ASTNode::generateCompilerDefine;
+					// Leaf nodes in a #define body are intentional tokens (name + value),
+					// not parse errors — move them into childNodes so findUnusedLeafNodes
+					// doesn't flag them, and collectTokens in generateCompilerDefine finds them.
+					for (auto& l : bodyNode->leafNodes)
+						bodyNode->childNodes.push_back(l);
+					bodyNode->leafNodes.clear();
 				}
 
 				node->token->first = "#" + identifier->token->first;
@@ -1679,6 +1716,9 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 
 
 	addNode:
+		for (auto& a : pendingAttributes)
+			node->attributes.push_back(a);
+		pendingAttributes.clear();
 		parentNode->childNodes.push_back(node);
 		continue;
 
@@ -1695,6 +1735,11 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 		//}
 	dontAddNodeForce:
 		continue;
+	}
+
+	// Warn about any attributes that were never attached to a node
+	for (auto& a : pendingAttributes) {
+		printTokenWarning(a->token, "Attribute '@" + a->token->first + "' has nothing to attach to");
 	}
 
 	// If only one leaf node and no child nodes, it can be added as child instead
@@ -1891,7 +1936,7 @@ void resolveCompileTimeDirectives(ASTNode*& node, std::string moduleCtx, std::st
 			node->codegen = &ASTNode::generateConstant;
 			node->childNodes.clear();
 		}
-		else if (name == "asa_version") {
+		else if (name == "asaversion") {
 			node->nodeType = String_Constant_Node;
 			node->token->first = "\"" VERSION "\"";
 			node->codegen = &ASTNode::generateConstant;
@@ -2262,8 +2307,17 @@ bool loadModule(std::string& modulePath, std::string& moduleName)
 
 void getModuleNameAndPath(ASTNode*& node, std::string& modulePath, std::string& moduleName)
 {
-	if (node->childNodes.size() == 2) {
-		// Recursively add to front of path from first expression
+	if (node->nodeType == Member_Access) {
+		// Right-associative: A.B.C -> Member_Access(A, Member_Access(B, C))
+		modulePath = node->childNodes[0]->token->first;
+		ASTNode* rest = node->childNodes[1];
+		while (rest->nodeType == Member_Access) {
+			modulePath += "/" + rest->childNodes[0]->token->first;
+			rest = rest->childNodes[1];
+		}
+		moduleName = rest->token->first;
+	}
+	else if (node->childNodes.size() == 2) {
 		ASTNode* firstExpression = node->childNodes[0];
 		std::string tmpPath = "";
 		getModuleNameAndPath(firstExpression, tmpPath, moduleName);
@@ -2295,7 +2349,7 @@ void addModuleImports(ASTNode*& node)
 				if (node->childNodes.size() > 1) {
 					// Get node within the import scope body
 					ASTNode* moduleNameNode = node->childNodes[1]->childNodes[0];
-					if (moduleNameNode->nodeType == Identifier_Node || moduleNameNode->nodeType == Colon_Separator_Node) {
+					if (moduleNameNode->nodeType == Identifier_Node || moduleNameNode->nodeType == Member_Access) {
 						std::string modulePath = ".";
 						std::string moduleName = "";
 						bool moduleFound = false;
@@ -2454,6 +2508,18 @@ int printAST(ASTNode* startNode, int depth)
 		console::Write(")");
 		console::WriteLine("{...}");
 		return 0;
+	}
+
+	if (startNode->attributes.size() > 0) {
+		console::Write(" @[");
+		for (int c = 0; c < startNode->attributes.size(); c++) {
+			console::Write(startNode->attributes[c]->token->first, console::cyanFGColor);
+			if (startNode->attributes[c]->childNodes.size() > 0)
+				console::Write("(...)");
+			if (c < (int)startNode->attributes.size() - 1)
+				console::Write(", ");
+		}
+		console::Write("]");
 	}
 
 	if (startNode->childNodes.size() > 0 || startNode->leafNodes.size() > 0)

@@ -3,7 +3,7 @@
 // Description: Tests for if/else, for loops, while loops, and break.
 ControlFlowTests :: module {
 
-	#import Tests:Testing;
+	#import Tests.Testing;
 
 	// Function: runControlFlowTests()
 	// Description: Runs all control flow tests.

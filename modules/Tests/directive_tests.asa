@@ -3,9 +3,9 @@
 // Description: Tests for compile-time directives (#linenum, #line, #filename, #linecol, #funcname, #modulename, #compiler, #counter).
 DirectiveTests :: module {
 
-	#import Tests:Testing;
-	#import Builtin:String;
-	#import Builtin:Print;
+	#import Tests.Testing;
+	#import Builtin.String;
+	#import Builtin.Print;
 
 	// Function: runDirectiveTests()
 	// Description: Runs all compile-time directive tests.
@@ -48,9 +48,9 @@ DirectiveTests :: module {
 		mn : string = #modulename;
 		test(mn.length > 0, "#modulename should be a non-empty string");
 
-		// #asa_version should expand to the compiler version string
-		comp : string = #asa_version;
-		test(comp.length > 0, "#asa_version should be a non-empty string");
+		// #asaversion should expand to the compiler version string
+		comp : string = #asaversion;
+		test(comp.length > 0, "#asaversion should be a non-empty string");
 
 		// #counter should produce unique incrementing integers
 		c0 : int = #counter;

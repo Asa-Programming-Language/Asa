@@ -126,6 +126,8 @@ enum ASTNodeType {
 	Arguments,
 	Compiler_Modifiers,
 
+	Attribute_Node,
+
 	Fully_Defined,
 
 	// Nothing below this
@@ -240,6 +242,8 @@ const std::string ASTNodeTypeStrings[] = {
 	"Arguments",
 	"Compiler_Modifiers",
 
+	"Attribute_Node",
+
 	"Fully_Defined",
 };
 
@@ -283,7 +287,7 @@ struct ASTNode {
 	std::string label = "";
 	bool showInASTOutput = true;
 	bool replaceableDefinition = false;
-	bool isModuleScope = false;    // true for Compiler_Define nodes representing named modules
+	bool isModuleScope = false;		   // true for Compiler_Define nodes representing named modules
 	std::string enclosingModule = "";  // set on imported nodes to record source module name
 	bool currentNodeDoneGenerating = false;
 	//Type* llvmType;
@@ -291,6 +295,7 @@ struct ASTNode {
 	ASAType* asaType = nullptr;
 	// Add leaf nodes here as they are still yet to be used.
 	std::vector<ASTNode*> leafNodes = std::vector<ASTNode*>();
+	std::vector<ASTNode*> attributes = std::vector<ASTNode*>();
 
 	std::unordered_map<std::string, ASTNode*> interpreterScopeValues = std::unordered_map<std::string, ASTNode*>();
 

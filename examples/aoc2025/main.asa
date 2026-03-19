@@ -1,5 +1,5 @@
-//#import Builtin:Print;
-#import Builtin:Memory;
+//#import Builtin.Print;
+#import Builtin.Memory;
 
 //#extern putchar::(c : char);
 //#extern malloc::*char(s : int);

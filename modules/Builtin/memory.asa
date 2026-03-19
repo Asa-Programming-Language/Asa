@@ -29,4 +29,10 @@ Memory :: module{
 	//
 	// Returns: 0 if equal, negative if a < b, positive if a > b
 	#extern strcmp::int(a : *char, b : *char);
+
+	// Function: strstr(*char, *char)
+	// Description: Finds the first occurrence of needle in haystack
+	//
+	// Returns: Pointer to the first match, or null if not found
+	#extern strstr :: *char(haystack : *char, needle : *char);
 }

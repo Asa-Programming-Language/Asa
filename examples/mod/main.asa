@@ -9,7 +9,7 @@ otherFunction :: int(x : int){
 	return x;
 }
 
-#import Builtin:Print;
+#import Builtin.Print;
 
 main ::(){
 	// Uses default mod-values if none passed

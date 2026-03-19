@@ -1,8 +1,8 @@
 // Module: List
 // Description: Contains the <list> data type
 List :: module{
-	#import Builtin:Print;
-	#import Builtin:Memory;
+	#import Builtin.Print;
+	#import Builtin.Memory;
 
 	// Struct: list
 	// Description: A dynamically allocated list structure

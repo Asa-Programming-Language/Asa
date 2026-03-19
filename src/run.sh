@@ -8,18 +8,25 @@ echo -e "\nCleaning up build files...";
 find ../modules -name "*.ll.s" -type f -delete;
 find ../modules -name "*.ll" -type f -delete;
 echo -e "\nRunning cmake...";
-cmake -G Ninja ../src;
+cmake -G Ninja ../src || { echo -e "\ncmake failed."; exit 1; }
 echo -e "\nRunning Ninja...";
-ninja_output=$(ninja -j2 2>&1);
-echo "$ninja_output";
+ninja_log=$(mktemp);
+ninja -j2 2>&1 | tee "$ninja_log";
+ninja_exit=${PIPESTATUS[0]};
 cmake --install .;
-if echo "$ninja_output" | grep -q "no work to do"; then
+if [ $ninja_exit -ne 0 ]; then
+	rm "$ninja_log";
+	echo -e "\nNinja failed.";
+	exit 1;
+fi
+if grep -q "no work to do" "$ninja_log"; then
 	echo -e "\nNo changes, skipping build number increment.";
 else
 	echo -e "\nIncrementing build number...";
 	../src/increment_build.sh;
 fi
+rm "$ninja_log";
 echo -e "\nRunning compiler tests...";
-./asa --runtests;
+./asa --runtests || { echo -e "\nCompiler tests failed."; exit 1; }
 echo -e "\nRunning language tests...";
-./asa ../modules/Tests/main_tests.asa && ../modules/Tests/build/main_tests && echo -e "\nAll language tests passed ✔" || echo -e "\nLanguage tests FAILED ✖";
+./asa ../modules/Tests/main_tests.asa && ../modules/Tests/build/main_tests && echo -e "\nAll language tests passed ✔" || { echo -e "\nLanguage tests FAILED ✖"; exit 1; }

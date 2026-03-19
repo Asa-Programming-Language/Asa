@@ -1,15 +1,15 @@
-#import Builtin:Print;
-#import Builtin:ColorPrint;
+#import Builtin.Print;
+#import Builtin.ColorPrint;
 
-#import Builtin:Casts;
+#import Builtin.Casts;
 //#import Builtin.Operators;
-#import Builtin:Memory;
-#import Builtin:String;
+#import Builtin.Memory;
+#import Builtin.String;
 
-//#import Tests:PipeOperatorTest;
-#import Tests:Testing;
+//#import Tests.PipeOperatorTest;
+#import Tests.Testing;
 
-#import Rendering:Window;
+#import Rendering.Window;
 
 //#import GameLogic;
 
@@ -22,7 +22,7 @@ You can import the full library like:
 #import Rendering;
 
 Or individual components:
-#import Rendering:Window;
+#import Rendering.Window;
 */
 
 //string :: struct {
@@ -47,6 +47,7 @@ operator|| :: bool(a : bool, b : bool) #inline; #hideast {
 
 TEST_MACRO :: {printl("Macro works!")};
 
+@public:
 main :: (){
 	//printf("Hello World!");
 	//x = 70+2;

@@ -3,7 +3,7 @@
 // Description: Tests for integer arithmetic operations and operator precedence.
 ArithmeticTests :: module {
 
-	#import Tests:Testing;
+	#import Tests.Testing;
 
 	// Function: runArithmeticTests()
 	// Description: Runs all arithmetic tests.

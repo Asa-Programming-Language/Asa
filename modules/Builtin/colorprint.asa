@@ -2,8 +2,43 @@
 // Description: A builtin module for printing colored text to the terminal using ANSI escape codes
 ColorPrint :: module {
 
-	#import Builtin:Print;
-	#import Builtin:String;
+	#import Builtin.Print;
+	#import Builtin.String;
+	#import Builtin.Casts;
+
+	#extern isatty :: int(fd : int);
+	#extern getenv :: *char(name : *char);
+
+	// Function: consoleSupportsColor()
+	// Description: Returns true if stdout is a TTY and the TERM environment variable indicates color support
+	consoleSupportsColor :: bool() {
+		if (isatty(1) == 0) {
+			return false;
+		}
+		termPtr : *char = getenv("TERM");
+		termAddr : int64 = int64(termPtr);
+		if (termAddr == 0) {
+			return false;
+		}
+		term : string = string(termPtr);
+		if (find(term, "xterm")  >= 0) { return true; }
+		if (find(term, "color")  >= 0) { return true; }
+		if (find(term, "ansi")   >= 0) { return true; }
+		if (find(term, "cygwin") >= 0) { return true; }
+		if (find(term, "linux")  >= 0) { return true; }
+		return false;
+	}
+
+	colorChecked : bool = false;
+	colorSupported : bool = false;
+
+	getColorSupported :: bool() {
+		if (colorChecked == false) {
+			colorSupported = consoleSupportsColor();
+			colorChecked = true;
+		}
+		return colorSupported;
+	}
 
 	// Constant: resetColor
 	// Description: ANSI escape code to reset all color formatting back to terminal defaults
@@ -16,7 +51,11 @@ ColorPrint :: module {
 	//     s: The string to print
 	//     col: The color code to use, see <Fore> and <Back>
 	colorPrint:: (s : string, col : string) {
-		print(col + s + resetColor);
+		if (getColorSupported()) {
+			print(col + s + resetColor);
+		} else {
+			print(s);
+		}
 		return;
 	}
 
@@ -27,7 +66,11 @@ ColorPrint :: module {
 	//     s: The string to print
 	//     col: The color code to use, see <Fore> and <Back>
 	colorPrintl:: (s : string, col : string) {
-		print(col + s + resetColor + "\n");
+		if (getColorSupported()) {
+			print(col + s + resetColor + "\n");
+		} else {
+			printl(s);
+		}
 		return;
 	}
 
@@ -39,7 +82,11 @@ ColorPrint :: module {
 	//     fg: The color code to use for the foreground see <Fore>
 	//     bg: The color code to use for the background see <Back>
 	colorPrint:: (s : string, fg : string, bg : string) {
-		print(fg + bg + s + resetColor);
+		if (getColorSupported()) {
+			print(fg + bg + s + resetColor);
+		} else {
+			print(s);
+		}
 		return;
 	}
 
@@ -51,7 +98,11 @@ ColorPrint :: module {
 	//     fg: The color code to use for the foreground see <Fore>
 	//     bg: The color code to use for the background see <Back>
 	colorPrintl:: (s : string, fg : string, bg : string) {
-		print(fg + bg + s + resetColor + "\n");
+		if (getColorSupported()) {
+			print(fg + bg + s + resetColor + "\n");
+		} else {
+			printl(s);
+		}
 		return;
 	}
 

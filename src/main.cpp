@@ -107,6 +107,8 @@ int main(int argc, char** argv)
 					warningFlags |= W_All;
 				else if (flagVal == "conversion")
 					warningFlags |= W_Conversion;
+				else if (flagVal == "attributes")
+					warningFlags |= W_Attributes;
 				break;
 			}
 
@@ -135,8 +137,10 @@ int main(int argc, char** argv)
 	}
 
 #ifdef DEBUG
-	if (compilerFlags == Flags_RunTests)
+	if (compilerFlags == Flags_RunTests) {
 		runTests();
+		exit(0);
+	}
 #endif
 
 	// Load file if provided

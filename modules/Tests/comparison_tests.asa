@@ -3,7 +3,7 @@
 // Description: Tests for comparison and boolean operators.
 ComparisonTests :: module {
 
-	#import Tests:Testing;
+	#import Tests.Testing;
 
 	// Function: runComparisonTests()
 	// Description: Runs all comparison and boolean operator tests.

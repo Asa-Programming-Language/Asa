@@ -216,4 +216,13 @@ Casts :: module {
 	cast:: char(x : uint) #inline; #hideast {
 		return #cast x : char;
 	}
+
+	// Group: Pointer Casts
+	// Description: Cast operators for converting pointers to integer types
+
+	// Function: int64(*char)
+	// Description: Converts a *char pointer to int64, useful for null checks
+	cast:: int64(x : *char) #inline; #hideast {
+		return #cast x : int64;
+	}
 }

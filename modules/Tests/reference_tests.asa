@@ -3,7 +3,7 @@
 // Description: Tests for pass-by-reference parameter behavior.
 ReferenceTests :: module {
 
-	#import Tests:Testing;
+	#import Tests.Testing;
 
 	setToZero :: (x : ref int) {
 		x = 0;

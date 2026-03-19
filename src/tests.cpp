@@ -193,16 +193,16 @@ std::vector<Test> tests = {
 	// Module includes
 	Test(
 		R"(
-		#import Tests:CompilerImportTest;
+		#import Tests.CompilerImportTest;
 	)",
 		A(Scope_Body, // Global
 			{
 				A(Nothing_Node,
 					{
 						A(Identifier_Node, {}),
-						A(Scope_Body, 
+						A(Scope_Body,
 							{
-								A(Colon_Separator_Node,
+								A(Member_Access,
 									{
 										A(Identifier_Node),
 										A(Identifier_Node),

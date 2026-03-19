@@ -3,8 +3,8 @@
 // Description: Tests for string creation, concatenation, and length.
 StringTests :: module {
 
-	#import Tests:Testing;
-	#import Builtin:String;
+	#import Tests.Testing;
+	#import Builtin.String;
 
 	// Function: runStringTests()
 	// Description: Runs all string tests.

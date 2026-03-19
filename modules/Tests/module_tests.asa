@@ -3,7 +3,7 @@
 // Description: Tests for module variable access and nested module access.
 ModuleTests :: module {
 
-	#import Tests:Testing;
+	#import Tests.Testing;
 
 	NumConsts :: module {
 		zero : int = 0;

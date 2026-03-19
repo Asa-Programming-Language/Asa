@@ -1,0 +1,82 @@
+
+@public
+main ::(){
+
+}
+
+// These are currently how I do function modifiers/attributes
+foo :: () #inline; #public; {
+
+}
+
+// This syntax doesnt really fit
+public foo :: (){
+
+}
+
+// Or this
+foo :: public inline int (){
+
+}
+
+// This could be a good way to do it
+@inline:
+@public:
+@deprecated("Use bar2!!"):
+bar :: () {
+
+}
+
+// Or this
+@inline:
+@public:
+@version(1):
+bar2 :: ()
+	#variant c = 0;
+{
+	print(c);
+}
+
+
+
+// variants still seem out of place
+// could make them attributes as well, but they do more than just describe a function
+// since they build new functions
+@variant(T, int):
+foo ::(T : type){
+	print(#typeof(T));
+}
+
+// Or could force style as call syntax:
+foo :: (T : type)
+	#variant(T, int);
+{
+	print(#typeof(T));
+}
+
+
+// Also what about custom attributes? That should be really easy to implement, but
+// they could only be handled by some meta programming functionality not yet implemented
+@buzz :: (){
+	name : string = "buzz";
+	x : int = 5;
+}
+
+// Not sure how, but could be like:
+@buzz:
+something : int = 0;
+
+print(something?buzz.name); // prints "buzz"
+
+// That is bad syntax I think, need a better way
+
+
+
+
+
+
+
+
+
+
+

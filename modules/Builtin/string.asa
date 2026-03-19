@@ -4,9 +4,11 @@
 //     A builtin module defining the string type
 //     See Also: <string>
 String :: module{
-	#import Builtin:Print;
-	#import Builtin:Memory;
-	#import Builtin:Casts;
+	#import Builtin.Print;
+	#import Builtin.Memory;
+	#import Builtin.Casts;
+
+	#define IN_STRING_MODULE true;
 
 	// Struct: string
 	// Description: |
@@ -16,7 +18,7 @@ String :: module{
 	//     ```asa
 	//     s : string = "Hello, World!";
 	//     ```
-	string :: struct {
+	public string :: struct {
 		address : *char;
 		length : uint32 = 0;
 
@@ -34,6 +36,7 @@ String :: module{
 			print(this.length);
 			print("}\n");
 		}
+
 	}
 
 	// Constructor: string()
@@ -190,7 +193,7 @@ String :: module{
 		if (n < 0) {
 			s = s + '-';
 			if (n == -2147483648) {
-				return s + "2147483648";
+				return s + string("2147483648");
 			}
 			n = 0 - n;
 		}
@@ -233,4 +236,16 @@ String :: module{
 		printl(s.address);
 		return;
 	}
+
+	// Function: find(s, sub)
+	// Description: Returns the index of the first occurrence of sub in s, or -1 if not found
+	find :: int64(s : exact string, sub : exact string) {
+		result : *char = strstr(s.address, sub.address);
+		resAddr : int64 = int64(result);
+		if (resAddr == 0) { return -1; }
+		startAddr : int64 = int64(s.address);
+		return resAddr - startAddr;
+	}
+
+	#define IN_STRING_MODULE false;
 }

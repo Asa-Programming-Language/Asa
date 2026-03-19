@@ -16,7 +16,8 @@ enum CompilerFlags {
 
 enum WarningFlags {
 	W_None = 0,
-	W_Conversion = 1 << 6,
+	W_Conversion = 1 << 0,
+	W_Attributes = 1 << 1,
 	W_All = 0b111111111111111111111111111111,
 };
 

@@ -1,0 +1,20 @@
+
+// Testing compiler directives and redefinability:
+
+main :: int(){
+
+}
+
+// Thinking about making compiler directives essentially just be functions/macros
+// that are defined identically to runtime ones, but are executed at compile time.
+// And some can have special functionality in the compiler
+#dosomething :: (){
+
+}
+
+
+// Would have to handle arguments differently though, right? since you should be able to
+// have any AST node as an argument or return value
+#return1 :: ast (x : ast){
+	
+}

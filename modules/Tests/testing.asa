@@ -6,7 +6,7 @@
 //
 //     Example:
 //     ```asa
-//     #import Tests:Testing;
+//     #import Tests.Testing;
 //
 //     beginSection("Arithmetic");
 //     test(1 + 1 == 2, "1 + 1 should equal 2");
@@ -15,9 +15,9 @@
 //     ```
 Testing :: module {
 
-	#import Builtin:String;
-	#import Builtin:Print;
-	#import Builtin:ColorPrint;
+	#import Builtin.String;
+	#import Builtin.Print;
+	#import Builtin.ColorPrint;
 
 	#extern exit :: (code : int32);
 

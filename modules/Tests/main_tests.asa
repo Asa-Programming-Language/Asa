@@ -1,12 +1,12 @@
 
-#import Tests:Testing;
-#import Tests:ArithmeticTests;
-#import Tests:ComparisonTests;
-#import Tests:ControlFlowTests;
-#import Tests:StringTests;
-#import Tests:ReferenceTests;
-#import Tests:ModuleTests;
-#import Tests:DirectiveTests;
+#import Tests.Testing;
+#import Tests.ArithmeticTests;
+#import Tests.ComparisonTests;
+#import Tests.ControlFlowTests;
+#import Tests.StringTests;
+#import Tests.ReferenceTests;
+#import Tests.ModuleTests;
+#import Tests.DirectiveTests;
 
 main :: () {
 	runArithmeticTests();
