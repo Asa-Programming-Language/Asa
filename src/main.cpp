@@ -35,9 +35,10 @@ int main(int argc, char** argv)
 			{"run", no_argument, 0, 'r'},
 			{"warn", required_argument, 0, 'w'},
 			{"version", no_argument, 0, 'V'},
+			{"printast", no_argument, 0, 'a'},
 			{0, 0, 0, 0}};
 
-		c = getopt_long(argc, argv, "cCvqsdDtrVw:f:o:O:0",
+		c = getopt_long(argc, argv, "cCvqsdDtrVaw:f:o:O:0",
 			long_options, &option_index);
 		if (c == -1)
 			break;
@@ -111,6 +112,10 @@ int main(int argc, char** argv)
 					warningFlags |= W_Attributes;
 				break;
 			}
+
+			case 'a':
+				compilerFlags |= Flags_PrintAST;
+				break;
 
 			case 'V':
 				if (verbosity >= 2)
@@ -189,7 +194,6 @@ int main(int argc, char** argv)
 		console::Write("Invalid tokens met\n");
 		exit(1);
 	}
-	e = removeCommentTokens(allTokens);
 	if (verbosity >= 5) {
 		printf("\nTokens:\n");
 		for (int i = 0; i < allTokens.size(); i++) {
@@ -205,6 +209,12 @@ int main(int argc, char** argv)
 	if (verbosity >= 3)
 		console::WriteLine("\n\nGenerating AST...", console::greenFGColor);
 	rootNode = generateAST(allTokens);
+	// Print AST (before stripping comments, so doc comments are visible)
+	if (verbosity >= 4) {
+		console::Write("\n\nGenerated AST:\n", console::greenFGColor);
+		printAST(rootNode);
+	}
+	stripCommentNodes(rootNode);
 	// Handle importing nodes from other sources
 	for (;;) {
 		bool noImports = true;
@@ -238,10 +248,11 @@ int main(int argc, char** argv)
 	// Resolve compile-time constant directives (#linenum, #line, etc.)
 	resolveCompileTimeDirectives(rootNode);
 
-	// Print AST
-	if (verbosity >= 4) {
-		console::Write("\n\nGenerated AST:\n", console::greenFGColor);
+	// Print AST and exit if --printast was requested
+	if (compilerFlags & Flags_PrintAST) {
+		console::useColor = false;
 		printAST(rootNode);
+		exit(0);
 	}
 
 	// Find any unused leaf nodes, and throw error if there are any

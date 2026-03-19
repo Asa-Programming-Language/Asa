@@ -46,6 +46,7 @@ void cConcatInt(char* arr, char* outArr, int len, int x);
 std::string SplitGetLastAfterChar(const std::string& str, std::string delim);
 inline static const std::string roundFloat(const double input, const int decimal_places);
 std::string truncateMetricNum(double x);
+std::string toCStringLiteral(const std::string& s);
 
 template<class T>
 std::string FormatWithCommas(T value)

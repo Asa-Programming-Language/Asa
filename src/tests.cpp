@@ -279,10 +279,10 @@ void runTests()
 				console::PrintError("Invalid tokens met", __LINE__, __FILE__);
 				goto testFailed;
 			}
-			e = removeCommentTokens(localTokens);
 
 			// Generate AST
 			ASTNode* localRoot = generateAST(localTokens);
+			stripCommentNodes(localRoot);
 
 			// Handle importing nodes from other sources
 			for (;;) {

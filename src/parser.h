@@ -4,6 +4,7 @@
 #include "filemanager.h"
 #include "pch.h"
 #include "settings.h"
+#include "strops.h"
 #include "tokenizer.h"
 
 #define MAX_AST_DEPTH 20
@@ -127,6 +128,7 @@ enum ASTNodeType {
 	Compiler_Modifiers,
 
 	Attribute_Node,
+	Comment_Node,
 
 	Fully_Defined,
 
@@ -243,6 +245,7 @@ const std::string ASTNodeTypeStrings[] = {
 	"Compiler_Modifiers",
 
 	"Attribute_Node",
+	"Comment_Node",
 
 	"Fully_Defined",
 };
@@ -415,6 +418,7 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth = 0, ASTNo
 void orderASTOperations(ASTNode* startNode);
 const std::string ASTNodeTypeAsString(ASTNodeType t);
 int printAST(ASTNode* startNode, int depth = 0);
+void stripCommentNodes(ASTNode* node);
 void fixPrecedence(ASTNode*& node);
 void unifyNodes(ASTNode*& node);
 void optimizeASTNode(ASTNode*& node);

@@ -543,6 +543,31 @@ inline static const std::string roundFloat(const double input, const int decimal
 	return str.str();
 }
 
+std::string toCStringLiteral(const std::string& s)
+{
+	std::string out = "\"";
+	for (char c : s) {
+		switch (c) {
+			case '"':  out += "\\\""; break;
+			case '\\': out += "\\\\"; break;
+			case '\n': out += "\\n";  break;
+			case '\r': out += "\\r";  break;
+			case '\t': out += "\\t";  break;
+			default:
+				if ((unsigned char)c < 32 || (unsigned char)c == 127) {
+					char buf[5];
+					snprintf(buf, sizeof(buf), "\\x%02x", (unsigned char)c);
+					out += buf;
+				} else {
+					out += c;
+				}
+				break;
+		}
+	}
+	out += "\"";
+	return out;
+}
+
 std::string truncateMetricNum(double x)
 {
 	if (x > 1000000000000)

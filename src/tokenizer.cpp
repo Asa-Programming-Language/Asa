@@ -186,6 +186,8 @@ int tokenize(std::string& rawFile, std::vector<tokenPair*>& tokens, std::string&
 	rawFile = "\n" + rawFile + "\n";  // add extra character at end as buffer for lookahead
 	bool inLineComment = false;
 	bool inBlockComment = false;
+	std::string commentContent = "";
+	int commentStartLine = 0;
 	for (int i = 1; i < rawFile.size(); i++) {
 		char c = rawFile[i];
 		char nextChar = rawFile[i + 1];
@@ -196,15 +198,29 @@ int tokenize(std::string& rawFile, std::vector<tokenPair*>& tokens, std::string&
 		if (currentToken == Nothing) {
 			// Track comment state so special chars inside comments don't start new tokens
 			if (!inLineComment && !inBlockComment) {
-				if (c == '/' && nextChar == '/')
+				if (c == '/' && nextChar == '/') {
 					inLineComment = true;
-				else if (c == '/' && nextChar == '*')
+					commentContent = "//";
+					commentStartLine = lineNumber;
+					i++;  // consume the second '/'
+					continue;
+				}
+				else if (c == '/' && nextChar == '*') {
 					inBlockComment = true;
+					commentContent = "/*";
+					commentStartLine = lineNumber;
+					i++;  // consume the '*'
+					continue;
+				}
 			}
 			if (inLineComment) {
-				if (c == '\n')
+				if (c == '\n') {
 					inLineComment = false;
+					tokens.push_back(new tokenPair(commentContent, Comment, commentStartLine, startIndexInLine, lineValue, fileNames.back()));
+					commentContent = "";
+				}
 				else {
+					commentContent += c;
 					if (c != '\t') {
 						*lineValue += c;
 						indexInLine++;
@@ -215,8 +231,13 @@ int tokenize(std::string& rawFile, std::vector<tokenPair*>& tokens, std::string&
 			if (inBlockComment) {
 				if (c == '*' && nextChar == '/') {
 					inBlockComment = false;
+					commentContent += "*/";
 					i++;  // consume the '/'
+					tokens.push_back(new tokenPair(commentContent, Comment, commentStartLine, startIndexInLine, lineValue, fileNames.back()));
+					commentContent = "";
+					continue;
 				}
+				commentContent += c;
 				if (c != '\t') {
 					*lineValue += c;
 					indexInLine++;
@@ -346,7 +367,8 @@ int joinCommentTokens(std::vector<tokenPair*>& tokens)
 	while (i < tokens.size() - 1) {
 		tokenPair* t = NEXT_TOKEN(tokens, i);
 		if (!inComment) {
-			if (t->first.substr(0, 2) == "//" || t->first.substr(0, 2) == "/*") {
+			if (t->second != Comment &&
+				(t->first.substr(0, 2) == "//" || t->first.substr(0, 2) == "/*")) {
 				inComment = true;
 				if (t->first.substr(0, 2) == "/*")
 					multiLineComment = true;

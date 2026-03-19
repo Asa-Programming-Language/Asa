@@ -518,6 +518,8 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 
 	// Iterate all tokens
 	std::vector<ASTNode*> pendingAttributes;
+	std::string pendingCommentText;
+	int pendingCommentLastLine = -10;
 	for (int i = 0; i < tokens.size(); i++) {
 		ASTNode* node = new ASTNode();
 		ASTNodes.push_back(node);
@@ -1608,6 +1610,29 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 			}
 
 			case Comment: {
+				int commentLine = token->lineNumber;
+				// Gap since last comment — reset block
+				if (commentLine > pendingCommentLastLine + 1)
+					pendingCommentText.clear();
+				// Strip // or /* */ markers
+				std::string raw = token->first;
+				std::string text;
+				if (raw.size() >= 2 && raw[0] == '/' && raw[1] == '/') {
+					text = raw.substr(2);
+					while (!text.empty() && text.back() == ' ') text.pop_back();
+				} else if (raw.size() >= 2 && raw[0] == '/' && raw[1] == '*') {
+					text = raw.substr(2);
+					size_t endPos = text.rfind("*/");
+					if (endPos != std::string::npos) text = text.substr(0, endPos);
+					while (!text.empty() && text.back() == ' ') text.pop_back();
+				} else {
+					text = raw;
+				}
+				if (!pendingCommentText.empty())
+					pendingCommentText += "\n" + text;
+				else
+					pendingCommentText = text;
+				pendingCommentLastLine = commentLine;
 				goto dontAddNodeForce;
 			}
 
@@ -1716,6 +1741,15 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 
 
 	addNode:
+		if (!pendingCommentText.empty()) {
+			if (node->lineNumber <= pendingCommentLastLine + 1) {
+				ASTNode* commentNode = new ASTNode();
+				commentNode->nodeType = Comment_Node;
+				commentNode->token = new tokenPair(toCStringLiteral(pendingCommentText), Comment);
+				node->childNodes.insert(node->childNodes.begin(), commentNode);
+			}
+			pendingCommentText.clear();
+		}
 		for (auto& a : pendingAttributes)
 			node->attributes.push_back(a);
 		pendingAttributes.clear();
@@ -2233,10 +2267,10 @@ void addFileIncludes(ASTNode*& node)
 					std::cerr << "Invalid tokens met\n";
 					exit(1);
 				}
-				e = removeCommentTokens(localTokens);
 
 				// Generate AST
 				ASTNode* localRoot = generateAST(localTokens);
+				stripCommentNodes(localRoot);
 				for (int i = 0; i < localRoot->childNodes.size(); i++) {
 					importedNodes.push_back(localRoot->childNodes[i]);
 					//rootNode->childNodes.push_back(localRoot->childNodes[i]);
@@ -2274,10 +2308,10 @@ bool loadModule(std::string& modulePath, std::string& moduleName)
 			std::cerr << "Invalid tokens met\n";
 			exit(1);
 		}
-		e = removeCommentTokens(localTokens);
 
 		// Generate AST
 		ASTNode* localRoot = generateAST(localTokens);
+		stripCommentNodes(localRoot);
 
 		// Look through file to see if it contains the desired module
 		for (int j = 0; j < localRoot->childNodes.size(); j++) {
@@ -2550,6 +2584,19 @@ int printAST(ASTNode* startNode, int depth)
 	return 0;
 }
 
+void stripCommentNodes(ASTNode* node)
+{
+	std::vector<ASTNode*>& children = node->childNodes;
+	int i = 0;
+	while (i < (int)children.size()) {
+		if (children[i]->nodeType == Comment_Node)
+			children.erase(children.begin() + i);
+		else
+			i++;
+	}
+	for (int c = 0; c < (int)node->childNodes.size(); c++)
+		stripCommentNodes(node->childNodes[c]);
+}
 
 void generateOutputCode(ASTNode*& node, int depth, int pass)
 {
