@@ -13,6 +13,7 @@
 //     test(2 * 3 == 6, "2 * 3 should equal 6");
 //     printSummary();
 //     ```
+@public:
 Testing :: module {
 
 	#import Builtin.String;
@@ -23,15 +24,15 @@ Testing :: module {
 
 	// Variable: passCount
 	// Description: Number of tests that have passed so far.
-	passCount : int = 0;
+	@public: passCount : int = 0;
 
 	// Variable: failCount
 	// Description: Number of tests that have failed so far.
-	failCount : int = 0;
+	@public: failCount : int = 0;
 
 	// Variable: currentSection
 	// Description: Name of the currently active test section, shown in failure messages.
-	currentSection : string = "";
+	@public: currentSection : string = "";
 
 	// Function: test(expression, failureMessage)
 	// Description: |
@@ -52,6 +53,7 @@ Testing :: module {
 	// Arguments:
 	//     expression: The expression to evaluate
 	//     failureMessage: The message to display if the test fails
+	@public:
 	test :: (expression : bool, failureMessage : string) {
 		if (expression) {
 			passCount = passCount + 1;
@@ -83,6 +85,7 @@ Testing :: module {
 	//     beginSection("Arithmetic");
 	//     test(1 + 1 == 2, "addition");
 	//     ```
+	@public:
 	beginSection :: (name : string) {
 		currentSection = name;
 		print("  ");
@@ -93,6 +96,7 @@ Testing :: module {
 	// Description: |
 	//     Prints a pass/fail summary of all test() calls so far.
 	//     Exits the process with code 1 if any tests failed, 0 if all passed.
+	@public:
 	printSummary :: () {
 		total : int = passCount + failCount;
 		printl("");

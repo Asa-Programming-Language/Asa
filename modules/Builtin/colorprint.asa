@@ -1,5 +1,6 @@
 // Module: ColorPrint
 // Description: A builtin module for printing colored text to the terminal using ANSI escape codes
+@public:
 ColorPrint :: module {
 
 	#import Builtin.Print;
@@ -11,6 +12,7 @@ ColorPrint :: module {
 
 	// Function: consoleSupportsColor()
 	// Description: Returns true if stdout is a TTY and the TERM environment variable indicates color support
+	@public:
 	consoleSupportsColor :: bool() {
 		if (isatty(1) == 0) {
 			return false;
@@ -29,9 +31,10 @@ ColorPrint :: module {
 		return false;
 	}
 
-	colorChecked : bool = false;
-	colorSupported : bool = false;
+	@public: colorChecked : bool = false;
+	@public: colorSupported : bool = false;
 
+	@public:
 	getColorSupported :: bool() {
 		if (colorChecked == false) {
 			colorSupported = consoleSupportsColor();
@@ -42,7 +45,7 @@ ColorPrint :: module {
 
 	// Constant: resetColor
 	// Description: ANSI escape code to reset all color formatting back to terminal defaults
-	resetColor : string = "\033[0m";
+	@public: resetColor : string = "\033[0m";
 
 	// Function: colorPrint(string, color)
 	// Description: Prints a string to the terminal with the specified color, then resets color formatting
@@ -50,6 +53,7 @@ ColorPrint :: module {
 	// Arguments:
 	//     s: The string to print
 	//     col: The color code to use, see <Fore> and <Back>
+	@public:
 	colorPrint:: (s : string, col : string) {
 		if (getColorSupported()) {
 			print(col + s + resetColor);
@@ -65,6 +69,7 @@ ColorPrint :: module {
 	// Arguments:
 	//     s: The string to print
 	//     col: The color code to use, see <Fore> and <Back>
+	@public:
 	colorPrintl:: (s : string, col : string) {
 		if (getColorSupported()) {
 			print(col + s + resetColor + "\n");
@@ -81,6 +86,7 @@ ColorPrint :: module {
 	//     s: The string to print
 	//     fg: The color code to use for the foreground see <Fore>
 	//     bg: The color code to use for the background see <Back>
+	@public:
 	colorPrint:: (s : string, fg : string, bg : string) {
 		if (getColorSupported()) {
 			print(fg + bg + s + resetColor);
@@ -97,6 +103,7 @@ ColorPrint :: module {
 	//     s: The string to print
 	//     fg: The color code to use for the foreground see <Fore>
 	//     bg: The color code to use for the background see <Back>
+	@public:
 	colorPrintl:: (s : string, fg : string, bg : string) {
 		if (getColorSupported()) {
 			print(fg + bg + s + resetColor + "\n");
@@ -109,11 +116,12 @@ ColorPrint :: module {
 	// Module: Fore
 	// Description: |
 	//     Module containing the foreground color codes used for printing colors.
-	//     
+	//
 	//     The proper way to use these is like `:::asa Fore.red`, for example:
 	//     ```asa
 	//     colorPrint("Red text", Fore.red);
 	//     ```
+	@public:
 	Fore :: module{
 		// Constants: Color names
 		// Values:
@@ -133,34 +141,35 @@ ColorPrint :: module {
 		//     brightMagenta: brightMagenta color
 		//     brightCyan: brightCyan color
 		//     brightWhite: brightWhite color
-		black : string = "\x1B[30m";
-		red : string = "\x1B[31m";
-		green : string = "\x1B[32m";
-		yellow : string = "\x1B[33m";
-		blue : string = "\x1B[34m";
-		magenta : string = "\x1B[35m";
-		cyan : string = "\x1B[36m";
-		white : string = "\x1B[37m";
-		brightBlack : string = "\x1B[90m";
-		brightRed : string = "\x1B[91m";
-		brightGreen : string = "\x1B[92m";
-		brightYellow : string = "\x1B[93m";
-		brightBlue : string = "\x1B[94m";
-		brightMagenta : string = "\x1B[95m";
-		brightCyan : string = "\x1B[96m";
-		brightWhite : string = "\x1B[97m";
+		@public: black : string = "\x1B[30m";
+		@public: red : string = "\x1B[31m";
+		@public: green : string = "\x1B[32m";
+		@public: yellow : string = "\x1B[33m";
+		@public: blue : string = "\x1B[34m";
+		@public: magenta : string = "\x1B[35m";
+		@public: cyan : string = "\x1B[36m";
+		@public: white : string = "\x1B[37m";
+		@public: brightBlack : string = "\x1B[90m";
+		@public: brightRed : string = "\x1B[91m";
+		@public: brightGreen : string = "\x1B[92m";
+		@public: brightYellow : string = "\x1B[93m";
+		@public: brightBlue : string = "\x1B[94m";
+		@public: brightMagenta : string = "\x1B[95m";
+		@public: brightCyan : string = "\x1B[96m";
+		@public: brightWhite : string = "\x1B[97m";
 
-		reset : string = "\033[0m";
+		@public: reset : string = "\033[0m";
 	}
 
 	// Module: Back
-	// Description: | 
+	// Description: |
 	//     Module containing the background color codes used for printing colors.
-	//     
+	//
 	//     The proper way to use these is like `:::asa Back.red`, for example:
 	//     ```asa
 	//     colorPrint("Red background text", Back.red);
 	//     ```
+	@public:
 	Back :: module{
 		// Constants: Color names
 		// Values:
@@ -180,24 +189,24 @@ ColorPrint :: module {
 		//     brightMagenta: brightMagenta color
 		//     brightCyan: brightCyan color
 		//     brightWhite: brightWhite color
-		black : string = "\x1B[40m";
-		red : string = "\x1B[41m";
-		green : string = "\x1B[42m";
-		yellow : string = "\x1B[43m";
-		blue : string = "\x1B[44m";
-		magenta : string = "\x1B[45m";
-		cyan : string = "\x1B[46m";
-		white : string = "\x1B[47m";
-		brightBlack : string = "\x1B[100m";
-		brightRed : string = "\x1B[101m";
-		brightGreen : string = "\x1B[102m";
-		brightYellow : string = "\x1B[103m";
-		brightBlue : string = "\x1B[104m";
-		brightMagenta : string = "\x1B[105m";
-		brightCyan : string = "\x1B[106m";
-		brightWhite : string = "\x1B[107m";
+		@public: black : string = "\x1B[40m";
+		@public: red : string = "\x1B[41m";
+		@public: green : string = "\x1B[42m";
+		@public: yellow : string = "\x1B[43m";
+		@public: blue : string = "\x1B[44m";
+		@public: magenta : string = "\x1B[45m";
+		@public: cyan : string = "\x1B[46m";
+		@public: white : string = "\x1B[47m";
+		@public: brightBlack : string = "\x1B[100m";
+		@public: brightRed : string = "\x1B[101m";
+		@public: brightGreen : string = "\x1B[102m";
+		@public: brightYellow : string = "\x1B[103m";
+		@public: brightBlue : string = "\x1B[104m";
+		@public: brightMagenta : string = "\x1B[105m";
+		@public: brightCyan : string = "\x1B[106m";
+		@public: brightWhite : string = "\x1B[107m";
 
-		reset : string = "\033[0m";
+		@public: reset : string = "\033[0m";
 	}
 }
 

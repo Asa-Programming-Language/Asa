@@ -34,6 +34,7 @@ enum TokenType {
 	Dot,
 	Dot_Dot,
 	Dot_Dot_Dot,
+	Dot_At,
 	Hash,
 
 	Plus,
@@ -132,6 +133,7 @@ const std::string tokenTypeStrings[] = {
 	"Dot",
 	"Dot_Dot",
 	"Dot_Dot_Dot",
+	"Dot_At",
 	"Hash",
 
 	"Plus",
@@ -248,5 +250,6 @@ extern std::vector<std::string*> lines;
 int tokenize(std::string& rawFile, std::vector<tokenPair*>& tokens, std::string& fileName);
 int labelSubTokens(std::vector<tokenPair*>& tokens);
 int joinCommentTokens(std::vector<tokenPair*>& tokens);
+int joinDotAtTokens(std::vector<tokenPair*>& tokens);
 int removeCommentTokens(std::vector<tokenPair*>& tokens);
 const std::string tokenAsString(TokenType t);

@@ -66,7 +66,7 @@ foo :: (T : type)
 @buzz:
 something : int = 0;
 
-print(something?buzz.name); // prints "buzz"
+print(something.@buzz.name); // prints "buzz"
 
 // That is bad syntax I think, need a better way
 

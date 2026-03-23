@@ -1,13 +1,17 @@
 
-// Module: StringTests
-// Description: Tests for string creation, concatenation, and length.
+// StringTests
+// Tests for string creation, concatenation, and length.
+
+@public:
 StringTests :: module {
 
 	#import Tests.Testing;
 	#import Builtin.String;
 
-	// Function: runStringTests()
-	// Description: Runs all string tests.
+	// runStringTests()
+	// Runs all string tests.
+
+	@public:
 	runStringTests :: () {
 		beginSection("Strings");
 

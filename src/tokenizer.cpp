@@ -405,6 +405,18 @@ int joinCommentTokens(std::vector<tokenPair*>& tokens)
 	return 0;
 }
 
+int joinDotAtTokens(std::vector<tokenPair*>& tokens)
+{
+	for (int i = 0; i < (int)tokens.size() - 1; i++) {
+		if (tokens[i]->second == Dot && tokens[i + 1]->second == At) {
+			tokens[i]->second = Dot_At;
+			tokens[i]->first = ".@";
+			tokens.erase(tokens.begin() + i + 1);
+		}
+	}
+	return 0;
+}
+
 int removeCommentTokens(std::vector<tokenPair*>& tokens)
 {
 	int i = 0;

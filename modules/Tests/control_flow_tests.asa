@@ -1,12 +1,16 @@
 
-// Module: ControlFlowTests
-// Description: Tests for if/else, for loops, while loops, and break.
+// ControlFlowTests
+// Tests for if/else, for loops, while loops, and break.
+
+@public:
 ControlFlowTests :: module {
 
 	#import Tests.Testing;
 
-	// Function: runControlFlowTests()
-	// Description: Runs all control flow tests.
+	// runControlFlowTests()
+	// Runs all control flow tests.
+
+	@public:
 	runControlFlowTests :: () {
 		beginSection("Control Flow");
 

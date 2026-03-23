@@ -1,12 +1,16 @@
 
-// Module: ArithmeticTests
-// Description: Tests for integer arithmetic operations and operator precedence.
+// ArithmeticTests
+// Tests for integer arithmetic operations and operator precedence.
+
+@public:
 ArithmeticTests :: module {
 
 	#import Tests.Testing;
 
-	// Function: runArithmeticTests()
-	// Description: Runs all arithmetic tests.
+	// runArithmeticTests()
+	// Runs all arithmetic tests.
+
+	@public:
 	runArithmeticTests :: () {
 		beginSection("Arithmetic");
 

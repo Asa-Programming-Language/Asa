@@ -3,6 +3,7 @@
 // Description: |
 //     A builtin module defining the string type
 //     See Also: <string>
+@public:
 String :: module{
 	#import Builtin.Print;
 	#import Builtin.Memory;
@@ -18,17 +19,21 @@ String :: module{
 	//     ```asa
 	//     s : string = "Hello, World!";
 	//     ```
-	public string :: struct {
+	@public:
+	@version(1):
+	string :: struct {
 		address : *char;
 		length : uint32 = 0;
 
 		// Function: size()
 		// Returns: The length in characters of the string
+		@public:
 		size :: uint32() {
 			return this.length;
 		}
 		// Function: dump()
 		// Description: Prints all of the info related to the string instance to the terminal
+		@public:
 		dump :: () {
 			print("string: {\"value\":\"");
 			print(this.address);
@@ -43,6 +48,7 @@ String :: module{
 	// Description: Creates an empty string
 	//
 	// Returns: A new empty string instance
+	@public:
 	create :: string() #inline; #replaceable; {
 		return *(#new string);
 	}
@@ -54,6 +60,7 @@ String :: module{
 	//     c: Pointer to a null-terminated character array
 	//
 	// Returns: A new string containing the characters from the array
+	@public:
 	create :: string(c : exact *char) {
 		s : string = string();
 
@@ -80,6 +87,7 @@ String :: module{
 	//     otherStr: The second string
 	//
 	// Returns: A new string containing the concatenation of both strings
+	@public:
 	operator+ :: string(thisStr : exact string, otherStr : exact string){
 		newStr : string = string();
 
@@ -106,6 +114,7 @@ String :: module{
 	//     ch: The character to be added
 	//
 	// Returns: A new string containing the concatenation of the string and character
+	@public:
 	operator+ :: string(thisStr : exact string, ch : exact char){
 		newStr : string = string();
 
@@ -127,6 +136,7 @@ String :: module{
 	//     n: The integer to append
 	//
 	// Returns: A new string containing the concatenation
+	@public:
 	operator+ :: string(thisStr : exact string, n : int64){
 		return thisStr + string(n);
 	}
@@ -139,6 +149,7 @@ String :: module{
 	//     otherStr: The string to append
 	//
 	// Returns: A new string containing the concatenation
+	@public:
 	operator+ :: string(n : int64, otherStr : exact string){
 		return string(n) + otherStr;
 	}
@@ -151,6 +162,7 @@ String :: module{
 	//     otherStr: The second character array
 	//
 	// Returns: A pointer to a new character array containing the concatenation
+	@public:
 	operator+ :: *char(thisStr : exact *char, otherStr : exact *char){
 		newStr : *char = void;
 
@@ -188,6 +200,7 @@ String :: module{
 	//     n: The integer to convert
 	//
 	// Returns: A new string containing the decimal representation of n
+	@public:
 	cast :: string(n : int64) {
 		s : string = string();
 		if (n < 0) {
@@ -209,7 +222,8 @@ String :: module{
 	// Description: Compares two null-terminated character arrays for equality
 	//
 	// Returns: true if the contents are identical, false otherwise
-	operator== :: bool(a : exact *char, b : exact *char) #inline; #hideast {
+	@public:
+	operator== :: bool(a : exact *char, b : exact *char) #inline; {
 		return strcmp(a, b) == 0;
 	}
 
@@ -217,7 +231,8 @@ String :: module{
 	// Description: Compares two strings for equality by content
 	//
 	// Returns: true if both strings have equal length and identical characters
-	operator== :: bool(a : exact string, b : exact string) #inline; #hideast {
+	@public:
+	operator== :: bool(a : exact string, b : exact string) #inline; {
 		if (a.length != b.length)
 			return false;
 		return strcmp(a.address, b.address) == 0;
@@ -225,20 +240,23 @@ String :: module{
 
 	// Function: print(string)
 	// Description: A function to overload <print(*char)> for strings
-	print :: (s : exact string) #hideast {
+	@public:
+	print :: (s : exact string) {
 		print(s.address);
 		return;
 	}
 
 	// Function: printl(string)
 	// Description: A function to overload <printl(*char)> for strings
-	printl :: (s : exact string) #hideast {
+	@public:
+	printl :: (s : exact string) {
 		printl(s.address);
 		return;
 	}
 
 	// Function: find(s, sub)
 	// Description: Returns the index of the first occurrence of sub in s, or -1 if not found
+	@public:
 	find :: int64(s : exact string, sub : exact string) {
 		result : *char = strstr(s.address, sub.address);
 		resAddr : int64 = int64(result);

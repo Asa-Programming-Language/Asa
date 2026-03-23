@@ -7,7 +7,9 @@
 #import Tests.ReferenceTests;
 #import Tests.ModuleTests;
 #import Tests.DirectiveTests;
+#import Tests.AttributeTests;
 
+@public:
 main :: () {
 	runArithmeticTests();
 	runComparisonTests();
@@ -16,6 +18,7 @@ main :: () {
 	runReferenceTests();
 	runModuleTests();
 	runDirectiveTests();
+	runAttributeTests();
 	printSummary();
 	return;
 }

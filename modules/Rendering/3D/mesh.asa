@@ -1,18 +1,23 @@
 
 // Module: Mesh
 // Description: A module for handling and drawing meshes to a window
+@public:
+@todo:
 Mesh :: module{
 
 	#import Builtin.String;
 
 	// Struct: mesh
 	// Description: A data type that holds information related to a 3D mesh
+	@public:
+	@todo:
 	mesh :: struct {
 
 		// Function: load(string)
 		// Description: Loads in mesh data from a file, overwriting any previously loaded data
 		// Arguments:
 		//     path: The path to the mesh file
+		@todo:
 		load :: (path : string){
 			
 		}
@@ -21,6 +26,8 @@ Mesh :: module{
 	// Function: mesh()
 	// Description: Creates a new blank mesh object
 	// Returns: The newly created mesh object
+	@public:
+	@todo:
 	create :: mesh(){
 
 	}
@@ -30,6 +37,8 @@ Mesh :: module{
 	// Arguments:
 	//     path: The path to the mesh file
 	// Returns: The newly created mesh object
+	@public:
+	@todo:
 	create :: mesh(path : string){
 		
 	}

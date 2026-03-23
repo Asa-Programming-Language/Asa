@@ -444,6 +444,7 @@ std::map<TokenType, ASTNodeType> operatorDefaultNodeType = {
 	{Exact, Exact_Type_Node},
 	{Left_Bracket, Access_Operation},
 	{Dot, Member_Access},
+	{Dot_At, Attribute_Access},
 	{Arrow_Right, Pipe_Operation},
 	{Percent, Expression_Modulo},
 	{At, Expression_Modulo},
@@ -453,6 +454,7 @@ std::map<ASTNodeType, int> operatorPrecedence = {
 	{Operator_Overload_Node, 100},	// anything else
 	{Colon_Separator_Node, 99},		// :
 	{Member_Access, 90},			// .
+	{Attribute_Access, 90},			// .@
 	{Access_Operation, 80},			// []
 	{Expression_Paren_Term, 70},	// ()
 	{Address_Of_Operation, 50},		// &
@@ -474,6 +476,7 @@ std::map<ASTNodeType, int> operatorPrecedence = {
 
 std::unordered_set<ASTNodeType> leftAssociativeOperators = {
 	Member_Access,
+	Attribute_Access,
 	Access_Operation,
 	Pipe_Operation,
 };
@@ -858,6 +861,7 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 			case Comma:
 			case Dot_Dot:
 			case Dot:
+			case Dot_At:
 			case Bang_Equal:
 			case Equal_Equal:
 			case Less:
@@ -905,16 +909,22 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 						argNode->codegen = &ASTNode::generateScopeBody;
 						node->childNodes.push_back(argNode);
 					}
-					// Consume the required trailing colon
-					if (i + 1 < (int)tokens.size() && tokens[i + 1]->second == Colon)
+					// Consume the required trailing colon or semicolon
+					if (i + 1 < (int)tokens.size() && tokens[i + 1]->second == Colon) {
 						i++;
-					else {
-						printTokenError(nameTok, "Expected ':' after attribute name");
+						pendingAttributes.push_back(node);
+						if (token->lineNumber > pendingCommentLastLine)
+							pendingCommentLastLine = token->lineNumber;
+						goto dontAddNodeForce;
+					} else if (i + 1 < (int)tokens.size() && tokens[i + 1]->second == Semi_Colon) {
+						i++;
+						node->nodeType = Standalone_Attribute_Node;
+						goto addNode;
+					} else {
+						printTokenError(nameTok, "Expected ':' or ';' after attribute name");
 						wasError = true;
 						return nullptr;
 					}
-					pendingAttributes.push_back(node);
-					goto dontAddNodeForce;
 				}
 				// Fall through to operator handling
 				[[fallthrough]];
@@ -1746,7 +1756,7 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 				ASTNode* commentNode = new ASTNode();
 				commentNode->nodeType = Comment_Node;
 				commentNode->token = new tokenPair(toCStringLiteral(pendingCommentText), Comment);
-				node->childNodes.insert(node->childNodes.begin(), commentNode);
+				node->docComment = commentNode;
 			}
 			pendingCommentText.clear();
 		}
@@ -2004,6 +2014,136 @@ void resolveCompileTimeDirectives(ASTNode*& node, std::string moduleCtx, std::st
 			node->childNodes.clear();
 		}
 	}
+}
+
+static void buildDeclMap(ASTNode* node, std::map<std::string, ASTNode*>& map)
+{
+	if (node->token && !node->token->first.empty()) {
+		if (node->nodeType == Compiler_Define ||
+			node->nodeType == Compiler_Define_Function ||
+			node->nodeType == Module_Define_Node ||
+			node->nodeType == Struct_Define_Node)
+			map[node->token->first] = node;
+	}
+	for (auto* child : node->childNodes)
+		buildDeclMap(child, map);
+}
+
+static void resolveAttributeAccessImpl(ASTNode*& node, const std::map<std::string, ASTNode*>& declMap)
+{
+	for (int i = 0; i < (int)node->childNodes.size(); i++)
+		resolveAttributeAccessImpl(node->childNodes[i], declMap);
+
+	if (node->nodeType != Attribute_Access || node->childNodes.size() < 2)
+		return;
+
+	ASTNode* leftNode    = node->childNodes[0];
+	ASTNode* attrNameNode = node->childNodes[1];
+
+	if (leftNode->nodeType != Identifier_Node || attrNameNode->nodeType != Identifier_Node)
+		return;
+
+	const std::string& symName  = leftNode->token->first;
+	const std::string& attrName = attrNameNode->token->first;
+
+	auto it = declMap.find(symName);
+	if (it == declMap.end()) {
+		printTokenError(node->token, "Cannot find declaration '" + symName + "' for attribute access");
+		return;
+	}
+	ASTNode* decl = it->second;
+
+	// Find attribute by name
+	ASTNode* foundAttr = nullptr;
+	for (auto* attr : decl->attributes) {
+		if (attr->token && attr->token->first == attrName) {
+			foundAttr = attr;
+			break;
+		}
+	}
+
+	node->childNodes.clear();
+
+	if (foundAttr == nullptr) {
+		// Attribute not present → false
+		node->nodeType = Boolean_Node;
+		node->token->first = "false";
+		node->codegen = &ASTNode::generateConstant;
+		return;
+	}
+
+	if (foundAttr->childNodes.empty()) {
+		// Attribute present, no argument → true
+		node->nodeType = Boolean_Node;
+		node->token->first = "true";
+		node->codegen = &ASTNode::generateConstant;
+		return;
+	}
+
+	// Attribute has argument: extract constant from Scope_Body child
+	ASTNode* scopeBody = foundAttr->childNodes[0];
+	if (scopeBody->childNodes.empty()) {
+		node->nodeType = Boolean_Node;
+		node->token->first = "true";
+		node->codegen = &ASTNode::generateConstant;
+		return;
+	}
+
+	ASTNode* constNode = scopeBody->childNodes[0];
+	node->nodeType = constNode->nodeType;
+	node->token->first = constNode->token->first;
+	node->codegen = &ASTNode::generateConstant;
+}
+
+void resolveAttributeAccess(ASTNode*& node)
+{
+	std::map<std::string, ASTNode*> declMap;
+	buildDeclMap(node, declMap);
+	resolveAttributeAccessImpl(node, declMap);
+}
+
+// Sets of attributes that cannot coexist on the same declaration.
+// If any node has two or more attributes from the same set, it is an error.
+static const std::vector<std::vector<std::string>> incompatibleAttributeSets = {
+	{"public", "private"},
+	{"inline", "noinline"},
+	{"deprecated", "removed"},
+};
+
+static void checkAttributeCompatibilityImpl(ASTNode* node)
+{
+	for (auto* child : node->childNodes)
+		checkAttributeCompatibilityImpl(child);
+
+	if (node->attributes.empty())
+		return;
+
+	// Collect attribute names present on this node
+	std::vector<std::string> present;
+	for (auto* attr : node->attributes)
+		if (attr->token && !attr->token->first.empty())
+			present.push_back(attr->token->first);
+
+	for (const auto& group : incompatibleAttributeSets) {
+		std::vector<std::string> conflicts;
+		for (const auto& name : group)
+			for (const auto& p : present)
+				if (p == name)
+					conflicts.push_back(name);
+
+		if (conflicts.size() >= 2) {
+			std::string msg = "Incompatible attributes on '" + node->token->first + "': @" + conflicts[0];
+			for (int i = 1; i < (int)conflicts.size(); i++)
+				msg += " and @" + conflicts[i];
+			printTokenError(node->token, msg);
+			exit(1);
+		}
+	}
+}
+
+void checkAttributeCompatibility(ASTNode* node)
+{
+	checkAttributeCompatibilityImpl(node);
 }
 
 void optimizeASTNode(ASTNode*& node)
@@ -2267,10 +2407,10 @@ void addFileIncludes(ASTNode*& node)
 					std::cerr << "Invalid tokens met\n";
 					exit(1);
 				}
+				e = joinDotAtTokens(localTokens);
 
 				// Generate AST
 				ASTNode* localRoot = generateAST(localTokens);
-				stripCommentNodes(localRoot);
 				for (int i = 0; i < localRoot->childNodes.size(); i++) {
 					importedNodes.push_back(localRoot->childNodes[i]);
 					//rootNode->childNodes.push_back(localRoot->childNodes[i]);
@@ -2308,10 +2448,10 @@ bool loadModule(std::string& modulePath, std::string& moduleName)
 			std::cerr << "Invalid tokens met\n";
 			exit(1);
 		}
+		e = joinDotAtTokens(localTokens);
 
 		// Generate AST
 		ASTNode* localRoot = generateAST(localTokens);
-		stripCommentNodes(localRoot);
 
 		// Look through file to see if it contains the desired module
 		for (int j = 0; j < localRoot->childNodes.size(); j++) {
@@ -2544,20 +2684,20 @@ int printAST(ASTNode* startNode, int depth)
 		return 0;
 	}
 
-	if (startNode->attributes.size() > 0) {
-		console::Write(" @[");
-		for (int c = 0; c < startNode->attributes.size(); c++) {
-			console::Write(startNode->attributes[c]->token->first, console::cyanFGColor);
-			if (startNode->attributes[c]->childNodes.size() > 0)
-				console::Write("(...)");
-			if (c < (int)startNode->attributes.size() - 1)
-				console::Write(", ");
-		}
-		console::Write("]");
-	}
-
-	if (startNode->childNodes.size() > 0 || startNode->leafNodes.size() > 0)
+	bool hasContent = startNode->attributes.size() > 0 ||
+		startNode->docComment != nullptr ||
+		startNode->childNodes.size() > 0 ||
+		startNode->leafNodes.size() > 0;
+	if (hasContent)
 		printf("\n");
+
+	for (int c = 0; c < startNode->attributes.size(); c++)
+		printAST(startNode->attributes[c], depth + 1);
+
+	if (startNode->docComment != nullptr) {
+		console::printIndent(depth + 1);
+		console::WriteLine("doc:" + startNode->docComment->token->first, console::cyanFGColor);
+	}
 
 	for (int c = 0; c < startNode->childNodes.size(); c++) {
 		printAST(startNode->childNodes[c], depth + 1);
@@ -2582,20 +2722,6 @@ int printAST(ASTNode* startNode, int depth)
 
 
 	return 0;
-}
-
-void stripCommentNodes(ASTNode* node)
-{
-	std::vector<ASTNode*>& children = node->childNodes;
-	int i = 0;
-	while (i < (int)children.size()) {
-		if (children[i]->nodeType == Comment_Node)
-			children.erase(children.begin() + i);
-		else
-			i++;
-	}
-	for (int c = 0; c < (int)node->childNodes.size(); c++)
-		stripCommentNodes(node->childNodes[c]);
 }
 
 void generateOutputCode(ASTNode*& node, int depth, int pass)

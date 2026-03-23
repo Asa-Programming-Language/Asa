@@ -1,6 +1,9 @@
-// Module: CompilerImportTest
-// Description: Minimal module used by the compiler AST import test.
+// CompilerImportTest
+// Minimal module used by the compiler AST import test.
+
+@public:
 CompilerImportTest :: module {
+	@public:
 	x :: int(){
 		return 1;
 	}

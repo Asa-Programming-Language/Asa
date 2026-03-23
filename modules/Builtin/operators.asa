@@ -1,6 +1,7 @@
 
 // Module: Operators
 // Description: A builtin module expanding operators for builtin types
+@public:
 Operators::module{
 	//operator++ :: int64(i : ref int64) #inline; #hideast {
 	//	i = i+1;

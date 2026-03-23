@@ -194,6 +194,7 @@ int main(int argc, char** argv)
 		console::Write("Invalid tokens met\n");
 		exit(1);
 	}
+	e = joinDotAtTokens(allTokens);
 	if (verbosity >= 5) {
 		printf("\nTokens:\n");
 		for (int i = 0; i < allTokens.size(); i++) {
@@ -209,12 +210,6 @@ int main(int argc, char** argv)
 	if (verbosity >= 3)
 		console::WriteLine("\n\nGenerating AST...", console::greenFGColor);
 	rootNode = generateAST(allTokens);
-	// Print AST (before stripping comments, so doc comments are visible)
-	if (verbosity >= 4) {
-		console::Write("\n\nGenerated AST:\n", console::greenFGColor);
-		printAST(rootNode);
-	}
-	stripCommentNodes(rootNode);
 	// Handle importing nodes from other sources
 	for (;;) {
 		bool noImports = true;
@@ -247,11 +242,27 @@ int main(int argc, char** argv)
 	unifyNodes(rootNode);
 	// Resolve compile-time constant directives (#linenum, #line, etc.)
 	resolveCompileTimeDirectives(rootNode);
+	// Resolve .@ attribute access expressions to their constant values
+	resolveAttributeAccess(rootNode);
+	// Check for incompatible attribute combinations
+	checkAttributeCompatibility(rootNode);
+
+	// Print AST (verbose)
+	if (verbosity >= 4) {
+		console::Write("\n\nGenerated AST:\n", console::greenFGColor);
+		printAST(rootNode);
+	}
 
 	// Print AST and exit if --printast was requested
 	if (compilerFlags & Flags_PrintAST) {
 		console::useColor = false;
-		printAST(rootNode);
+		for (int i = 0; i < rootNode->childNodes.size(); i++) {
+			ASTNode* child = rootNode->childNodes[i];
+			if (child->token != nullptr &&
+				child->token->filePath != nullptr &&
+				*child->token->filePath == fullFileName)
+				printAST(child);
+		}
 		exit(0);
 	}
 

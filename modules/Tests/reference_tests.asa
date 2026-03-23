@@ -1,36 +1,46 @@
 
-// Module: ReferenceTests
-// Description: Tests for pass-by-reference parameter behavior.
+// ReferenceTests
+// Tests for pass-by-reference parameter behavior.
+
+@public:
 ReferenceTests :: module {
 
 	#import Tests.Testing;
 
+	@public:
 	setToZero :: (x : ref int) {
 		x = 0;
 	}
 
+	@public:
 	setToValue :: (x : ref int, val : int) {
 		x = val;
 	}
 
+	@public:
 	doubleIt :: (x : ref int) {
 		x = x * 2;
 	}
 
+	@public:
 	addTo :: (x : ref int, n : int) {
 		x = x + n;
 	}
 
+	@public:
 	isPositive :: bool(x : ref int) {
 		return x > 0;
 	}
 
+	@public:
 	copyInto :: (src : ref int, dst : ref int) {
 		dst = src;
 	}
 
-	// Function: runReferenceTests()
-	// Description: Runs all reference parameter tests.
+	// runReferenceTests()
+	// Runs all reference parameter tests.
+
+	@public:
 	runReferenceTests :: () {
 		beginSection("References");
 

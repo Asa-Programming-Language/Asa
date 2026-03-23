@@ -1,11 +1,13 @@
 // Module: List
 // Description: Contains the <list> data type
+@public:
 List :: module{
 	#import Builtin.Print;
 	#import Builtin.Memory;
 
 	// Struct: list
 	// Description: A dynamically allocated list structure
+	@public:
 	list :: struct
 		//#mod ELEMENT_TYPE = int;
 	{
@@ -50,6 +52,7 @@ List :: module{
 		//}
 	}
 
+	@public:
 	create :: list() #inline; #replaceable; {
 		return *(#new list);
 	}
@@ -61,13 +64,15 @@ List :: module{
 	//     x : list = list<type=int32>();
 	//     ```
 	// Returns: A list object
-	create :: list() 
+	@public:
+	create :: list()
 		#mod type = int;
 	{
 		l : list = list();
 		return s;
 	}
 
+	@public:
 	create :: range(l : list){
 		//newRange = range<itemType = typeof(l)>();
 		iter : iterator = void;

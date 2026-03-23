@@ -1,0 +1,112 @@
+
+// AttributeTests
+// Tests for attribute declaration and .@ attribute access.
+
+@public:
+AttributeTests :: module {
+
+	#import Tests.Testing;
+
+	// Subjects used by the tests below
+
+	@public:
+	@inline:
+	@noast:
+	publicInlineNoast :: () {}
+
+	@public:
+	publicOnly :: () {}
+
+	@private:
+	privateOnly :: () {}
+
+	@inline:
+	inlineOnly :: () {}
+
+	@deprecated("old api"):
+	deprecatedOnly :: () {}
+
+	@removed("gone"):
+	removedOnly :: () {}
+
+	@noast:
+	noastOnly :: () {}
+
+	// Custom attributes (any name not already defined creates a new attribute)
+
+	@color("red"):
+	@priority(3):
+	@enabled:
+	customTagged :: () {}
+
+	@color("blue"):
+	@priority(1):
+	otherCustom :: () {}
+
+	// runAttributeTests()
+	// Runs all attribute tests.
+
+	@public:
+	runAttributeTests :: () {
+		beginSection("Attributes");
+
+		// @public
+		test(publicOnly.@public == true,             "@public present → true");
+		test(publicInlineNoast.@public == true,      "@public present alongside others → true");
+		test(inlineOnly.@public == false,            "@public absent → false");
+
+		// @private
+		test(privateOnly.@private == true,           "@private present → true");
+		test(publicOnly.@private == false,           "@private absent → false");
+
+		// @inline
+		test(inlineOnly.@inline == true,             "@inline present → true");
+		test(publicInlineNoast.@inline == true,      "@inline present alongside others → true");
+		test(publicOnly.@inline == false,            "@inline absent → false");
+
+		// @noast
+		test(noastOnly.@noast == true,               "@noast present → true");
+		test(publicInlineNoast.@noast == true,       "@noast present alongside others → true");
+		test(publicOnly.@noast == false,             "@noast absent → false");
+
+		// @deprecated — string argument
+		test(deprecatedOnly.@deprecated == "old api", "@deprecated → message string");
+		test(publicOnly.@deprecated == false,         "@deprecated absent → false");
+
+		// @removed — string argument
+		test(removedOnly.@removed == "gone",          "@removed → message string");
+		test(publicOnly.@removed == false,            "@removed absent → false");
+
+		// Custom attribute — no args → true/false
+		test(customTagged.@enabled == true,           "@enabled (custom, no args) present → true");
+		test(otherCustom.@enabled == false,           "@enabled absent → false");
+
+		// Custom attribute — string arg
+		test(customTagged.@color == "red",            "@color on customTagged → \"red\"");
+		test(otherCustom.@color == "blue",            "@color on otherCustom → \"blue\"");
+		test(publicOnly.@color == false,              "@color absent → false");
+
+		// Custom attribute — integer arg
+		p : int = customTagged.@priority;
+		test(p == 3,                                  "@priority on customTagged → 3");
+		test(otherCustom.@priority == 1,              "@priority on otherCustom → 1");
+		test(publicOnly.@priority == false,           "@priority absent → false");
+
+		// .@ result used in control flow
+		x : int = 0;
+		if (customTagged.@enabled) {
+			x = 1;
+		}
+		test(x == 1, "custom .@enabled truthy in if condition");
+
+		if (otherCustom.@enabled == false) {
+			x = 2;
+		}
+		test(x == 2, "custom .@enabled absent — false branch taken");
+
+		if (publicInlineNoast.@inline) {
+			x = 3;
+		}
+		test(x == 3, ".@inline truthy in if condition");
+	}
+}

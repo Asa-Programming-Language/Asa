@@ -1,14 +1,18 @@
 
-// Module: DirectiveTests
-// Description: Tests for compile-time directives (#linenum, #line, #filename, #linecol, #funcname, #modulename, #compiler, #counter).
+// DirectiveTests
+// Tests for compile-time directives (#linenum, #line, #filename, #linecol, #funcname, #modulename, #compiler, #counter).
+
+@public:
 DirectiveTests :: module {
 
 	#import Tests.Testing;
 	#import Builtin.String;
 	#import Builtin.Print;
 
-	// Function: runDirectiveTests()
-	// Description: Runs all compile-time directive tests.
+	// runDirectiveTests()
+	// Runs all compile-time directive tests.
+
+	@public:
 	runDirectiveTests :: () {
 		beginSection("Compile-time Directives");
 

@@ -1,6 +1,8 @@
 
 // Module: Line
 // Description: A module for rendering lines to a window
+@public:
+@todo:
 Line::module{
 
 }

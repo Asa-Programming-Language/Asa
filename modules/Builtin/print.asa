@@ -1,12 +1,11 @@
 
 // Module: Print
 // Description: A builtin module for printing things to the terminal
+@public:
 Print :: module {
 
 	#import Builtin.Operators;
 	#import Builtin.String;
-	//#import Builtin.Casts;
-	//#import Builtin.Memory;
 
 	//#library "libc";
 	//print :: {#foreign "printf"};
@@ -19,7 +18,8 @@ Print :: module {
 	//
 	// Arguments:
 	//     s: The `:::asa *char` to print.
-	print :: (s : exact *char, ...) #inline; #hideast {
+	@public:
+	print :: (s : exact *char, ...) #inline; {
 		printf(s);
 		return;
 	}
@@ -29,24 +29,28 @@ Print :: module {
 	//
 	// Arguments:
 	//     s: The character array to print.
-	printl :: (s : exact *char, ...) #inline; #hideast {
+	@public:
+	printl :: (s : exact *char, ...) #inline; {
 		printf(s);
 		puts("");
 		return;
 	}
 
-	print :: () #inline; #hideast {
+	@public:
+	print :: () #inline; {
 		return;
 	}
 
-	printl :: () #inline; #hideast {
+	@public:
+	printl :: () #inline; {
 		puts("");
 		return;
 	}
 
 	// Function: newline()
 	// Description: A function for printing a newline to the terminal
-	newline :: () #inline; #hideast {
+	@public:
+	newline :: () #inline; {
 		putchar(10);
 	}
 
@@ -55,6 +59,7 @@ Print :: module {
 	//
 	// Arguments:
 	//     n: The integer to print.
+	@public:
 	print :: (n : int64) {
 		print(string(n));
 		return;
@@ -65,12 +70,14 @@ Print :: module {
 	//
 	// Arguments:
 	//     n: The integer to print.
+	@public:
 	printl :: (n : int64) {
 		printl(string(n));
 		return;
 	}
 }
 
+@public:
 main :: (){
 //tests
 }

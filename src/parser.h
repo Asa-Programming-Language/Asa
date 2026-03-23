@@ -93,6 +93,7 @@ enum ASTNodeType {
 
 	Access_Operation,
 	Member_Access,
+	Attribute_Access,
 	Reference_Operation,
 	Const_Keyword,
 	Exact_Type_Node,
@@ -128,6 +129,7 @@ enum ASTNodeType {
 	Compiler_Modifiers,
 
 	Attribute_Node,
+	Standalone_Attribute_Node,
 	Comment_Node,
 
 	Fully_Defined,
@@ -210,6 +212,7 @@ const std::string ASTNodeTypeStrings[] = {
 
 	"Access_Operation",
 	"Member_Access",
+	"Attribute_Access",
 	"Reference_Operation",
 	"Const_Keyword",
 	"Exact_Type_Node",
@@ -245,6 +248,7 @@ const std::string ASTNodeTypeStrings[] = {
 	"Compiler_Modifiers",
 
 	"Attribute_Node",
+	"Standalone_Attribute_Node",
 	"Comment_Node",
 
 	"Fully_Defined",
@@ -299,6 +303,7 @@ struct ASTNode {
 	// Add leaf nodes here as they are still yet to be used.
 	std::vector<ASTNode*> leafNodes = std::vector<ASTNode*>();
 	std::vector<ASTNode*> attributes = std::vector<ASTNode*>();
+	ASTNode* docComment = nullptr;
 
 	std::unordered_map<std::string, ASTNode*> interpreterScopeValues = std::unordered_map<std::string, ASTNode*>();
 
@@ -418,11 +423,12 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth = 0, ASTNo
 void orderASTOperations(ASTNode* startNode);
 const std::string ASTNodeTypeAsString(ASTNodeType t);
 int printAST(ASTNode* startNode, int depth = 0);
-void stripCommentNodes(ASTNode* node);
 void fixPrecedence(ASTNode*& node);
 void unifyNodes(ASTNode*& node);
 void optimizeASTNode(ASTNode*& node);
 void resolveCompileTimeDirectives(ASTNode*& node, std::string moduleCtx = "", std::string funcCtx = "");
+void resolveAttributeAccess(ASTNode*& node);
+void checkAttributeCompatibility(ASTNode* node);
 void addFileIncludes(ASTNode*& node);
 void addModuleImports(ASTNode*& node);
 void assignParentNodes(ASTNode*& node, int depth = 0);
