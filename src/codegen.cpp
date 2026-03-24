@@ -3209,6 +3209,7 @@ void* ASTNode::generateCallExpression(int pass)
 		}
 
 	std::vector<Value*> ArgsV = std::vector<Value*>();
+	std::vector<Value*> cachedArgVals = std::vector<Value*>();
 	argumentList argList = argumentList();
 
 	// Build argList and ArgsV WITHOUT sret initially
@@ -3217,6 +3218,7 @@ void* ASTNode::generateCallExpression(int pass)
 		if (wasError) {
 			return nullptr;
 		}
+		cachedArgVals.push_back(argVal);
 		ArgsV.push_back(argVal);
 
 		std::string typeStr;
@@ -3337,21 +3339,27 @@ void* ASTNode::generateCallExpression(int pass)
 
 	ArgsV.clear();
 	for (int i = 0; i < args.size(); i++) {									   // Start from caller's args (sret is already handled)
-		if (CalleeFID->arguments[i + (isStructReturn ? 1 : 0)].isReference) {  // Offset by 1 if sret
+		int formalArgIdx = i + (isStructReturn ? 1 : 0);
+		bool isRef = CalleeFID->arguments[formalArgIdx].isReference;
+		Value* argVal = nullptr;
+		if (isRef) {
 			if (args[i]->childNodes.size() != 1 || args[i]->childNodes[0]->nodeType != Identifier_Node) {
 				printTokenError(token, "Cannot pass value as reference");
 				wasError = true;
 				return nullptr;
 			}
 			args[i]->childNodes[0]->isRef = true;
+			argVal = (Value*)(args[i]->*(args[i]->codegen))(pass);
+			if (wasError) {
+				return nullptr;
+			}
 		}
-		Value* argVal = (Value*)(args[i]->*(args[i]->codegen))(pass);
-		if (wasError) {
-			return nullptr;
+		else {
+			// Reuse the Value already generated in the first pass to avoid double side-effects
+			argVal = cachedArgVals[i];
 		}
 		// Implicit string ↔ *char conversions at call sites
-		int formalIdx = i + (isStructReturn ? 1 : 0);
-		const argType& formal = CalleeFID->arguments[formalIdx];
+		const argType& formal = CalleeFID->arguments[formalArgIdx];
 		if (argVal && argVal->getType()->isStructTy() &&
 			formal.pointerLevel == 1 &&
 			(formal.typeString == "char" || formal.typeString == "int8")) {
