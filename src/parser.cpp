@@ -1,5 +1,7 @@
 #include "parser.h"
 
+extern bool suppressCodegenErrors;
+
 void* (ASTNode::*codegen)() = nullptr;
 
 tokenPair* getNextNonNothingToken(const std::vector<tokenPair*>& tokens, int& i)
@@ -349,6 +351,8 @@ void printTokenMarked(tokenPair*& token, std::string msgString, int sourceLineNu
 
 void printTokenError(tokenPair*& token, std::string errorString, int sourceLineNumber, const char* fileName)
 {
+	if (suppressCodegenErrors)
+		return;
 	if (verbosity >= 5) {
 		if (fileName != "" && fileName != "\0")
 			std::cerr << "Source file: " << fileName << std::endl;
@@ -378,6 +382,8 @@ void printTokenError(tokenPair*& token, std::string errorString, int sourceLineN
 
 void printTokenWarning(tokenPair*& token, std::string errorString, int sourceLineNumber, const char* fileName)
 {
+	if (suppressCodegenErrors)
+		return;
 	if (verbosity >= 5) {
 		if (fileName != "")
 			std::cerr << "Source file: " << fileName << std::endl;
@@ -1421,10 +1427,9 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 						modifiersNode = generateAST(subTokens, depth + 1);
 						modifiersNode->nodeType = Compiler_Modifiers;
 
-						for (const auto& m : modifiersNode->childNodes) {
-							if (m->token != nullptr)
-								if (m->token->first == "#hideast")
-									node->showInASTOutput = false;
+						for (auto* attr : pendingAttributes) {
+							if (attr->token && attr->token->first == "hideast")
+								node->showInASTOutput = false;
 						}
 					}
 
@@ -1947,7 +1952,7 @@ void resolveCompileTimeDirectives(ASTNode*& node, std::string moduleCtx, std::st
 			node->codegen = &ASTNode::generateConstant;
 			node->childNodes.clear();
 		}
-		else if (name == "filename") {
+		else if (name == "filepath") {
 			std::string filePath = node->token->filePath ? *node->token->filePath : "";
 			node->nodeType = String_Constant_Node;
 			node->token->first = "\"" + filePath + "\"";
@@ -1998,6 +2003,9 @@ void resolveCompileTimeDirectives(ASTNode*& node, std::string moduleCtx, std::st
 		}
 		else if (name == "sizeof") {
 			node->codegen = &ASTNode::generateSizeofDirective;
+		}
+		else if (name == "compiles") {
+			node->codegen = &ASTNode::generateCompilesDirective;
 		}
 		else if (name == "nameof") {
 			if (node->childNodes.size() < 2 || node->childNodes[1]->childNodes.empty()) {
@@ -2102,12 +2110,17 @@ void resolveAttributeAccess(ASTNode*& node)
 	resolveAttributeAccessImpl(node, declMap);
 }
 
+
 // Sets of attributes that cannot coexist on the same declaration.
 // If any node has two or more attributes from the same set, it is an error.
 static const std::vector<std::vector<std::string>> incompatibleAttributeSets = {
 	{"public", "private"},
 	{"inline", "noinline"},
 	{"deprecated", "removed"},
+};
+
+static const std::unordered_set<ASTNodeType> literalNodeTypes = {
+	Integer_Node, Float_Node, Boolean_Node, String_Constant_Node,
 };
 
 static void checkAttributeCompatibilityImpl(ASTNode* node)
@@ -2118,11 +2131,24 @@ static void checkAttributeCompatibilityImpl(ASTNode* node)
 	if (node->attributes.empty())
 		return;
 
-	// Collect attribute names present on this node
+	// Validate attribute arguments and collect names
 	std::vector<std::string> present;
-	for (auto* attr : node->attributes)
-		if (attr->token && !attr->token->first.empty())
-			present.push_back(attr->token->first);
+	for (auto* attr : node->attributes) {
+		if (!attr->token || attr->token->first.empty())
+			continue;
+		present.push_back(attr->token->first);
+
+		// Check argument is a literal constant if one is present
+		if (!attr->childNodes.empty()) {
+			ASTNode* scopeBody = attr->childNodes[0];
+			if (scopeBody->childNodes.empty() ||
+				literalNodeTypes.find(scopeBody->childNodes[0]->nodeType) == literalNodeTypes.end()) {
+				printTokenError(attr->token,
+					"Argument to attribute '@" + attr->token->first + "' must be a compile-time constant (int, float, bool, or string)");
+				exit(1);
+			}
+		}
+	}
 
 	for (const auto& group : incompatibleAttributeSets) {
 		std::vector<std::string> conflicts;
@@ -2353,7 +2379,7 @@ void addFileIncludes(ASTNode*& node)
 
 	if (node->childNodes.size() > 0)
 		if (node->nodeType == Compile_Time_Directive) {
-			if (node->childNodes[0]->token->first == "file") {
+			if (node->childNodes[0]->token->first == "embed") {
 				std::string fileString = "";
 				std::string fileName = "";
 

@@ -19,7 +19,44 @@ static std::unique_ptr<StandardInstrumentations> TheSI;
 std::unordered_map<std::string, llvm::GlobalVariable*> globalStringLiteralConstants;
 bool isCallMemberFunction = false;
 bool wasError = false;
+bool suppressCodegenErrors = false;
 std::map<std::string, std::string> compilerDefines;
+
+// Check @deprecated / @removed attributes on a symbol's declaration.
+// Emits a warning for @deprecated and sets wasError+returns false for @removed.
+// Returns false if the symbol is @removed (caller should bail out).
+static bool checkUsageAttrs(tokenPair* usageTok, const std::vector<ASTNode*>& attrs, const std::string& symName)
+{
+	for (auto* attr : attrs) {
+		if (!attr->token) continue;
+		const std::string& attrName = attr->token->first;
+		std::string msg;
+		// Extract optional string argument from Scope_Body child
+		auto getMsg = [&]() -> std::string {
+			for (auto* ac : attr->childNodes)
+				if (ac->nodeType == Scope_Body && !ac->childNodes.empty() && ac->childNodes[0]->token) {
+					const std::string& raw = ac->childNodes[0]->token->first;
+					return raw.size() >= 2 ? raw.substr(1, raw.size() - 2) : raw;
+				}
+			return "";
+		};
+		if (attrName == "deprecated") {
+			msg = "'" + symName + "' is deprecated";
+			std::string detail = getMsg();
+			if (!detail.empty()) msg += ": " + detail;
+			printTokenWarning(usageTok, msg);
+		}
+		else if (attrName == "removed") {
+			msg = "'" + symName + "' has been removed";
+			std::string detail = getMsg();
+			if (!detail.empty()) msg += ": " + detail;
+			printTokenError(usageTok, msg);
+			wasError = true;
+			return false;
+		}
+	}
+	return true;
+}
 
 struct GlobalInit {
 	llvm::GlobalVariable* gv;
@@ -114,6 +151,7 @@ struct functionID {
 	uint32_t uses = 0;
 	bool isMemberFunction = false;
 	Function* fnValue = nullptr;
+	ASTNode* declNode = nullptr;
 	functionID() {}
 	functionID(std::string n, tokenPair* t, std::string mN, std::string r, argumentList llvmArgs, argumentList userArgs, Function* f, bool vA = false, bool mF = false, bool sRet = false)
 	{
@@ -1086,6 +1124,7 @@ void declareModuleScopeVariable(ASTNode* exprStmtNode, ASTNode* ownerNode, bool 
 
 	std::string actualType = std::string(pointerLevel, '*') + typeName;
 	valueType* vt = new valueType(varName, actualType, gv);
+	vt->declNode = exprStmtNode;  // the expression statement node that owns the attributes
 
 	// For root-level vars, store in the expression stmt's own namedValues so
 	// findNamedValue (which checks direct children of root) can find it.
@@ -1535,6 +1574,7 @@ void* ASTNode::generateVariableExpression(int pass)
 		AllocaInst* targetPtr = CreateEntryBlockAlloca(theFunction, llvmType, token->first);
 		std::string actualType = (pointerLevel > 0 ? std::string(pointerLevel, '*') : "") + typeName;
 		namedValues[token->first] = new valueType(token->first, actualType, targetPtr);
+		namedValues[token->first]->declNode = this;
 
 		Builder->CreateStore(exprVal, targetPtr);
 
@@ -1566,6 +1606,11 @@ void* ASTNode::generateVariableExpression(int pass)
 		else
 			return Builder->CreateLoad(targetPtr->getAllocatedType(), targetPtr, token->first + "_load");
 	}
+	// Check @deprecated / @removed on the variable declaration
+	if (val->declNode)
+		if (!checkUsageAttrs(token, val->declNode->attributes, token->first))
+			return nullptr;
+
 	Value* A = val->val;
 	Type* valType = getValueStoredType(A);
 	if (!asaType)
@@ -1939,6 +1984,7 @@ void* ASTNode::generateExpressionStatement(int pass)
 			else
 				actualType = (pointerLevel > 0 ? std::string(pointerLevel, '*') : "") + typeNode->token->first;
 			namedValues[leftNode->token->first] = new valueType(leftNode->token->first, actualType, targetPtr);
+			namedValues[leftNode->token->first]->declNode = this->parentNode;
 
 			// Add debug info ONLY if we have a valid scope and the stack is not empty
 			if (DBuilder && !LexicalBlocks.empty() && token) {
@@ -3241,6 +3287,11 @@ void* ASTNode::generateCallExpression(int pass)
 		return nullptr;
 	}
 
+	// Check @deprecated / @removed on the declaration
+	if (CalleeFID->declNode)
+		if (!checkUsageAttrs(token, CalleeFID->declNode->attributes, CalleeFID->name))
+			return nullptr;
+
 	Function* CalleeF = CalleeFID->fnValue;
 	CalleeFID->uses++;
 
@@ -4127,10 +4178,14 @@ void* ASTNode::generatePrototype(int pass)
 	}
 	bool isAlwaysInline = false;
 	for (auto& m : modifiersNode->childNodes) {
-		if (m->token->first == "#inline")
-			isAlwaysInline = true;
 		if (m->token->first == "#replaceable")
 			replaceableDefinition = true;
+	}
+	for (auto* attr : attributes) {
+		if (attr->token && attr->token->first == "replaceable")
+			replaceableDefinition = true;
+		if (attr->token && attr->token->first == "inline")
+			isAlwaysInline = true;
 	}
 
 
@@ -4177,6 +4232,7 @@ void* ASTNode::generatePrototype(int pass)
 	}
 
 	functionIDs.push_back(new functionID(fnName, token, mangledName, rTypeString, argList, userArgList, fn, variableNumArguments, isStruct, isStructReturn));
+	functionIDs.back()->declNode = this;
 	if (verbosity >= 5) {
 		console::printIndent(depth + 2);
 		console::WriteLine("-- Added function \"" + fnName + "\" to functionIDs");
@@ -4531,6 +4587,56 @@ void* ASTNode::generateSizeofDirective(int pass)
 	else
 		asaType->baseLLVMType = sizeVal->getType();
 	return sizeVal;
+}
+
+// #compiles(expr) — returns true if expr compiles without error, false otherwise.
+// Performs speculative codegen in a temporary BasicBlock, discards the result.
+void* ASTNode::generateCompilesDirective(int pass)
+{
+	if (pass == 0)
+		return nullptr;
+	if (childNodes.size() < 2 || childNodes[1]->childNodes.empty()) {
+		printTokenError(token, "#compiles requires an expression argument");
+		wasError = true;
+		return nullptr;
+	}
+
+	ASTNode* argNode = childNodes[1]->childNodes[0];
+
+	// Save current state
+	BasicBlock* savedInsertBlock = Builder->GetInsertBlock();
+	BasicBlock::iterator savedInsertPoint = Builder->GetInsertPoint();
+	bool savedWasError = wasError;
+
+	// Create a temporary function and BasicBlock for speculative codegen
+	FunctionType* dummyFnType = FunctionType::get(Type::getVoidTy(*TheContext), false);
+	Function* dummyFn = Function::Create(dummyFnType, Function::PrivateLinkage, "__compiles_probe__", TheModule.get());
+	BasicBlock* tempBB = BasicBlock::Create(*TheContext, "probe", dummyFn);
+	Builder->SetInsertPoint(tempBB);
+
+	// Suppress errors and attempt codegen
+	wasError = false;
+	suppressCodegenErrors = true;
+	if (argNode->codegen)
+		(argNode->*(argNode->codegen))(pass);
+	suppressCodegenErrors = false;
+
+	bool compiled = !wasError;
+	wasError = savedWasError;
+
+	// Remove the temporary function entirely
+	dummyFn->eraseFromParent();
+
+	// Restore insert point
+	if (savedInsertBlock)
+		Builder->SetInsertPoint(savedInsertBlock, savedInsertPoint);
+
+	Value* result = ConstantInt::get(Type::getInt1Ty(*TheContext), compiled ? 1 : 0);
+	if (!asaType)
+		asaType = new ASAType(result->getType());
+	else
+		asaType->baseLLVMType = result->getType();
+	return result;
 }
 
 int outputObjectFile(std::string& objectFilePath)

@@ -247,7 +247,7 @@ std::vector<Test> tests = {
 
 void runTests()
 {
-	printf("Running tests...\n");
+	printf("Running AST tests...\n");
 
 	// Set verbosity to 0 temporarily
 	int lastVerbosity = verbosity;
@@ -256,7 +256,7 @@ void runTests()
 	for (int i = 0; i < tests.size(); i++) {
 		try {
 			console::printIndent(1);
-			console::Write(PadStringRight("Test " + std::to_string(i + 1), '.', 60));
+			console::Write(PadStringRight("Test " + std::to_string(i + 1), '.', 60) + " ");
 
 			Test& t = tests[i];
 			std::vector<tokenPair*> localTokens = std::vector<tokenPair*>();

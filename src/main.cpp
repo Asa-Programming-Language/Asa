@@ -82,6 +82,7 @@ int main(int argc, char** argv)
 				break;
 
 			case 't':
+				console::ResetColor();
 				if (verbosity >= 2)
 					std::cout << COMPILER_PRINTOUT << std::endl
 							  << std::endl;

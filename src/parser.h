@@ -254,6 +254,8 @@ const std::string ASTNodeTypeStrings[] = {
 	"Fully_Defined",
 };
 
+struct ASTNode;
+
 struct valueType {
 	std::string name;
 	std::string type;
@@ -261,6 +263,7 @@ struct valueType {
 	bool isConstant = false;
 	bool isReference = false;
 	Value* val;
+	ASTNode* declNode = nullptr;
 	valueType(std::string n, std::string t, Value* v, bool arg = false, bool ref = false)
 		: name(n), type(t), val(v), isFunctionArgument(arg), isReference(ref) {};
 };
@@ -340,6 +343,7 @@ struct ASTNode {
 	void* generateCompilerDefine(int pass = 0);
 	void* generateTypeofDirective(int pass = 0);
 	void* generateSizeofDirective(int pass = 0);
+	void* generateCompilesDirective(int pass = 0);
 
 	void* (ASTNode::*codegen)(int pass) = nullptr;
 
