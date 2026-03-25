@@ -286,8 +286,8 @@ struct functionID {
 
 			// If pointer levels differ, these are fundamentally different types -
 			// with two implicit conversion exceptions involving string:
-			//   string → *char  (extracts .address at call site)
-			//   *char  → string (wraps in struct at call site)
+			//   string -> *char  (extracts .address at call site)
+			//   *char  -> string (wraps in struct at call site)
 			if (userArguments[i].pointerLevel != a[i].pointerLevel) {
 				bool isStringToCharPtr =
 					userArguments[i].pointerLevel == 1 &&
@@ -404,7 +404,7 @@ struct structType {
 	std::string name = "";
 	argumentList members = argumentList();
 	std::unordered_map<std::string, uint16_t> memberNameIndexes;
-	std::unordered_map<std::string, ASTNode*> memberDefaultNodes;  // member name → default value AST node
+	std::unordered_map<std::string, ASTNode*> memberDefaultNodes;  // member name -> default value AST node
 	uint32_t uses = 0;
 	std::vector<functionID*> memberFunctions;
 	StructType* structVal = nullptr;
@@ -3424,18 +3424,18 @@ void* ASTNode::generateCallExpression(int pass)
 			// Reuse the Value already generated in the first pass to avoid double side-effects
 			argVal = cachedArgVals[i];
 		}
-		// Implicit string ↔ *char conversions at call sites
+		// Implicit string <-> *char conversions at call sites
 		const argType& formal = CalleeFID->arguments[formalArgIdx];
 		if (argVal && argVal->getType()->isStructTy() &&
 			formal.pointerLevel == 1 &&
 			(formal.typeString == "char" || formal.typeString == "int8")) {
-			// string → *char: extract .address (element 0)
+			// string -> *char: extract .address (element 0)
 			argVal = Builder->CreateExtractValue(argVal, {0}, "str_addr");
 		}
 		else if (argVal && argVal->getType()->isPointerTy() &&
 				 formal.pointerLevel == 0 && formal.typeString == "string" &&
 				 structDefinitions.count("string") && structDefinitions["string"]->structVal) {
-			// *char → string: build string struct with strlen
+			// *char -> string: build string struct with strlen
 			StructType* strTy = cast<StructType>((Type*)structDefinitions["string"]->structVal);
 			FunctionCallee strlenFn = TheModule->getOrInsertFunction("strlen",
 				FunctionType::get(Type::getInt64Ty(*TheContext), {PointerType::getUnqual(*TheContext)}, false));

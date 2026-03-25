@@ -57,46 +57,46 @@ AttributeTests :: module {
 		beginSection("Attributes");
 
 		// @public
-		test(publicOnly.@public == true,             "@public present → true");
-		test(publicInlineNoast.@public == true,      "@public present alongside others → true");
-		test(inlineOnly.@public == false,            "@public absent → false");
+		test(publicOnly.@public == true,             "@public present -> true");
+		test(publicInlineNoast.@public == true,      "@public present alongside others -> true");
+		test(inlineOnly.@public == false,            "@public absent -> false");
 
 		// @private
-		test(privateOnly.@private == true,           "@private present → true");
-		test(publicOnly.@private == false,           "@private absent → false");
+		test(privateOnly.@private == true,           "@private present -> true");
+		test(publicOnly.@private == false,           "@private absent -> false");
 
 		// @inline
-		test(inlineOnly.@inline == true,             "@inline present → true");
-		test(publicInlineNoast.@inline == true,      "@inline present alongside others → true");
-		test(publicOnly.@inline == false,            "@inline absent → false");
+		test(inlineOnly.@inline == true,             "@inline present -> true");
+		test(publicInlineNoast.@inline == true,      "@inline present alongside others -> true");
+		test(publicOnly.@inline == false,            "@inline absent -> false");
 
 		// @noast
-		test(noastOnly.@noast == true,               "@noast present → true");
-		test(publicInlineNoast.@noast == true,       "@noast present alongside others → true");
-		test(publicOnly.@noast == false,             "@noast absent → false");
+		test(noastOnly.@noast == true,               "@noast present -> true");
+		test(publicInlineNoast.@noast == true,       "@noast present alongside others -> true");
+		test(publicOnly.@noast == false,             "@noast absent -> false");
 
 		// @deprecated - string argument
-		test(deprecatedOnly.@deprecated == "old api", "@deprecated → message string");
-		test(publicOnly.@deprecated == false,         "@deprecated absent → false");
+		test(deprecatedOnly.@deprecated == "old api", "@deprecated -> message string");
+		test(publicOnly.@deprecated == false,         "@deprecated absent -> false");
 
 		// @removed - string argument
-		test(removedOnly.@removed == "gone",          "@removed → message string");
-		test(publicOnly.@removed == false,            "@removed absent → false");
+		test(removedOnly.@removed == "gone",          "@removed -> message string");
+		test(publicOnly.@removed == false,            "@removed absent -> false");
 
-		// Custom attribute - no args → true/false
-		test(customTagged.@enabled == true,           "@enabled (custom, no args) present → true");
-		test(otherCustom.@enabled == false,           "@enabled absent → false");
+		// Custom attribute - no args -> true/false
+		test(customTagged.@enabled == true,           "@enabled (custom, no args) present -> true");
+		test(otherCustom.@enabled == false,           "@enabled absent -> false");
 
 		// Custom attribute - string arg
-		test(customTagged.@color == "red",            "@color on customTagged → \"red\"");
-		test(otherCustom.@color == "blue",            "@color on otherCustom → \"blue\"");
-		test(publicOnly.@color == false,              "@color absent → false");
+		test(customTagged.@color == "red",            "@color on customTagged -> \"red\"");
+		test(otherCustom.@color == "blue",            "@color on otherCustom -> \"blue\"");
+		test(publicOnly.@color == false,              "@color absent -> false");
 
 		// Custom attribute - integer arg
 		p : int = customTagged.@priority;
-		test(p == 3,                                  "@priority on customTagged → 3");
-		test(otherCustom.@priority == 1,              "@priority on otherCustom → 1");
-		test(publicOnly.@priority == false,           "@priority absent → false");
+		test(p == 3,                                  "@priority on customTagged -> 3");
+		test(otherCustom.@priority == 1,              "@priority on otherCustom -> 1");
+		test(publicOnly.@priority == false,           "@priority absent -> false");
 
 		// .@ result used in control flow
 		x : int = 0;

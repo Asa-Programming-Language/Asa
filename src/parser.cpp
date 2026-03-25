@@ -2093,7 +2093,7 @@ void resolveCompileTimeDirectives(ASTNode*& node, std::string moduleCtx, std::st
 				printTokenError(node->token, "#nameof requires an expression argument");
 				exit(1);
 			}
-			// Walk to the rightmost leaf to get the simple name (e.g. A.B.C → "C")
+			// Walk to the rightmost leaf to get the simple name (e.g. A.B.C -> "C")
 			ASTNode* cur = node->childNodes[1]->childNodes[0];
 			while (cur->childNodes.size() >= 2)
 				cur = cur->childNodes.back();
@@ -2154,7 +2154,7 @@ static void resolveAttributeAccessImpl(ASTNode*& node, const std::map<std::strin
 	node->childNodes.clear();
 
 	if (foundAttr == nullptr) {
-		// Attribute not present → false
+		// Attribute not present -> false
 		node->nodeType = Boolean_Node;
 		node->token->first = "false";
 		node->codegen = &ASTNode::generateConstant;
@@ -2162,7 +2162,7 @@ static void resolveAttributeAccessImpl(ASTNode*& node, const std::map<std::strin
 	}
 
 	if (foundAttr->childNodes.empty()) {
-		// Attribute present, no argument → true
+		// Attribute present, no argument -> true
 		node->nodeType = Boolean_Node;
 		node->token->first = "true";
 		node->codegen = &ASTNode::generateConstant;

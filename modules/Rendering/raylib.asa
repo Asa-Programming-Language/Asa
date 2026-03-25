@@ -37,7 +37,7 @@ Raylib :: module {
 	///////////////////////
 
 	// Struct: Color
-	// Description: RGBA color value (4 × uint8)
+	// Description: RGBA color value (4 x uint8)
 	@public:
 	Color :: struct {
 		r : uint8;
