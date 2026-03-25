@@ -5,7 +5,9 @@
 #import Builtin.Strings;
 
 
-create :: string() #inline; #replaceable; {
+@inline:
+@replaceable:
+create :: string() {
 	return *(#new string);
 }
 
@@ -29,7 +31,9 @@ printint:: (n : int64){
     putchar((n % 10) + '0');
 }
 
-newline::() #inline; #hideast {
+@hideast:
+@inline:
+newline::() {
 	putchar(10);
 }
 

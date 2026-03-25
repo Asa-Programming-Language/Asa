@@ -23,6 +23,18 @@ ModuleTests :: module {
 		}
 	}
 
+	// Module-scope variables initialized via function calls
+	makeInt :: int() { return 99; }
+	Pair :: struct { x : int; y : int; }
+	makePair :: Pair() {
+		p : Pair = Pair();
+		p.x = 10;
+		p.y = 20;
+		return p;
+	}
+	@public: funcInitVar  : int  = makeInt();
+	@public: ctorInitVar  : Pair = makePair();
+
 	// runModuleTests()
 	// Runs all module variable access tests.
 
@@ -40,5 +52,9 @@ ModuleTests :: module {
 		test(NumConsts.ten > NumConsts.one,          "ten should be greater than one");
 
 		test(Nested.Inner.val == 42, "Nested.Inner.val should be 42");
+
+		test(funcInitVar == 99,         "module var initialized from function call");
+		test(ctorInitVar.x == 10,       "module var initialized from constructor (x)");
+		test(ctorInitVar.y == 20,       "module var initialized from constructor (y)");
 	}
 }

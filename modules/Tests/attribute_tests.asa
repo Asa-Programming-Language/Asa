@@ -43,6 +43,12 @@ AttributeTests :: module {
 	@priority(1):
 	otherCustom :: () {}
 
+	@deprecated("old var"):
+	deprecatedVar : int = 99;
+
+	@removed("gone var"):
+	removedVar : int = 0;
+
 	// runAttributeTests()
 	// Runs all attribute tests.
 
@@ -69,24 +75,24 @@ AttributeTests :: module {
 		test(publicInlineNoast.@noast == true,       "@noast present alongside others → true");
 		test(publicOnly.@noast == false,             "@noast absent → false");
 
-		// @deprecated — string argument
+		// @deprecated - string argument
 		test(deprecatedOnly.@deprecated == "old api", "@deprecated → message string");
 		test(publicOnly.@deprecated == false,         "@deprecated absent → false");
 
-		// @removed — string argument
+		// @removed - string argument
 		test(removedOnly.@removed == "gone",          "@removed → message string");
 		test(publicOnly.@removed == false,            "@removed absent → false");
 
-		// Custom attribute — no args → true/false
+		// Custom attribute - no args → true/false
 		test(customTagged.@enabled == true,           "@enabled (custom, no args) present → true");
 		test(otherCustom.@enabled == false,           "@enabled absent → false");
 
-		// Custom attribute — string arg
+		// Custom attribute - string arg
 		test(customTagged.@color == "red",            "@color on customTagged → \"red\"");
 		test(otherCustom.@color == "blue",            "@color on otherCustom → \"blue\"");
 		test(publicOnly.@color == false,              "@color absent → false");
 
-		// Custom attribute — integer arg
+		// Custom attribute - integer arg
 		p : int = customTagged.@priority;
 		test(p == 3,                                  "@priority on customTagged → 3");
 		test(otherCustom.@priority == 1,              "@priority on otherCustom → 1");
@@ -102,11 +108,23 @@ AttributeTests :: module {
 		if (otherCustom.@enabled == false) {
 			x = 2;
 		}
-		test(x == 2, "custom .@enabled absent — false branch taken");
+		test(x == 2, "custom .@enabled absent - false branch taken");
 
 		if (publicInlineNoast.@inline) {
 			x = 3;
 		}
 		test(x == 3, ".@inline truthy in if condition");
+
+		// @deprecated - calling a deprecated function should still compile (warning only)
+		test(#compiles(deprecatedOnly()),              "@deprecated function call still compiles");
+
+		// @removed - calling a removed function should not compile (error)
+		test(#compiles(removedOnly()) == false,        "@removed function call does not compile");
+
+		// @deprecated - reading a deprecated variable should still compile (warning only)
+		test(#compiles(deprecatedVar + 0),             "@deprecated variable read still compiles");
+
+		// @removed - reading a removed variable should not compile (error)
+		test(#compiles(removedVar + 0) == false,       "@removed variable read does not compile");
 	}
 }

@@ -121,6 +121,7 @@ ColorPrint :: module {
 	//     ```asa
 	//     colorPrint("Red text", Fore.red);
 	//     ```
+	@scoped:
 	@public:
 	Fore :: module{
 		// Constants: Color names
@@ -169,6 +170,7 @@ ColorPrint :: module {
 	//     ```asa
 	//     colorPrint("Red background text", Back.red);
 	//     ```
+	@scoped:
 	@public:
 	Back :: module{
 		// Constants: Color names

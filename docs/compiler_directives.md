@@ -19,13 +19,33 @@ This imports the module `Window` in the directory `modules/Rendering`. The modul
 
 -----
 
-## `:::asa #file`
+## `:::asa #embed`
 
 This is similar to `:::asa #import`, but instead of only including a single module, it loads the entire file. Also, it does so by an explicit path. For example:
 ```asa
-#file "./otherFile.asa";
+#embed "./otherFile.asa";
 ```
-This would compile and import the entire other file at the given path. The path is evaluated relative to the file which `:::asa #file` is in.
+This would compile and import the entire other file at the given path. The path is evaluated relative to the file which `:::asa #embed` is in.
+
+-----
+
+## `:::asa #library`
+
+Used to specify the name of a library to link against. For example:
+```asa
+#library "ssl";
+```
+This would link against libssl. It is equivalent to passing `-lssl` with `--clangoptions`.
+
+-----
+
+## `:::asa #library_static`
+
+Used to specify the name of a library to statically link against. For example:
+```asa
+#library_static "/path/to/libssl.a";
+```
+This would link against libssl. It is equivalent to passing `/path/to/libssl.a` with `--clangoptions`.
 
 -----
 
@@ -58,14 +78,14 @@ The above prints `print(#line);`. (Putting this in a comment would be recursive.
 
 -----
 
-## `:::asa #filename`
+## `:::asa #filepath`
 
-Gets the name of the source code file as a string. For example:
+Gets the full path of the source code file as a string. For example:
 ```asa
-// In a file called main.asa
-print(#filename);
+// In a file at /home/user/main.asa
+print(#filepath);
 ```
-The above would print `main.asa`.
+The above would print `/home/user/main.asa`.
 
 -----
 
@@ -166,21 +186,13 @@ The above would allow you to use the `printf` function from the C standard libra
 
 -----
 
-## `:::asa #inline`
+## `:::asa #compiles(expression)`
 
-This is a function modifier that tells the compiler it should be inlined for performance.
-
------
-
-## `:::asa #replaceable`
-
-This is a function modifier that tells the compiler another function with the same identity can be defined. While function overloading typically requires a different identity, if `:::asa #replaceable` is used in the original, it can be overloaded without an error. This will effectively delete the `:::asa #replaceable` function and use the newly defined one.
-
------
-
-## `:::asa #hideast`
-
-This is a function modifier that hides the function from showing in the AST verbose output. This is primarily used for compiler development.
+Checks at compile time if `expression` will compile successfully, or cause a compiler error. Returns `:::asa true` if it compiled without error, and `:::asa false` if it failed. The error message is thrown out, and never printed to stdout or stderr.
+```asa
+printl(#compiles(1 + 1)); // Prints `true`
+printl(#compiles(undefinedVariable + 1)); // Prints `false`
+```
 
 -----
 

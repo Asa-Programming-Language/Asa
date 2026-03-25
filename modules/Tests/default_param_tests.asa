@@ -1,0 +1,46 @@
+
+// DefaultParamTests
+// Tests for default parameter values in function definitions.
+
+@public:
+DefaultParamTests :: module {
+
+	#import Tests.Testing;
+
+	// Basic default: second param has a default
+	add :: int(a : int, b : int = 10) {
+		return a + b;
+	}
+
+	// All params have defaults
+	greet :: string(x : int = 42, y : int = 8) {
+		return string(x + y);
+	}
+
+	// Multiple defaults, only first supplied
+	multiDefault :: int(a : int, b : int = 5, c : int = 3) {
+		return a + b + c;
+	}
+
+	@public:
+	runDefaultParamTests :: () {
+		beginSection("Default Parameters");
+
+		// Call with all args explicitly
+		test(add(1, 2) == 3,   "add(1, 2) == 3");
+
+		// Call with default for second param
+		test(add(1) == 11,     "add(1) uses default b=10, result is 11");
+
+		// Call with all defaults
+		test(greet() == "50",  "greet() uses defaults x=42, y=8, result is 50");
+
+		// Override one default
+		test(greet(1) == "9",  "greet(1) uses default y=8, result is 9");
+
+		// Multiple defaults
+		test(multiDefault(1) == 9,       "multiDefault(1) uses b=5, c=3, result is 9");
+		test(multiDefault(1, 2) == 6,    "multiDefault(1, 2) uses c=3, result is 6");
+		test(multiDefault(1, 2, 1) == 4, "multiDefault(1, 2, 1) all explicit, result is 4");
+	}
+}

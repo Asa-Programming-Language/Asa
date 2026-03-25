@@ -19,7 +19,8 @@ Print :: module {
 	// Arguments:
 	//     s: The `:::asa *char` to print.
 	@public:
-	print :: (s : exact *char, ...) #inline; {
+	@inline:
+	print :: (s : exact *char, ...) {
 		printf(s);
 		return;
 	}
@@ -30,19 +31,22 @@ Print :: module {
 	// Arguments:
 	//     s: The character array to print.
 	@public:
-	printl :: (s : exact *char, ...) #inline; {
+	@inline:
+	printl :: (s : exact *char, ...) {
 		printf(s);
 		puts("");
 		return;
 	}
 
 	@public:
-	print :: () #inline; {
+	@inline:
+	print :: () {
 		return;
 	}
 
 	@public:
-	printl :: () #inline; {
+	@inline:
+	printl :: () {
 		puts("");
 		return;
 	}
@@ -50,7 +54,8 @@ Print :: module {
 	// Function: newline()
 	// Description: A function for printing a newline to the terminal
 	@public:
-	newline :: () #inline; {
+	@inline:
+	newline :: () {
 		putchar(10);
 	}
 

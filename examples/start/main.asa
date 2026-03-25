@@ -33,7 +33,9 @@ TestMod :: module {
 	testVal : int = 42;
 }
 
-operator|| :: bool(a : bool, b : bool) #inline; #hideast {
+@hideast:
+@inline:
+operator|| :: bool(a : bool, b : bool) {
 	if(a)
 		return true;
 	else if(b)

@@ -1,0 +1,34 @@
+
+// ExternTests
+// Tests for #extern declarations: plain externs and aliased externs.
+
+@public:
+ExternTests :: module {
+
+	#import Tests.Testing;
+
+	// Basic extern: abs() from libc
+	#extern abs :: int(x : int32);
+
+	// Aliased extern: getpid() linked under ASA name pidFunc
+	// The C symbol "getpid" should not be accessible; only "pidFunc" should be.
+	#extern getpid as pidFunc :: int32();
+
+	@public:
+	runExternTests :: () {
+		beginSection("Extern");
+
+		// Plain extern
+		test(abs(-5) == 5,    "plain extern: abs(-5) == 5");
+		test(abs(0)  == 0,    "plain extern: abs(0) == 0");
+		test(abs(3)  == 3,    "plain extern: abs(3) == 3");
+
+		// Aliased extern: call succeeds via alias
+		pid : int = int(pidFunc());
+		test(pid > 0, "aliased extern: pidFunc() returns positive PID");
+
+		// #compiles checks: alias is accessible, original C name is not
+		test(#compiles(pidFunc()),          "aliased name is accessible via #compiles");
+		test(#compiles(getpid()) == false,  "original C symbol not accessible after aliasing");
+	}
+}

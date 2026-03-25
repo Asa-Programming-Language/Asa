@@ -23,15 +23,6 @@ Mesh :: module{
 		}
 	}
 
-	// Function: mesh()
-	// Description: Creates a new blank mesh object
-	// Returns: The newly created mesh object
-	@public:
-	@todo:
-	create :: mesh(){
-
-	}
-
 	// Function: mesh(string)
 	// Description: Creates a new mesh object from a file
 	// Arguments:

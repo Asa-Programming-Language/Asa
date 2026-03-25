@@ -21,6 +21,8 @@ bool isCallMemberFunction = false;
 bool wasError = false;
 bool suppressCodegenErrors = false;
 std::map<std::string, std::string> compilerDefines;
+std::vector<std::string> linkedLibraries;
+std::vector<std::string> linkedStaticLibraries;
 
 // Check @deprecated / @removed attributes on a symbol's declaration.
 // Emits a warning for @deprecated and sets wasError+returns false for @removed.
@@ -126,6 +128,9 @@ struct argType {
 	bool isReference = false;
 	bool isConstant = false;
 	bool mustBeExactType = false;
+	bool hasDefault = false;
+	ASTNode* defaultNode = nullptr;               // Expression_Term node (already resolved at definition site)
+	std::vector<tokenPair*> defaultRawTokens;     // raw tokens for re-parsing at call site
 	argType(std::string ts, ASTNodeType bT, uint8_t pL = 0, bool r = false, bool ex = false, bool c = false)
 	{
 		typeString = ts;
@@ -250,12 +255,18 @@ struct functionID {
 		uint16_t differences = 0;
 		if (n != name)
 			return 1000;
-		if (userArguments.size() != a.size())
+		if (a.size() > userArguments.size())
 			return 1000 - 1;
+		if (a.size() < userArguments.size()) {
+			// Allow if all extra params have defaults
+			for (size_t i = a.size(); i < userArguments.size(); i++)
+				if (!userArguments[i].hasDefault)
+					return 1000 - 1;
+		}
 		if (verbosity >= 6)
 			console::WriteLine("Comparing: " + name, console::blueFGColor);
 		console::indentation++;
-		for (int i = 0; i < userArguments.size(); i++) {
+		for (int i = 0; i < (int)a.size(); i++) {
 			ASTNodeType t1 = userArguments[i].baseASTType;
 			ASTNodeType t2 = a[i].baseASTType;
 			bool mustBeExactType = userArguments[i].mustBeExactType;
@@ -273,7 +284,7 @@ struct functionID {
 					console::WriteLine("[" + std::to_string(i) + "] pointerLevel: " + std::to_string(userArguments[i].pointerLevel) + "!=" + std::to_string(a[i].pointerLevel));
 			}
 
-			// If pointer levels differ, these are fundamentally different types —
+			// If pointer levels differ, these are fundamentally different types -
 			// with two implicit conversion exceptions involving string:
 			//   string → *char  (extracts .address at call site)
 			//   *char  → string (wraps in struct at call site)
@@ -340,9 +351,14 @@ struct functionID {
 		uint16_t differences = 0;
 		if (n != name)
 			return 1000;
-		if (userArguments.size() != a.size())
+		if (a.size() > userArguments.size())
 			return 1000 - 1;
-		for (int i = 0; i < userArguments.size(); i++) {
+		if (a.size() < userArguments.size()) {
+			for (size_t i = a.size(); i < userArguments.size(); i++)
+				if (!userArguments[i].hasDefault)
+					return 1000 - 1;
+		}
+		for (int i = 0; i < (int)a.size(); i++) {
 			ASTNodeType t1 = userArguments[i].baseASTType;
 			ASTNodeType t2 = a[i]->nodeType;
 			bool mustBeExactType = userArguments[i].mustBeExactType;
@@ -3297,6 +3313,56 @@ void* ASTNode::generateCallExpression(int pass)
 	Function* CalleeF = CalleeFID->fnValue;
 	CalleeFID->uses++;
 
+	// Fill in default argument values for any missing arguments
+	{
+		size_t numFormalArgs = CalleeFID->userArguments.size();
+		for (size_t di = args.size(); di < numFormalArgs; di++) {
+			ASTNode* defNode = CalleeFID->userArguments[di].defaultNode;
+			const std::vector<tokenPair*>& rawToks = CalleeFID->userArguments[di].defaultRawTokens;
+			if (!defNode) {
+				printTokenError(token, "Missing argument with no default value");
+				wasError = true;
+				return nullptr;
+			}
+			Value* defVal = nullptr;
+			if (!rawToks.empty()) {
+				// Re-parse with call-site file/line info for #filepath/#linenum
+				std::vector<tokenPair*> cloned;
+				for (int ti = 0; ti < (int)rawToks.size(); ti++) {
+					tokenPair* c = new tokenPair(*rawToks[ti]);
+					if (rawToks[ti]->second == Hash && ti + 1 < (int)rawToks.size()) {
+						const std::string& next = rawToks[ti + 1]->first;
+						if (next == "filepath") {
+							c->filePath = token->filePath;
+							c->lineNumber = token->lineNumber;
+						}
+						else if (next == "linenum") {
+							c->lineNumber = token->lineNumber;
+						}
+					}
+					cloned.push_back(c);
+				}
+				ASTNode* tempNode = new ASTNode();
+				generateAST(cloned, 0, tempNode);
+				tempNode->nodeType = Expression_Term;
+				tempNode->codegen = &ASTNode::generateExpression;
+				resolveCompileTimeDirectives(tempNode);
+				tempNode->parentNode = parentNode;
+				defVal = (Value*)(tempNode->*(tempNode->codegen))(pass);
+			}
+			else {
+				defNode->parentNode = parentNode;
+				defVal = (Value*)(defNode->*(defNode->codegen))(pass);
+			}
+			if (wasError) return nullptr;
+			cachedArgVals.push_back(defVal);
+			ArgsV.push_back(defVal);
+			std::string typeStr = getStringTypeFromLLVMType(defVal->getType());
+			uint8_t pL = 0;
+			while (!typeStr.empty() && typeStr[0] == '*') { pL++; typeStr = typeStr.substr(1); }
+			argList.push_back(argType(typeStr, getASTNodeTypeFromString(typeStr), pL));
+		}
+	}
 
 	bool isStructReturn = CalleeFID->isStructReturn;
 	AllocaInst* sretAlloc = nullptr;
@@ -3383,6 +3449,11 @@ void* ASTNode::generateCallExpression(int pass)
 		ArgsV.push_back(argVal);
 		if (!ArgsV.back())
 			return nullptr;
+	}
+	// Append evaluated default argument values for omitted trailing params
+	for (int i = (int)args.size(); i < (int)cachedArgVals.size(); i++) {
+		ArgsV.push_back(cachedArgVals[i]);
+		if (!ArgsV.back()) return nullptr;
 	}
 
 	// If struct return, re-insert sret as first arg (after rebuilding)
@@ -3610,6 +3681,37 @@ void* ASTNode::generateStruct(int pass)
 		structDefinitions[structName]->memberNameIndexes = memberNameIndexes;
 		structDefinitions[structName]->memberDefaultNodes = memberDefaultNodes;
 		structDefinitions[structName]->structVal->setBody(fieldTypes, false);
+
+	// Generate default constructor body if still empty (not replaced by user)
+	{
+		functionID* ctorFID = nullptr;
+		for (auto& fid : functionIDs)
+			if (fid->name == structName && fid->userArguments.empty() && fid->isStructReturn) { ctorFID = fid; break; }
+		if (ctorFID && ctorFID->fnValue && ctorFID->fnValue->empty()) {
+			Function* fn = ctorFID->fnValue;
+			BasicBlock* entryBlock = BasicBlock::Create(*TheContext, "entry", fn);
+			Builder->SetInsertPoint(entryBlock);
+			Value* sretPtr = fn->getArg(0);
+			StructType* sTy = (StructType*)structDefinitions[structName]->structVal;
+			Value* szVal = ConstantInt::get(Type::getInt64Ty(*TheContext), TheModule->getDataLayout().getTypeAllocSize(sTy));
+			Function* memsetFn = Intrinsic::getDeclaration(TheModule.get(), Intrinsic::memset, {sretPtr->getType(), Type::getInt64Ty(*TheContext)});
+			Builder->CreateCall(memsetFn, { sretPtr, ConstantInt::get(Type::getInt8Ty(*TheContext), 0), szVal, ConstantInt::get(Type::getInt1Ty(*TheContext), 0) });
+			for (auto& [memberName, defaultNode] : memberDefaultNodes) {
+				auto idxIt = memberNameIndexes.find(memberName);
+				if (idxIt == memberNameIndexes.end()) continue;
+				uint16_t idx = idxIt->second;
+				Value* memberPtr = Builder->CreateStructGEP(sTy, sretPtr, idx, memberName + "_init");
+				Value* defaultVal = (Value*)(defaultNode->*(defaultNode->codegen))(pass);
+				if (wasError) return nullptr;
+				if (!defaultVal) continue;
+				bool isSigned = typeSigns.count(members[idx].typeString) ? typeSigns[members[idx].typeString] : false;
+				defaultVal = castValue(defaultVal, sTy->getElementType(idx), true, isSigned, token);
+				if (wasError) return nullptr;
+				Builder->CreateStore(defaultVal, memberPtr);
+			}
+			Builder->CreateRetVoid();
+		}
+	}
 		return nullptr;
 	}
 
@@ -3622,6 +3724,21 @@ void* ASTNode::generateStruct(int pass)
 		structDefinitions[structName]->members = members;
 		structDefinitions[structName]->memberNameIndexes = memberNameIndexes;
 		structDefinitions[structName]->memberDefaultNodes = memberDefaultNodes;
+
+	// Auto-generate a default constructor if no constructor for this struct exists yet
+	auto addDefaultCtorProto = [&](StructType* ty) {
+		argumentList emptyUserArgs;
+		if (!getExactFunctionFromID(functionIDs, const_cast<std::string&>(structName), emptyUserArgs, token)) {
+			std::vector<Type*> ctorArgTypes = { ty->getPointerTo() };
+			FunctionType* FT = FunctionType::get(Type::getVoidTy(*TheContext), ctorArgTypes, false);
+			Function* fn = Function::Create(FT, Function::ExternalLinkage, structName, TheModule.get());
+			fn->addFnAttr(llvm::Attribute::AlwaysInline);
+			fn->getArg(0)->setName("sret");
+			argumentList llvmArgs = { argType("*" + structName, Struct_Type, 1, false, true) };
+			functionIDs.push_back(new functionID(structName, token, structName, structName, llvmArgs, emptyUserArgs, fn, false, false, true));
+		}
+	};
+		addDefaultCtorProto(existingTy);
 		return existingTy;
 	}
 
@@ -3632,6 +3749,21 @@ void* ASTNode::generateStruct(int pass)
 	newStructDef->memberDefaultNodes = memberDefaultNodes;
 	structDefinitions[structName] = newStructDef;
 
+
+	// Auto-generate a default constructor if no constructor for this struct exists yet
+	auto addDefaultCtorProto = [&](StructType* ty) {
+		argumentList emptyUserArgs;
+		if (!getExactFunctionFromID(functionIDs, const_cast<std::string&>(structName), emptyUserArgs, token)) {
+			std::vector<Type*> ctorArgTypes = { ty->getPointerTo() };
+			FunctionType* FT = FunctionType::get(Type::getVoidTy(*TheContext), ctorArgTypes, false);
+			Function* fn = Function::Create(FT, Function::ExternalLinkage, structName, TheModule.get());
+			fn->addFnAttr(llvm::Attribute::AlwaysInline);
+			fn->getArg(0)->setName("sret");
+			argumentList llvmArgs = { argType("*" + structName, Struct_Type, 1, false, true) };
+			functionIDs.push_back(new functionID(structName, token, structName, structName, llvmArgs, emptyUserArgs, fn, false, false, true));
+		}
+	};
+	addDefaultCtorProto(structTy);
 	return structTy;
 }
 
@@ -4140,6 +4272,11 @@ void* ASTNode::generatePrototype(int pass)
 
 				Type* aType = nullptr;
 				argType arg = argType(typeStr, getASTNodeTypeFromString(typeNode->token->first), pointerLevel, isReference, mustBeExactType, isConstant);
+				if (a->childNodes.size() > 1) {
+					arg.hasDefault = true;
+					arg.defaultNode = a->childNodes[1];
+					arg.defaultRawTokens = a->childNodes[1]->defaultRawTokens;
+				}
 				argList.push_back(arg);
 				userArgList.push_back(arg);
 
@@ -4215,9 +4352,11 @@ void* ASTNode::generatePrototype(int pass)
 	FunctionType* FT = FunctionType::get(actualRetType, argTypes, variableNumArguments);
 
 	Function* fn = nullptr;
-	// If extern declaration, dont mangle name
-	if (isExtern)
-		fn = Function::Create(FT, Function::ExternalLinkage, fnName, TheModule.get());
+	// If extern declaration, dont mangle name; use externSymbolName if an alias was given
+	if (isExtern) {
+		std::string llvmSymbol = externSymbolName.empty() ? fnName : externSymbolName;
+		fn = Function::Create(FT, Function::ExternalLinkage, llvmSymbol, TheModule.get());
+	}
 	else
 		fn = Function::Create(FT, Function::ExternalLinkage, mangledName, TheModule.get());
 	if (isAlwaysInline)
@@ -4285,6 +4424,10 @@ void* ASTNode::generateFunction(int pass)
 		console::indentation--;
 		wasError = true;
 		return nullptr;
+	}
+
+	if (!theFunction->empty() && replaceableDefinition) {
+		theFunction->deleteBody();
 	}
 
 	if (pass <= 1)
@@ -4465,6 +4608,59 @@ void* ASTNode::generateCompilerDefine(int pass)
 	return nullptr;
 }
 
+// #library "name";
+// Records a library to pass to the linker as -l<name>. Collected on pass 0 only
+// to avoid duplicates across the three codegen passes.
+void* ASTNode::generateLibraryDirective(int pass)
+{
+	if (pass != 1)
+		return nullptr;
+	if (childNodes.size() < 2 || childNodes[1]->childNodes.empty()) {
+		printTokenError(token, "#library requires a string library name");
+		wasError = true;
+		return nullptr;
+	}
+	ASTNode* nameNode = childNodes[1]->childNodes[0];
+	if (nameNode->nodeType != String_Node && nameNode->nodeType != String_Constant_Node) {
+		printTokenError(nameNode->token, "#library argument must be a string literal");
+		wasError = true;
+		return nullptr;
+	}
+	// Strip surrounding quotes from the string token
+	std::string raw = nameNode->token->first;
+	std::string libName = raw.substr(1, raw.size() - 2);
+	// Add if not already present
+	for (auto& l : linkedLibraries)
+		if (l == libName) return nullptr;
+	linkedLibraries.push_back(libName);
+	return nullptr;
+}
+
+// #library_static "path/to/lib.a";
+// Records a static library path to pass verbatim to the linker. Collected on pass 1 only.
+void* ASTNode::generateLibraryStaticDirective(int pass)
+{
+	if (pass != 1)
+		return nullptr;
+	if (childNodes.size() < 2 || childNodes[1]->childNodes.empty()) {
+		printTokenError(token, "#library_static requires a string path to a .a file");
+		wasError = true;
+		return nullptr;
+	}
+	ASTNode* nameNode = childNodes[1]->childNodes[0];
+	if (nameNode->nodeType != String_Node && nameNode->nodeType != String_Constant_Node) {
+		printTokenError(nameNode->token, "#library_static argument must be a string literal");
+		wasError = true;
+		return nullptr;
+	}
+	std::string raw = nameNode->token->first;
+	std::string path = raw.substr(1, raw.size() - 2);
+	for (auto& l : linkedStaticLibraries)
+		if (l == path) return nullptr;
+	linkedStaticLibraries.push_back(path);
+	return nullptr;
+}
+
 // Returns a string value (struct or *char fallback) for a compile-time string constant,
 // using the same global cache and struct-building logic as String_Constant_Node.
 static Value* makeStringConstant(const std::string& str)
@@ -4501,7 +4697,7 @@ static Value* makeStringConstant(const std::string& str)
 	return strPtr;
 }
 
-// #typeof(expr) — returns the ASA type name of expr as a string.
+// #typeof(expr) - returns the ASA type name of expr as a string.
 // For identifiers, looks up namedValues to avoid emitting any IR.
 // For other expressions, generates the expression and reads the LLVM type.
 void* ASTNode::generateTypeofDirective(int pass)
@@ -4517,7 +4713,7 @@ void* ASTNode::generateTypeofDirective(int pass)
 	ASTNode* argExpr = childNodes[1]->childNodes[0];
 	std::string typeStr;
 
-	// Fast path: identifier — look up in namedValues, no IR emitted
+	// Fast path: identifier - look up in namedValues, no IR emitted
 	if (argExpr->nodeType == Identifier_Node) {
 		valueType* val = findNamedValue(parentNode, this, argExpr->token->first, token);
 		if (val)
@@ -4543,7 +4739,7 @@ void* ASTNode::generateTypeofDirective(int pass)
 	return result;
 }
 
-// #sizeof(T) — returns the alloc size in bytes of T as an int64 constant.
+// #sizeof(T) - returns the alloc size in bytes of T as an int64 constant.
 // T can be a type name (e.g. int, string, MyStruct) or a variable name.
 void* ASTNode::generateSizeofDirective(int pass)
 {
@@ -4563,7 +4759,7 @@ void* ASTNode::generateSizeofDirective(int pass)
 		bool wasDefined = true;
 		llvmType = getLLVMTypeFromString(argNode->token->first, 0, token, wasDefined, pass);
 		if (!wasDefined || !llvmType) {
-			// Try as a variable — use its stored type string
+			// Try as a variable - use its stored type string
 			valueType* val = findNamedValue(parentNode, this, argNode->token->first, token);
 			if (val) {
 				wasDefined = true;
@@ -4597,7 +4793,7 @@ void* ASTNode::generateSizeofDirective(int pass)
 	return sizeVal;
 }
 
-// #compiles(expr) — returns true if expr compiles without error, false otherwise.
+// #compiles(expr) - returns true if expr compiles without error, false otherwise.
 // Performs speculative codegen in a temporary BasicBlock, discards the result.
 void* ASTNode::generateCompilesDirective(int pass)
 {
@@ -4710,7 +4906,12 @@ int generateExecutable(const std::string& irFilePath, const std::string& exeFile
 	if (result != 0)
 		exit(1);
 	// clang as the linker
-	std::string commandClang = "clang -fPIE -o " + clangOptions + " " + exeFilePath + " " + irFilePath + ".s -g";
+	std::string libFlags = "";
+	for (auto& lib : linkedLibraries)
+		libFlags += " -l" + lib;
+	for (auto& path : linkedStaticLibraries)
+		libFlags += " " + path;
+	std::string commandClang = "clang -fPIE -o " + exeFilePath + " " + irFilePath + ".s -g" + libFlags + " -Wl,-rpath,\\$ORIGIN " + clangOptions;
 	result = std::system(commandClang.c_str());
 	if (result != 0)
 		exit(1);

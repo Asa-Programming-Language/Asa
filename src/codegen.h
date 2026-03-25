@@ -27,6 +27,8 @@ void removeUnusedPrototypes();
 void printFunctionPrototypes();
 
 extern std::map<std::string, std::string> compilerDefines;
+extern std::vector<std::string> linkedLibraries;
+extern std::vector<std::string> linkedStaticLibraries;
 
 extern Function* globalInitFn;
 void declareModuleScopeVariable(ASTNode* exprStmtNode, ASTNode* ownerNode, bool isModuleVar);

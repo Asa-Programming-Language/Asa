@@ -35,14 +35,14 @@ ControlFlowTests :: module {
 		}
 		test(x == 3, "else if branch runs");
 
-		// for loop — sum 0+1+2+3+4 = 10
+		// for loop - sum 0+1+2+3+4 = 10
 		sum : int = 0;
 		for (i : 0..5) {
 			sum = sum + i;
 		}
 		test(sum == 10, "for 0..5 sums to 10");
 
-		// for loop — iteration count
+		// for loop - iteration count
 		count : int = 0;
 		for (j : 0..8) {
 			count = count + 1;

@@ -899,7 +899,7 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 			case Percent:
 			case Percent_Percent:
 			case At: {
-				// Attribute syntax: @name: or @name(args):  — only at statement start
+				// Attribute syntax: @name: or @name(args):  - only at statement start
 				if (tokenType == At && parentNode->leafNodes.size() == 0 &&
 					i + 1 < (int)tokens.size() && tokens[i + 1]->second == Identifier) {
 					// Consume the attribute name
@@ -1137,7 +1137,7 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 				//identifier->tokenType = tt->second;
 				identifier->nodeType = Identifier_Node;
 
-				// Paren-enclosed argument — function-call-style inline directive (e.g. #nameof(x)).
+				// Paren-enclosed argument - function-call-style inline directive (e.g. #nameof(x)).
 				// Gather only the paren contents and treat the whole directive as a value leaf,
 				// so it composes with surrounding expressions without consuming them.
 				if (i + 1 < (int)tokens.size() && tokens[i + 1]->second == Left_Paren) {
@@ -1155,7 +1155,7 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 				// Only gather a body when the next token could plausibly start one
 				// (identifier, literal, or opening brace).  Operator symbols,
 				// commas, closing parens, and statement-enders mean the directive is
-				// being used as a value expression (e.g. `#linenum > 0`) — consuming
+				// being used as a value expression (e.g. `#linenum > 0`) - consuming
 				// further tokens would silently absorb the surrounding expression.
 				if (i + 1 < (int)tokens.size()) {
 					TokenType nextTok = tokens[i + 1]->second;
@@ -1176,6 +1176,19 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 				isLeafNode = GATHER_TO_SEMICOLON(tokens, subTokens, i, true, true);
 				//GATHER_TO_SEMICOLON_OR_OTHER(tokens, subTokens, i, Left_Brace, true);
 
+				// For #extern, detect alias syntax: `CSymbol as AsaName :: (...)`
+				// Strip the C symbol and `as` keyword so the AST sees only the ASA name.
+				std::string externSymbolOverride = "";
+				if (identifier->token->first == "extern") {
+					for (int j = 1; j < (int)subTokens.size(); j++) {
+						if (subTokens[j]->first == "as" && subTokens[j]->second == Identifier) {
+							externSymbolOverride = subTokens[j - 1]->first;
+							subTokens.erase(subTokens.begin() + j - 1, subTokens.begin() + j + 1);
+							break;
+						}
+					}
+				}
+
 				bodyNode = generateAST(subTokens, depth + 1);
 				bodyNode->nodeType = Scope_Body;
 				bodyNode->codegen = &ASTNode::generateScopeBody;
@@ -1188,6 +1201,11 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 					node->isExtern = true;
 					identifier->codegen = &ASTNode::generateNothing;
 					node->codegen = &ASTNode::generateScopeBody;
+					// Propagate the C symbol name to function declaration nodes
+					if (!externSymbolOverride.empty()) {
+						for (auto& child : bodyNode->childNodes)
+							child->externSymbolName = externSymbolOverride;
+					}
 				}
 				if (identifier->token->first == "new") {
 					node->codegen = &ASTNode::generateTypeInstance;
@@ -1195,8 +1213,22 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 				if (identifier->token->first == "define") {
 					node->codegen = &ASTNode::generateCompilerDefine;
 					// Leaf nodes in a #define body are intentional tokens (name + value),
-					// not parse errors — move them into childNodes so findUnusedLeafNodes
+					// not parse errors - move them into childNodes so findUnusedLeafNodes
 					// doesn't flag them, and collectTokens in generateCompilerDefine finds them.
+					for (auto& l : bodyNode->leafNodes)
+						bodyNode->childNodes.push_back(l);
+					bodyNode->leafNodes.clear();
+				}
+				if (identifier->token->first == "library") {
+					node->codegen = &ASTNode::generateLibraryDirective;
+					// The library name is a string literal - move it from leafNodes so
+					// findUnusedLeafNodes doesn't flag it and generateLibraryDirective can find it.
+					for (auto& l : bodyNode->leafNodes)
+						bodyNode->childNodes.push_back(l);
+					bodyNode->leafNodes.clear();
+				}
+				if (identifier->token->first == "library_static") {
+					node->codegen = &ASTNode::generateLibraryStaticDirective;
 					for (auto& l : bodyNode->leafNodes)
 						bodyNode->childNodes.push_back(l);
 					bodyNode->leafNodes.clear();
@@ -1363,6 +1395,7 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 					// Step through all following tokens until parens are closed
 					int parenLevel = 1;
 					subTokens = std::vector<tokenPair*>();
+					std::vector<ASTNode*> argumentDefaults;  // parallel to arguments, nullptr if no default
 					for (;;) {
 						if (i >= tokens.size() - 1)
 							break;
@@ -1377,22 +1410,68 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 							break;
 						// If comma and parenLevel is in same scope
 						if ((t->second == Comma && parenLevel == 1)) {
+							// Split subTokens at '=' (depth 0) for default value
+							std::vector<tokenPair*> paramTokens = subTokens;
+							ASTNode* defaultArgNode = nullptr;
+							{
+								int d = 0;
+								for (int si = 0; si < (int)subTokens.size(); si++) {
+									TokenType tt = subTokens[si]->second;
+									if (tt == Left_Paren || tt == Left_Bracket || tt == Left_Brace) d++;
+									else if (tt == Right_Paren || tt == Right_Bracket || tt == Right_Brace) d--;
+									else if (tt == Equal && d == 0) {
+										paramTokens = std::vector<tokenPair*>(subTokens.begin(), subTokens.begin() + si);
+										std::vector<tokenPair*> defaultTokens(subTokens.begin() + si + 1, subTokens.end());
+										defaultArgNode = new ASTNode();
+										generateAST(defaultTokens, depth + 1, defaultArgNode);
+										defaultArgNode->nodeType = Expression_Term;
+										defaultArgNode->codegen = &ASTNode::generateExpression;
+										defaultArgNode->defaultRawTokens = defaultTokens;
+										break;
+									}
+								}
+							}
 							ASTNode* newNode = new ASTNode();
-							generateAST(subTokens, depth + 1, newNode);
+							generateAST(paramTokens, depth + 1, newNode);
 							newNode->nodeType = Expression_Term;
 							newNode->codegen = &ASTNode::generateExpression;
 							arguments.push_back(newNode);
+							argumentDefaults.push_back(defaultArgNode);
 							subTokens = std::vector<tokenPair*>();
 							continue;
 						}
 
 						subTokens.push_back(t);
 					}
-					ASTNode* newNode = new ASTNode();
-					generateAST(subTokens, depth + 1, newNode);
-					newNode->nodeType = Expression_Term;
-					newNode->codegen = &ASTNode::generateExpression;
-					arguments.push_back(newNode);
+					{
+						// Split subTokens at '=' (depth 0) for default value
+						std::vector<tokenPair*> paramTokens = subTokens;
+						ASTNode* defaultArgNode = nullptr;
+						{
+							int d = 0;
+							for (int si = 0; si < (int)subTokens.size(); si++) {
+								TokenType tt = subTokens[si]->second;
+								if (tt == Left_Paren || tt == Left_Bracket || tt == Left_Brace) d++;
+								else if (tt == Right_Paren || tt == Right_Bracket || tt == Right_Brace) d--;
+								else if (tt == Equal && d == 0) {
+									paramTokens = std::vector<tokenPair*>(subTokens.begin(), subTokens.begin() + si);
+									std::vector<tokenPair*> defaultTokens(subTokens.begin() + si + 1, subTokens.end());
+									defaultArgNode = new ASTNode();
+									generateAST(defaultTokens, depth + 1, defaultArgNode);
+									defaultArgNode->nodeType = Expression_Term;
+									defaultArgNode->codegen = &ASTNode::generateExpression;
+									defaultArgNode->defaultRawTokens = defaultTokens;
+									break;
+								}
+							}
+						}
+						ASTNode* newNode = new ASTNode();
+						generateAST(paramTokens, depth + 1, newNode);
+						newNode->nodeType = Expression_Term;
+						newNode->codegen = &ASTNode::generateExpression;
+						arguments.push_back(newNode);
+						argumentDefaults.push_back(defaultArgNode);
+					}
 					subTokens = std::vector<tokenPair*>();
 					//arguments = generateAST(subTokens, depth + 1);
 					//arguments->nodeType = Arguments;
@@ -1417,6 +1496,8 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 							printTokenError(arguments[a]->leafNodes[0]->token, "Expected type followed by identifier");
 							exit(1);
 						}
+						if (a < (int)argumentDefaults.size() && argumentDefaults[a] != nullptr)
+							arguments[a]->childNodes.push_back(argumentDefaults[a]);
 						argumentsNode->childNodes.push_back(arguments[a]);
 					}
 
@@ -1626,7 +1707,7 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 
 			case Comment: {
 				int commentLine = token->lineNumber;
-				// Gap since last comment — reset block
+				// Gap since last comment - reset block
 				if (commentLine > pendingCommentLastLine + 1)
 					pendingCommentText.clear();
 				// Strip // or /* */ markers

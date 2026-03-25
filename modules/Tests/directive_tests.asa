@@ -1,6 +1,6 @@
 
 // DirectiveTests
-// Tests for compile-time directives (#linenum, #line, #filename, #linecol, #funcname, #modulename, #compiler, #counter).
+// Tests for compile-time directives (#linenum, #line, #filepath, #linecol, #funcname, #modulename, #compiler, #counter).
 
 @public:
 DirectiveTests :: module {
@@ -36,9 +36,9 @@ DirectiveTests :: module {
 		lineStr2 : string = #line;
 		test(lineStr2.length > 0, "#line inline should have non-zero length");
 
-		// #filename should expand to the source file path as a string
-		fname : string = #filename;
-		test(fname.length > 0, "#filename should be a non-empty string");
+		// #filepath should expand to the source file path as a string
+		fname : string = #filepath;
+		test(fname.length > 0, "#filepath should be a non-empty string");
 
 		// #linecol should expand to the column number as a positive integer
 		col : int = #linecol;
@@ -91,5 +91,14 @@ DirectiveTests :: module {
 		// #sizeof of a variable should use the variable's type
 		sizeVar : int = 0;
 		test(#sizeof(sizeVar) == 4, "#sizeof(int variable) should be 4");
+
+		// #compiles should return true when the expression is valid
+		test(#compiles(1 + 1), "#compiles(1 + 1) should be true");
+		test(#compiles(intVar + 1), "#compiles(intVar + 1) should be true");
+		test(#compiles("hello"), "#compiles(string literal) should be true");
+
+		// #compiles should return false when the expression is invalid
+		// (e.g. using an undeclared identifier)
+		test(#compiles(undeclaredIdentifier) == false, "#compiles(undeclared) should be false");
 	}
 }

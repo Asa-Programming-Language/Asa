@@ -19,6 +19,7 @@ Testing :: module {
 	#import Builtin.String;
 	#import Builtin.Print;
 	#import Builtin.ColorPrint;
+	#import Builtin.Casts;
 
 	#extern exit :: (code : int32);
 
@@ -34,10 +35,14 @@ Testing :: module {
 	// Description: Name of the currently active test section, shown in failure messages.
 	@public: currentSection : string = "";
 
+	@public: sectionStartFailCount : int = 0;
+	@public: sectionHasBegun : bool = false;
+	@public: sectionLine : string = "";
+
 	// Function: test(expression, failureMessage)
 	// Description: |
 	//     Evaluates an expression. Currently accepts a boolean. In the future,
-	//     any expression type will be accepted — lambdas, values, etc. On pass,
+	//     any expression type will be accepted - lambdas, values, etc. On pass,
 	//     increments passCount silently. On failure, increments failCount and
 	//     prints the failure message in red along with the current section name.
 	//
@@ -86,10 +91,19 @@ Testing :: module {
 	//     test(1 + 1 == 2, "addition");
 	//     ```
 	@public:
-	beginSection :: (name : string) {
+	beginSection :: (name : string, filepath : string = #filepath) {
+		if (sectionHasBegun) {
+			print(padRight(sectionLine, '.', 80));
+			if (failCount == sectionStartFailCount) {
+				colorPrintl(" ok", Fore.green);
+			} else {
+				colorPrintl(" FAILED", Fore.red);
+			}
+		}
 		currentSection = name;
-		print("  ");
-		printl(name);
+		sectionStartFailCount = failCount;
+		sectionHasBegun = true;
+		sectionLine = "  " + name + " (" + basename(filepath) + ")";
 	}
 
 	// Function: printSummary()
@@ -98,6 +112,14 @@ Testing :: module {
 	//     Exits the process with code 1 if any tests failed, 0 if all passed.
 	@public:
 	printSummary :: () {
+		if (sectionHasBegun) {
+			print(padRight(sectionLine, '.', 80));
+			if (failCount == sectionStartFailCount) {
+				colorPrintl(" ok", Fore.green);
+			} else {
+				colorPrintl(" FAILED", Fore.red);
+			}
+		}
 		total : int = passCount + failCount;
 		printl("");
 		print("Results: ");

@@ -1,5 +1,5 @@
 # Attributes
-Attributes attached to a module, function, variable, or other referenceable object, which change how it is seen by the compiler.
+Attributes attached to a module, function, variable, or other referenceable object, which change how it is seen by the compiler, and attach constants.
 
 For example:
 ```asa
@@ -8,6 +8,17 @@ foo :: (){
 
 }
 ```
+
+Or with an argument passed:
+```asa
+@someAttribute("Some value"):
+foo :: (){
+
+}
+```
+
+!!! important
+    An attribute can only have literals as an argument/value.
 
 ---
 
@@ -36,8 +47,14 @@ Hints that a function should be inlined wherever used.
 
 -----
 
-## `@noast`
-Tells the compile to not show this object in the AST.
+## `@replaceable`
+
+Tells the compiler that another function with the same identity can be defined later in the program to overwrite it. While function overloading typically requires a different identity, if `:::asa @replaceable` is an attribute of the original, it can be overloaded without an error. This will effectively delete the `:::asa @replaceable` function and use the newly defined one.
+
+-----
+
+## `@hideast`
+Tells the compiler to not show this object in the printed AST.
 
 -----
 

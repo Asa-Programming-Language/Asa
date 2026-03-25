@@ -295,6 +295,7 @@ struct ASTNode {
 	bool isExtern = false;
 	bool lvalue = false;
 	std::string label = "";
+	std::string externSymbolName = "";  // when non-empty, the actual C symbol to link (overrides fnName for LLVM)
 	bool showInASTOutput = true;
 	bool replaceableDefinition = false;
 	bool isModuleScope = false;		   // true for Compiler_Define nodes representing named modules
@@ -307,6 +308,7 @@ struct ASTNode {
 	std::vector<ASTNode*> leafNodes = std::vector<ASTNode*>();
 	std::vector<ASTNode*> attributes = std::vector<ASTNode*>();
 	ASTNode* docComment = nullptr;
+	std::vector<tokenPair*> defaultRawTokens;  // raw tokens for default param expr, for call-site re-parsing
 
 	std::unordered_map<std::string, ASTNode*> interpreterScopeValues = std::unordered_map<std::string, ASTNode*>();
 
@@ -341,6 +343,8 @@ struct ASTNode {
 	void* generateCallExpression(int pass = 0);
 	void* generateNothing(int pass = 0);
 	void* generateCompilerDefine(int pass = 0);
+	void* generateLibraryDirective(int pass = 0);
+	void* generateLibraryStaticDirective(int pass = 0);
 	void* generateTypeofDirective(int pass = 0);
 	void* generateSizeofDirective(int pass = 0);
 	void* generateCompilesDirective(int pass = 0);

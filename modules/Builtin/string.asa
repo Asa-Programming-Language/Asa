@@ -44,15 +44,6 @@ String :: module{
 
 	}
 
-	// Constructor: string()
-	// Description: Creates an empty string
-	//
-	// Returns: A new empty string instance
-	@public:
-	create :: string() #inline; #replaceable; {
-		return *(#new string);
-	}
-
 	// Constructor: string(*char)
 	// Description: Creates a string from a null-terminated character array
 	//
@@ -71,11 +62,12 @@ String :: module{
 				break;
 			}
 		}
-		s.address = malloc(len*2);
+		s.address = malloc(len*2 + 1);
 		s.length = len;
 		for(i : 0..(len)){
 			s.address[i] = c[i];
 		}
+		s.address[len] = char(0);
 		return s;
 	}
 
@@ -92,7 +84,7 @@ String :: module{
 		newStr : string = string();
 
 		len : uint32 = thisStr.length + otherStr.length;
-		newStr.address = malloc(len*2);
+		newStr.address = malloc(len*2 + 1);
 		newStr.length = len;
 		for(i : 0..thisStr.length){
 			newStr.address[i] = thisStr[i];
@@ -103,6 +95,7 @@ String :: module{
 			newAddr = i + thisStr.length;
 			newStr.address[newAddr] = otherStr[i];
 		}
+		newStr.address[len] = char(0);
 		return newStr;
 	}
 
@@ -119,12 +112,13 @@ String :: module{
 		newStr : string = string();
 
 		len : uint32 = thisStr.length + 1;
-		newStr.address = malloc(len*2);
+		newStr.address = malloc(len*2 + 1);
 		newStr.length = len;
 		for(i : 0..thisStr.length){
 			newStr.address[i] = thisStr[i];
 		}
 		newStr.address[thisStr.length] = ch;
+		newStr.address[len] = char(0);
 		return newStr;
 	}
 
@@ -223,7 +217,8 @@ String :: module{
 	//
 	// Returns: true if the contents are identical, false otherwise
 	@public:
-	operator== :: bool(a : exact *char, b : exact *char) #inline; {
+	@inline:
+	operator== :: bool(a : exact *char, b : exact *char) {
 		return strcmp(a, b) == 0;
 	}
 
@@ -232,7 +227,8 @@ String :: module{
 	//
 	// Returns: true if both strings have equal length and identical characters
 	@public:
-	operator== :: bool(a : exact string, b : exact string) #inline; {
+	@inline:
+	operator== :: bool(a : exact string, b : exact string) {
 		if (a.length != b.length)
 			return false;
 		return strcmp(a.address, b.address) == 0;
@@ -252,6 +248,54 @@ String :: module{
 	printl :: (s : exact string) {
 		printl(s.address);
 		return;
+	}
+
+	// Function: padRight(s, ch, targetLen)
+	// Description: Returns s with ch appended on the right until length reaches targetLen.
+	//              If s is already at or beyond targetLen, returns s unchanged.
+	@public:
+	padRight :: string(s : exact string, ch : exact char, targetLen : int) {
+		result : string = s;
+		len : int = int(s.length);
+		for (i : len..targetLen) {
+			result = result + ch;
+		}
+		return result;
+	}
+
+	// Function: padLeft(s, ch, targetLen)
+	// Description: Returns s with ch prepended on the left until length reaches targetLen.
+	//              If s is already at or beyond targetLen, returns s unchanged.
+	@public:
+	padLeft :: string(s : exact string, ch : exact char, targetLen : int) {
+		prefix : string = string();
+		len : int = int(s.length);
+		for (i : len..targetLen) {
+			prefix = prefix + ch;
+		}
+		return prefix + s;
+	}
+
+	// Function: basename(s)
+	// Description: Returns the filename portion of a path (everything after the last '/').
+	//              If no '/' is found, returns s unchanged.
+	@public:
+	basename :: string(s : exact string) {
+		lastSlash : int = -1;
+		for (i : 0..int(s.length)) {
+			if (s[i] == '/') {
+				lastSlash = i;
+			}
+		}
+		if (lastSlash == -1) {
+			return s;
+		}
+		result : string = string();
+		start : int = lastSlash + 1;
+		for (i : start..int(s.length)) {
+			result = result + s[i];
+		}
+		return result;
 	}
 
 	// Function: find(s, sub)
