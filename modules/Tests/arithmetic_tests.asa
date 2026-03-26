@@ -7,6 +7,8 @@ ArithmeticTests :: module {
 
 	#import Tests.Testing;
 
+	Vec2 :: struct { x : int; y : int; }
+
 	// runArithmeticTests()
 	// Runs all arithmetic tests.
 
@@ -23,9 +25,9 @@ ArithmeticTests :: module {
 		test(7 % 7 == 0,   "7 % 7 == 0");
 
 		// Negative numbers
-		test(0 - 5 == 0 - 5,     "negative literal");
-		test(0 - 3 < 0,           "negative is less than zero");
-		test(0 - 1 * 2 == 0 - 2,  "negative * positive");
+		test(-5 == -5,        "negative literal");
+		test(-3 < 0,          "negative is less than zero");
+		test(-1 * 2 == -2,    "negative * positive");
 
 		// Operator precedence: * and / before + and -
 		test(2 + 3 * 4 == 14,     "2 + 3 * 4 == 14");
@@ -37,5 +39,83 @@ ArithmeticTests :: module {
 		test(100 / 4 == 25,        "100 / 4 == 25");
 		test(2 * 12 == 24,         "2 * 12 == 24");
 		test(1 + 2 + 3 + 4 == 10,  "1+2+3+4 == 10");
+
+		// Left-to-right associativity for equal-precedence ops
+		test(20 / 10 / 2 == 1,     "20/10/2 == 1  (left-to-right)");
+		test(15 % 7 % 3 == 1,      "15%7%3 == 1   (left-to-right)");
+		test(20 / 10 % 2 == 0,     "20/10 % 2 == 0  (/ before %)");
+		test(20 % 6 / 2 == 1,      "20%6 / 2 == 1   (% before /)");
+		test(10 - 3 - 2 == 5,      "10-3-2 == 5   (left-to-right)");
+		test(16 / 4 * 2 == 8,      "16/4*2 == 8   (left-to-right)");
+
+		// Compound assignment: literal rhs
+		x : int = 10;
+		x += 5;   test(x == 15, "x=10; x+=5 -> 15");
+		x -= 3;   test(x == 12, "x-=3 -> 12");
+		x *= 2;   test(x == 24, "x*=2 -> 24");
+		x /= 4;   test(x == 6,  "x/=4 -> 6");
+
+		// Compound assignment: expression rhs
+		x = 10;
+		x += 2 * 3;  test(x == 16, "x+=2*3 -> 16");
+		x -= 1 + 1;  test(x == 14, "x-=1+1 -> 14");
+		x *= 1 + 1;  test(x == 28, "x*=1+1 -> 28");
+		x /= 2 + 5;  test(x == 4,  "x/=2+5 -> 4");
+
+		// Compound assignment: variable rhs
+		a : int = 3;
+		b : int = 20;
+		b += a;  test(b == 23, "b+=a -> 23");
+		b -= a;  test(b == 20, "b-=a -> 20");
+		b *= a;  test(b == 60, "b*=a -> 60");
+		b /= a;  test(b == 20, "b/=a -> 20");
+
+		// Compound assignment: variable op expression rhs
+		c : int = 5;
+		c += a * 2;  test(c == 11, "c+=a*2 -> 11");
+		c -= a - 1;  test(c == 9,  "c-=a-1 -> 9");
+
+		// Compound assignment: struct member lhs
+		v : Vec2 = Vec2();
+		v.x = 4;
+		v.y = 8;
+		v.x += 6;   test(v.x == 10, "v.x=4; v.x+=6 -> 10");
+		v.y -= 3;   test(v.y == 5,  "v.y=8; v.y-=3 -> 5");
+		v.x *= 3;   test(v.x == 30, "v.x*=3 -> 30");
+		v.y /= 5;   test(v.y == 1,  "v.y/=5 -> 1");
+
+		// Compound assignment: struct member rhs
+		v.x = 10;
+		v.y = 3;
+		x = 100;
+		x += v.x;   test(x == 110, "x+=v.x -> 110");
+		x -= v.y;   test(x == 107, "x-=v.y -> 107");
+		x *= v.y;   test(x == 321, "x*=v.y -> 321");
+		x /= v.x;   test(x == 32,  "x/=v.x -> 32");
+
+		// Compound assignment: struct member lhs, struct member rhs
+		v.x = 5;
+		v.y = 10;
+		v.x += v.y;  test(v.x == 15, "v.x+=v.y -> 15");
+		v.y -= v.x;  test(v.y == -5, "v.y-=v.x -> -5");
+
+		// Compound assignment on floats
+		f : float = 1.0;
+		f += 0.5;    test(f == 1.5, "f=1.0; f+=0.5 -> 1.5");
+		f *= 2.0;    test(f == 3.0, "f*=2.0 -> 3.0");
+		f -= 1.0;    test(f == 2.0, "f-=1.0 -> 2.0");
+		f /= 4.0;    test(f == 0.5, "f/=4.0 -> 0.5");
+
+		// Compound assignment: float variable rhs
+		g : float = 0.5;
+		f += g;   test(f == 1.0, "f+=g -> 1.0");
+		f *= g;   test(f == 0.5, "f*=g -> 0.5");
+		f /= g;   test(f == 1.0, "f/=g -> 1.0");
+		f -= g;   test(f == 0.5, "f-=g -> 0.5");
+
+		// Compound assignment: float expression rhs
+		f = 10.0;
+		f += 1.0 + 1.5;  test(f == 12.5, "f+=1.0+1.5 -> 12.5");
+		f /= 2.0 + 0.5;  test(f == 5.0,  "f/=2.0+0.5 -> 5.0");
 	}
 }

@@ -45,7 +45,7 @@ const std::map<TokenType, const char*> tokenEscapes = {
 
 // If the char is the first item and the following character is the second item, keep adding to token type
 const std::map<const char*, const char*> tokenEscapeCancels = {
-	{"+-*:^|!&~<>=", "="},
+	{"+-*/:^|!&~<>=", "="},
 	{"+-", "+-"},
 	{"-", ">"},
 	{"/", "/*"},

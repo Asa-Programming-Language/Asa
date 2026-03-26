@@ -1,0 +1,59 @@
+
+// PrintTests
+// Tests for print/printl overloads and the string() cast for all numeric types.
+// Rather than capturing stdout directly, we verify the string conversion that
+// print() relies on, plus smoke-test each overload with #compiles.
+
+@public:
+PrintTests :: module {
+
+	#import Tests.Testing;
+	#import Builtin.String;
+	#import Builtin.Print;
+
+	@public:
+	runPrintTests :: () {
+		beginSection("Print");
+
+		// --- string(int64) ---
+		test(string(0)    == "0",          "string(0) == \"0\"");
+		test(string(1)    == "1",          "string(1) == \"1\"");
+		test(string(42)   == "42",         "string(42) == \"42\"");
+		test(string(100)  == "100",        "string(100) == \"100\"");
+		test(string(-1)   == "-1",         "string(-1) == \"-1\"");
+		test(string(-999) == "-999",       "string(-999) == \"-999\"");
+
+		// --- string(double) via snprintf %g ---
+		test(string(0.0)   == "0",         "string(0.0) == \"0\"");
+		test(string(1.0)   == "1",         "string(1.0) == \"1\"");
+		test(string(1.5)   == "1.5",       "string(1.5) == \"1.5\"");
+		test(string(3.14)  == "3.14",      "string(3.14) == \"3.14\"");
+		test(string(-2.5)  == "-2.5",      "string(-2.5) == \"-2.5\"");
+		test(string(100.0) == "100",       "string(100.0) == \"100\"");
+
+		// --- string(float) delegates to string(double) ---
+		f : float = 1.5;
+		test(string(f) == "1.5",           "string(float 1.5) == \"1.5\"");
+		f = 0.0;
+		test(string(f) == "0",             "string(float 0.0) == \"0\"");
+		f = -3.0;
+		test(string(f) == "-3",            "string(float -3.0) == \"-3\"");
+
+		// --- string concat with converted numerics ---
+		test("x=" + string(7)    == "x=7",     "string concat int via string()");
+		test("pi=" + string(3.14) == "pi=3.14", "string concat double via string()");
+
+		// --- print/printl overloads compile and accept all types ---
+		test(#compiles(print(42)),          "print(int) compiles");
+		test(#compiles(printl(42)),         "printl(int) compiles");
+		test(#compiles(print(1.5)),         "print(float) compiles");
+		test(#compiles(printl(1.5)),        "printl(float) compiles");
+		test(#compiles(print(1.0)),         "print(double) compiles");
+		test(#compiles(printl(1.0)),        "printl(double) compiles");
+		test(#compiles(print("hello")),     "print(*char) compiles");
+		test(#compiles(printl("hello")),    "printl(*char) compiles");
+		s : string = "hi";
+		test(#compiles(print(s)),           "print(string) compiles");
+		test(#compiles(printl(s)),          "printl(string) compiles");
+	}
+}

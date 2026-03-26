@@ -7,8 +7,8 @@ main :: () {
 
 	while (WindowShouldClose() == false) {
 		BeginDrawing();
-			ClearBackground(RAYWHITE);
-			DrawText("Hello, World!", 190, 200, 30, RED);
+			ClearBackground(BLACK);
+			DrawText("Hello, World!", 190, 200, 30, WHITE);
 			DrawFPS(10, 10);
 		EndDrawing();
 	}

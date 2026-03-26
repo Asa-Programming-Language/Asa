@@ -1,0 +1,151 @@
+
+// MathTests
+// Tests for the Math module: constants, trig, rounding, abs, clamp, lerp, vectors.
+
+@public:
+MathTests :: module {
+
+	#import Tests.Testing;
+	#import Builtin.Math;
+
+	@public:
+	runMathTests :: () {
+		beginSection("Math");
+
+		///////////////////////
+		// Constants         //
+		///////////////////////
+
+		test(PI  > 3.14159 && PI  < 3.14160, "PI in range");
+		test(TAU > 6.28318 && TAU < 6.28319, "TAU in range");
+		test(E   > 2.71828 && E   < 2.71829, "E in range");
+
+		///////////////////////
+		// abs               //
+		///////////////////////
+
+		test(abs(-5)   == 5,   "abs(-5) == 5");
+		test(abs(5)    == 5,   "abs(5) == 5");
+		test(abs(0)    == 0,   "abs(0) == 0");
+		test(abs(-2.5) == 2.5, "abs(-2.5) == 2.5");
+		test(abs(2.5)  == 2.5, "abs(2.5) == 2.5");
+
+		///////////////////////
+		// clamp             //
+		///////////////////////
+
+		test(clamp(5,  1, 10) == 5,  "clamp(5,  1,10) == 5");
+		test(clamp(0,  1, 10) == 1,  "clamp(0,  1,10) == 1");
+		test(clamp(15, 1, 10) == 10, "clamp(15, 1,10) == 10");
+		test(clamp(0.5, 0.0, 1.0) == 0.5, "clamp(0.5f) stays");
+		test(clamp(-1.0, 0.0, 1.0) == 0.0, "clamp(-1.0f) -> 0.0");
+		test(clamp(2.0, 0.0, 1.0) == 1.0, "clamp(2.0f) -> 1.0");
+
+		///////////////////////
+		// lerp              //
+		///////////////////////
+
+		test(lerp(0.0, 10.0, 0.0) == 0.0,  "lerp(0,10,0) == 0");
+		test(lerp(0.0, 10.0, 1.0) == 10.0, "lerp(0,10,1) == 10");
+		test(lerp(0.0, 10.0, 0.5) == 5.0,  "lerp(0,10,0.5) == 5");
+		test(lerp(2.0, 8.0, 0.5)  == 5.0,  "lerp(2,8,0.5) == 5");
+		test(lerp(0.0f, 4.0f, 0.25f) == 1.0f, "lerp(0,4,0.25f) == 1");
+
+		///////////////////////
+		// sqrt / pow        //
+		///////////////////////
+
+		test(sqrtf(4.0f)  == 2.0f, "sqrtf(4) == 2");
+		test(sqrtf(9.0f)  == 3.0f, "sqrtf(9) == 3");
+		test(powf(2.0f, 3.0f) == 8.0f,  "powf(2,3) == 8");
+		test(powf(3.0f, 2.0f) == 9.0f,  "powf(3,2) == 9");
+
+		///////////////////////
+		// floor / ceil      //
+		///////////////////////
+
+		test(floorf(1.7f)  == 1.0f, "floorf(1.7) == 1");
+		test(floorf(-1.7f) == -2.0f, "floorf(-1.7) == -2");
+		test(ceilf(1.2f)   == 2.0f,  "ceilf(1.2) == 2");
+		test(ceilf(-1.2f)  == -1.0f, "ceilf(-1.2) == -1");
+		test(roundf(1.5f)  == 2.0f,  "roundf(1.5) == 2");
+		test(roundf(1.4f)  == 1.0f,  "roundf(1.4) == 1");
+
+		///////////////////////
+		// fmod              //
+		///////////////////////
+
+		test(fmodf(10.0f, 3.0f) == 1.0f, "fmodf(10,3) == 1");
+		test(fmodf(7.5f, 2.5f)  == 0.0f, "fmodf(7.5,2.5) == 0");
+
+		///////////////////////
+		// Vector2 ops       //
+		///////////////////////
+
+		a2 : Vector2 = Vector2(3.0f, 4.0f);
+		b2 : Vector2 = Vector2(1.0f, 2.0f);
+
+		sum2 : Vector2 = a2 + b2;
+		test(sum2.x == 4.0f && sum2.y == 6.0f, "Vector2 a+b");
+
+		diff2 : Vector2 = a2 - b2;
+		test(diff2.x == 2.0f && diff2.y == 2.0f, "Vector2 a-b");
+
+		a2 += b2;
+		test(a2.x == 4.0f && a2.y == 6.0f, "Vector2 +=");
+
+		a2 -= b2;
+		test(a2.x == 3.0f && a2.y == 4.0f, "Vector2 -=");
+
+		s2f : Vector2 = a2 * 2.0f;
+		test(s2f.x == 6.0f && s2f.y == 8.0f, "Vector2 * float");
+		s2fr : Vector2 = 2.0f * a2;
+		test(s2fr.x == 6.0f && s2fr.y == 8.0f, "float * Vector2");
+		s2i : Vector2 = a2 * 3;
+		test(s2i.x == 9.0f && s2i.y == 12.0f, "Vector2 * int");
+		s2ir : Vector2 = 3 * a2;
+		test(s2ir.x == 9.0f && s2ir.y == 12.0f, "int * Vector2");
+
+		///////////////////////
+		// Vector3 ops       //
+		///////////////////////
+
+		a3 : Vector3 = Vector3(1.0f, 2.0f, 3.0f);
+		b3 : Vector3 = Vector3(4.0f, 5.0f, 6.0f);
+
+		sum3 : Vector3 = a3 + b3;
+		test(sum3.x == 5.0f && sum3.y == 7.0f && sum3.z == 9.0f, "Vector3 a+b");
+
+		diff3 : Vector3 = a3 - b3;
+		test(diff3.x == -3.0f && diff3.y == -3.0f && diff3.z == -3.0f, "Vector3 a-b");
+
+		a3 += b3;
+		test(a3.x == 5.0f && a3.y == 7.0f && a3.z == 9.0f, "Vector3 +=");
+
+		a3 -= b3;
+		test(a3.x == 1.0f && a3.y == 2.0f && a3.z == 3.0f, "Vector3 -=");
+
+		s3f : Vector3 = a3 * 2.0f;
+		test(s3f.x == 2.0f && s3f.y == 4.0f && s3f.z == 6.0f, "Vector3 * float");
+		s3fr : Vector3 = 2.0f * a3;
+		test(s3fr.x == 2.0f && s3fr.y == 4.0f && s3fr.z == 6.0f, "float * Vector3");
+		s3i : Vector3 = a3 * 3;
+		test(s3i.x == 3.0f && s3i.y == 6.0f && s3i.z == 9.0f, "Vector3 * int");
+		s3ir : Vector3 = 3 * a3;
+		test(s3ir.x == 3.0f && s3ir.y == 6.0f && s3ir.z == 9.0f, "int * Vector3");
+
+		///////////////////////
+		// lerp (Vector)     //
+		///////////////////////
+
+		p : Vector2 = Vector2(0.0f, 0.0f);
+		q : Vector2 = Vector2(10.0f, 20.0f);
+		mid2 : Vector2 = lerp(p, q, 0.5f);
+		test(mid2.x == 5.0f && mid2.y == 10.0f, "lerp(Vector2, 0.5)");
+
+		r3 : Vector3 = Vector3(0.0f, 0.0f, 0.0f);
+		s3 : Vector3 = Vector3(2.0f, 4.0f, 6.0f);
+		mid3 : Vector3 = lerp(r3, s3, 0.5f);
+		test(mid3.x == 1.0f && mid3.y == 2.0f && mid3.z == 3.0f, "lerp(Vector3, 0.5)");
+	}
+}

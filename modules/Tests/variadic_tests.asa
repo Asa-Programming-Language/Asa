@@ -1,0 +1,53 @@
+
+// VariadicTests
+// Tests for calling variadic extern functions with varying argument counts
+// and different argument types, using snprintf to capture output into a buffer.
+
+@public:
+VariadicTests :: module {
+
+	#import Tests.Testing;
+	#import Builtin.String;
+	#import Builtin.Memory;
+
+	#extern snprintf :: int32(buf : *char, size : uint64, fmt : *char, ...);
+
+	@public:
+	runVariadicTests :: () {
+		beginSection("Variadic");
+
+		buf : *char = malloc(64);
+
+		// One variadic arg: int
+		snprintf(buf, 64, "%d", 42);
+		test(string(buf) == "42",            "snprintf: %d 42");
+
+		// One variadic arg: negative int
+		snprintf(buf, 64, "%d", -7);
+		test(string(buf) == "-7",            "snprintf: %d -7");
+
+		// One variadic arg: double
+		snprintf(buf, 64, "%g", 3.14);
+		test(string(buf) == "3.14",          "snprintf: %g 3.14");
+
+		// One variadic arg: string literal (*char)
+		snprintf(buf, 64, "%s", "hello");
+		test(string(buf) == "hello",         "snprintf: %s hello");
+
+		// Two variadic args
+		snprintf(buf, 64, "%d+%d", 3, 4);
+		test(string(buf) == "3+4",           "snprintf: two int args");
+
+		// Three variadic args
+		snprintf(buf, 64, "%d %d %d", 1, 2, 3);
+		test(string(buf) == "1 2 3",         "snprintf: three int args");
+
+		// Mixed types: int and double
+		snprintf(buf, 64, "%d %.1f", 5, 2.5);
+		test(string(buf) == "5 2.5",         "snprintf: int and double");
+
+		// No variadic args (just format string)
+		snprintf(buf, 64, "hello");
+		test(string(buf) == "hello",         "snprintf: no variadic args");
+	}
+}

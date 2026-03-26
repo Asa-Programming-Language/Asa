@@ -12,7 +12,7 @@ ModuleTests :: module {
 		@public: zero : int = 0;
 		@public: one  : int = 1;
 		@public: ten  : int = 10;
-		@public: neg  : int = 0 - 7;
+		@public: neg  : int = -7;
 	}
 
 	@public:
@@ -35,6 +35,11 @@ ModuleTests :: module {
 	@public: funcInitVar  : int  = makeInt();
 	@public: ctorInitVar  : Pair = makePair();
 
+	// Untyped module-scope variable declarations (type inferred from rhs)
+	@public: untypedInt   = 42;
+	@public: untypedFloat = 3.14;
+	@public: untypedNeg   = -5;
+
 	// runModuleTests()
 	// Runs all module variable access tests.
 
@@ -45,7 +50,7 @@ ModuleTests :: module {
 		test(NumConsts.zero == 0,       "NumConsts.zero should be 0");
 		test(NumConsts.one  == 1,       "NumConsts.one should be 1");
 		test(NumConsts.ten  == 10,      "NumConsts.ten should be 10");
-		test(NumConsts.neg  == 0 - 7,   "NumConsts.neg should be -7");
+		test(NumConsts.neg  == -7,      "NumConsts.neg should be -7");
 
 		test(NumConsts.one + NumConsts.ten == 11,   "one + ten should be 11");
 		test(NumConsts.ten * NumConsts.ten == 100,  "ten * ten should be 100");
@@ -56,5 +61,10 @@ ModuleTests :: module {
 		test(funcInitVar == 99,         "module var initialized from function call");
 		test(ctorInitVar.x == 10,       "module var initialized from constructor (x)");
 		test(ctorInitVar.y == 20,       "module var initialized from constructor (y)");
+
+		// Untyped declarations
+		test(untypedInt   == 42,        "untyped int global == 42");
+		test(untypedFloat == 3.14,      "untyped float global == 3.14");
+		test(untypedNeg   == -5,        "untyped negative global == -5");
 	}
 }

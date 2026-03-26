@@ -11,6 +11,10 @@
 #import Tests.FileTests;
 #import Tests.ExternTests;
 #import Tests.DefaultParamTests;
+#import Tests.PrintTests;
+#import Tests.VariadicTests;
+#import Tests.BooleanTests;
+#import Tests.MathTests;
 
 @public:
 main :: () {
@@ -25,6 +29,10 @@ main :: () {
 	runFileTests();
 	runExternTests();
 	runDefaultParamTests();
+	runPrintTests();
+	runVariadicTests();
+	runBooleanTests();
+	runMathTests();
 	printSummary();
 	return;
 }

@@ -9,6 +9,8 @@ String :: module{
 	#import Builtin.Memory;
 	#import Builtin.Casts;
 
+	#extern snprintf :: int32(buf : *char, size : uint64, fmt : *char, ...);
+
 	#define IN_STRING_MODULE true;
 
 	// Struct: string
@@ -210,6 +212,22 @@ String :: module{
 		digitVal : int64 = (n % 10) + 48;
 		s = s + char(digitVal);
 		return s;
+	}
+
+	// Constructor: string(double)
+	// Description: Converts a double to its string representation using %g format
+	@public:
+	cast :: string(x : double) {
+		buf : *char = malloc(32);
+		snprintf(buf, 32, "%g", x);
+		return string(buf);
+	}
+
+	// Constructor: string(float)
+	// Description: Converts a float to its string representation
+	@public:
+	cast :: string(x : float) {
+		return string(double(x));
 	}
 
 	// Operator: ==(*char, *char)

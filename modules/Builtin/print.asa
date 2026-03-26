@@ -80,6 +80,38 @@ Print :: module {
 		printl(string(n));
 		return;
 	}
+
+	// Function: print(float)
+	// Description: Prints a float to the terminal
+	@public:
+	print :: (x : float) {
+		print(string(x));
+		return;
+	}
+
+	// Function: printl(float)
+	// Description: Prints a float to the terminal with a newline
+	@public:
+	printl :: (x : float) {
+		printl(string(x));
+		return;
+	}
+
+	// Function: print(double)
+	// Description: Prints a double to the terminal
+	@public:
+	print :: (x : double) {
+		print(string(x));
+		return;
+	}
+
+	// Function: printl(double)
+	// Description: Prints a double to the terminal with a newline
+	@public:
+	printl :: (x : double) {
+		printl(string(x));
+		return;
+	}
 }
 
 @public:

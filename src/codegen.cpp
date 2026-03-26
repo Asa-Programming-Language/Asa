@@ -30,7 +30,8 @@ std::vector<std::string> linkedStaticLibraries;
 static bool checkUsageAttrs(tokenPair* usageTok, const std::vector<ASTNode*>& attrs, const std::string& symName)
 {
 	for (auto* attr : attrs) {
-		if (!attr->token) continue;
+		if (!attr->token)
+			continue;
 		const std::string& attrName = attr->token->first;
 		std::string msg;
 		// Extract optional string argument from Scope_Body child
@@ -45,13 +46,15 @@ static bool checkUsageAttrs(tokenPair* usageTok, const std::vector<ASTNode*>& at
 		if (attrName == "deprecated") {
 			msg = "'" + symName + "' is deprecated";
 			std::string detail = getMsg();
-			if (!detail.empty()) msg += ": " + detail;
+			if (!detail.empty())
+				msg += ": " + detail;
 			printTokenWarning(usageTok, msg);
 		}
 		else if (attrName == "removed") {
 			msg = "'" + symName + "' has been removed";
 			std::string detail = getMsg();
-			if (!detail.empty()) msg += ": " + detail;
+			if (!detail.empty())
+				msg += ": " + detail;
 			printTokenError(usageTok, msg);
 			wasError = true;
 			return false;
@@ -129,8 +132,8 @@ struct argType {
 	bool isConstant = false;
 	bool mustBeExactType = false;
 	bool hasDefault = false;
-	ASTNode* defaultNode = nullptr;               // Expression_Term node (already resolved at definition site)
-	std::vector<tokenPair*> defaultRawTokens;     // raw tokens for re-parsing at call site
+	ASTNode* defaultNode = nullptr;			   // Expression_Term node (already resolved at definition site)
+	std::vector<tokenPair*> defaultRawTokens;  // raw tokens for re-parsing at call site
 	argType(std::string ts, ASTNodeType bT, uint8_t pL = 0, bool r = false, bool ex = false, bool c = false)
 	{
 		typeString = ts;
@@ -255,7 +258,7 @@ struct functionID {
 		uint16_t differences = 0;
 		if (n != name)
 			return 1000;
-		if (a.size() > userArguments.size())
+		if (a.size() > userArguments.size() && !variableNumArguments)
 			return 1000 - 1;
 		if (a.size() < userArguments.size()) {
 			// Allow if all extra params have defaults
@@ -266,7 +269,8 @@ struct functionID {
 		if (verbosity >= 6)
 			console::WriteLine("Comparing: " + name, console::blueFGColor);
 		console::indentation++;
-		for (int i = 0; i < (int)a.size(); i++) {
+		int compareCount = variableNumArguments ? (int)userArguments.size() : (int)a.size();
+		for (int i = 0; i < compareCount; i++) {
 			ASTNodeType t1 = userArguments[i].baseASTType;
 			ASTNodeType t2 = a[i].baseASTType;
 			bool mustBeExactType = userArguments[i].mustBeExactType;
@@ -306,6 +310,13 @@ struct functionID {
 
 			// If they are the same base type (ignoring signedness for LLVM types)
 			if (compareASTNodeTypes(t1, t2, wereTypesInferred)) {
+				// For struct/unknown types both sides resolve to Identifier_Node;
+				// require the type strings to also match, otherwise Vector2 and Vector3
+				// would be treated as equivalent.
+				if (t1 == Identifier_Node && userArguments[i].typeString != a[i].typeString) {
+					differences = 800;
+					goto returnDifferences;
+				}
 				differences += 0;
 			}
 			// Else if they are both integer types (and same pointer level)
@@ -316,8 +327,10 @@ struct functionID {
 				}
 				if (t2 >= Integer_Node && t2 <= Boolean_Node)  // If similar type
 					differences += abs(t1 - t2);
+				else if (t2 >= Double_Type && t2 <= Half_Type)	// float -> int implicit
+					differences += 50;
 				else {
-					differences = 600;	// Trying to match integer with non-integer
+					differences = 600;
 					goto returnDifferences;
 				}
 			}
@@ -329,8 +342,10 @@ struct functionID {
 				}
 				if (t2 >= Double_Type && t2 <= Half_Type)  // If similar type
 					differences += abs(t1 - t2);
+				else if (t2 >= Integer_Node && t2 <= Boolean_Node)	// int -> float implicit
+					differences += 50;
 				else {
-					differences = 600;	// Trying to match float with non-float
+					differences = 600;
 					goto returnDifferences;
 				}
 			}
@@ -487,6 +502,47 @@ void printFunctionPrototypes()
 		f->print();
 	}
 	console::indentation--;
+}
+
+std::string formatCallSignature(const std::string& name, const argumentList& args)
+{
+	std::string s = name + "(";
+	for (size_t i = 0; i < args.size(); i++) {
+		s += "<" + args[i].typeString + ">";
+		if (i + 1 < args.size())
+			s += ", ";
+	}
+	s += ")";
+	return s;
+}
+
+void printUndefinedFunctionError(tokenPair*& token, const std::string& name, const argumentList& args, std::vector<functionID*>& fnIDs)
+{
+	printTokenError(token, "Undefined function: " + formatCallSignature(name, args));
+	// Show any candidates with the same name
+	bool anyFound = false;
+	for (auto& f : fnIDs) {
+		if (f->name != name)
+			continue;
+		if (!anyFound) {
+			console::indentation++;
+			console::WriteLine("Candidates:", console::yellowFGColor);
+			console::indentation++;
+			anyFound = true;
+		}
+		std::string proto = name + "(";
+		for (size_t i = 0; i < f->userArguments.size(); i++) {
+			proto += f->userArguments[i].typeString;
+			if (i + 1 < f->userArguments.size())
+				proto += ", ";
+		}
+		proto += ")";
+		console::WriteLine(proto, console::yellowFGColor);
+	}
+	if (anyFound) {
+		console::indentation--;
+		console::indentation--;
+	}
 }
 
 void printFunctionDifferences(argumentList& arguments, functionID*& other)
@@ -867,7 +923,7 @@ void castToHighestAccuracy(Value*& L, Value*& R, tokenPair*& token)
 		return;
 	}
 
-	printTokenError(token, "Unsupported cast");
+	printTokenError(token, "Unsupported cast: cannot implicitly convert '" + lTyStr + "' to '" + rTyStr + "' (or vice versa)");
 	wasError = true;
 	return;
 }
@@ -1108,28 +1164,74 @@ void declareModuleScopeVariable(ASTNode* exprStmtNode, ASTNode* ownerNode, bool 
 	if (exprStmtNode->childNodes.size() < 2)
 		return;
 	ASTNode* leftNode = exprStmtNode->childNodes[0];
-	if (leftNode->nodeType != Colon_Separator_Node || leftNode->childNodes.size() < 2)
-		return;
 
-	ASTNode* nameNode = leftNode->childNodes[0];
-	ASTNode* typeNode = leftNode->childNodes[1];
-	std::string varName = nameNode->token->first;
-
-	// Walk pointer stars
+	std::string varName;
+	std::string typeName;
 	int pointerLevel = 0;
-	while (typeNode->token->first == "*" && !typeNode->childNodes.empty()) {
-		pointerLevel++;
-		typeNode = typeNode->childNodes[0];
-	}
-	std::string typeName = typeNode->token->first;
+	Type* llvmType = nullptr;
 
-	bool wasDefined = true;
-	int pass = 1;
-	Type* llvmType = getLLVMTypeFromString(typeName, 0, typeNode->token, wasDefined, pass);
-	if (!llvmType || !wasDefined)
+	if (leftNode->nodeType == Colon_Separator_Node) {
+		// Typed declaration: x : int = 5
+		if (leftNode->childNodes.size() < 2)
+			return;
+		ASTNode* nameNode = leftNode->childNodes[0];
+		ASTNode* typeNode = leftNode->childNodes[1];
+		varName = nameNode->token->first;
+
+		while (typeNode->token->first == "*" && !typeNode->childNodes.empty()) {
+			pointerLevel++;
+			typeNode = typeNode->childNodes[0];
+		}
+		typeName = typeNode->token->first;
+
+		bool wasDefined = true;
+		int pass = 1;
+		llvmType = getLLVMTypeFromString(typeName, 0, typeNode->token, wasDefined, pass);
+		if (!llvmType || !wasDefined)
+			return;
+		for (int i = 0; i < pointerLevel; i++)
+			llvmType = llvmType->getPointerTo();
+	}
+	else if (leftNode->nodeType == Identifier_Node) {
+		// Untyped declaration: x = 5 — infer type by speculatively evaluating rhs
+		varName = leftNode->token->first;
+		ASTNode* exprNode = exprStmtNode->childNodes[1];
+		if (!exprNode || !exprNode->codegen)
+			return;
+
+		// Save builder state
+		BasicBlock* savedBB = Builder->GetInsertBlock();
+		BasicBlock::iterator savedPt = savedBB ? Builder->GetInsertPoint() : BasicBlock::iterator();
+		bool savedError = wasError;
+
+		// Create a temporary function+block to probe the expression's type
+		FunctionType* ft = FunctionType::get(Type::getVoidTy(*TheContext), false);
+		Function* probeF = Function::Create(ft, Function::PrivateLinkage, "__type_probe__", TheModule.get());
+		BasicBlock* probeBB = BasicBlock::Create(*TheContext, "probe", probeF);
+		Builder->SetInsertPoint(probeBB);
+
+		wasError = false;
+		suppressCodegenErrors = true;
+		Value* probeVal = (Value*)(exprNode->*(exprNode->codegen))(1);
+		suppressCodegenErrors = false;
+
+		if (!wasError && probeVal)
+			llvmType = probeVal->getType();
+		wasError = savedError;
+
+		probeF->eraseFromParent();
+
+		if (savedBB)
+			Builder->SetInsertPoint(savedBB, savedPt);
+
+		if (!llvmType)
+			return;	 // Could not infer type; skip (will be caught as undefined if used)
+
+		typeName = getStringTypeFromLLVMType(llvmType);
+	}
+	else {
 		return;
-	for (int i = 0; i < pointerLevel; i++)
-		llvmType = llvmType->getPointerTo();
+	}
 
 	std::string globalName = varName;
 	GlobalVariable* gv = new GlobalVariable(
@@ -1906,6 +2008,7 @@ void* ASTNode::generateExpressionStatement(int pass)
 			wasError = true;
 			return nullptr;
 		}
+		size_t stackDepthBefore = lastRetrievedElementType.size();
 		targetPtr = (Value*)(leftNode->*(leftNode->codegen))(pass);
 		if (wasError) {
 			return nullptr;
@@ -1915,7 +2018,11 @@ void* ASTNode::generateExpressionStatement(int pass)
 			wasError = true;
 			return nullptr;
 		}
-		//targetType = cast<PointerType>(targetPtr->getType())->getElementType();
+		// Pop the element type if the lvalue codegen pushed one (member access does, array access does not)
+		if (lastRetrievedElementType.size() > stackDepthBefore) {
+			targetType = lastRetrievedElementType.top()->baseLLVMType;
+			lastRetrievedElementType.pop();
+		}
 	}
 	else {
 		//targetPtr = (Value*)(leftNode->*(leftNode->codegen))(pass);
@@ -2049,7 +2156,7 @@ void* ASTNode::generateExpressionStatement(int pass)
 			}
 		}
 	}
-	else
+	else if (targetType == nullptr)
 		targetType = type;
 
 	//if (exprVal->getType() != targetType) {
@@ -2058,6 +2165,75 @@ void* ASTNode::generateExpressionStatement(int pass)
 	//	type->print(llvm::outs());
 	//	//printTokenError(token, "Type mismatch in set expression.\nTypes are \"" + exprVal->getType()->getAsString() + "\" and \"" + type->getAsString() + "\"");
 	//}
+
+	// Compound assignment: load current value, apply op, then store result
+	if (token->second == Plus_Equal || token->second == Minus_Equal ||
+		token->second == Times_Equal || token->second == Slash_Equal) {
+		// Use targetType directly; LLVM may fold GEPs, making instruction introspection unreliable.
+		Type* loadType = targetType;
+		Value* currentVal = Builder->CreateLoad(loadType, targetPtr, "cmpd_load");
+
+		bool isFloat = loadType->isFloatingPointTy();
+		bool isInt   = loadType->isIntegerTy();
+
+		if (isFloat || isInt) {
+			// Cast RHS to the variable's type so the result stays the same type
+			if (exprVal->getType() != loadType)
+				exprVal = castValue(exprVal, loadType, true, false, token);
+			if (token->second == Plus_Equal)
+				exprVal = isFloat ? Builder->CreateFAdd(currentVal, exprVal, "cmpd_add")
+								  : Builder->CreateAdd(currentVal, exprVal, "cmpd_add");
+			else if (token->second == Minus_Equal)
+				exprVal = isFloat ? Builder->CreateFSub(currentVal, exprVal, "cmpd_sub")
+								  : Builder->CreateSub(currentVal, exprVal, "cmpd_sub");
+			else if (token->second == Times_Equal)
+				exprVal = isFloat ? Builder->CreateFMul(currentVal, exprVal, "cmpd_mul")
+								  : Builder->CreateMul(currentVal, exprVal, "cmpd_mul");
+			else if (token->second == Slash_Equal)
+				exprVal = isFloat ? Builder->CreateFDiv(currentVal, exprVal, "cmpd_div")
+								  : Builder->CreateSDiv(currentVal, exprVal, "cmpd_div");
+		} else {
+			// Non-scalar: delegate to operator overload (e.g. operator.+ for structs)
+			static const std::unordered_map<TokenType, std::string> compoundOpName = {
+				{Plus_Equal,  "operator." + tokenAsString(Plus)},
+				{Minus_Equal, "operator." + tokenAsString(Minus)},
+				{Times_Equal, "operator." + tokenAsString(Star)},
+				{Slash_Equal, "operator." + tokenAsString(Slash)},
+			};
+			std::string operatorName = compoundOpName.at(token->second);
+			argumentList argList;
+			std::string lTypeStr = getStringTypeFromLLVMType(currentVal->getType());
+			argList.push_back(argType(lTypeStr, getASTNodeTypeFromString(lTypeStr), 0));
+			std::string rTypeStr = getStringTypeFromLLVMType(exprVal->getType());
+			argList.push_back(argType(rTypeStr, getASTNodeTypeFromString(rTypeStr), 0));
+			functionID* calleeID = getFunctionFromID(functionIDs, operatorName, argList, token, true);
+			if (!calleeID || !calleeID->fnValue) {
+				printTokenError(token, "No operator overload '" + operatorName + "' found for compound assignment");
+				wasError = true;
+				return nullptr;
+			}
+			calleeID->uses++;
+			std::vector<Value*> ArgsV = {currentVal, exprVal};
+			if (calleeID->isStructReturn) {
+				auto structIt = structDefinitions.find(calleeID->returnType);
+				if (structIt == structDefinitions.end() || !structIt->second->structVal) {
+					printTokenError(token, "Struct return type not found for compound operator overload");
+					wasError = true;
+					return nullptr;
+				}
+				AllocaInst* sretAlloc = Builder->CreateAlloca(structIt->second->structVal, nullptr, "cmpd_sret");
+				ArgsV.insert(ArgsV.begin(), sretAlloc);
+				Builder->CreateCall(calleeID->fnValue, ArgsV);
+				exprVal = Builder->CreateLoad(structIt->second->structVal, sretAlloc, "cmpd_struct");
+			} else {
+				exprVal = Builder->CreateCall(calleeID->fnValue, ArgsV, "cmpd_struct");
+			}
+		}
+	}
+
+	// If assigning to an existing variable and types differ, cast to the stored type
+	if (targetType && exprVal->getType() != targetType)
+		exprVal = castValue(exprVal, targetType, true, false, token);
 
 	Builder->CreateStore(exprVal, targetPtr);
 
@@ -2154,6 +2330,12 @@ void* ASTNode::generateUnaryExpression(int pass)
 				wasError = true;
 				return nullptr;
 			}
+		}
+
+		case Logical_Not: {
+			Value* boolVal = R->getType()->isIntegerTy(1) ? R
+														  : Builder->CreateICmpNE(R, Constant::getNullValue(R->getType()), "tobool");
+			return Builder->CreateNot(boolVal, "not_tmp");
 		}
 
 		default:
@@ -2310,6 +2492,17 @@ void* ASTNode::generateBinaryExpression(int pass)
 		return nullptr;
 	}
 
+	// Logical AND / OR: truncate both operands to i1 and apply LLVM and/or
+	if (nodeType == Logical_And || nodeType == Logical_Or) {
+		Type* i1 = Type::getInt1Ty(*TheContext);
+		Value* lBool = L->getType()->isIntegerTy(1) ? L : Builder->CreateICmpNE(L, Constant::getNullValue(L->getType()), "tobool_l");
+		Value* rBool = R->getType()->isIntegerTy(1) ? R : Builder->CreateICmpNE(R, Constant::getNullValue(R->getType()), "tobool_r");
+		if (nodeType == Logical_And)
+			return Builder->CreateAnd(lBool, rBool, "and_tmp");
+		else
+			return Builder->CreateOr(lBool, rBool, "or_tmp");
+	}
+
 	// Check for operator overloads first
 	if (nodeType == Redefined_Operator_Expr || checkForOperatorOverload(L, R)) {
 		return generateOperatorOverloadCall(L, R);
@@ -2341,8 +2534,8 @@ void* ASTNode::generateBinaryExpression(int pass)
 			}
 			return generateIntegerBinaryOp(L, R);
 		case ValueCategory::Float:
-			if (!L->getType()->isFloatTy() || !R->getType()->isFloatTy()) {
-				printTokenError(token, "Multiply: operands are not both integers");
+			if (!L->getType()->isFloatingPointTy() || !R->getType()->isFloatingPointTy()) {
+				printTokenError(token, "Float operation: operands are not both floating-point");
 				wasError = true;
 				return nullptr;
 			}
@@ -2455,8 +2648,7 @@ bool ASTNode::checkForOperatorOverload(Value* L, Value* R)
 
 	//printFunctionPrototypes();
 
-	functionID* calleeID = getExactFunctionFromID(functionIDs, operatorName, argList, token, true);
-	//functionID* calleeID = getFunctionFromID(functionIDs, operatorName, argList, token, true);
+	functionID* calleeID = getFunctionFromID(functionIDs, operatorName, argList, token, true);
 	if (calleeID != nullptr && calleeID->fnValue != nullptr)
 		return true;
 	else {
@@ -2506,7 +2698,19 @@ Value* ASTNode::generateOperatorOverloadCall(Value* L, Value* R)
 
 	calleeID->uses++;
 
+	// Implicit numeric coercion: cast each argument to the formal parameter type
 	std::vector<Value*> ArgsV = {L, R};
+	for (int i = 0; i < 2; i++) {
+		int formalIdx = i + (calleeID->isStructReturn ? 1 : 0);
+		if (formalIdx < (int)calleeID->fnValue->getFunctionType()->getNumParams()) {
+			Type* formalType = calleeID->fnValue->getFunctionType()->getParamType(formalIdx);
+			if (formalType && ArgsV[i]->getType() != formalType &&
+				!ArgsV[i]->getType()->isStructTy() && !ArgsV[i]->getType()->isPointerTy() &&
+				!formalType->isStructTy() && !formalType->isPointerTy()) {
+				ArgsV[i] = castValue(ArgsV[i], formalType, true, false, token);
+			}
+		}
+	}
 
 	// If the operator returns a struct, we need to pass an sret pointer as the first arg
 	if (calleeID->isStructReturn) {
@@ -3300,7 +3504,7 @@ void* ASTNode::generateCallExpression(int pass)
 		if (shouldBeMemberFunction)
 			printf("Should be member function\n");
 		if (!wasError)
-			printTokenError(token, "Undefined function");
+			printUndefinedFunctionError(token, token->first, argList, functionIDs);
 		wasError = true;
 		return nullptr;
 	}
@@ -3354,12 +3558,16 @@ void* ASTNode::generateCallExpression(int pass)
 				defNode->parentNode = parentNode;
 				defVal = (Value*)(defNode->*(defNode->codegen))(pass);
 			}
-			if (wasError) return nullptr;
+			if (wasError)
+				return nullptr;
 			cachedArgVals.push_back(defVal);
 			ArgsV.push_back(defVal);
 			std::string typeStr = getStringTypeFromLLVMType(defVal->getType());
 			uint8_t pL = 0;
-			while (!typeStr.empty() && typeStr[0] == '*') { pL++; typeStr = typeStr.substr(1); }
+			while (!typeStr.empty() && typeStr[0] == '*') {
+				pL++;
+				typeStr = typeStr.substr(1);
+			}
 			argList.push_back(argType(typeStr, getASTNodeTypeFromString(typeStr), pL));
 		}
 	}
@@ -3403,9 +3611,17 @@ void* ASTNode::generateCallExpression(int pass)
 		return nullptr;
 	}
 
+	int formalArgCount = (int)CalleeFID->userArguments.size();
 	ArgsV.clear();
-	for (int i = 0; i < args.size(); i++) {									   // Start from caller's args (sret is already handled)
+	for (int i = 0; i < args.size(); i++) {	 // Start from caller's args (sret is already handled)
 		int formalArgIdx = i + (isStructReturn ? 1 : 0);
+		// For variadic extra args (beyond declared params), just pass the value through
+		if (CalleeFID->variableNumArguments && i >= formalArgCount) {
+			ArgsV.push_back(cachedArgVals[i]);
+			if (!ArgsV.back())
+				return nullptr;
+			continue;
+		}
 		bool isRef = CalleeFID->arguments[formalArgIdx].isReference;
 		Value* argVal = nullptr;
 		if (isRef) {
@@ -3446,6 +3662,17 @@ void* ASTNode::generateCallExpression(int pass)
 			strStruct = Builder->CreateInsertValue(strStruct, lenTrunc, {1});
 			argVal = strStruct;
 		}
+		// Implicit numeric coercion: cast arg to formal param type if they differ
+		if (argVal && !isRef) {
+			Type* formalLLVMType = nullptr;
+			if (formalArgIdx < (int)CalleeF->getFunctionType()->getNumParams())
+				formalLLVMType = CalleeF->getFunctionType()->getParamType(formalArgIdx);
+			if (formalLLVMType && argVal->getType() != formalLLVMType &&
+				!argVal->getType()->isStructTy() && !argVal->getType()->isPointerTy() &&
+				!formalLLVMType->isStructTy() && !formalLLVMType->isPointerTy()) {
+				argVal = castValue(argVal, formalLLVMType, true, false, token);
+			}
+		}
 		ArgsV.push_back(argVal);
 		if (!ArgsV.back())
 			return nullptr;
@@ -3453,7 +3680,8 @@ void* ASTNode::generateCallExpression(int pass)
 	// Append evaluated default argument values for omitted trailing params
 	for (int i = (int)args.size(); i < (int)cachedArgVals.size(); i++) {
 		ArgsV.push_back(cachedArgVals[i]);
-		if (!ArgsV.back()) return nullptr;
+		if (!ArgsV.back())
+			return nullptr;
 	}
 
 	// If struct return, re-insert sret as first arg (after rebuilding)
@@ -3682,36 +3910,43 @@ void* ASTNode::generateStruct(int pass)
 		structDefinitions[structName]->memberDefaultNodes = memberDefaultNodes;
 		structDefinitions[structName]->structVal->setBody(fieldTypes, false);
 
-	// Generate default constructor body if still empty (not replaced by user)
-	{
-		functionID* ctorFID = nullptr;
-		for (auto& fid : functionIDs)
-			if (fid->name == structName && fid->userArguments.empty() && fid->isStructReturn) { ctorFID = fid; break; }
-		if (ctorFID && ctorFID->fnValue && ctorFID->fnValue->empty()) {
-			Function* fn = ctorFID->fnValue;
-			BasicBlock* entryBlock = BasicBlock::Create(*TheContext, "entry", fn);
-			Builder->SetInsertPoint(entryBlock);
-			Value* sretPtr = fn->getArg(0);
-			StructType* sTy = (StructType*)structDefinitions[structName]->structVal;
-			Value* szVal = ConstantInt::get(Type::getInt64Ty(*TheContext), TheModule->getDataLayout().getTypeAllocSize(sTy));
-			Function* memsetFn = Intrinsic::getDeclaration(TheModule.get(), Intrinsic::memset, {sretPtr->getType(), Type::getInt64Ty(*TheContext)});
-			Builder->CreateCall(memsetFn, { sretPtr, ConstantInt::get(Type::getInt8Ty(*TheContext), 0), szVal, ConstantInt::get(Type::getInt1Ty(*TheContext), 0) });
-			for (auto& [memberName, defaultNode] : memberDefaultNodes) {
-				auto idxIt = memberNameIndexes.find(memberName);
-				if (idxIt == memberNameIndexes.end()) continue;
-				uint16_t idx = idxIt->second;
-				Value* memberPtr = Builder->CreateStructGEP(sTy, sretPtr, idx, memberName + "_init");
-				Value* defaultVal = (Value*)(defaultNode->*(defaultNode->codegen))(pass);
-				if (wasError) return nullptr;
-				if (!defaultVal) continue;
-				bool isSigned = typeSigns.count(members[idx].typeString) ? typeSigns[members[idx].typeString] : false;
-				defaultVal = castValue(defaultVal, sTy->getElementType(idx), true, isSigned, token);
-				if (wasError) return nullptr;
-				Builder->CreateStore(defaultVal, memberPtr);
+		// Generate default constructor body if still empty (not replaced by user)
+		{
+			functionID* ctorFID = nullptr;
+			for (auto& fid : functionIDs)
+				if (fid->name == structName && fid->userArguments.empty() && fid->isStructReturn) {
+					ctorFID = fid;
+					break;
+				}
+			if (ctorFID && ctorFID->fnValue && ctorFID->fnValue->empty()) {
+				Function* fn = ctorFID->fnValue;
+				BasicBlock* entryBlock = BasicBlock::Create(*TheContext, "entry", fn);
+				Builder->SetInsertPoint(entryBlock);
+				Value* sretPtr = fn->getArg(0);
+				StructType* sTy = (StructType*)structDefinitions[structName]->structVal;
+				Value* szVal = ConstantInt::get(Type::getInt64Ty(*TheContext), TheModule->getDataLayout().getTypeAllocSize(sTy));
+				Function* memsetFn = Intrinsic::getDeclaration(TheModule.get(), Intrinsic::memset, {sretPtr->getType(), Type::getInt64Ty(*TheContext)});
+				Builder->CreateCall(memsetFn, {sretPtr, ConstantInt::get(Type::getInt8Ty(*TheContext), 0), szVal, ConstantInt::get(Type::getInt1Ty(*TheContext), 0)});
+				for (auto& [memberName, defaultNode] : memberDefaultNodes) {
+					auto idxIt = memberNameIndexes.find(memberName);
+					if (idxIt == memberNameIndexes.end())
+						continue;
+					uint16_t idx = idxIt->second;
+					Value* memberPtr = Builder->CreateStructGEP(sTy, sretPtr, idx, memberName + "_init");
+					Value* defaultVal = (Value*)(defaultNode->*(defaultNode->codegen))(pass);
+					if (wasError)
+						return nullptr;
+					if (!defaultVal)
+						continue;
+					bool isSigned = typeSigns.count(members[idx].typeString) ? typeSigns[members[idx].typeString] : false;
+					defaultVal = castValue(defaultVal, sTy->getElementType(idx), true, isSigned, token);
+					if (wasError)
+						return nullptr;
+					Builder->CreateStore(defaultVal, memberPtr);
+				}
+				Builder->CreateRetVoid();
 			}
-			Builder->CreateRetVoid();
 		}
-	}
 		return nullptr;
 	}
 
@@ -3725,19 +3960,19 @@ void* ASTNode::generateStruct(int pass)
 		structDefinitions[structName]->memberNameIndexes = memberNameIndexes;
 		structDefinitions[structName]->memberDefaultNodes = memberDefaultNodes;
 
-	// Auto-generate a default constructor if no constructor for this struct exists yet
-	auto addDefaultCtorProto = [&](StructType* ty) {
-		argumentList emptyUserArgs;
-		if (!getExactFunctionFromID(functionIDs, const_cast<std::string&>(structName), emptyUserArgs, token)) {
-			std::vector<Type*> ctorArgTypes = { ty->getPointerTo() };
-			FunctionType* FT = FunctionType::get(Type::getVoidTy(*TheContext), ctorArgTypes, false);
-			Function* fn = Function::Create(FT, Function::ExternalLinkage, structName, TheModule.get());
-			fn->addFnAttr(llvm::Attribute::AlwaysInline);
-			fn->getArg(0)->setName("sret");
-			argumentList llvmArgs = { argType("*" + structName, Struct_Type, 1, false, true) };
-			functionIDs.push_back(new functionID(structName, token, structName, structName, llvmArgs, emptyUserArgs, fn, false, false, true));
-		}
-	};
+		// Auto-generate a default constructor if no constructor for this struct exists yet
+		auto addDefaultCtorProto = [&](StructType* ty) {
+			argumentList emptyUserArgs;
+			if (!getExactFunctionFromID(functionIDs, const_cast<std::string&>(structName), emptyUserArgs, token)) {
+				std::vector<Type*> ctorArgTypes = {ty->getPointerTo()};
+				FunctionType* FT = FunctionType::get(Type::getVoidTy(*TheContext), ctorArgTypes, false);
+				Function* fn = Function::Create(FT, Function::ExternalLinkage, structName, TheModule.get());
+				fn->addFnAttr(llvm::Attribute::AlwaysInline);
+				fn->getArg(0)->setName("sret");
+				argumentList llvmArgs = {argType("*" + structName, Struct_Type, 1, false, true)};
+				functionIDs.push_back(new functionID(structName, token, structName, structName, llvmArgs, emptyUserArgs, fn, false, false, true));
+			}
+		};
 		addDefaultCtorProto(existingTy);
 		return existingTy;
 	}
@@ -3754,12 +3989,12 @@ void* ASTNode::generateStruct(int pass)
 	auto addDefaultCtorProto = [&](StructType* ty) {
 		argumentList emptyUserArgs;
 		if (!getExactFunctionFromID(functionIDs, const_cast<std::string&>(structName), emptyUserArgs, token)) {
-			std::vector<Type*> ctorArgTypes = { ty->getPointerTo() };
+			std::vector<Type*> ctorArgTypes = {ty->getPointerTo()};
 			FunctionType* FT = FunctionType::get(Type::getVoidTy(*TheContext), ctorArgTypes, false);
 			Function* fn = Function::Create(FT, Function::ExternalLinkage, structName, TheModule.get());
 			fn->addFnAttr(llvm::Attribute::AlwaysInline);
 			fn->getArg(0)->setName("sret");
-			argumentList llvmArgs = { argType("*" + structName, Struct_Type, 1, false, true) };
+			argumentList llvmArgs = {argType("*" + structName, Struct_Type, 1, false, true)};
 			functionIDs.push_back(new functionID(structName, token, structName, structName, llvmArgs, emptyUserArgs, fn, false, false, true));
 		}
 	};
@@ -4553,9 +4788,7 @@ void* ASTNode::generateFunction(int pass)
 		Builder->CreateRetVoid();
 	}
 	else {
-		// Default return value (adapt based on return type, e.g., 0 for i32)
-		Value* defaultRet = ConstantInt::get(theFunction->getReturnType(), 0);
-		Builder->CreateRet(defaultRet);
+		Builder->CreateRet(Constant::getNullValue(theFunction->getReturnType()));
 	}
 
 	// Pop this function's scope now that its body is fully generated.
@@ -4631,7 +4864,8 @@ void* ASTNode::generateLibraryDirective(int pass)
 	std::string libName = raw.substr(1, raw.size() - 2);
 	// Add if not already present
 	for (auto& l : linkedLibraries)
-		if (l == libName) return nullptr;
+		if (l == libName)
+			return nullptr;
 	linkedLibraries.push_back(libName);
 	return nullptr;
 }
@@ -4656,7 +4890,8 @@ void* ASTNode::generateLibraryStaticDirective(int pass)
 	std::string raw = nameNode->token->first;
 	std::string path = raw.substr(1, raw.size() - 2);
 	for (auto& l : linkedStaticLibraries)
-		if (l == path) return nullptr;
+		if (l == path)
+			return nullptr;
 	linkedStaticLibraries.push_back(path);
 	return nullptr;
 }

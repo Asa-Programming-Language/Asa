@@ -1,0 +1,299 @@
+
+// Module: Math
+// Description: |
+//     Many math-related types and functions.
+@public:
+Math :: module {
+
+	#import Builtin.Casts;
+	#library "m";
+
+	///////////////////////
+	// Structs           //
+	///////////////////////
+
+	// Struct: Vector2
+	// Description: 2D vector with float components
+	@public:
+	Vector2 :: struct {
+		x : float;
+		y : float;
+	}
+
+	// Constructor: Vector2(x, y)
+	// Description: Creates a Vector2 with the given components
+	@public:
+	create :: Vector2(x : float, y : float = 0) {
+		v : Vector2 = Vector2();
+		v.x = x;
+		v.y = y;
+		return v;
+	}
+
+	// Struct: Vector2I
+	// Description: 2D vector with int32 components
+	@public:
+	Vector2I :: struct {
+		x : int32;
+		y : int32;
+	}
+
+	// Constructor: Vector2I(x, y)
+	// Description: Creates a Vector2I with the given components
+	@public:
+	create :: Vector2I(x : int32, y : int32 = 0) {
+		v : Vector2I = Vector2I();
+		v.x = x;
+		v.y = y;
+		return v;
+	}
+
+	// Struct: Vector3
+	// Description: 3D vector with float components
+	@public:
+	Vector3 :: struct {
+		x : float;
+		y : float;
+		z : float;
+	}
+
+	// Constructor: Vector3(x, y, z)
+	// Description: Creates a Vector3 with the given components
+	@public:
+	create :: Vector3(x : float, y : float = 0, z : float = 0) {
+		v : Vector3 = Vector3();
+		v.x = x;
+		v.y = y;
+		v.z = z;
+		return v;
+	}
+
+	// Struct: Vector3I
+	// Description: 3D vector with int32 components
+	@public:
+	Vector3I :: struct {
+		x : int32;
+		y : int32;
+		z : int32;
+	}
+
+	// Constructor: Vector3I(x, y, z)
+	// Description: Creates a Vector3I with the given components
+	@public:
+	create :: Vector3I(x : int32, y : int32 = 0, z : int32 = 0) {
+		v : Vector3I = Vector3I();
+		v.x = x;
+		v.y = y;
+		v.z = z;
+		return v;
+	}
+
+	///////////////////////
+	// Constants         //
+	///////////////////////
+
+	@public: PI  : double = 3.14159265358979323846;
+	@public: TAU : double = 6.28318530717958647692;
+	@public: E   : double = 2.71828182845904523536;
+
+	///////////////////////
+	// C Math Externs    //
+	///////////////////////
+
+	// Trigonometry (float)
+	@public: #extern sinf  :: float(x : float);
+	@public: #extern cosf  :: float(x : float);
+	@public: #extern tanf  :: float(x : float);
+	@public: #extern asinf :: float(x : float);
+	@public: #extern acosf :: float(x : float);
+	@public: #extern atanf :: float(x : float);
+	@public: #extern atan2f :: float(y : float, x : float);
+
+	// Trigonometry (double)
+	@public: #extern sin  :: double(x : double);
+	@public: #extern cos  :: double(x : double);
+	@public: #extern tan  :: double(x : double);
+	@public: #extern asin :: double(x : double);
+	@public: #extern acos :: double(x : double);
+	@public: #extern atan :: double(x : double);
+	@public: #extern atan2 :: double(y : double, x : double);
+
+	// Power / Exponential (float)
+	@public: #extern sqrtf  :: float(x : float);
+	@public: #extern powf   :: float(x : float, y : float);
+	@public: #extern expf   :: float(x : float);
+	@public: #extern logf   :: float(x : float);
+	@public: #extern log2f  :: float(x : float);
+	@public: #extern log10f :: float(x : float);
+
+	// Power / Exponential (double)
+	@public: #extern sqrt  :: double(x : double);
+	@public: #extern pow   :: double(x : double, y : double);
+	@public: #extern exp   :: double(x : double);
+	@public: #extern log   :: double(x : double);
+	@public: #extern log2  :: double(x : double);
+	@public: #extern log10 :: double(x : double);
+
+	// Rounding / Absolute value (float)
+	@public: #extern floorf :: float(x : float);
+	@public: #extern ceilf  :: float(x : float);
+	@public: #extern roundf :: float(x : float);
+	@public: #extern fabsf  :: float(x : float);
+	@public: #extern fmodf  :: float(x : float, y : float);
+
+	// Rounding / Absolute value (double)
+	@public: #extern floor :: double(x : double);
+	@public: #extern ceil  :: double(x : double);
+	@public: #extern round :: double(x : double);
+	@public: #extern fabs  :: double(x : double);
+	@public: #extern fmod  :: double(x : double, y : double);
+
+	///////////////////////
+	// Utility Functions //
+	///////////////////////
+
+	// Function: abs(int)
+	// Description: Absolute value of an integer
+	@public:
+	@inline:
+	abs :: int(x : int) {
+		if (x < 0) return -x;
+		return x;
+	}
+
+	// Function: abs(float)
+	// Description: Absolute value of a float
+	@public:
+	@inline:
+	abs :: float(x : float) {
+		return fabsf(x);
+	}
+
+	// Function: abs(double)
+	// Description: Absolute value of a double
+	@public:
+	@inline:
+	abs :: double(x : double) {
+		return fabs(x);
+	}
+
+	// Function: clamp(float, float, float)
+	// Description: Clamps x to the range [lo, hi]
+	@public:
+	@inline:
+	clamp :: float(x : float, lo : float, hi : float) {
+		if (x < lo) return lo;
+		if (x > hi) return hi;
+		return x;
+	}
+
+	// Function: clamp(double, double, double)
+	// Description: Clamps x to the range [lo, hi]
+	@public:
+	@inline:
+	clamp :: double(x : double, lo : double, hi : double) {
+		if (x < lo) return lo;
+		if (x > hi) return hi;
+		return x;
+	}
+
+	// Function: clamp(int, int, int)
+	// Description: Clamps x to the range [lo, hi]
+	@public:
+	@inline:
+	clamp :: int(x : int, lo : int, hi : int) {
+		if (x < lo) return lo;
+		if (x > hi) return hi;
+		return x;
+	}
+
+	// Function: lerp(float, float, float)
+	// Description: Linearly interpolates between a and b by t
+	@public:
+	@inline:
+	lerp :: float(a : float, b : float, t : float) {
+		return a + (b - a) * t;
+	}
+
+	// Function: lerp(double, double, double)
+	// Description: Linearly interpolates between a and b by t
+	@public:
+	@inline:
+	lerp :: double(a : double, b : double, t : double) {
+		return a + (b - a) * t;
+	}
+
+	// Function: lerp(Vector2, Vector2, float)
+	// Description: Linearly interpolates between two Vector2 values
+	@public:
+	@inline:
+	lerp :: Vector2(a : Vector2, b : Vector2, t : float) {
+		return Vector2(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t);
+	}
+
+	// Function: lerp(Vector3, Vector3, float)
+	// Description: Linearly interpolates between two Vector3 values
+	@public:
+	@inline:
+	lerp :: Vector3(a : Vector3, b : Vector3, t : float) {
+		return Vector3(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t);
+	}
+
+	///////////////////////
+	// Vector Operators  //
+	///////////////////////
+
+	@public: @inline: operator+ :: Vector2(a : Vector2, b : Vector2) { return Vector2(a.x + b.x, a.y + b.y); }
+	@public: @inline: operator- :: Vector2(a : Vector2, b : Vector2) { return Vector2(a.x - b.x, a.y - b.y); }
+	@public: @inline: operator* :: Vector2(a : Vector2, s : float) { return Vector2(a.x * s, a.y * s); }
+	@public: @inline: operator* :: Vector2(s : float, a : Vector2) { return Vector2(a.x * s, a.y * s); }
+	@public: @inline: operator* :: Vector2(a : Vector2, s : int) { return Vector2(a.x * s, a.y * s); }
+	@public: @inline: operator* :: Vector2(s : int, a : Vector2) { return Vector2(a.x * s, a.y * s); }
+
+	@public: @inline: operator+ :: Vector2I(a : Vector2I, b : Vector2I) { return Vector2I(a.x + b.x, a.y + b.y); }
+	@public: @inline: operator- :: Vector2I(a : Vector2I, b : Vector2I) { return Vector2I(a.x - b.x, a.y - b.y); }
+	@public: @inline: operator* :: Vector2I(a : Vector2I, s : int) { return Vector2I(a.x * s, a.y * s); }
+	@public: @inline: operator* :: Vector2I(s : int, a : Vector2I) { return Vector2I(a.x * s, a.y * s); }
+	@public: @inline: operator* :: Vector2I(a : Vector2I, s : float) { return Vector2I(a.x * s, a.y * s); }
+	@public: @inline: operator* :: Vector2I(s : float, a : Vector2I) { return Vector2I(a.x * s, a.y * s); }
+
+	@public: @inline: operator+ :: Vector3(a : Vector3, b : Vector3) { return Vector3(a.x + b.x, a.y + b.y, a.z + b.z); }
+	@public: @inline: operator- :: Vector3(a : Vector3, b : Vector3) { return Vector3(a.x - b.x, a.y - b.y, a.z - b.z); }
+	@public: @inline: operator* :: Vector3(a : Vector3, s : float) { return Vector3(a.x * s, a.y * s, a.z * s); }
+	@public: @inline: operator* :: Vector3(s : float, a : Vector3) { return Vector3(a.x * s, a.y * s, a.z * s); }
+	@public: @inline: operator* :: Vector3(a : Vector3, s : int) { return Vector3(a.x * s, a.y * s, a.z * s); }
+	@public: @inline: operator* :: Vector3(s : int, a : Vector3) { return Vector3(a.x * s, a.y * s, a.z * s); }
+
+	@public: @inline: operator+ :: Vector3I(a : Vector3I, b : Vector3I) { return Vector3I(a.x + b.x, a.y + b.y, a.z + b.z); }
+	@public: @inline: operator- :: Vector3I(a : Vector3I, b : Vector3I) { return Vector3I(a.x - b.x, a.y - b.y, a.z - b.z); }
+	@public: @inline: operator* :: Vector3I(a : Vector3I, s : int) { return Vector3I(a.x * s, a.y * s, a.z * s); }
+	@public: @inline: operator* :: Vector3I(s : int, a : Vector3I) { return Vector3I(a.x * s, a.y * s, a.z * s); }
+	@public: @inline: operator* :: Vector3I(a : Vector3I, s : float) { return Vector3I(a.x * s, a.y * s, a.z * s); }
+	@public: @inline: operator* :: Vector3I(s : float, a : Vector3I) { return Vector3I(a.x * s, a.y * s, a.z * s); }
+
+	///////////////////////
+	// Structs           //
+	///////////////////////
+
+	// Struct: Rect
+	// Description: Rect defined by position and size
+	@public:
+	Rect :: struct {
+		x      : float;
+		y      : float;
+		width  : float;
+		height : float;
+	}
+
+	// Constructor: Rect(x, y, width, height)
+	// Description: Creates a Rect with the given position and size
+	@public:
+	create :: Rect(x : float, y : float, width : float, height : float) {
+		r : Rect = Rect();
+		r.x = x;
+		r.y = y;
+		r.width = width;
+		r.height = height;
+		return r;
+	}
+}

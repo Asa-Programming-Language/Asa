@@ -7,7 +7,7 @@
 #include "strops.h"
 #include "tokenizer.h"
 
-#define MAX_AST_DEPTH 20
+#define MAX_AST_DEPTH 100
 
 #define PRINT_SUBTOKENS(subTokens)                  \
 	for (int ST = 0; ST < subTokens.size(); ST++)   \
@@ -118,6 +118,10 @@ enum ASTNodeType {
 	Compare_Greater,
 	Compare_LessEqual,
 	Compare_GreaterEqual,
+
+	Logical_And,
+	Logical_Or,
+	Logical_Not,
 
 	Compiler_Define,
 	Compiler_Define_Function,
@@ -238,6 +242,10 @@ const std::string ASTNodeTypeStrings[] = {
 	"Compare_LessEqual",
 	"Compare_GreaterEqual",
 
+	"Logical_And",
+	"Logical_Or",
+	"Logical_Not",
+
 	"Compiler_Define",
 	"Compiler_Define_Function",
 	"Compiler_Define_Cast",
@@ -295,7 +303,7 @@ struct ASTNode {
 	bool isExtern = false;
 	bool lvalue = false;
 	std::string label = "";
-	std::string externSymbolName = "";  // when non-empty, the actual C symbol to link (overrides fnName for LLVM)
+	std::string externSymbolName = "";	// when non-empty, the actual C symbol to link (overrides fnName for LLVM)
 	bool showInASTOutput = true;
 	bool replaceableDefinition = false;
 	bool isModuleScope = false;		   // true for Compiler_Define nodes representing named modules

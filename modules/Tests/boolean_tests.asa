@@ -1,0 +1,54 @@
+
+// BooleanTests
+// Tests for logical operators: &&, ||, !
+
+@public:
+BooleanTests :: module {
+
+	#import Tests.Testing;
+
+	// runBooleanTests()
+	// Runs all logical operator tests.
+
+	@public:
+	runBooleanTests :: () {
+		beginSection("Boolean Operators");
+
+		// Logical AND
+		test(true && true,          "true && true");
+		test(!(true && false),      "true && false is false");
+		test(!(false && true),      "false && true is false");
+		test(!(false && false),     "false && false is false");
+
+		// Logical OR
+		test(true || false,         "true || false");
+		test(false || true,         "false || true");
+		test(true || true,          "true || true");
+		test(!(false || false),     "false || false is false");
+
+		// Logical NOT
+		test(!false,                "!false is true");
+		test(!(true) == false,      "!true is false");
+		test(!0,                    "!0 is true");
+		test(!(1) == false,         "!1 is false");
+
+		// Combined expressions
+		test(1 == 1 && 2 == 2,      "1==1 && 2==2");
+		test(1 == 2 || 3 == 3,      "1==2 || 3==3");
+		test(!(1 == 2 || 2 == 3),   "!(1==2 || 2==3)");
+
+		// AND with integer operands (non-zero = true)
+		test(1 && 1,                "1 && 1");
+		test(!(0 && 1),             "0 && 1 is false");
+		test(!(1 && 0),             "1 && 0 is false");
+
+		// OR with integer operands
+		test(0 || 1,                "0 || 1");
+		test(1 || 0,                "1 || 0");
+		test(!(0 || 0),             "0 || 0 is false");
+
+		// Operator precedence: && binds tighter than ||
+		test(false && false || true,  "false && false || true  (||  wins)");
+		test(true || false && false,  "true || false && false  (&&  first)");
+	}
+}

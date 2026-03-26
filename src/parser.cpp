@@ -454,6 +454,9 @@ std::map<TokenType, ASTNodeType> operatorDefaultNodeType = {
 	{Arrow_Right, Pipe_Operation},
 	{Percent, Expression_Modulo},
 	{At, Expression_Modulo},
+	{Ampersand_Ampersand, Logical_And},
+	{Bar_Bar, Logical_Or},
+	{Bang, Logical_Not},
 };
 
 std::map<ASTNodeType, int> operatorPrecedence = {
@@ -475,6 +478,8 @@ std::map<ASTNodeType, int> operatorPrecedence = {
 	{Compare_LessEqual, 20},		// <=
 	{Compare_Greater, 20},			// >
 	{Compare_GreaterEqual, 20},		// >=
+	{Logical_And, 18},				// &&
+	{Logical_Or, 16},				// ||
 	{Range_Node, 15},				// ..
 	{Comma_Node, 12},				// ,
 	{Pipe_Operation, 10},			// ->
@@ -870,6 +875,7 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 			case Dot_At:
 			case Bang_Equal:
 			case Equal_Equal:
+			case Bang:
 			case Less:
 			case Less_Equal:
 			case Greater:
@@ -884,8 +890,6 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 			case Left_Bracket:
 			case Arrow_Right:
 			// general:
-			case Minus_Equal:
-			case Plus_Equal:
 			case Minus_Minus:
 			case Plus_Plus:
 			case Bar:
@@ -922,11 +926,13 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 						if (token->lineNumber > pendingCommentLastLine)
 							pendingCommentLastLine = token->lineNumber;
 						goto dontAddNodeForce;
-					} else if (i + 1 < (int)tokens.size() && tokens[i + 1]->second == Semi_Colon) {
+					}
+					else if (i + 1 < (int)tokens.size() && tokens[i + 1]->second == Semi_Colon) {
 						i++;
 						node->nodeType = Standalone_Attribute_Node;
 						goto addNode;
-					} else {
+					}
+					else {
 						printTokenError(nameTok, "Expected ':' or ';' after attribute name");
 						wasError = true;
 						return nullptr;
@@ -999,7 +1005,25 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 
 						if (parenLevel == 0 && braceLevel == 0 && bracketLevel == 0)
 							break;
-						if (parenLevel == 1 && braceLevel == 1 && bracketLevel == 1 && t->second == Equal) {
+						if (parenLevel == 1 && braceLevel == 1 && bracketLevel == 1 &&
+							(t->second == Equal || t->second == Plus_Equal || t->second == Minus_Equal ||
+								t->second == Times_Equal || t->second == Slash_Equal)) {
+							i--;
+							break;
+						}
+						// For unary operators: stop at binary infix operators once we have a primary operand.
+						// This prevents `-5 == -5` from parsing as `-(5 == -5)`.
+						// Stopping only after the first token allows `- -5` and `-*ptr` to work correctly.
+						if (isUnaryR && !subTokens.empty() &&
+							parenLevel == 1 && braceLevel == 1 && bracketLevel == 1 &&
+							(t->second == Plus || t->second == Minus || t->second == Star ||
+								t->second == Slash || t->second == Percent ||
+								t->second == Equal_Equal || t->second == Bang_Equal ||
+								t->second == Less || t->second == Greater ||
+								t->second == Less_Equal || t->second == Greater_Equal ||
+								t->second == Ampersand_Ampersand || t->second == Bar_Bar ||
+								t->second == Ampersand || t->second == Bar || t->second == Caret ||
+								t->second == Comma || t->second == Dot_Dot || t->second == Arrow_Right)) {
 							i--;
 							break;
 						}
@@ -1080,6 +1104,27 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 				}
 				if (isLeaf)
 					goto addNodeAsLeaf;
+				break;
+			}
+
+			case Plus_Equal:
+			case Minus_Equal:
+			case Times_Equal:
+			case Slash_Equal: {
+				node->nodeType = Expression_Statement;
+				node->codegen = &ASTNode::generateExpressionStatement;
+
+				ASTNode* firstTerm = parentNode->leafNodes.back();
+				parentNode->leafNodes.pop_back();
+
+				std::vector<tokenPair*> subTokens;
+				GATHER_TO_SEMICOLON(tokens, subTokens, i, false);
+				ASTNode* secondTerm = generateAST(subTokens, depth + 1);
+				secondTerm->nodeType = Expression_Term;
+				secondTerm->codegen = &ASTNode::generateExpression;
+
+				node->childNodes.push_back(firstTerm);
+				node->childNodes.push_back(secondTerm);
 				break;
 			}
 
@@ -1395,7 +1440,7 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 					// Step through all following tokens until parens are closed
 					int parenLevel = 1;
 					subTokens = std::vector<tokenPair*>();
-					std::vector<ASTNode*> argumentDefaults;  // parallel to arguments, nullptr if no default
+					std::vector<ASTNode*> argumentDefaults;	 // parallel to arguments, nullptr if no default
 					for (;;) {
 						if (i >= tokens.size() - 1)
 							break;
@@ -1417,8 +1462,10 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 								int d = 0;
 								for (int si = 0; si < (int)subTokens.size(); si++) {
 									TokenType tt = subTokens[si]->second;
-									if (tt == Left_Paren || tt == Left_Bracket || tt == Left_Brace) d++;
-									else if (tt == Right_Paren || tt == Right_Bracket || tt == Right_Brace) d--;
+									if (tt == Left_Paren || tt == Left_Bracket || tt == Left_Brace)
+										d++;
+									else if (tt == Right_Paren || tt == Right_Bracket || tt == Right_Brace)
+										d--;
 									else if (tt == Equal && d == 0) {
 										paramTokens = std::vector<tokenPair*>(subTokens.begin(), subTokens.begin() + si);
 										std::vector<tokenPair*> defaultTokens(subTokens.begin() + si + 1, subTokens.end());
@@ -1451,8 +1498,10 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 							int d = 0;
 							for (int si = 0; si < (int)subTokens.size(); si++) {
 								TokenType tt = subTokens[si]->second;
-								if (tt == Left_Paren || tt == Left_Bracket || tt == Left_Brace) d++;
-								else if (tt == Right_Paren || tt == Right_Bracket || tt == Right_Brace) d--;
+								if (tt == Left_Paren || tt == Left_Bracket || tt == Left_Brace)
+									d++;
+								else if (tt == Right_Paren || tt == Right_Bracket || tt == Right_Brace)
+									d--;
 								else if (tt == Equal && d == 0) {
 									paramTokens = std::vector<tokenPair*>(subTokens.begin(), subTokens.begin() + si);
 									std::vector<tokenPair*> defaultTokens(subTokens.begin() + si + 1, subTokens.end());
@@ -1715,13 +1764,18 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 				std::string text;
 				if (raw.size() >= 2 && raw[0] == '/' && raw[1] == '/') {
 					text = raw.substr(2);
-					while (!text.empty() && text.back() == ' ') text.pop_back();
-				} else if (raw.size() >= 2 && raw[0] == '/' && raw[1] == '*') {
+					while (!text.empty() && text.back() == ' ')
+						text.pop_back();
+				}
+				else if (raw.size() >= 2 && raw[0] == '/' && raw[1] == '*') {
 					text = raw.substr(2);
 					size_t endPos = text.rfind("*/");
-					if (endPos != std::string::npos) text = text.substr(0, endPos);
-					while (!text.empty() && text.back() == ' ') text.pop_back();
-				} else {
+					if (endPos != std::string::npos)
+						text = text.substr(0, endPos);
+					while (!text.empty() && text.back() == ' ')
+						text.pop_back();
+				}
+				else {
 					text = raw;
 				}
 				if (!pendingCommentText.empty())
@@ -1955,8 +2009,8 @@ void fixPrecedence(ASTNode*& node)
 			operatorPrecedence.find(rightChild->nodeType) != operatorPrecedence.end()) {
 			int currPrec = operatorPrecedence[node->nodeType];
 			int rightPrec = operatorPrecedence[rightChild->nodeType];
-			// Rotate left for tighter left
-			if (currPrec > rightPrec) {
+			// Rotate left: also handles equal-precedence to enforce left-to-right associativity
+			if (currPrec >= rightPrec) {
 				ASTNode* A = leftChild;
 				ASTNode* B = rightChild->childNodes[0];
 				ASTNode* C = rightChild->childNodes[1];
@@ -2126,13 +2180,13 @@ static void resolveAttributeAccessImpl(ASTNode*& node, const std::map<std::strin
 	if (node->nodeType != Attribute_Access || node->childNodes.size() < 2)
 		return;
 
-	ASTNode* leftNode    = node->childNodes[0];
+	ASTNode* leftNode = node->childNodes[0];
 	ASTNode* attrNameNode = node->childNodes[1];
 
 	if (leftNode->nodeType != Identifier_Node || attrNameNode->nodeType != Identifier_Node)
 		return;
 
-	const std::string& symName  = leftNode->token->first;
+	const std::string& symName = leftNode->token->first;
 	const std::string& attrName = attrNameNode->token->first;
 
 	auto it = declMap.find(symName);
@@ -2201,7 +2255,10 @@ static const std::vector<std::vector<std::string>> incompatibleAttributeSets = {
 };
 
 static const std::unordered_set<ASTNodeType> literalNodeTypes = {
-	Integer_Node, Float_Node, Boolean_Node, String_Constant_Node,
+	Integer_Node,
+	Float_Node,
+	Boolean_Node,
+	String_Constant_Node,
 };
 
 static void checkAttributeCompatibilityImpl(ASTNode* node)
@@ -2792,9 +2849,9 @@ int printAST(ASTNode* startNode, int depth)
 	}
 
 	bool hasContent = startNode->attributes.size() > 0 ||
-		startNode->docComment != nullptr ||
-		startNode->childNodes.size() > 0 ||
-		startNode->leafNodes.size() > 0;
+					  startNode->docComment != nullptr ||
+					  startNode->childNodes.size() > 0 ||
+					  startNode->leafNodes.size() > 0;
 	if (hasContent)
 		printf("\n");
 

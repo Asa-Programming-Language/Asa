@@ -29,6 +29,7 @@ Raylib :: module {
 
 	#import Builtin.Casts;
 	#import Builtin.String;
+	#import Builtin.Math;
 
 	#library "raylib";
 
@@ -36,21 +37,21 @@ Raylib :: module {
 	// Structs           //
 	///////////////////////
 
-	// Struct: Color
+	// Struct: Color32
 	// Description: RGBA color value (4 x uint8)
 	@public:
-	Color :: struct {
+	Color32 :: struct {
 		r : uint8;
 		g : uint8;
 		b : uint8;
 		a : uint8;
 	}
 
-	// Constructor: Color(r, g, b, a)
-	// Description: Creates a Color from individual RGBA components (0-255 each)
+	// Constructor: Color32(r, g, b, a)
+	// Description: Creates a Color32 from individual RGBA components (0-255 each)
 	@public:
-	create :: Color(r : int, g : int, b : int, a : int) {
-		c : Color = Color();
+	create :: Color32(r : int, g : int, b : int, a : int) {
+		c : Color32 = Color32();
 		c.r = char(r);
 		c.g = char(g);
 		c.b = char(b);
@@ -59,92 +60,32 @@ Raylib :: module {
 	}
 
 	// Predefined color constants matching raylib's built-in palette
-	@public: LIGHTGRAY  : Color = Color(200, 200, 200, 255);
-	@public: GRAY       : Color = Color(130, 130, 130, 255);
-	@public: DARKGRAY   : Color = Color(80,  80,  80,  255);
-	@public: YELLOW     : Color = Color(253, 249, 0,   255);
-	@public: GOLD       : Color = Color(255, 203, 0,   255);
-	@public: ORANGE     : Color = Color(255, 161, 0,   255);
-	@public: PINK       : Color = Color(255, 109, 194, 255);
-	@public: RED        : Color = Color(230, 41,  55,  255);
-	@public: MAROON     : Color = Color(190, 33,  55,  255);
-	@public: GREEN      : Color = Color(0,   228, 48,  255);
-	@public: LIME       : Color = Color(0,   158, 47,  255);
-	@public: DARKGREEN  : Color = Color(0,   117, 44,  255);
-	@public: SKYBLUE    : Color = Color(102, 191, 255, 255);
-	@public: BLUE       : Color = Color(0,   121, 241, 255);
-	@public: DARKBLUE   : Color = Color(0,   82,  172, 255);
-	@public: PURPLE     : Color = Color(200, 122, 255, 255);
-	@public: VIOLET     : Color = Color(135, 60,  190, 255);
-	@public: DARKPURPLE : Color = Color(112, 31,  126, 255);
-	@public: BEIGE      : Color = Color(211, 176, 131, 255);
-	@public: BROWN      : Color = Color(127, 106, 79,  255);
-	@public: DARKBROWN  : Color = Color(76,  63,  47,  255);
-	@public: WHITE      : Color = Color(255, 255, 255, 255);
-	@public: BLACK      : Color = Color(0,   0,   0,   255);
-	@public: BLANK      : Color = Color(0,   0,   0,   0);
-	@public: MAGENTA    : Color = Color(255, 0,   255, 255);
-	@public: RAYWHITE   : Color = Color(245, 245, 245, 255);
+	@public: LIGHTGRAY  : Color32 = Color32(200, 200, 200, 255);
+	@public: GRAY       : Color32 = Color32(130, 130, 130, 255);
+	@public: DARKGRAY   : Color32 = Color32(80,  80,  80,  255);
+	@public: YELLOW     : Color32 = Color32(253, 249, 0,   255);
+	@public: GOLD       : Color32 = Color32(255, 203, 0,   255);
+	@public: ORANGE     : Color32 = Color32(255, 161, 0,   255);
+	@public: PINK       : Color32 = Color32(255, 109, 194, 255);
+	@public: RED        : Color32 = Color32(230, 41,  55,  255);
+	@public: MAROON     : Color32 = Color32(190, 33,  55,  255);
+	@public: GREEN      : Color32 = Color32(0,   228, 48,  255);
+	@public: LIME       : Color32 = Color32(0,   158, 47,  255);
+	@public: DARKGREEN  : Color32 = Color32(0,   117, 44,  255);
+	@public: SKYBLUE    : Color32 = Color32(102, 191, 255, 255);
+	@public: BLUE       : Color32 = Color32(0,   121, 241, 255);
+	@public: DARKBLUE   : Color32 = Color32(0,   82,  172, 255);
+	@public: PURPLE     : Color32 = Color32(200, 122, 255, 255);
+	@public: VIOLET     : Color32 = Color32(135, 60,  190, 255);
+	@public: DARKPURPLE : Color32 = Color32(112, 31,  126, 255);
+	@public: BEIGE      : Color32 = Color32(211, 176, 131, 255);
+	@public: BROWN      : Color32 = Color32(127, 106, 79,  255);
+	@public: DARKBROWN  : Color32 = Color32(76,  63,  47,  255);
+	@public: WHITE      : Color32 = Color32(255, 255, 255, 255);
+	@public: BLACK      : Color32 = Color32(0,   0,   0,   255);
+	@public: BLANK      : Color32 = Color32(0,   0,   0,   0);
+	@public: MAGENTA    : Color32 = Color32(255, 0,   255, 255);
 
-	// Struct: Vector2
-	// Description: 2D vector with float components
-	@public:
-	Vector2 :: struct {
-		x : float;
-		y : float;
-	}
-
-	// Constructor: Vector2(x, y)
-	// Description: Creates a Vector2 with the given components
-	@public:
-	create :: Vector2(x : float, y : float) {
-		v : Vector2 = Vector2();
-		v.x = x;
-		v.y = y;
-		return v;
-	}
-
-	// Struct: Vector3
-	// Description: 3D vector with float components
-	@public:
-	Vector3 :: struct {
-		x : float;
-		y : float;
-		z : float;
-	}
-
-	// Constructor: Vector3(x, y, z)
-	// Description: Creates a Vector3 with the given components
-	@public:
-	create :: Vector3(x : float, y : float, z : float) {
-		v : Vector3 = Vector3();
-		v.x = x;
-		v.y = y;
-		v.z = z;
-		return v;
-	}
-
-	// Struct: Rectangle
-	// Description: Rectangle defined by position and size
-	@public:
-	Rectangle :: struct {
-		x      : float;
-		y      : float;
-		width  : float;
-		height : float;
-	}
-
-	// Constructor: Rectangle(x, y, width, height)
-	// Description: Creates a Rectangle with the given position and size
-	@public:
-	create :: Rectangle(x : float, y : float, width : float, height : float) {
-		r : Rectangle = Rectangle();
-		r.x = x;
-		r.y = y;
-		r.width = width;
-		r.height = height;
-		return r;
-	}
 
 	///////////////////////
 	// Window            //
@@ -252,7 +193,7 @@ Raylib :: module {
 	// Function: ClearBackground(color)
 	// Description: Sets the background colour for this frame
 	@public:
-	#extern ClearBackground :: (color : Color);
+	#extern ClearBackground :: (color : Color32);
 
 	///////////////////////
 	// Shapes            //
@@ -261,37 +202,37 @@ Raylib :: module {
 	// Function: DrawPixel(posX, posY, color)
 	// Description: Draws a single pixel
 	@public:
-	#extern DrawPixel :: (posX : int, posY : int, color : Color);
+	#extern DrawPixel :: (posX : int, posY : int, color : Color32);
 
 	// Function: DrawLine(startPosX, startPosY, endPosX, endPosY, color)
 	// Description: Draws a line between two points
 	@public:
-	#extern DrawLine :: (startPosX : int, startPosY : int, endPosX : int, endPosY : int, color : Color);
+	#extern DrawLine :: (startPosX : int, startPosY : int, endPosX : int, endPosY : int, color : Color32);
 
 	// Function: DrawRectangle(posX, posY, width, height, color)
 	// Description: Draws a filled rectangle
 	@public:
-	#extern DrawRectangle :: (posX : int, posY : int, width : int, height : int, color : Color);
+	#extern DrawRectangle :: (posX : int, posY : int, width : int, height : int, color : Color32);
 
-	// Function: DrawRectangleRec(rec, color)
-	// Description: Draws a filled rectangle using a Rectangle struct
+	// Function: DrawRectangleRect(rect, color)
+	// Description: Draws a filled rectangle using a Rect struct
 	@public:
-	#extern DrawRectangleRec :: (rec : Rectangle, color : Color);
+	#extern DrawRectangleRec as DrawRectangleRect :: (rect : Rect, color : Color32);
 
-	// Function: DrawRectangleLines(posX, posY, width, height, color)
+	// Function: DrawRectangleOutline(posX, posY, width, height, color)
 	// Description: Draws the outline of a rectangle
 	@public:
-	#extern DrawRectangleLines :: (posX : int, posY : int, width : int, height : int, color : Color);
+	#extern DrawRectangleLines as DrawRectangleOutline :: (posX : int, posY : int, width : int, height : int, color : Color32);
 
 	// Function: DrawCircle(centerX, centerY, radius, color)
 	// Description: Draws a filled circle
 	@public:
-	#extern DrawCircle :: (centerX : int, centerY : int, radius : float, color : Color);
+	#extern DrawCircle :: (centerX : int, centerY : int, radius : float, color : Color32);
 
-	// Function: DrawCircleLines(centerX, centerY, radius, color)
+	// Function: DrawCircleOutline(centerX, centerY, radius, color)
 	// Description: Draws the outline of a circle
 	@public:
-	#extern DrawCircleLines :: (centerX : int, centerY : int, radius : float, color : Color);
+	#extern DrawCircleLines as DrawCircleOutline :: (centerX : int, centerY : int, radius : float, color : Color32);
 
 	///////////////////////
 	// Text              //
@@ -305,7 +246,7 @@ Raylib :: module {
 	// Function: DrawText(text, posX, posY, fontSize, color)
 	// Description: Draws text using the default font
 	@public:
-	#extern DrawText :: (text : *char, posX : int, posY : int, fontSize : int, color : Color);
+	#extern DrawText :: (text : *char, posX : int, posY : int, fontSize : int, color : Color32);
 
 	// Function: MeasureText(text, fontSize)
 	// Description: Returns the width in pixels of the given text at the given font size
