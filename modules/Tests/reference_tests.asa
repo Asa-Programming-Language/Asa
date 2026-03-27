@@ -1,92 +1,133 @@
 
 // ReferenceTests
-// Tests for pass-by-reference parameter behavior.
+// Tests for pass-by-reference parameter behavior across many types and operators.
 
 @public:
 ReferenceTests :: module {
 
 	#import Tests.Testing;
+	#import Builtin.Memory;
+	#import Builtin.Casts;
 
-	@public:
-	setToZero :: (x : ref int) {
-		x = 0;
+	// ---- ref int helpers ----
+	@public: setToZero  :: (x : ref int)                    { x = 0; }
+	@public: setToValue :: (x : ref int, val : int)         { x = val; }
+	@public: doubleIt   :: (x : ref int)                    { x = x * 2; }
+	@public: addTo      :: (x : ref int, n : int)           { x = x + n; }
+	@public: isPositive :: bool(x : ref int)                { return x > 0; }
+	@public: copyInto   :: (src : ref int, dst : ref int)   { dst = src; }
+	@public: sumRef     :: int(a : ref int, b : ref int)    { return a + b; }
+	@public: mulRef     :: (x : ref int, y : ref int)       { x = x * y; }
+	@public: clampRef   :: (x : ref int, lo : int, hi : int) {
+		if (x < lo) { x = lo; }
+		if (x > hi) { x = hi; }
 	}
 
-	@public:
-	setToValue :: (x : ref int, val : int) {
-		x = val;
-	}
+	// ---- ref *int (pointer reassignment) ----
+	@public: redirectPtr :: (p : ref *int, q : *int)        { p = q; }
 
-	@public:
-	doubleIt :: (x : ref int) {
-		x = x * 2;
-	}
-
-	@public:
-	addTo :: (x : ref int, n : int) {
-		x = x + n;
-	}
-
-	@public:
-	isPositive :: bool(x : ref int) {
-		return x > 0;
-	}
-
-	@public:
-	copyInto :: (src : ref int, dst : ref int) {
-		dst = src;
-	}
-
-	// runReferenceTests()
-	// Runs all reference parameter tests.
+	// ---- ref *char (pointer reassignment) ----
+	@public: redirectCharPtr :: (p : ref *char, q : *char)  { p = q; }
 
 	@public:
 	runReferenceTests :: () {
 		beginSection("References");
 
-		// Simple assignment through ref
+		///////////////////////
+		// ref int — basic   //
+		///////////////////////
+
 		a : int = 42;
 		setToZero(a);
-		test(a == 0, "ref: should be set to 0");
+		test(a == 0,                          "ref int: set to 0");
 
-		// Assignment with value argument
 		b : int = 1;
 		setToValue(b, 99);
-		test(b == 99, "ref: should be set to 99");
+		test(b == 99,                         "ref int: set to 99");
 
-		// Arithmetic through ref
 		c : int = 5;
 		doubleIt(c);
-		test(c == 10, "ref: should be doubled from 5 to 10");
+		test(c == 10,                         "ref int: doubled 5 to 10");
 
 		c = 3;
 		addTo(c, 7);
-		test(c == 10, "ref: 3 + 7 should be 10");
+		test(c == 10,                         "ref int: 3 + 7 = 10");
 
-		// Chained ref calls
 		d : int = 2;
 		doubleIt(d);
 		doubleIt(d);
-		test(d == 8, "ref: doubling twice should give 8");
+		test(d == 8,                          "ref int: double twice 2 to 8");
 
-		// Reading from ref without modifying
 		e : int = 7;
-		test(isPositive(e), "ref: 7 should be positive");
+		test(isPositive(e),                   "ref int: 7 is positive");
 		setToZero(e);
-		test(isPositive(e) == false, "ref: 0 should not be positive");
+		test(isPositive(e) == false,          "ref int: 0 is not positive");
 
-		// Copying between two refs
 		src : int = 55;
 		dst : int = 0;
 		copyInto(src, dst);
-		test(dst == 55, "ref: dst should be 55 after copy");
-		test(src == 55, "ref: src should be unchanged after copy");
+		test(dst == 55,                       "ref int: copy src to dst");
+		test(src == 55,                       "ref int: src unchanged after copy");
 
-		// Independent refs are not aliased
-		x : int = 5;
-		y : int = 5;
-		setToZero(x);
-		test(x == 0, "ref: x should be zeroed");
-		test(y == 5, "ref: y should be unaffected");
+		xi : int = 5;
+		yi : int = 5;
+		setToZero(xi);
+		test(xi == 0,                         "ref int: xi zeroed");
+		test(yi == 5,                         "ref int: yi unaffected");
+
+		///////////////////////
+		// ref int — ops     //
+		///////////////////////
+
+		p : int = 4;
+		q : int = 6;
+		test(sumRef(p, q) == 10,              "ref int: sum of two refs is 10");
+		test(p == 4,                          "ref int: sumRef does not modify p");
+		test(q == 6,                          "ref int: sumRef does not modify q");
+
+		mulRef(p, q);
+		test(p == 24,                         "ref int: mulRef sets p = p*q = 24");
+		test(q == 6,                          "ref int: mulRef does not modify q");
+
+		v : int = 15;
+		clampRef(v, 0, 10);
+		test(v == 10,                         "ref int: clamp 15 to [0,10] gives 10");
+		v = -5;
+		clampRef(v, 0, 10);
+		test(v == 0,                          "ref int: clamp -5 to [0,10] gives 0");
+		v = 7;
+		clampRef(v, 0, 10);
+		test(v == 7,                          "ref int: clamp 7 in [0,10] unchanged");
+
+		///////////////////////
+		// ref *int (no [])  //
+		///////////////////////
+
+		arr1 : *int = malloc(16);
+		arr1[0] = 10;
+		arr1[1] = 20;
+		arr2 : *int = malloc(16);
+		arr2[0] = 30;
+		arr2[1] = 40;
+
+		ptr : *int = arr1;
+		test(ptr[0] == 10,                    "ref *int: ptr starts pointing at arr1");
+		redirectPtr(ptr, arr2);
+		test(ptr[0] == 30,                    "ref *int: after redirectPtr, ptr reads arr2[0]");
+		test(ptr[1] == 40,                    "ref *int: after redirectPtr, ptr reads arr2[1]");
+
+		///////////////////////
+		// ref *char (no []) //
+		///////////////////////
+
+		ca : *char = malloc(4);
+		ca[0] = 'x';
+		cb : *char = malloc(4);
+		cb[0] = 'y';
+
+		cp : *char = ca;
+		test(cp[0] == 'x',                    "ref *char: cp starts pointing at ca");
+		redirectCharPtr(cp, cb);
+		test(cp[0] == 'y',                    "ref *char: after redirectCharPtr, reads 'y'");
 	}
 }

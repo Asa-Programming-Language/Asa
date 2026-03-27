@@ -1,0 +1,234 @@
+
+// AccessTests
+// Tests for the [] access operator on *char buffers, *int buffers, and strings.
+
+@public:
+AccessTests :: module {
+
+	#import Tests.Testing;
+	#import Builtin.Memory;
+	#import Builtin.Casts;
+	#import Builtin.String;
+
+	@public:
+	runAccessTests :: () {
+		beginSection("Access Operator");
+
+		///////////////////////
+		// *char buffer       //
+		///////////////////////
+
+		buf : *char = malloc(8);
+		buf[0] = 'A';
+		buf[1] = 'B';
+		buf[2] = 'C';
+		test(buf[0] == 'A',                   "*char: write and read index 0");
+		test(buf[1] == 'B',                   "*char: write and read index 1");
+		test(buf[2] == 'C',                   "*char: write and read index 2");
+
+		buf[1] = 'Z';
+		test(buf[1] == 'Z',                   "*char: overwrite index 1");
+		test(buf[0] == 'A',                   "*char: index 0 unchanged after overwrite");
+		test(buf[2] == 'C',                   "*char: index 2 unchanged after overwrite");
+
+		///////////////////////
+		// *int buffer        //
+		///////////////////////
+
+		ibuf : *int = malloc(40);
+		ibuf[0] = 100;
+		ibuf[1] = 200;
+		ibuf[2] = 300;
+		ibuf[3] = -50;
+		test(ibuf[0] == 100,                  "*int: write and read index 0");
+		test(ibuf[1] == 200,                  "*int: write and read index 1");
+		test(ibuf[2] == 300,                  "*int: write and read index 2");
+		test(ibuf[3] == -50,                  "*int: write and read negative value");
+
+		ibuf[2] = 999;
+		test(ibuf[2] == 999,                  "*int: overwrite index 2");
+		test(ibuf[1] == 200,                  "*int: index 1 unchanged after overwrite");
+
+		///////////////////////
+		// Sequential fill    //
+		///////////////////////
+
+		sbuf : *int = malloc(40);
+		for (i : 0..10) {
+			sbuf[i] = i * 2;
+		}
+		test(sbuf[0] == 0,                    "sequential fill: index 0 is 0");
+		test(sbuf[5] == 10,                   "sequential fill: index 5 is 10");
+		test(sbuf[9] == 18,                   "sequential fill: index 9 is 18");
+
+		sum : int = 0;
+		for (i : 0..10) {
+			sum += sbuf[i];
+		}
+		test(sum == 90,                       "sequential fill: sum of 0,2,...,18 is 90");
+
+		///////////////////////
+		// Squares via []     //
+		///////////////////////
+
+		sqbuf : *int = malloc(20);
+		for (i : 0..5) {
+			sqbuf[i] = i * i;
+		}
+		test(sqbuf[0] == 0,                   "squares: index 0 is 0");
+		test(sqbuf[1] == 1,                   "squares: index 1 is 1");
+		test(sqbuf[2] == 4,                   "squares: index 2 is 4");
+		test(sqbuf[3] == 9,                   "squares: index 3 is 9");
+		test(sqbuf[4] == 16,                  "squares: index 4 is 16");
+
+		///////////////////////
+		// String char access //
+		///////////////////////
+
+		s : string = "hello";
+		test(s[0] == 'h',                     "string: index 0 is 'h'");
+		test(s[1] == 'e',                     "string: index 1 is 'e'");
+		test(s[2] == 'l',                     "string: index 2 is 'l'");
+		test(s[3] == 'l',                     "string: index 3 is 'l'");
+		test(s[4] == 'o',                     "string: index 4 is 'o'");
+
+		t : string = "world";
+		test(t[0] == 'w',                     "string: 'world' index 0 is 'w'");
+		test(t[4] == 'd',                     "string: 'world' index 4 is 'd'");
+
+		// Count matching characters via string indexing
+		vowels : int = 0;
+		str : string = "language";
+		for (i : 0..int(str.length)) {
+			c : char = str[i];
+			if (c == 'a' || c == 'e' || c == 'i' || c == 'o' || c == 'u') {
+				vowels += 1;
+			}
+		}
+		test(vowels == 4,                     "string: count vowels in 'language' is 4");
+
+		///////////////////////
+		// *char null byte    //
+		///////////////////////
+
+		nbuf : *char = malloc(4);
+		nbuf[0] = char(72);
+		nbuf[1] = char(105);
+		nbuf[2] = char(0);
+		test(nbuf[0] == char(72),             "*char: value 72 roundtrips via char()");
+		test(nbuf[2] == char(0),              "*char: null byte written and read back");
+
+		///////////////////////
+		// ref *char buffer   //
+		///////////////////////
+
+		cbuf : *char = malloc(8);
+		cbuf[0] = 'H';
+		cbuf[1] = 'e';
+		cbuf[2] = 'l';
+		cbuf[3] = 'l';
+		cbuf[4] = 'o';
+		test(refCharRead(cbuf, 0) == 'H',         "ref *char: read index 0");
+		test(refCharRead(cbuf, 4) == 'o',         "ref *char: read index 4");
+		test(refCharRead(cbuf, 0) == cbuf[0],     "ref *char: matches direct access at 0");
+		test(refCharRead(cbuf, 2) == cbuf[2],     "ref *char: matches direct access at 2");
+		refCharWrite(cbuf, 1, 'a');
+		test(cbuf[1] == 'a',                      "ref *char: write via ref changes value");
+		test(refCharRead(cbuf, 0) == 'H',         "ref *char: other indices unchanged after write");
+		test(refCharCount(cbuf, 5, 'l') == 2,     "ref *char: count finds both 'l's");
+
+		///////////////////////
+		// ref *int buffer    //
+		///////////////////////
+
+		rbuf : *int = malloc(40);
+		for (i : 0..5) {
+			rbuf[i] = (i + 1) * 10;
+		}
+		test(refIntRead(rbuf, 0) == 10,           "ref *int: read index 0 is 10");
+		test(refIntRead(rbuf, 2) == 30,           "ref *int: read index 2 is 30");
+		test(refIntRead(rbuf, 4) == 50,           "ref *int: read index 4 is 50");
+		test(refIntRead(rbuf, 0) == rbuf[0],      "ref *int: matches direct access at 0");
+		test(refIntRead(rbuf, 3) == rbuf[3],      "ref *int: matches direct access at 3");
+		refIntWrite(rbuf, 2, 300);
+		test(rbuf[2] == 300,                      "ref *int: write via ref changes value");
+		test(refIntRead(rbuf, 2) == 300,          "ref *int: read back written value");
+		test(refIntRead(rbuf, 1) == 20,           "ref *int: other indices unchanged after write");
+		rbuf[2] = 30;
+		test(refIntSum(rbuf, 5) == 150,           "ref *int: sum 10+20+30+40+50 is 150");
+
+		// Compare ref and direct access across a fill
+		for (i : 0..5) { rbuf[i] = i * i; }
+		allMatch : bool = true;
+		for (i : 0..5) {
+			if (refIntRead(rbuf, i) != rbuf[i]) { allMatch = false; }
+		}
+		test(allMatch,                            "ref *int: ref read matches direct read for all indices");
+
+		///////////////////////
+		// ref string access  //
+		///////////////////////
+
+		hello : string = "hello";
+		test(indexRef(hello, 0) == 'h',           "ref string: index 0 via ref param");
+		test(indexRef(hello, 4) == 'o',           "ref string: index 4 via ref param");
+
+		world : string = "world";
+		test(firstChar(world) == 'w',             "ref string: first char via ref param");
+		test(lastChar(world) == 'd',              "ref string: last char via ref param");
+
+		// ref string used in a scan
+		test(countChar(hello, 'l') == 2,          "ref string: count 'l' in hello is 2");
+		test(countChar(world, 'o') == 1,          "ref string: count 'o' in world is 1");
+	}
+
+	refCharRead :: char(buf : ref *char, i : int) {
+		return buf[i];
+	}
+
+	refCharWrite :: (buf : ref *char, i : int, val : char) {
+		buf[i] = val;
+	}
+
+	refCharCount :: int(buf : ref *char, n : int, target : char) {
+		count : int = 0;
+		for (i : 0..n) {
+			if (buf[i] == target) { count += 1; }
+		}
+		return count;
+	}
+
+	refIntRead :: int(buf : ref *int, i : int) {
+		return buf[i];
+	}
+
+	refIntWrite :: (buf : ref *int, i : int, val : int) {
+		buf[i] = val;
+	}
+
+	refIntSum :: int(buf : ref *int, n : int) {
+		sum : int = 0;
+		for (i : 0..n) { sum += buf[i]; }
+		return sum;
+	}
+
+	indexRef :: char(s : ref string, i : int) {
+		return s[i];
+	}
+
+	firstChar :: char(s : ref string) {
+		return s[0];
+	}
+
+	lastChar :: char(s : ref string) {
+		return s[int(s.length) - 1];
+	}
+
+	countChar :: int(s : ref string, c : char) {
+		count : int = 0;
+		for (i : 0..int(s.length)) {
+			if (s[i] == c) { count += 1; }
+		}
+		return count;
+	}
+}

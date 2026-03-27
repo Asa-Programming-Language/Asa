@@ -15,6 +15,9 @@
 #import Tests.VariadicTests;
 #import Tests.BooleanTests;
 #import Tests.MathTests;
+#import Tests.SyntaxTests;
+#import Tests.AccessTests;
+#import Tests.BitcastTests;
 
 @public:
 main :: () {
@@ -33,6 +36,9 @@ main :: () {
 	runVariadicTests();
 	runBooleanTests();
 	runMathTests();
+	runSyntaxTests();
+	runAccessTests();
+	runBitcastTests();
 	printSummary();
 	return;
 }

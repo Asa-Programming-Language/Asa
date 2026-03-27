@@ -5,6 +5,7 @@
 #include "llvm.h"
 #include "parser.h"
 #include "pch.h"
+#include "settings.h"
 
 
 using namespace llvm;

@@ -2,6 +2,70 @@
 
 extern bool suppressCodegenErrors;
 
+// Returns true if an expression is allowed to continue past a newline, based
+// on the last collected token (trailing operator) or the next token (leading
+// operator on the next line).
+static bool isLineContinuation(TokenType lastTok, TokenType nextTok)
+{
+	switch (lastTok) {
+		case Plus:
+		case Minus:
+		case Star:
+		case Slash:
+		case Percent:
+		case Equal:
+		case Plus_Equal:
+		case Minus_Equal:
+		case Times_Equal:
+		case Slash_Equal:
+		case Less:
+		case Greater:
+		case Less_Equal:
+		case Greater_Equal:
+		case Equal_Equal:
+		case Bang_Equal:
+		case Ampersand_Ampersand:
+		case Bar_Bar:
+		case Ampersand:
+		case Bar:
+		case Caret:
+		case Comma:
+		case Colon:
+		case Colon_Colon:
+		case Left_Paren:
+		case Left_Bracket:
+		case Dot:
+		case Dot_Dot:
+			return true;
+		default:
+			break;
+	}
+	switch (nextTok) {
+		case Plus:
+		case Minus:
+		case Star:
+		case Slash:
+		case Percent:
+		case Less:
+		case Greater:
+		case Less_Equal:
+		case Greater_Equal:
+		case Equal_Equal:
+		case Bang_Equal:
+		case Ampersand_Ampersand:
+		case Bar_Bar:
+		case Ampersand:
+		case Bar:
+		case Caret:
+		case Dot:
+		case Dot_Dot:
+			return true;
+		default:
+			break;
+	}
+	return false;
+}
+
 void* (ASTNode::*codegen)() = nullptr;
 
 tokenPair* getNextNonNothingToken(const std::vector<tokenPair*>& tokens, int& i)
@@ -161,7 +225,7 @@ bool GATHER_TO_SEMICOLON(const std::vector<tokenPair*>& tokens, std::vector<toke
 	}
 	i--;
 	for (;;) {
-		if (i >= tokens.size() - 1 || tokens[i]->second == EndOfLine) {
+		if (i >= tokens.size() - 1) {
 			if (!allowRunOut) {
 				printTokenError(firstToken, "Missing semicolon");
 				exit(1);
@@ -172,6 +236,18 @@ bool GATHER_TO_SEMICOLON(const std::vector<tokenPair*>& tokens, std::vector<toke
 
 		if (t->second == Nothing)
 			continue;
+
+		if (t->second == EndOfLine) {
+			TokenType lastTok = subTokens.empty() ? Nothing : subTokens.back()->second;
+			TokenType nextTok = (i + 1 < (int)tokens.size()) ? tokens[i + 1]->second : Nothing;
+			if (subTokens.empty() || isLineContinuation(lastTok, nextTok))
+				continue;
+			if (!allowRunOut) {
+				printTokenError(firstToken, "Missing semicolon");
+				exit(1);
+			}
+			return true;
+		}
 
 		if (t->second == Semi_Colon) {
 			if (includeLast)
@@ -233,7 +309,7 @@ bool GATHER_TO_SEMICOLON_OR_OTHER(const std::vector<tokenPair*>& tokens, std::ve
 	}
 	i--;
 	for (;;) {
-		if (i >= tokens.size() - 1 || tokens[i]->second == EndOfLine) {
+		if (i >= tokens.size() - 1) {
 			if (!allowRunOut) {
 				printTokenError(firstToken, "Missing semicolon");
 				exit(1);
@@ -244,6 +320,18 @@ bool GATHER_TO_SEMICOLON_OR_OTHER(const std::vector<tokenPair*>& tokens, std::ve
 
 		if (t->second == Nothing)
 			continue;
+
+		if (t->second == EndOfLine) {
+			TokenType lastTok = subTokens.empty() ? Nothing : subTokens.back()->second;
+			TokenType nextTok = (i + 1 < (int)tokens.size()) ? tokens[i + 1]->second : Nothing;
+			if (subTokens.empty() || isLineContinuation(lastTok, nextTok))
+				continue;
+			if (!allowRunOut) {
+				printTokenError(firstToken, "Missing semicolon");
+				exit(1);
+			}
+			break;
+		}
 
 		if (t->second == Semi_Colon || t->second == other) {
 			if (includeLast)
@@ -1194,6 +1282,10 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 					node->token->first = "#" + identifier->token->first;
 					node->childNodes.push_back(identifier);
 					node->childNodes.push_back(argNode);
+					if (identifier->token->first == "cast")
+						node->codegen = &ASTNode::generateCast;
+					else if (identifier->token->first == "bitcast")
+						node->codegen = &ASTNode::generateBitcast;
 					goto addNodeAsLeaf;
 				}
 
@@ -1240,6 +1332,9 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 
 				if (identifier->token->first == "cast") {
 					node->codegen = &ASTNode::generateCast;
+				}
+				if (identifier->token->first == "bitcast") {
+					node->codegen = &ASTNode::generateBitcast;
 				}
 				if (identifier->token->first == "extern") {
 					setChildrenAsExtern(bodyNode);

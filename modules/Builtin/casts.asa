@@ -11,35 +11,35 @@ Casts :: module {
 	@public:
 	@inline:
 	cast:: float(x : int) {
-		return #cast x : float;
+		return #cast(x, float);
 	}
 	// Function: float(char)
 	// Description: Converts a char to float
 	@public:
 	@inline:
 	cast:: float(x : char) {
-		return #cast x : float;
+		return #cast(x, float);
 	}
 	// Function: float(float)
 	// Description: Identity cast for float
 	@public:
 	@inline:
 	cast:: float(x : float) {
-		return #cast x : float;
+		return #cast(x, float);
 	}
 	// Function: float(double)
 	// Description: Converts a double to float
 	@public:
 	@inline:
 	cast:: float(x : double) {
-		return #cast x : float;
+		return #cast(x, float);
 	}
 	// Function: float(bool)
 	// Description: Converts a bool to float
 	@public:
 	@inline:
 	cast:: float(x : bool) {
-		return #cast x : float;
+		return #cast(x, float);
 	}
 
 	// Group: Double Casts
@@ -50,35 +50,35 @@ Casts :: module {
 	@public:
 	@inline:
 	cast:: double(x : int) {
-		return #cast x : double;
+		return #cast(x, double);
 	}
 	// Function: double(char)
 	// Description: Converts a char to double
 	@public:
 	@inline:
 	cast:: double(x : char) {
-		return #cast x : double;
+		return #cast(x, double);
 	}
 	// Function: double(float)
 	// Description: Converts a float to double
 	@public:
 	@inline:
 	cast:: double(x : float) {
-		return #cast x : double;
+		return #cast(x, double);
 	}
 	// Function: double(double)
 	// Description: Identity cast for double
 	@public:
 	@inline:
 	cast:: double(x : double) {
-		return #cast x : double;
+		return #cast(x, double);
 	}
 	// Function: double(bool)
 	// Description: Converts a bool to double
 	@public:
 	@inline:
 	cast:: double(x : bool) {
-		return #cast x : double;
+		return #cast(x, double);
 	}
 
 	// Group: Int Casts
@@ -89,35 +89,35 @@ Casts :: module {
 	@public:
 	@inline:
 	cast:: int(x : float) {
-		return #cast x : int;
+		return #cast(x, int);
 	}
 	// Function: int(double)
 	// Description: Converts a double to int, truncating decimal portion
 	@public:
 	@inline:
 	cast:: int(x : double) {
-		return #cast x : int;
+		return #cast(x, int);
 	}
 	// Function: int(int)
 	// Description: Identity cast for int
 	@public:
 	@inline:
 	cast:: int(x : int) {
-		return #cast x : int;
+		return #cast(x, int);
 	}
 	// Function: int(uint)
 	// Description: Converts an unsigned int to signed int
 	@public:
 	@inline:
 	cast:: int(x : uint) {
-		return #cast x : int;
+		return #cast(x, int);
 	}
 	// Function: int(bool)
 	// Description: Converts a bool to int
 	@public:
 	@inline:
 	cast:: int(x : bool) {
-		return #cast x : int;
+		return #cast(x, int);
 	}
 
 	// Function: uint(float)
@@ -125,35 +125,35 @@ Casts :: module {
 	@public:
 	@inline:
 	cast:: uint(x : float) {
-		return #cast x : uint;
+		return #cast(x, uint);
 	}
 	// Function: uint(double)
 	// Description: Converts a double to unsigned int, truncating decimal portion
 	@public:
 	@inline:
 	cast:: uint(x : double) {
-		return #cast x : uint;
+		return #cast(x, uint);
 	}
 	// Function: uint(int)
 	// Description: Converts a signed int to unsigned int
 	@public:
 	@inline:
 	cast:: uint(x : int) {
-		return #cast x : uint;
+		return #cast(x, uint);
 	}
 	// Function: uint(uint)
 	// Identity cast for uint
 	@public:
 	@inline:
 	cast:: uint(x : uint) {
-		return #cast x : uint;
+		return #cast(x, uint);
 	}
 	// Function: uint(bool)
 	// Description: Converts a bool to unsigned int
 	@public:
 	@inline:
 	cast:: uint(x : bool) {
-		return #cast x : uint;
+		return #cast(x, uint);
 	}
 
 	// Function: uint64(float)
@@ -161,35 +161,35 @@ Casts :: module {
 	@public:
 	@inline:
 	cast:: uint64(x : float) {
-		return #cast x : uint64;
+		return #cast(x, uint64);
 	}
 	// Function: uint64(double)
 	// Description: Converts a double to 64-bit unsigned int
 	@public:
 	@inline:
 	cast:: uint64(x : double) {
-		return #cast x : uint64;
+		return #cast(x, uint64);
 	}
 	// Function: uint64(int)
 	// Description: Converts an int to 64-bit unsigned int
 	@public:
 	@inline:
 	cast:: uint64(x : int) {
-		return #cast x : uint64;
+		return #cast(x, uint64);
 	}
 	// Function: uint64(uint)
 	// Description: Converts an unsigned int to 64-bit unsigned int
 	@public:
 	@inline:
 	cast:: uint64(x : uint) {
-		return #cast x : uint64;
+		return #cast(x, uint64);
 	}
 	// Function: uint64(bool)
 	// Description: Converts a bool to 64-bit unsigned int
 	@public:
 	@inline:
 	cast:: uint64(x : bool) {
-		return #cast x : uint64;
+		return #cast(x, uint64);
 	}
 
 	// Function: int64(float)
@@ -197,35 +197,35 @@ Casts :: module {
 	@public:
 	@inline:
 	cast:: int64(x : float) {
-		return #cast x : int64;
+		return #cast(x, int64);
 	}
 	// Function: int64(double)
 	// Description: Converts a double to 64-bit signed int
 	@public:
 	@inline:
 	cast:: int64(x : double) {
-		return #cast x : int64;
+		return #cast(x, int64);
 	}
 	// Function: int64(int)
 	// Description: Converts an int to 64-bit signed int
 	@public:
 	@inline:
 	cast:: int64(x : int) {
-		return #cast x : int64;
+		return #cast(x, int64);
 	}
 	// Function: int64(uint)
 	// Description: Converts an unsigned int to 64-bit signed int
 	@public:
 	@inline:
 	cast:: int64(x : uint) {
-		return #cast x : int64;
+		return #cast(x, int64);
 	}
 	// Function: int64(bool)
 	// Description: Converts a bool to 64-bit signed int
 	@public:
 	@inline:
 	cast:: int64(x : bool) {
-		return #cast x : int64;
+		return #cast(x, int64);
 	}
 
 	// Function: uint16(float)
@@ -233,35 +233,35 @@ Casts :: module {
 	@public:
 	@inline:
 	cast:: uint16(x : float) {
-		return #cast x : uint16;
+		return #cast(x, uint16);
 	}
 	// Function: uint16(double)
 	// Description: Converts a double to 16-bit unsigned int
 	@public:
 	@inline:
 	cast:: uint16(x : double) {
-		return #cast x : uint16;
+		return #cast(x, uint16);
 	}
 	// Function: uint16(int)
 	// Description: Converts an int to 16-bit unsigned int
 	@public:
 	@inline:
 	cast:: uint16(x : int) {
-		return #cast x : uint16;
+		return #cast(x, uint16);
 	}
 	// Function: uint16(uint)
 	// Description: Converts an unsigned int to 16-bit unsigned int
 	@public:
 	@inline:
 	cast:: uint16(x : uint) {
-		return #cast x : uint16;
+		return #cast(x, uint16);
 	}
 	// Function: uint16(bool)
 	// Description: Converts a bool to 16-bit unsigned int
 	@public:
 	@inline:
 	cast:: uint16(x : bool) {
-		return #cast x : uint16;
+		return #cast(x, uint16);
 	}
 
 	// Group: Char Casts
@@ -272,28 +272,28 @@ Casts :: module {
 	@public:
 	@inline:
 	cast:: char(x : int) {
-		return #cast x : char;
+		return #cast(x, char);
 	}
 	// Function: char(int64)
 	// Description: Converts an int64 to char (truncates to 8 bits)
 	@public:
 	@inline:
 	cast:: char(x : int64) {
-		return #cast x : char;
+		return #cast(x, char);
 	}
 	// Function: char(int16)
 	// Description: Converts an int16 to char (truncates to 8 bits)
 	@public:
 	@inline:
 	cast:: char(x : int16) {
-		return #cast x : char;
+		return #cast(x, char);
 	}
 	// Function: char(uint)
 	// Description: Converts a uint to char (truncates to 8 bits)
 	@public:
 	@inline:
 	cast:: char(x : uint) {
-		return #cast x : char;
+		return #cast(x, char);
 	}
 
 	// Function: int(int64)
@@ -301,7 +301,7 @@ Casts :: module {
 	@public:
 	@inline:
 	cast:: int(x : int64) {
-		return #cast x : int;
+		return #cast(x, int);
 	}
 
 	// Function: uint64(int64)
@@ -309,7 +309,7 @@ Casts :: module {
 	@public:
 	@inline:
 	cast:: uint64(x : int64) {
-		return #cast x : uint64;
+		return #cast(x, uint64);
 	}
 
 	// Function: int64(uint64)
@@ -317,7 +317,7 @@ Casts :: module {
 	@public:
 	@inline:
 	cast:: int64(x : uint64) {
-		return #cast x : int64;
+		return #cast(x, int64);
 	}
 
 	// Group: Pointer Casts
@@ -328,6 +328,6 @@ Casts :: module {
 	@public:
 	@inline:
 	cast:: int64(x : *char) {
-		return #cast x : int64;
+		return #cast(x, int64);
 	}
 }

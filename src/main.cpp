@@ -36,9 +36,10 @@ int main(int argc, char** argv)
 			{"warn", required_argument, 0, 'w'},
 			{"version", no_argument, 0, 'V'},
 			{"printast", no_argument, 0, 'a'},
+			{"time", no_argument, 0, 'T'},
 			{0, 0, 0, 0}};
 
-		c = getopt_long(argc, argv, "cCvqsdDtrVaw:f:o:O:0",
+		c = getopt_long(argc, argv, "cCvqsdDtrVaw:f:o:O:T0",
 			long_options, &option_index);
 		if (c == -1)
 			break;
@@ -116,6 +117,10 @@ int main(int argc, char** argv)
 
 			case 'a':
 				compilerFlags |= Flags_PrintAST;
+				break;
+
+			case 'T':
+				compilerFlags |= Flags_Time;
 				break;
 
 			case 'V':

@@ -13,6 +13,7 @@ enum CompilerFlags {
 	Flags_Run = 4,
 	Flags_Debug = 8,
 	Flags_PrintAST = 16,
+	Flags_Time = 32,
 };
 
 enum WarningFlags {

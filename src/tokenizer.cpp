@@ -341,15 +341,34 @@ int tokenize(std::string& rawFile, std::vector<tokenPair*>& tokens, std::string&
 
 int labelSubTokens(std::vector<tokenPair*>& tokens)
 {
-	for (int i = 0; i < tokens.size(); i++) {
+	for (int i = 0; i < (int)tokens.size(); i++) {
 		std::string t = tokens[i]->first;
 		TokenType tt = tokens[i]->second;
-		//if (tt != Punctuation)
-		//	continue;
 		// If token has a known subtype, set TokenType to that instead
 		if (subTokenTypes.find(t) != subTokenTypes.end()) {
 			const TokenType newType = subTokenTypes[t];
 			tokens[i]->second = newType;
+		}
+		// Split runs of 3+ '!' into '!!' (Bang_Bang) + '!' (Bang) tokens.
+		// The tokenizer greedily reads '!!!' as one Punctuation token; split it here.
+		else if (tt == Punctuation && t.size() >= 3 && t.find_first_not_of('!') == std::string::npos) {
+			std::string bangs = t;
+			std::vector<tokenPair*> split;
+			while (bangs.size() >= 2) {
+				split.push_back(new tokenPair("!!", Bang_Bang,
+					tokens[i]->lineNumber, tokens[i]->indexInLine,
+					tokens[i]->lineValue, tokens[i]->filePath));
+				bangs = bangs.substr(2);
+			}
+			if (!bangs.empty()) {
+				split.push_back(new tokenPair("!", Bang,
+					tokens[i]->lineNumber, tokens[i]->indexInLine,
+					tokens[i]->lineValue, tokens[i]->filePath));
+			}
+			tokens.erase(tokens.begin() + i);
+			tokens.insert(tokens.begin() + i, split.begin(), split.end());
+			// Re-examine at i (now Bang_Bang), outer loop will advance past these
+			i--;
 		}
 	}
 

@@ -346,6 +346,7 @@ struct ASTNode {
 	void* generatePrototype(int pass = 0);
 	void* generateFunction(int pass = 0);
 	void* generateCast(int pass = 0);
+	void* generateBitcast(int pass = 0);
 	void* generateThrow(int pass = 0);
 	void* generateTypeInstance(int pass = 0);
 	void* generateCallExpression(int pass = 0);

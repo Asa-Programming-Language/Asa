@@ -2097,8 +2097,9 @@ void* ASTNode::generateExpressionStatement(int pass)
 
 	// If the left side is an identifier
 	if (leftNode->nodeType == Identifier_Node) {
-		// Simple variable: find alloca and use it as targetPtr
-		valueType* val = findNamedValue(parentNode, this, leftNode->token->first, token);
+		// Simple variable: find alloca and use it as targetPtr.
+		// If there is an explicit type annotation, this is always a new declaration (shadowing).
+		valueType* val = typeNode ? nullptr : findNamedValue(parentNode, this, leftNode->token->first, token);
 		if (!val) {
 			targetPtr = CreateEntryBlockAlloca(theFunction, type, leftNode->token->first);
 			std::string actualType = "*int";
@@ -2813,12 +2814,11 @@ void* ASTNode::generateAccessOperation(int pass)
 	// L is a pointer-to-pointer when it comes from a struct member (alloca of pointer)
 	// L is a direct pointer when it's a function parameter
 	Value* actualPtr = L;
+	Type* ptrType = PointerType::getUnqual(*TheContext);
 
 	// Check if L is an alloca instruction or a pointer to a pointer
 	// In that case, we need to load the actual pointer value
 	if (AllocaInst* allocaInst = dyn_cast<AllocaInst>(L)) {
-		// L is an alloca, so we need to load the pointer value stored in it
-		Type* ptrType = PointerType::getUnqual(*TheContext);
 		actualPtr = Builder->CreateLoad(ptrType, L, "ptr_deref");
 	}
 	else if (L->getType()->isPointerTy()) {
@@ -2826,7 +2826,6 @@ void* ASTNode::generateAccessOperation(int pass)
 		// by checking if the last operation was a struct GEP
 		if (GetElementPtrInst* gep = dyn_cast<GetElementPtrInst>(L)) {
 			// This is a GEP from struct member access, load the pointer
-			Type* ptrType = PointerType::getUnqual(*TheContext);
 			actualPtr = Builder->CreateLoad(ptrType, L, "ptr_deref");
 		}
 		// Otherwise, L is already a direct pointer (e.g., function parameter)
@@ -3313,42 +3312,77 @@ void* ASTNode::generateCast(int pass)
 	if (childNodes.size() < 2 ||
 		childNodes[1]->nodeType != Scope_Body ||
 		childNodes[1]->childNodes.size() == 0 ||
-		childNodes[1]->childNodes[0]->nodeType != Colon_Separator_Node ||
-		childNodes[1]->childNodes[0]->childNodes.size() == 0) {
+		childNodes[1]->childNodes[0]->nodeType != Comma_Node ||
+		childNodes[1]->childNodes[0]->childNodes.size() < 2) {
 
-		printTokenError(token, "Cast expression expected name followed by new type like: #cast x : float;");
-		printAST(this);
+		printTokenError(token, "Cast expression expected: #cast(x, type)");
 		wasError = true;
 		return nullptr;
 	}
-	ASTNode* colonNode = childNodes[1]->childNodes[0];
-	std::string varName = colonNode->childNodes[0]->token->first;
+	ASTNode* argsNode = childNodes[1]->childNodes[0];
+	std::string varName = argsNode->childNodes[0]->token->first;
+	std::string tyVal = argsNode->childNodes[1]->token->first;
+	tokenPair* typeToken = argsNode->childNodes[1]->token;
+
 	valueType* val = findNamedValue(parentNode, this, varName, token);
 	if (!val && !wasError) {
-		printTokenError(colonNode->childNodes[0]->token, "Unknown variable name used");
-		printAST(this);
+		printTokenError(token, "Unknown variable name used");
 		wasError = true;
 		return nullptr;
 	}
 	Value* var = val->val;
-
 	Value* value = Builder->CreateLoad(getValueStoredType(var), var, varName + "_load");
-
-	std::string tyVal = colonNode->childNodes[1]->token->first;
-
 	bool wasDefined = true;
-	Type* toType = getLLVMTypeFromString(tyVal, 0, colonNode->childNodes[1]->token, wasDefined, pass);
-	//if (wasDefined == false)
-	//	return nullptr;
-
+	Type* toType = getLLVMTypeFromString(tyVal, 0, typeToken, wasDefined, pass);
 	Value* casted = castValue(value, toType, true, typeSigns[tyVal], token);
-
 	if (wasError)
 		return nullptr;
-
 	return casted;
+}
 
-	//return Builder->CreateStore(castedValue, var);
+// Value*
+void* ASTNode::generateBitcast(int pass)
+{
+	if (childNodes.size() < 2 ||
+		childNodes[1]->nodeType != Scope_Body ||
+		childNodes[1]->childNodes.size() == 0 ||
+		childNodes[1]->childNodes[0]->nodeType != Comma_Node ||
+		childNodes[1]->childNodes[0]->childNodes.size() < 2) {
+
+		printTokenError(token, "Bitcast expression expected: #bitcast(x, type)");
+		wasError = true;
+		return nullptr;
+	}
+	ASTNode* argsNode = childNodes[1]->childNodes[0];
+	std::string varName = argsNode->childNodes[0]->token->first;
+	std::string tyVal = argsNode->childNodes[1]->token->first;
+
+	valueType* val = findNamedValue(parentNode, this, varName, token);
+	if (!val && !wasError) {
+		printTokenError(token, "Unknown variable name used");
+		wasError = true;
+		return nullptr;
+	}
+	Value* var = val->val;
+	Value* value = Builder->CreateLoad(getValueStoredType(var), var, varName + "_load");
+
+	bool wasDefined = true;
+	Type* toType = getLLVMTypeFromString(tyVal, 0, argsNode->childNodes[1]->token, wasDefined, pass);
+	if (!toType) {
+		printTokenError(argsNode->childNodes[1]->token, "Unknown type in #bitcast");
+		wasError = true;
+		return nullptr;
+	}
+
+	uint64_t srcBits = value->getType()->getPrimitiveSizeInBits();
+	uint64_t dstBits = toType->getPrimitiveSizeInBits();
+	if (srcBits == 0 || dstBits == 0 || srcBits != dstBits) {
+		printTokenError(token, "Bitcast requires source and destination types to have the same bit width");
+		wasError = true;
+		return nullptr;
+	}
+
+	return Builder->CreateBitCast(value, toType, "bitcast");
 }
 
 // Value*
@@ -4185,6 +4219,7 @@ void* ASTNode::generateFor(int pass)
 	BasicBlock* PreheaderBB = Builder->GetInsertBlock();
 	BasicBlock* LoopCondBB = BasicBlock::Create(*TheContext, "loopcond", TheFunction);
 	BasicBlock* LoopBB = BasicBlock::Create(*TheContext, "loop", TheFunction);
+	BasicBlock* StepBB = BasicBlock::Create(*TheContext, "loopstep", TheFunction);
 	BasicBlock* AfterBB = BasicBlock::Create(*TheContext, "afterloop", TheFunction);
 
 	AllocaInst* Alloca = CreateEntryBlockAlloca(TheFunction, Type::getInt32Ty(*TheContext), varName);
@@ -4216,8 +4251,8 @@ void* ASTNode::generateFor(int pass)
 
 	// Push loop context for break/continue support
 	LoopContext ctx;
-	ctx.continueBB = LoopCondBB;  // Continue goes back to condition check
-	ctx.breakBB = AfterBB;		  // Break goes to after the loop
+	ctx.continueBB = StepBB;  // Continue goes to step (increment) before condition check
+	ctx.breakBB = AfterBB;	  // Break goes to after the loop
 	ctx.label = label;			  // Empty for unlabeled loops
 	loopContextStack.push(ctx);
 
@@ -4241,13 +4276,15 @@ void* ASTNode::generateFor(int pass)
 	// Pop loop context
 	loopContextStack.pop();
 
-	// Emit the step value.
+	// Fall through from body to step block
+	Builder->CreateBr(StepBB);
+
+	// Step block: increment iterator then jump back to condition
+	Builder->SetInsertPoint(StepBB);
 	Value* StepVal = ConstantInt::get(*TheContext, APInt(32, 1));
-
-	Value* NextVar = Builder->CreateAdd(CurVar, StepVal, "nextvar");
+	Value* CurVar2 = Builder->CreateLoad(Alloca->getAllocatedType(), Alloca, varName.c_str());
+	Value* NextVar = Builder->CreateAdd(CurVar2, StepVal, "nextvar");
 	Builder->CreateStore(NextVar, Alloca);
-
-	// Jump back to condition
 	Builder->CreateBr(LoopCondBB);
 
 	// After loop
@@ -5135,11 +5172,20 @@ int outputObjectFile(std::string& objectFilePath)
 
 int generateExecutable(const std::string& irFilePath, const std::string& exeFilePath, const std::string& clangOptions)
 {
+	bool doTime = (compilerFlags & Flags_Time);
+
 	// llc to convert <name>.ll to assembly
 	std::string commandLLC = "llc -relocation-model=pic " + irFilePath + " -o " + irFilePath + ".s";
-	int result = std::system(commandLLC.c_str());
-	if (result != 0)
-		exit(1);
+	{
+		auto t0 = std::chrono::steady_clock::now();
+		int result = std::system(commandLLC.c_str());
+		if (doTime) {
+			double secs = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
+			fprintf(stderr, "\n[llc] real\t%.3fs\n", secs);
+		}
+		if (result != 0)
+			exit(1);
+	}
 	// clang as the linker
 	std::string libFlags = "";
 	for (auto& lib : linkedLibraries)
@@ -5147,10 +5193,17 @@ int generateExecutable(const std::string& irFilePath, const std::string& exeFile
 	for (auto& path : linkedStaticLibraries)
 		libFlags += " " + path;
 	std::string commandClang = "clang -fPIE -o " + exeFilePath + " " + irFilePath + ".s -g" + libFlags + " -Wl,-rpath,\\$ORIGIN " + clangOptions;
-	result = std::system(commandClang.c_str());
-	if (result != 0)
-		exit(1);
-	return result;
+	{
+		auto t0 = std::chrono::steady_clock::now();
+		int result = std::system(commandClang.c_str());
+		if (doTime) {
+			double secs = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
+			fprintf(stderr, "[clang] real\t%.3fs\n", secs);
+		}
+		if (result != 0)
+			exit(1);
+	}
+	return 0;
 }
 
 void removeUnusedPrototypes()

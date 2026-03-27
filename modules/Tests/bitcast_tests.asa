@@ -1,0 +1,67 @@
+
+// BitcastTests
+// Tests for the #bitcast directive: reinterpreting the raw bit pattern of a
+// value as a different type without any numeric conversion.
+
+@public:
+BitcastTests :: module {
+
+	#import Tests.Testing;
+
+	@public:
+	runBitcastTests :: () {
+		beginSection("Bitcast");
+
+		///////////////////////
+		// int -> float       //
+		///////////////////////
+
+		// IEEE 754: 0x3F800000 = 1065353216 represents 1.0f
+		a : int = 1065353216;
+		af : float = #bitcast(a, float);
+		test(af == 1.0f,                      "bitcast 0x3F800000 -> float is 1.0");
+
+		// 0x40000000 = 1073741824 represents 2.0f
+		b : int = 1073741824;
+		bf : float = #bitcast(b, float);
+		test(bf == 2.0f,                      "bitcast 0x40000000 -> float is 2.0");
+
+		// 0x00000000 = 0 represents 0.0f
+		z : int = 0;
+		zf : float = #bitcast(z, float);
+		test(zf == 0.0f,                      "bitcast 0 -> float is 0.0");
+
+		///////////////////////
+		// float -> int       //
+		///////////////////////
+
+		// 1.0f has bit pattern 0x3F800000 = 1065353216
+		c : float = 1.0f;
+		ci : int = #bitcast(c, int);
+		test(ci == 1065353216,                "bitcast float 1.0 -> int is 0x3F800000");
+
+		// 2.0f has bit pattern 0x40000000 = 1073741824
+		d : float = 2.0f;
+		di : int = #bitcast(d, int);
+		test(di == 1073741824,                "bitcast float 2.0 -> int is 0x40000000");
+
+		// 0.0f has bit pattern 0x00000000 = 0
+		e : float = 0.0f;
+		ei : int = #bitcast(e, int);
+		test(ei == 0,                         "bitcast float 0.0 -> int is 0");
+
+		///////////////////////
+		// Round-trip         //
+		///////////////////////
+
+		orig_i : int = 1065353216;
+		rt_f : float = #bitcast(orig_i, float);
+		rt_i : int = #bitcast(rt_f, int);
+		test(rt_i == orig_i,                  "int->float->int round-trip preserves bits");
+
+		orig_f : float = 1.5f;
+		rt2_i : int = #bitcast(orig_f, int);
+		rt2_f : float = #bitcast(rt2_i, float);
+		test(rt2_f == orig_f,                 "float->int->float round-trip preserves bits");
+	}
+}
