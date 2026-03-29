@@ -1,0 +1,249 @@
+
+// StructTests
+// Tests for struct definitions, member field access, and member functions.
+
+@public:
+StructTests :: module {
+
+	#import Tests.Testing;
+
+	///////////////////////
+	// Struct definitions //
+	///////////////////////
+
+	Point :: struct {
+		x : int;
+		y : int;
+	}
+
+	Box :: struct {
+		x      : int;
+		y      : int;
+		width  : int;
+		height : int;
+
+		area :: int() {
+			return this.width * this.height;
+		}
+
+		perimeter :: int() {
+			return 2 * (this.width + this.height);
+		}
+
+		contains :: bool(px : int, py : int) {
+			return px >= this.x && px < this.x + this.width &&
+			       py >= this.y && py < this.y + this.height;
+		}
+	}
+
+	Counter :: struct {
+		value : int;
+
+		increment :: () {
+			this.value += 1;
+		}
+
+		add :: (n : int) {
+			this.value += n;
+		}
+
+		reset :: () {
+			this.value = 0;
+		}
+
+		get :: int() {
+			return this.value;
+		}
+	}
+
+	// Large struct: 5 x int32 = 20 bytes, exceeds 16-byte register limit
+	BigStruct :: struct {
+		a : int;
+		b : int;
+		c : int;
+		d : int;
+		e : int;
+	}
+
+	sumBigStruct :: int(s : BigStruct) {
+		return s.a + s.b + s.c + s.d + s.e;
+	}
+
+	makeBigStruct :: BigStruct(a : int, b : int, c : int, d : int, e : int) {
+		s : BigStruct = BigStruct();
+		s.a = a; s.b = b; s.c = c; s.d = d; s.e = e;
+		return s;
+	}
+
+	// Returns a mutated copy:original must be unaffected (pass-by-value semantics)
+	mutatedCopy :: BigStruct(s : BigStruct) {
+		s.a = 999;
+		s.e = 999;
+		return s;
+	}
+
+	IntPair :: struct {
+		a : int;
+		b : int;
+
+		clone :: IntPair() {
+			return this;
+		}
+
+		swapped :: IntPair() {
+			result : IntPair = IntPair();
+			result.a = this.b;
+			result.b = this.a;
+			return result;
+		}
+
+		withA :: IntPair(newA : int) {
+			result : IntPair = IntPair();
+			result.a = newA;
+			result.b = this.b;
+			return result;
+		}
+	}
+
+	@public:
+	runStructTests :: () {
+		beginSection("Structs");
+
+		///////////////////////////////
+		// Basic field access        //
+		///////////////////////////////
+
+		p : Point = Point();
+		p.x = 3;
+		p.y = 7;
+		test(p.x == 3,                        "struct: field write/read x");
+		test(p.y == 7,                        "struct: field write/read y");
+
+		p.x = p.x + p.y;
+		test(p.x == 10,                       "struct: field update using other field");
+
+		///////////////////////////////
+		// Member function: return   //
+		///////////////////////////////
+
+		r : Box = Box();
+		r.x = 0;
+		r.y = 0;
+		r.width = 5;
+		r.height = 4;
+
+		test(r.area()      == 20,             "member fn: area() == width*height");
+		test(r.perimeter() == 18,             "member fn: perimeter() == 2*(w+h)");
+
+		r.width = 3;
+		r.height = 3;
+		test(r.area()      == 9,              "member fn: area() after field change");
+		test(r.perimeter() == 12,             "member fn: perimeter() after field change");
+
+		///////////////////////////////
+		// Member fn with params     //
+		///////////////////////////////
+
+		r2 : Box = Box();
+		r2.x = 10;
+		r2.y = 20;
+		r2.width = 5;
+		r2.height = 5;
+		test(r2.contains(12, 22),             "member fn: contains() true for interior point");
+		test(r2.contains(10, 20),             "member fn: contains() true for top-left corner");
+		test(!r2.contains(15, 20),            "member fn: contains() false at right edge (exclusive)");
+		test(!r2.contains(5, 22),             "member fn: contains() false left of rect");
+		test(!r2.contains(12, 10),            "member fn: contains() false above rect");
+
+		///////////////////////////////
+		// Member fn mutates state   //
+		///////////////////////////////
+
+		c : Counter = Counter();
+		c.value = 0;
+		test(c.get() == 0,                    "member fn: get() returns initial value");
+
+		c.increment();
+		test(c.get() == 1,                    "member fn: increment() mutates this.value");
+
+		c.increment();
+		c.increment();
+		test(c.get() == 3,                    "member fn: repeated increment() accumulates");
+
+		c.add(10);
+		test(c.get() == 13,                   "member fn: add(n) adds to this.value");
+
+		c.reset();
+		test(c.get() == 0,                    "member fn: reset() sets this.value to 0");
+
+		///////////////////////////////
+		// Two independent instances //
+		///////////////////////////////
+
+		c1 : Counter = Counter();
+		c2 : Counter = Counter();
+		c1.value = 0;
+		c2.value = 0;
+
+		c1.add(5);
+		c2.add(99);
+		test(c1.get() == 5,                   "two instances: c1 is independent from c2");
+		test(c2.get() == 99,                  "two instances: c2 is independent from c1");
+
+		c1.reset();
+		test(c1.get() == 0,                   "two instances: reset c1 does not affect c2");
+		test(c2.get() == 99,                  "two instances: c2 unchanged after c1.reset()");
+
+		///////////////////////////////
+		// Member fn returning struct //
+		///////////////////////////////
+
+		orig : IntPair = IntPair();
+		orig.a = 3;
+		orig.b = 7;
+
+		copy : IntPair = orig.clone();
+		test(copy.a == 3,                     "struct return: clone().a matches original");
+		test(copy.b == 7,                     "struct return: clone().b matches original");
+
+		// mutating copy must not affect orig
+		copy.a = 99;
+		test(orig.a == 3,                     "struct return: clone is independent (orig.a unchanged)");
+		test(copy.a == 99,                    "struct return: clone mutation visible on copy");
+
+		sw : IntPair = orig.swapped();
+		test(sw.a == 7,                       "struct return: swapped().a == orig.b");
+		test(sw.b == 3,                       "struct return: swapped().b == orig.a");
+		test(orig.a == 3,                     "struct return: swapped() does not mutate orig.a");
+		test(orig.b == 7,                     "struct return: swapped() does not mutate orig.b");
+
+		wa : IntPair = orig.withA(42);
+		test(wa.a == 42,                      "struct return: withA(42).a == 42");
+		test(wa.b == 7,                       "struct return: withA(42).b == orig.b");
+		test(orig.a == 3,                     "struct return: withA() does not mutate orig.a");
+
+		///////////////////////////////
+		// Large struct (> 16 bytes) //
+		///////////////////////////////
+
+		bs : BigStruct = BigStruct();
+		bs.a = 1; bs.b = 2; bs.c = 3; bs.d = 4; bs.e = 5;
+		test(sumBigStruct(bs) == 15,          "large struct: pass by value, sum all 5 fields");
+
+		bs2 : BigStruct = makeBigStruct(10, 20, 30, 40, 50);
+		test(bs2.a == 10,                     "large struct: return, field a");
+		test(bs2.b == 20,                     "large struct: return, field b");
+		test(bs2.c == 30,                     "large struct: return, field c");
+		test(bs2.d == 40,                     "large struct: return, field d");
+		test(bs2.e == 50,                     "large struct: return, field e");
+
+		bs3 : BigStruct = BigStruct();
+		bs3.a = 42; bs3.b = 7; bs3.c = 0; bs3.d = 0; bs3.e = 13;
+		mc : BigStruct = mutatedCopy(bs3);
+		test(bs3.a == 42,                     "large struct: original.a unchanged after mutatedCopy");
+		test(bs3.e == 13,                     "large struct: original.e unchanged after mutatedCopy");
+		test(mc.a  == 999,                    "large struct: copy.a mutated inside function");
+		test(mc.e  == 999,                    "large struct: copy.e mutated inside function");
+		test(mc.b  == 7,                      "large struct: copy.b unchanged field carried through");
+	}
+}

@@ -39,5 +39,45 @@ StringTests :: module {
 		// String literal length
 		d : string = "testing";
 		test(d.length == 7, "string literal \"testing\" should have length 7");
+
+		///////////////////////
+		// Empty string ""   //
+		///////////////////////
+
+		// Declaration and length
+		e : string = "";
+		test(e.length == 0,         "empty literal: length is 0");
+		test(e.size()  == 0,        "empty literal: size() is 0");
+
+		// Equality / inequality
+		test("" == "",              "empty == empty is true");
+		test(!("" == "hello"),      "empty == non-empty is false");
+		test("" != "hello",         "empty != non-empty is true");
+		test(!("" != ""),           "empty != empty is false");
+
+		// Concatenation: empty + non-empty
+		f : string = "" + "world";
+		test(f.length == 5,         "empty + \"world\" has length 5");
+		test(f == "world",          "empty + \"world\" equals \"world\"");
+
+		// Concatenation: non-empty + empty
+		g : string = "world" + "";
+		test(g.length == 5,         "\"world\" + empty has length 5");
+		test(g == "world",          "\"world\" + empty equals \"world\"");
+
+		// Concatenation: empty + empty
+		h : string = "" + "";
+		test(h.length == 0,         "empty + empty has length 0");
+		test(h == "",               "empty + empty equals empty");
+
+		// Concatenation: empty + char
+		i : string = "" + 'x';
+		test(i.length == 1,         "empty + char has length 1");
+		test(i == "x",              "empty + 'x' equals \"x\"");
+
+		// Concatenation: empty + int
+		j : string = "" + 42;
+		test(j.length == 2,         "empty + 42 has length 2");
+		test(j == "42",             "empty + 42 equals \"42\"");
 	}
 }

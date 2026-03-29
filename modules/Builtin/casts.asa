@@ -264,6 +264,42 @@ Casts :: module {
 		return #cast(x, uint16);
 	}
 
+	// Function: uint8(float)
+	// Description: Converts a float to 8-bit unsigned int
+	@public:
+	@inline:
+	cast:: uint8(x : float) {
+		return #cast(x, uint8);
+	}
+	// Function: uint8(double)
+	// Description: Converts a double to 8-bit unsigned int
+	@public:
+	@inline:
+	cast:: uint8(x : double) {
+		return #cast(x, uint8);
+	}
+	// Function: uint8(int)
+	// Description: Converts an int to 8-bit unsigned int
+	@public:
+	@inline:
+	cast:: uint8(x : int) {
+		return #cast(x, uint8);
+	}
+	// Function: uint8(uint)
+	// Description: Converts an unsigned int to 8-bit unsigned int
+	@public:
+	@inline:
+	cast:: uint8(x : uint) {
+		return #cast(x, uint8);
+	}
+	// Function: uint8(bool)
+	// Description: Converts a bool to 8-bit unsigned int
+	@public:
+	@inline:
+	cast:: uint8(x : bool) {
+		return #cast(x, uint8);
+	}
+
 	// Group: Char Casts
 	// Description: Cast operators for converting integer types to char
 

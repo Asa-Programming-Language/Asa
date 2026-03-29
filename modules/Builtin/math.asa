@@ -18,6 +18,12 @@ Math :: module {
 	Vector2 :: struct {
 		x : float;
 		y : float;
+
+		normalize :: (){
+			len : float = sqrt(this.x*this.x + this.y*this.y);
+			this.x /= len;
+			this.y /= len;
+		}
 	}
 
 	// Constructor: Vector2(x, y)
@@ -36,6 +42,12 @@ Math :: module {
 	Vector2I :: struct {
 		x : int32;
 		y : int32;
+
+		normalize :: (){
+			len : float = sqrt(this.x*this.x + this.y*this.y);
+			this.x /= len;
+			this.y /= len;
+		}
 	}
 
 	// Constructor: Vector2I(x, y)
@@ -55,6 +67,13 @@ Math :: module {
 		x : float;
 		y : float;
 		z : float;
+
+		normalize :: (){
+			len : float = sqrt(this.x*this.x + this.y*this.y + this.z*this.z);
+			this.x /= len;
+			this.y /= len;
+			this.z /= len;
+		}
 	}
 
 	// Constructor: Vector3(x, y, z)
@@ -68,6 +87,11 @@ Math :: module {
 		return v;
 	}
 
+	@public:
+	cast :: string(v : Vector3){
+		return "Vector3(" + v.x + ", " + v.y + ", " + v.z + ")";
+	}
+
 	// Struct: Vector3I
 	// Description: 3D vector with int32 components
 	@public:
@@ -75,6 +99,14 @@ Math :: module {
 		x : int32;
 		y : int32;
 		z : int32;
+
+		normalize :: Vector3I(){
+			len : float = sqrt(this.x*this.x + this.y*this.y + this.z*this.z);
+			this.x /= len;
+			this.y /= len;
+			this.z /= len;
+			return this;
+		}
 	}
 
 	// Constructor: Vector3I(x, y, z)
@@ -205,6 +237,35 @@ Math :: module {
 		if (x < lo) return lo;
 		if (x > hi) return hi;
 		return x;
+	}
+
+	// Function: wrap(float, float, float)
+	// Description: Wraps x into the range [lo, hi)
+	@public:
+	@inline:
+	wrap :: float(x : float, lo : float, hi : float) {
+		range : float = hi - lo;
+		return x - range * floorf((x - lo) / range);
+	}
+
+	// Function: wrap(double, double, double)
+	// Description: Wraps x into the range [lo, hi)
+	@public:
+	@inline:
+	wrap :: double(x : double, lo : double, hi : double) {
+		range : double = hi - lo;
+		return x - range * floor((x - lo) / range);
+	}
+
+	// Function: wrap(int, int, int)
+	// Description: Wraps x into the range [lo, hi)
+	@public:
+	@inline:
+	wrap :: int(x : int, lo : int, hi : int) {
+		range : int = hi - lo;
+		r : int = (x - lo) % range;
+		if (r < 0) { r += range; }
+		return lo + r;
 	}
 
 	// Function: lerp(float, float, float)

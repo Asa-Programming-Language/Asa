@@ -326,6 +326,14 @@ int tokenize(std::string& rawFile, std::vector<tokenPair*>& tokens, std::string&
 			}
 		cancelEnd:
 			if (currentToken != Nothing) {
+				// Count newlines inside multi-line string/char literals so subsequent
+				// tokens get correct line numbers for debug info.
+				if (c == '\n' && (currentToken == String || currentToken == Character)) {
+					lineNumber++;
+					lines.push_back(lineValue);
+					lineValue = new std::string("");
+					indexInLine = 0;
+				}
 				tokenContent += c;
 				if (c != '\t') {
 					*lineValue += c;

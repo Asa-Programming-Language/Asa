@@ -1,0 +1,94 @@
+
+// CastTests
+// Tests for explicit type casting between numeric types.
+
+@public:
+CastTests :: module {
+
+	#import Tests.Testing;
+
+	@public:
+	runCastTests :: () {
+		beginSection("Casts");
+
+		///////////////////////
+		// float -> int      //
+		///////////////////////
+
+		// Positive truncation
+		test(int(3.9f)  == 3,  "int(3.9f) truncates to 3");
+		test(int(3.1f)  == 3,  "int(3.1f) truncates to 3");
+		test(int(3.0f)  == 3,  "int(3.0f) == 3");
+		test(int(0.9f)  == 0,  "int(0.9f) truncates to 0");
+		test(int(0.0f)  == 0,  "int(0.0f) == 0");
+
+		// Negative truncation (toward zero, not floor)
+		test(int(-3.9f) == -3, "int(-3.9f) truncates to -3");
+		test(int(-3.1f) == -3, "int(-3.1f) truncates to -3");
+		test(int(-3.0f) == -3, "int(-3.0f) == -3");
+		test(int(-0.9f) == 0,  "int(-0.9f) truncates to 0");
+
+		///////////////////////
+		// double -> int     //
+		///////////////////////
+
+		test(int(3.9)   == 3,  "int(3.9) truncates to 3");
+		test(int(-3.9)  == -3, "int(-3.9) truncates to -3");
+		test(int(0.9)   == 0,  "int(0.9) truncates to 0");
+		test(int(-0.9)  == 0,  "int(-0.9) truncates to 0");
+
+		///////////////////////
+		// int -> float      //
+		///////////////////////
+
+		test(float(3)   == 3.0f, "float(3) == 3.0");
+		test(float(-3)  == -3.0f, "float(-3) == -3.0");
+		test(float(0)   == 0.0f, "float(0) == 0.0");
+
+		///////////////////////
+		// int -> double     //
+		///////////////////////
+
+		test(double(3)  == 3.0, "double(3) == 3.0");
+		test(double(-3) == -3.0, "double(-3) == -3.0");
+
+		///////////////////////
+		// float -> double   //
+		///////////////////////
+
+		test(double(1.0f) == 1.0, "double(1.0f) == 1.0");
+		test(double(0.0f) == 0.0, "double(0.0f) == 0.0");
+
+		///////////////////////
+		// double -> float   //
+		///////////////////////
+
+		test(float(1.0) == 1.0f, "float(1.0) == 1.0f");
+		test(float(0.0) == 0.0f, "float(0.0) == 0.0f");
+
+		///////////////////////
+		// Round-trips       //
+		///////////////////////
+
+		test(int(float(7))    == 7,    "int(float(7)) round-trips");
+		test(int(double(7))   == 7,    "int(double(7)) round-trips");
+		test(float(int(4.5f)) == 4.0f, "float(int(4.5f)) truncates then restores");
+
+		///////////////////////////
+		// char vs uint8 strings //
+		///////////////////////////
+
+		// char -> string: should give the single character, not its decimal value
+		c : char = 'A';
+		test(string(c) == "A",   "char->string: 'A' gives \"A\", not \"65\"");
+		test("" + c    == "A",   "string+char: 'A' appends as character");
+
+		// uint8 -> string: should give decimal representation, not the character
+		n : uint8 = 65;
+		test(string(n) == "65",  "uint8->string: 65 gives \"65\", not \"A\"");
+		test("" + n    == "65",  "string+uint8: 65 appends as decimal");
+
+		// Sanity: same byte value, different types, different string representations
+		test(string(c) != string(n), "char and uint8 with value 65 stringify differently");
+	}
+}

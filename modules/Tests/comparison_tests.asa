@@ -40,5 +40,37 @@ ComparisonTests :: module {
 		test(3 * 3 == 9,   "3 * 3 == 9");
 		test(10 / 2 == 5,  "10 / 2 == 5");
 		test(10 % 3 != 0,  "10 % 3 != 0");
+
+		///////////////////////////////
+		// Mixed float/int comparisons
+		///////////////////////////////
+
+		// float (variable) compared to int literal
+		pos : float = 1.5;
+		neg : float = -1.5;
+		zero_f : float = 0.0;
+
+		test(pos > 0,         "float > int: 1.5 > 0");
+		test(neg < 0,         "float < int: -1.5 < 0");
+		test(zero_f == 0,     "float == int: 0.0 == 0");
+		test(pos != 0,        "float != int: 1.5 != 0");
+		test(neg <= 0,        "float <= int: -1.5 <= 0");
+		test(pos >= 0,        "float >= int: 1.5 >= 0");
+		test(!(neg > 0),      "float > int (false): -1.5 not > 0");
+		test(!(pos < 0),      "float < int (false): 1.5 not < 0");
+
+		// int literal compared to float variable
+		test(0 < pos,         "int < float: 0 < 1.5");
+		test(0 > neg,         "int > float: 0 > -1.5");
+		test(0 == zero_f,     "int == float: 0 == 0.0");
+		test(0 != pos,        "int != float: 0 != 1.5");
+
+		// double vs int
+		pos_d : double = 2.5;
+		neg_d : double = -2.5;
+		test(pos_d > 0,       "double > int: 2.5 > 0");
+		test(neg_d < 0,       "double < int: -2.5 < 0");
+		test(neg_d <= 0,      "double <= int: -2.5 <= 0");
+		test(!(neg_d > 0),    "double > int (false): -2.5 not > 0");
 	}
 }

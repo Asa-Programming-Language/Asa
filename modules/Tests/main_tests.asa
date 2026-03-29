@@ -18,6 +18,9 @@
 #import Tests.SyntaxTests;
 #import Tests.AccessTests;
 #import Tests.BitcastTests;
+#import Tests.CastTests;
+#import Tests.Color32Tests;
+#import Tests.StructTests;
 
 @public:
 main :: () {
@@ -39,6 +42,9 @@ main :: () {
 	runSyntaxTests();
 	runAccessTests();
 	runBitcastTests();
+	runCastTests();
+	runColor32Tests();
+	runStructTests();
 	printSummary();
 	return;
 }

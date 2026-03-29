@@ -532,7 +532,9 @@ std::map<TokenType, ASTNodeType> operatorDefaultNodeType = {
 	{Minus, Expression_Minus},
 	{Star, Expression_Times},
 	{Slash, Expression_Divide},
-	{Ampersand, Address_Of_Operation},
+	{Ampersand, Bitwise_And},
+	{Bar, Bitwise_Or},
+	{Caret, Bitwise_Xor},
 	{Ref, Reference_Operation},
 	{Const, Const_Keyword},
 	{Exact, Exact_Type_Node},
@@ -566,6 +568,9 @@ std::map<ASTNodeType, int> operatorPrecedence = {
 	{Compare_LessEqual, 20},		// <=
 	{Compare_Greater, 20},			// >
 	{Compare_GreaterEqual, 20},		// >=
+	{Bitwise_And, 19},				// &
+	{Bitwise_Or, 19},				// |
+	{Bitwise_Xor, 19},				// ^
 	{Logical_And, 18},				// &&
 	{Logical_Or, 16},				// ||
 	{Range_Node, 15},				// ..
@@ -1116,6 +1121,12 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 							break;
 						}
 						if (t->second == EndOfLine || t->second == Semi_Colon) {
+							if (t->second == EndOfLine) {
+								TokenType lastTok = subTokens.empty() ? Nothing : subTokens.back()->second;
+								TokenType nextTok = (i + 1 < (int)tokens.size()) ? tokens[i + 1]->second : Nothing;
+								if (isLineContinuation(lastTok, nextTok))
+									continue;
+							}
 							isLeaf = false;
 							break;
 						}
@@ -1270,7 +1281,7 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 				//identifier->tokenType = tt->second;
 				identifier->nodeType = Identifier_Node;
 
-				// Paren-enclosed argument - function-call-style inline directive (e.g. #nameof(x)).
+				// Paren-enclosed argument - function-call-style inline directive (e.g. #directive(arg)).
 				// Gather only the paren contents and treat the whole directive as a value leaf,
 				// so it composes with surrounding expressions without consuming them.
 				if (i + 1 < (int)tokens.size() && tokens[i + 1]->second == Left_Paren) {
@@ -1753,6 +1764,12 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 					if (parenLevel == 0)
 						break;
 					if (t->second == EndOfLine || t->second == Semi_Colon) {
+						if (t->second == EndOfLine) {
+							TokenType lastTok = subTokens.empty() ? Nothing : subTokens.back()->second;
+							TokenType nextTok = (i + 1 < (int)tokens.size()) ? tokens[i + 1]->second : Nothing;
+							if (isLineContinuation(lastTok, nextTok))
+								continue;
+						}
 						isLeaf = false;
 						break;
 					}
@@ -2100,7 +2117,8 @@ void fixPrecedence(ASTNode*& node)
 				fixPrecedence(newRight);
 			}
 		}
-		if (rightChild->childNodes.size() == 2 &&
+		if (node->nodeType != Access_Operation &&
+			rightChild->childNodes.size() == 2 &&
 			operatorPrecedence.find(rightChild->nodeType) != operatorPrecedence.end()) {
 			int currPrec = operatorPrecedence[node->nodeType];
 			int rightPrec = operatorPrecedence[rightChild->nodeType];
@@ -3063,8 +3081,18 @@ void generateOutputCode(ASTNode*& node, int depth, int pass)
 			break;
 		}
 
+		case Colon_Separator_Node: {
+			// Typed declaration with no initializer at root scope.
+			// The parser emits a bare Colon_Separator_Node (no Expression_Statement wrapper)
+			// when there is no `=` assignment.  Store in the node's own namedValues so that
+			// findNamedValue can find it via the depth-0 child-scan path.
+			if (pass == 1)
+				declareModuleScopeVariableFromColon(node, node);
+			break;
+		}
+
 		case Compiler_Define: {
-			// Named module node (e.g. Fore :: module { ... }): register and declare globals.
+			// Named module node: register and declare globals.
 			if (pass == 1)
 				processModuleForDeclarations(node);
 			break;

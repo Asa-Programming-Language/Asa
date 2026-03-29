@@ -169,6 +169,164 @@ SyntaxTests :: module {
 					+ 5;
 		test(big == 15,                       "expression split across lines");
 
+		// Arithmetic - operator at end of line
+		ml_add : int = 3 +
+		               4;
+		test(ml_add == 7,                     "multiline +: op at end of line");
+
+		ml_sub : int = 10 -
+		               3;
+		test(ml_sub == 7,                     "multiline -: op at end of line");
+
+		ml_mul : int = 4 *
+		               3;
+		test(ml_mul == 12,                    "multiline *: op at end of line");
+
+		ml_div : int = 20 /
+		               4;
+		test(ml_div == 5,                     "multiline /: op at end of line");
+
+		ml_mod : int = 17 %
+		               5;
+		test(ml_mod == 2,                     "multiline %: op at end of line");
+
+		// Arithmetic - operator at start of next line
+		ml_add2 : int = 3
+		                + 4;
+		test(ml_add2 == 7,                    "multiline +: op at start of line");
+
+		ml_sub2 : int = 10
+		                - 3;
+		test(ml_sub2 == 7,                    "multiline -: op at start of line");
+
+		ml_mul2 : int = 4
+		                * 3;
+		test(ml_mul2 == 12,                   "multiline *: op at start of line");
+
+		ml_div2 : int = 20
+		                / 4;
+		test(ml_div2 == 5,                    "multiline /: op at start of line");
+
+		ml_mod2 : int = 17
+		                % 5;
+		test(ml_mod2 == 2,                    "multiline %: op at start of line");
+
+		// Comparison operators
+		ml_lt : bool = 3
+		               < 5;
+		test(ml_lt,                           "multiline <");
+
+		ml_gt : bool = 5
+		               > 3;
+		test(ml_gt,                           "multiline >");
+
+		ml_lte : bool = 3
+		                <= 3;
+		test(ml_lte,                          "multiline <=");
+
+		ml_gte : bool = 5
+		                >= 5;
+		test(ml_gte,                          "multiline >=");
+
+		ml_eq : bool = 7
+		               == 7;
+		test(ml_eq,                           "multiline ==");
+
+		ml_ne : bool = 7
+		               != 8;
+		test(ml_ne,                           "multiline !=");
+
+		// Logical operators
+		ml_and : bool = true
+		                && true;
+		test(ml_and,                          "multiline &&");
+
+		ml_and2 : bool = true &&
+		                 true;
+		test(ml_and2,                         "multiline &&: op at end of line");
+
+		ml_or : bool = false
+		               || true;
+		test(ml_or,                           "multiline ||");
+
+		ml_or2 : bool = false ||
+		                true;
+		test(ml_or2,                          "multiline ||: op at end of line");
+
+		// Bitwise operators
+		ml_band : int = 12
+		                & 10;
+		test(ml_band == 8,                    "multiline &");
+
+		ml_bor : int = 12
+		               | 10;
+		test(ml_bor == 14,                    "multiline |");
+
+		ml_bxor : int = 12
+		                ^ 10;
+		test(ml_bxor == 6,                    "multiline ^");
+
+		ml_band2 : int = 12 &
+		                 10;
+		test(ml_band2 == 8,                   "multiline &: op at end of line");
+
+		ml_bor2 : int = 12 |
+		                10;
+		test(ml_bor2 == 14,                   "multiline |: op at end of line");
+
+		ml_bxor2 : int = 12 ^
+		                 10;
+		test(ml_bxor2 == 6,                   "multiline ^: op at end of line");
+
+		// Assignment RHS on next line
+		ml_asgn : int =
+		          42;
+		test(ml_asgn == 42,                   "multiline =: rhs on next line");
+
+		ml_asgn2 : int = 0;
+		ml_asgn2 =
+		    99;
+		test(ml_asgn2 == 99,                  "multiline =: standalone assignment");
+
+		// Compound assignment operators
+		ml_pe : int = 5;
+		ml_pe +=
+		    3;
+		test(ml_pe == 8,                      "multiline +=");
+
+		ml_me : int = 10;
+		ml_me -=
+		    4;
+		test(ml_me == 6,                      "multiline -=");
+
+		ml_te : int = 3;
+		ml_te *=
+		    4;
+		test(ml_te == 12,                     "multiline *=");
+
+		ml_de : int = 20;
+		ml_de /=
+		    5;
+		test(ml_de == 4,                      "multiline /=");
+
+		// Inside function call parens
+		ml_call1 : int = add_one(
+		                     5);
+		test(ml_call1 == 6,                   "multiline: single arg on next line");
+
+		ml_call2 : int = clamp(
+		                     5,
+		                     1,
+		                     10);
+		test(ml_call2 == 5,                   "multiline: multiple args on separate lines");
+
+		ml_call3 : int = add_one(2 +
+		                         3);
+		test(ml_call3 == 6,                   "multiline: expr arg split across lines");
+
+		test(1 == 1 &&
+		     2 == 2,                          "multiline && inside test() args");
+
 		///////////////////////
 		// Zero-effect ops    //
 		///////////////////////

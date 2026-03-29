@@ -33,5 +33,6 @@ extern std::vector<std::string> linkedStaticLibraries;
 
 extern Function* globalInitFn;
 void declareModuleScopeVariable(ASTNode* exprStmtNode, ASTNode* ownerNode, bool isModuleVar);
+void declareModuleScopeVariableFromColon(ASTNode* colonNode, ASTNode* ownerNode);
 void processModuleForDeclarations(ASTNode* moduleCompilerDefineNode, std::string parentName = "");
 void finalizeGlobalInit();

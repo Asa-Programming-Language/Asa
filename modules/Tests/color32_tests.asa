@@ -1,0 +1,140 @@
+
+// Color32Tests
+// Tests for the Color32 struct and its constructors.
+
+@public:
+Color32Tests :: module {
+
+	#import Tests.Testing;
+	#import Builtin.Casts;
+	#import Rendering.Raylib;
+
+	@public:
+	runColor32Tests :: () {
+		beginSection("Color32");
+
+		///////////////////////
+		// Default constructor//
+		///////////////////////
+
+		c0 : Color32 = Color32();
+		test(c0.r == 0 && int(c0.r) == 0,   "default ctor: r is 0");
+		test(c0.g == 0 && int(c0.g) == 0,   "default ctor: g is 0");
+		test(c0.b == 0 && int(c0.b) == 0,   "default ctor: b is 0");
+		test(c0.a == 0 && int(c0.a) == 0,   "default ctor: a is 0");
+
+		///////////////////////
+		// RGBA constructor   //
+		///////////////////////
+
+		c1 : Color32 = Color32(255, 128, 64, 32);
+		test(c1.r == 255 && int(c1.r) == 255, "rgba ctor: r is 255");
+		test(c1.g == 128 && int(c1.g) == 128, "rgba ctor: g is 128");
+		test(c1.b == 64  && int(c1.b) == 64,  "rgba ctor: b is 64");
+		test(c1.a == 32  && int(c1.a) == 32,  "rgba ctor: a is 32");
+
+		// All zeros
+		c2 : Color32 = Color32(0, 0, 0, 0);
+		test(c2.r == 0 && int(c2.r) == 0,   "rgba ctor: all zeros r");
+		test(c2.g == 0 && int(c2.g) == 0,   "rgba ctor: all zeros g");
+		test(c2.b == 0 && int(c2.b) == 0,   "rgba ctor: all zeros b");
+		test(c2.a == 0 && int(c2.a) == 0,   "rgba ctor: all zeros a");
+
+		// Max values
+		c3 : Color32 = Color32(255, 255, 255, 255);
+		test(c3.r == 255 && int(c3.r) == 255, "rgba ctor: max r");
+		test(c3.g == 255 && int(c3.g) == 255, "rgba ctor: max g");
+		test(c3.b == 255 && int(c3.b) == 255, "rgba ctor: max b");
+		test(c3.a == 255 && int(c3.a) == 255, "rgba ctor: max a");
+
+		// Distinct channel values
+		c4 : Color32 = Color32(10, 20, 30, 40);
+		test(c4.r == 10  && int(c4.r) == 10,  "rgba ctor: r is 10");
+		test(c4.g == 20  && int(c4.g) == 20,  "rgba ctor: g is 20");
+		test(c4.b == 30  && int(c4.b) == 30,  "rgba ctor: b is 30");
+		test(c4.a == 40  && int(c4.a) == 40,  "rgba ctor: a is 40");
+
+		// Only r channel nonzero
+		c5 : Color32 = Color32(99, 0, 0, 0);
+		test(c5.r == 99  && int(c5.r) == 99,  "rgba ctor: only r nonzero");
+		test(c5.g == 0   && int(c5.g) == 0,   "rgba ctor: g is zero");
+		test(c5.b == 0   && int(c5.b) == 0,   "rgba ctor: b is zero");
+		test(c5.a == 0   && int(c5.a) == 0,   "rgba ctor: a is zero");
+
+		///////////////////////
+		// Grayscale ctor     //
+		///////////////////////
+
+		cg1 : Color32 = Color32(200);
+		test(cg1.r == 200 && int(cg1.r) == 200, "grayscale ctor: r is 200");
+		test(cg1.g == 200 && int(cg1.g) == 200, "grayscale ctor: g is 200");
+		test(cg1.b == 200 && int(cg1.b) == 200, "grayscale ctor: b is 200");
+		test(cg1.a == 255 && int(cg1.a) == 255, "grayscale ctor: a is 255");
+
+		cg2 : Color32 = Color32(0);
+		test(cg2.r == 0   && int(cg2.r) == 0,   "grayscale ctor: black r is 0");
+		test(cg2.g == 0   && int(cg2.g) == 0,   "grayscale ctor: black g is 0");
+		test(cg2.b == 0   && int(cg2.b) == 0,   "grayscale ctor: black b is 0");
+		test(cg2.a == 255 && int(cg2.a) == 255, "grayscale ctor: black a is 255");
+
+		cg3 : Color32 = Color32(255);
+		test(cg3.r == 255 && int(cg3.r) == 255, "grayscale ctor: white r is 255");
+		test(cg3.g == 255 && int(cg3.g) == 255, "grayscale ctor: white g is 255");
+		test(cg3.b == 255 && int(cg3.b) == 255, "grayscale ctor: white b is 255");
+		test(cg3.a == 255 && int(cg3.a) == 255, "grayscale ctor: white a is 255");
+
+		cg4 : Color32 = Color32(100);
+		test(cg4.r == 100 && int(cg4.r) == 100, "grayscale ctor: r is 100");
+		test(cg4.g == 100 && int(cg4.g) == 100, "grayscale ctor: g is 100");
+		test(cg4.b == 100 && int(cg4.b) == 100, "grayscale ctor: b is 100");
+		test(cg4.a == 255 && int(cg4.a) == 255, "grayscale ctor: a is 255 for value 100");
+
+		///////////////////////
+		// Predefined colors  //
+		///////////////////////
+
+		test(WHITE.r == 255 && int(WHITE.r) == 255 &&
+		     WHITE.g == 255 && int(WHITE.g) == 255 &&
+		     WHITE.b == 255 && int(WHITE.b) == 255 &&
+		     WHITE.a == 255 && int(WHITE.a) == 255, "WHITE is (255,255,255,255)");
+
+		test(BLACK.r == 0   && int(BLACK.r) == 0   &&
+		     BLACK.g == 0   && int(BLACK.g) == 0   &&
+		     BLACK.b == 0   && int(BLACK.b) == 0   &&
+		     BLACK.a == 255 && int(BLACK.a) == 255, "BLACK is (0,0,0,255)");
+
+		test(RED.r == 230 && int(RED.r) == 230 &&
+		     RED.g == 41  && int(RED.g) == 41  &&
+		     RED.b == 55  && int(RED.b) == 55  &&
+		     RED.a == 255 && int(RED.a) == 255, "RED is (230,41,55,255)");
+
+		test(GREEN.r == 0   && int(GREEN.r) == 0   &&
+		     GREEN.g == 228 && int(GREEN.g) == 228 &&
+		     GREEN.b == 48  && int(GREEN.b) == 48  &&
+		     GREEN.a == 255 && int(GREEN.a) == 255, "GREEN is (0,228,48,255)");
+
+		test(BLUE.r == 0   && int(BLUE.r) == 0   &&
+		     BLUE.g == 121 && int(BLUE.g) == 121 &&
+		     BLUE.b == 241 && int(BLUE.b) == 241 &&
+		     BLUE.a == 255 && int(BLUE.a) == 255, "BLUE is (0,121,241,255)");
+
+		test(BLANK.r == 0 && int(BLANK.r) == 0 &&
+		     BLANK.g == 0 && int(BLANK.g) == 0 &&
+		     BLANK.b == 0 && int(BLANK.b) == 0 &&
+		     BLANK.a == 0 && int(BLANK.a) == 0, "BLANK is (0,0,0,0)");
+
+		///////////////////////
+		// Field mutation     //
+		///////////////////////
+
+		cm : Color32 = Color32(1, 2, 3, 4);
+		cm.r = char(100);
+		cm.g = char(150);
+		cm.b = char(200);
+		cm.a = char(250);
+		test(cm.r == 100 && int(cm.r) == 100, "mutation: r updated to 100");
+		test(cm.g == 150 && int(cm.g) == 150, "mutation: g updated to 150");
+		test(cm.b == 200 && int(cm.b) == 200, "mutation: b updated to 200");
+		test(cm.a == 250 && int(cm.a) == 250, "mutation: a updated to 250");
+	}
+}

@@ -10,6 +10,11 @@ AccessTests :: module {
 	#import Builtin.Casts;
 	#import Builtin.String;
 
+	// Module level pointer variables
+	g_intbuf  : *int;
+	g_sentinel : int = 0xABCD;   // adjacent global; must survive writes through g_intbuf
+	g_charbuf : *char;
+
 	@public:
 	runAccessTests :: () {
 		beginSection("Access Operator");
@@ -177,9 +182,102 @@ AccessTests :: module {
 		test(firstChar(world) == 'w',             "ref string: first char via ref param");
 		test(lastChar(world) == 'd',              "ref string: last char via ref param");
 
+		// ref string .length via ref param
+		test(refLength(hello) == 5,               "ref string: length of 'hello' is 5");
+		test(refLength(world) == 5,               "ref string: length of 'world' is 5");
+		empty : string = "";
+		test(refLength(empty) == 0,               "ref string: length of '' is 0");
+		longer : string = "language";
+		test(refLength(longer) == 8,              "ref string: length of 'language' is 8");
+
 		// ref string used in a scan
 		test(countChar(hello, 'l') == 2,          "ref string: count 'l' in hello is 2");
 		test(countChar(world, 'o') == 1,          "ref string: count 'o' in world is 1");
+
+		///////////////////////
+		// global *int        //
+		///////////////////////
+
+		g_intbuf = malloc(40);
+		for (i : 0..5) {
+			g_intbuf[i] = (i + 1) * 100;
+		}
+		test(g_intbuf[0] == int(100),             "global *int: index 0 is 100");
+		test(g_intbuf[1] == int(200),             "global *int: index 1 is 200");
+		test(g_intbuf[2] == int(300),             "global *int: index 2 is 300");
+		test(g_intbuf[4] == int(500),             "global *int: index 4 is 500");
+		g_intbuf[2] = 999;
+		test(g_intbuf[2] == int(999),             "global *int: overwrite index 2");
+		test(g_intbuf[1] == int(200),             "global *int: adjacent index unaffected");
+		// Sentinel must not have been overwritten by any of the above
+		test(g_sentinel == 0xABCD,                "global *int: adjacent global not corrupted");
+
+		///////////////////////
+		// global *char       //
+		///////////////////////
+
+		g_charbuf = malloc(8);
+		g_charbuf[0] = 'A';
+		g_charbuf[1] = 'B';
+		g_charbuf[2] = 'C';
+		test(g_charbuf[0] == 'A',                 "global *char: index 0 is 'A'");
+		test(g_charbuf[1] == 'B',                 "global *char: index 1 is 'B'");
+		test(g_charbuf[2] == 'C',                 "global *char: index 2 is 'C'");
+		g_charbuf[1] = 'Z';
+		test(g_charbuf[1] == 'Z',                 "global *char: overwrite index 1");
+		test(g_charbuf[0] == 'A',                 "global *char: index 0 unchanged after overwrite");
+		test(g_sentinel == 0xABCD,                "global *char: adjacent global not corrupted");
+
+		///////////////////////////////
+		// Expression index (local)  //
+		///////////////////////////////
+
+		// Index with binary expression: buf[i * 2 + j]
+		STRIDE : int = 4;
+		ROWS   : int = 3;
+		ebuf   : *int = malloc(ROWS * STRIDE * 40);
+		for (row : 0..ROWS) {
+			for (col : 0..STRIDE) {
+				ebuf[row * STRIDE + col] = row * 10 + col;
+			}
+		}
+		test(ebuf[0 * STRIDE + 0] == 0,          "expr index: [0*STRIDE+0] == 0");
+		test(ebuf[0 * STRIDE + 3] == 3,          "expr index: [0*STRIDE+3] == 3");
+		test(ebuf[1 * STRIDE + 0] == 10,         "expr index: [1*STRIDE+0] == 10");
+		test(ebuf[1 * STRIDE + 2] == 12,         "expr index: [1*STRIDE+2] == 12");
+		test(ebuf[2 * STRIDE + 3] == 23,         "expr index: [2*STRIDE+3] == 23");
+
+		// Overwrite via expression index
+		ebuf[1 * STRIDE + 1] = 999;
+		test(ebuf[1 * STRIDE + 1] == 999,        "expr index: overwrite [1*STRIDE+1] == 999");
+		test(ebuf[1 * STRIDE + 0] == 10,         "expr index: adjacent [1*STRIDE+0] unchanged");
+		test(ebuf[1 * STRIDE + 2] == 12,         "expr index: adjacent [1*STRIDE+2] unchanged");
+
+		// Index using sum of two variables
+		a : int = 2;
+		b : int = 5;
+		ebuf[a + b] = 777;
+		test(ebuf[a + b] == 777,                 "expr index: [a+b] write and read back");
+		test(ebuf[7]     == 777,                 "expr index: [a+b] == [7] same slot");
+
+		///////////////////////////////
+		// Expression index (global) //
+		///////////////////////////////
+
+		g_intbuf = malloc(20 * 40);
+		GSTRIDE : int = 5;
+		for (row : 0..4) {
+			for (col : 0..GSTRIDE) {
+				g_intbuf[row * GSTRIDE + col] = row * 100 + col;
+			}
+		}
+		test(g_intbuf[0 * GSTRIDE + 0] == 0,    "global expr index: [0*GSTRIDE+0] == 0");
+		test(g_intbuf[1 * GSTRIDE + 2] == 102,  "global expr index: [1*GSTRIDE+2] == 102");
+		test(g_intbuf[3 * GSTRIDE + 4] == 304,  "global expr index: [3*GSTRIDE+4] == 304");
+
+		g_intbuf[2 * GSTRIDE + 3] = 12345;
+		test(g_intbuf[2 * GSTRIDE + 3] == 12345, "global expr index: overwrite [2*GSTRIDE+3]");
+		test(g_intbuf[2 * GSTRIDE + 2] == 202,   "global expr index: adjacent slot unchanged");
 	}
 
 	refCharRead :: char(buf : ref *char, i : int) {
@@ -221,7 +319,12 @@ AccessTests :: module {
 	}
 
 	lastChar :: char(s : ref string) {
-		return s[int(s.length) - 1];
+		idx : int = int(s.length) - 1;
+		return s[idx];
+	}
+
+	refLength :: uint(s : ref string) {
+		return s.length;
 	}
 
 	countChar :: int(s : ref string, c : char) {

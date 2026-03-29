@@ -124,6 +124,19 @@ String :: module{
 		return newStr;
 	}
 
+	// Operator: +(string, uint8)
+	// Description: Concatenates a string with a uint8
+	//
+	// Arguments:
+	//     thisStr: The string
+	//     n: The uint8 to be added
+	//
+	// Returns: A new string containing the concatenation of the string and uint8
+	@public:
+	operator+ :: string(thisStr : exact string, n : exact uint8){
+		return thisStr + string(int64(n));
+	}
+
 	// Operator: +(string, int64)
 	// Description: Concatenates a string with the decimal representation of an integer
 	//
@@ -148,6 +161,32 @@ String :: module{
 	@public:
 	operator+ :: string(n : int64, otherStr : exact string){
 		return string(n) + otherStr;
+	}
+
+	// Operator: +(string, float)
+	// Description: Concatenates a string with the decimal representation of a float
+	//
+	// Arguments:
+	//     thisStr: The string
+	//     f: The float to append
+	//
+	// Returns: A new string containing the concatenation
+	@public:
+	operator+ :: string(thisStr : exact string, f : float){
+		return thisStr + string(f);
+	}
+
+	// Operator: +(float, string)
+	// Description: Concatenates a decimal representation of a float with a string
+	//
+	// Arguments:
+	//     f: The float to append
+	//     thisStr: The string
+	//
+	// Returns: A new string containing the concatenation
+	@public:
+	operator+ :: string(f : float, thisStr : exact string){
+		return string(f) + thisStr;
 	}
 
 	// Operator: +(*char, *char)
@@ -214,6 +253,30 @@ String :: module{
 		return s;
 	}
 
+	// Constructor: string(char)
+	// Description: Converts a char to a single-character string
+	@public:
+	cast :: string(c : exact char) {
+		s : string = string();
+		s.address = malloc(2);
+		s.length = 1;
+		s.address[0] = c;
+		s.address[1] = char(0);
+		return s;
+	}
+
+	// Constructor: string(uint8)
+	// Description: Converts an uint8 to its decimal string representation
+	//
+	// Arguments:
+	//     n: The integer to convert
+	//
+	// Returns: A new string containing the decimal representation of n
+	@public:
+	cast :: string(n : exact uint8) {
+		return string(int64(n));
+	}
+
 	// Constructor: string(double)
 	// Description: Converts a double to its string representation using %g format
 	@public:
@@ -250,6 +313,12 @@ String :: module{
 		if (a.length != b.length)
 			return false;
 		return strcmp(a.address, b.address) == 0;
+	}
+
+	@public:
+	@inline:
+	operator!= :: bool(a : exact string, b : exact string) {
+		return !(a == b);
 	}
 
 	// Function: print(string)

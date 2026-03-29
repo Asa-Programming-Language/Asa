@@ -40,6 +40,7 @@ Raylib :: module {
 	// Struct: Color32
 	// Description: RGBA color value (4 x uint8)
 	@public:
+	@packed:
 	Color32 :: struct {
 		r : uint8;
 		g : uint8;
@@ -50,13 +51,32 @@ Raylib :: module {
 	// Constructor: Color32(r, g, b, a)
 	// Description: Creates a Color32 from individual RGBA components (0-255 each)
 	@public:
-	create :: Color32(r : int, g : int, b : int, a : int) {
+	create :: Color32(r : int, g : int, b : int, a : int = 255) {
 		c : Color32 = Color32();
-		c.r = char(r);
-		c.g = char(g);
-		c.b = char(b);
-		c.a = char(a);
+		c.r = uint8(r);
+		c.g = uint8(g);
+		c.b = uint8(b);
+		c.a = uint8(a);
 		return c;
+	}
+
+	// Constructor: Color32(l)
+	// Description: Creates a grayscale Color32 from a single integer component (0-255)
+	@public:
+	create :: Color32(l : int) {
+		c : Color32 = Color32();
+		c.r = uint8(l);
+		c.g = uint8(l);
+		c.b = uint8(l);
+		c.a = uint8(255);
+		return c;
+	}
+
+	operator* :: Color32(l : float, r : Color32){
+		r.r *= l;
+		r.g *= l;
+		r.b *= l;
+		return r;
 	}
 
 	// Predefined color constants matching raylib's built-in palette
@@ -86,6 +106,28 @@ Raylib :: module {
 	@public: BLANK      : Color32 = Color32(0,   0,   0,   0);
 	@public: MAGENTA    : Color32 = Color32(255, 0,   255, 255);
 
+
+	// Struct: Image
+	// Description: Image pixel data stored in CPU memory (RAM)
+	@public:
+	Image :: struct {
+		data    : *uint8;
+		width   : int;
+		height  : int;
+		mipmaps : int;
+		format  : int;
+	}
+
+	// Struct: Texture2D
+	// Description: Texture data stored in GPU memory (VRAM)
+	@public:
+	Texture2D :: struct {
+		id      : uint32;
+		width   : int;
+		height  : int;
+		mipmaps : int;
+		format  : int;
+	}
 
 	///////////////////////
 	// Window            //
@@ -397,4 +439,97 @@ Raylib :: module {
 	@public: MOUSE_LEFT_BUTTON   : int = 0;
 	@public: MOUSE_RIGHT_BUTTON  : int = 1;
 	@public: MOUSE_MIDDLE_BUTTON : int = 2;
+
+	///////////////////////
+	// Images            //
+	///////////////////////
+
+	// Function: LoadImage(fileName)
+	// Description: Loads an image from file into CPU memory (RAM)
+	@public:
+	#extern LoadImage :: Image(fileName : *char);
+
+	// Function: LoadImageFromMemory(fileType, fileData, dataSize)
+	// Description: Loads an image from a memory buffer; fileType is the extension e.g. ".png"
+	@public:
+	#extern LoadImageFromMemory :: Image(fileType : *char, fileData : *uint8, dataSize : int);
+
+	// Function: LoadImageFromScreen()
+	// Description: Loads an image from the current screen buffer (screenshot)
+	@public:
+	#extern LoadImageFromScreen :: Image();
+
+	// Function: UnloadImage(image)
+	// Description: Unloads image data from CPU memory (RAM)
+	@public:
+	#extern UnloadImage :: (image : Image);
+
+	// Function: ExportImage(image, fileName)
+	// Description: Exports image data to file; returns true on success
+	@public:
+	#extern ExportImage :: bool(image : Image, fileName : *char);
+
+	// Function: GetImageColor(image, x, y)
+	// Description: Returns the pixel color at (x, y) in the image
+	@public:
+	#extern GetImageColor :: Color32(image : Image, x : int, y : int);
+
+	// Function: ImageResize(image, newWidth, newHeight)
+	// Description: Resizes an image in-place using bicubic scaling
+	@public:
+	#extern ImageResize :: (image : *Image, newWidth : int, newHeight : int);
+
+	// Function: ImageResizeNN(image, newWidth, newHeight)
+	// Description: Resizes an image in-place using nearest-neighbour scaling
+	@public:
+	#extern ImageResizeNN :: (image : *Image, newWidth : int, newHeight : int);
+
+	///////////////////////
+	// Textures          //
+	///////////////////////
+
+	// Function: LoadTexture(fileName)
+	// Description: Loads a texture from file into GPU memory (VRAM)
+	@public:
+	#extern LoadTexture :: Texture2D(fileName : *char);
+
+	// Function: LoadTextureFromImage(image)
+	// Description: Loads a texture from an Image struct
+	@public:
+	#extern LoadTextureFromImage :: Texture2D(image : Image);
+
+	// Function: UnloadTexture(texture)
+	// Description: Unloads texture from GPU memory (VRAM)
+	@public:
+	#extern UnloadTexture :: (texture : Texture2D);
+
+	// Function: GenTextureMipmaps(texture)
+	// Description: Generates GPU mipmaps for a texture
+	@public:
+	#extern GenTextureMipmaps :: (texture : *Texture2D);
+
+	// Function: DrawTexture(texture, posX, posY, tint)
+	// Description: Draws a Texture2D at the given position
+	@public:
+	#extern DrawTexture :: (texture : Texture2D, posX : int, posY : int, tint : Color32);
+
+	// Function: DrawTextureV(texture, position, tint)
+	// Description: Draws a Texture2D at a Vector2 position
+	@public:
+	#extern DrawTextureV :: (texture : Texture2D, position : Vector2, tint : Color32);
+
+	// Function: DrawTextureEx(texture, position, rotation, scale, tint)
+	// Description: Draws a Texture2D with extended transform parameters
+	@public:
+	#extern DrawTextureEx :: (texture : Texture2D, position : Vector2, rotation : float, scale : float, tint : Color32);
+
+	// Function: DrawTextureRec(texture, source, position, tint)
+	// Description: Draws a sub-rectangle of a texture
+	@public:
+	#extern DrawTextureRec :: (texture : Texture2D, source : Rect, position : Vector2, tint : Color32);
+
+	// Function: DrawTexturePro(texture, source, dest, origin, rotation, tint)
+	// Description: Draws a texture with full source/dest rectangle and rotation control
+	@public:
+	#extern DrawTexturePro :: (texture : Texture2D, source : Rect, dest : Rect, origin : Vector2, rotation : float, tint : Color32);
 }
