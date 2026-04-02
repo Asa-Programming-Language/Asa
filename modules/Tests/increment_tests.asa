@@ -1,0 +1,71 @@
+
+// IncrementTests
+// Tests for the ++ and -- (increment/decrement) operators.
+
+@public:
+IncrementTests :: module {
+
+	#import Tests.Testing;
+
+	@public:
+	runIncrementTests :: () {
+		beginSection("Increment/Decrement");
+
+		///////////////////////
+		// Postfix ++        //
+		///////////////////////
+
+		i : int = 0;
+		i++;
+		test(i == 1, "i++ increments from 0 to 1");
+
+		i++;
+		test(i == 2, "i++ increments from 1 to 2");
+
+		i = 10;
+		i++;
+		test(i == 11, "i++ increments from 10 to 11");
+
+		///////////////////////
+		// Postfix --        //
+		///////////////////////
+
+		j : int = 5;
+		j--;
+		test(j == 4, "j-- decrements from 5 to 4");
+
+		j--;
+		test(j == 3, "j-- decrements from 4 to 3");
+
+		j = 0;
+		j--;
+		test(j == -1, "j-- decrements below zero");
+
+		///////////////////////
+		// In a loop         //
+		///////////////////////
+
+		count : int = 0;
+		for (k : 0..5) {
+			count++;
+		}
+		test(count == 5, "++ in loop body counts iterations");
+
+		down : int = 10;
+		for (k : 0..5) {
+			down--;
+		}
+		test(down == 5, "-- in loop body counts down");
+
+		///////////////////////
+		// Float ++/--       //
+		///////////////////////
+
+		f : float = 1.0;
+		f++;
+		test(f == 2.0, "f++ increments float from 1.0 to 2.0");
+
+		f--;
+		test(f == 1.0, "f-- decrements float back to 1.0");
+	}
+}

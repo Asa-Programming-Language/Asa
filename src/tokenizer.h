@@ -238,8 +238,11 @@ struct tokenDataType {
 	}
 };
 
+
 typedef tokenDataType tokenPair;
 //typedef std::pair<std::string, TokenType> tokenPair;
+
+typedef std::pair<tokenDataType*, tokenDataType*> tokenRange;
 
 extern std::vector<tokenPair*> allTokens;
 extern std::vector<std::string*> lines;

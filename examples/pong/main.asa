@@ -43,12 +43,12 @@ ball : gameObject = gameObject();
 score_0 = 0;
 score_1 = 0;
 
-moveSpeed : float = 500;
+moveSpeed : const float = 500;
 
-SCREEN_W = 800;
-SCREEN_H = 450;
+SCREEN_W : const int = 800;
+SCREEN_H : const int = 450;
 
-FONT_SCALE = 90;
+FONT_SCALE : const int = 90;
 
 main:: (){
 	InitWindow(SCREEN_W, SCREEN_H, "Asa Pong");

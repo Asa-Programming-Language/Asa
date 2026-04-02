@@ -302,14 +302,12 @@ int main(int argc, char** argv)
 	for (int p = 0; p <= 2; p++) {
 		generateOutputCode(rootNode, 0, p);
 	}
-	// Finalize module-scope global variable initializers (must run before
-	// removeUnusedPrototypes so that functions used only in global inits
-	// have their use-count incremented before the pruning pass)
-	finalizeGlobalInit();
+	bool res = finalizeGlobalInit();
 
-	// Cleanup unused code
 	if (!wasError)
-		removeUnusedPrototypes();
+		optimizeFunctions();
+	else
+		goto errorsEncountered;
 
 	DBuilder->finalize();
 

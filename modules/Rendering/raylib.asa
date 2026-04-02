@@ -42,9 +42,17 @@ Raylib :: module {
 	@public:
 	@packed:
 	Color32 :: struct {
+		// Variable: r
+		// Description: The red color value
 		r : uint8;
+		// Variable: g
+		// Description: The green color value
 		g : uint8;
+		// Variable: b
+		// Description: The blue color value
 		b : uint8;
+		// Variable: a
+		// Description: The alpha color value
 		a : uint8;
 	}
 
@@ -70,6 +78,10 @@ Raylib :: module {
 		c.b = uint8(l);
 		c.a = uint8(255);
 		return c;
+	}
+
+	operator== :: bool(l : Color32, r : Color32){
+		return l.r == r.r && l.g == r.g && l.b == r.b && l.a == r.a;
 	}
 
 	operator* :: Color32(l : float, r : Color32){
@@ -111,10 +123,20 @@ Raylib :: module {
 	// Description: Image pixel data stored in CPU memory (RAM)
 	@public:
 	Image :: struct {
+		// Variable: data
+		// Description: A pointer to the image pixel data
 		data    : *uint8;
+		// Variable: width
+		// Description: The width of the image in pixels
 		width   : int;
+		// Variable: height
+		// Description: The height of the image in pixels
 		height  : int;
+		// Variable: mipmaps
+		// Description: The number of mipmaps of the image
 		mipmaps : int;
+		// Variable: format
+		// Description: The format of the image
 		format  : int;
 	}
 
@@ -123,10 +145,31 @@ Raylib :: module {
 	@public:
 	Texture2D :: struct {
 		id      : uint32;
+		// Variable: width
+		// Description: The width of the image in pixels
 		width   : int;
+		// Variable: height
+		// Description: The height of the image in pixels
 		height  : int;
+		// Variable: mipmaps
+		// Description: The number of mipmaps of the image
 		mipmaps : int;
+		// Variable: format
+		// Description: The format of the image
 		format  : int;
+	}
+
+	// Struct: RenderTexture2D
+	// Description: Framebuffer for off-screen rendering; contains colour and depth textures
+	@public:
+	RenderTexture2D :: struct {
+		id      : uint32;
+		// Variable: texture
+		// Description: The texture value of the render texture
+		texture : Texture2D;
+		// Variable: depth
+		// Description: The depth texture of the render texture
+		depth   : Texture2D;
 	}
 
 	///////////////////////
@@ -236,6 +279,16 @@ Raylib :: module {
 	// Description: Sets the background colour for this frame
 	@public:
 	#extern ClearBackground :: (color : Color32);
+
+	// Function: BeginTextureMode(target)
+	// Description: Begins drawing to an off-screen render texture
+	@public:
+	#extern BeginTextureMode :: (target : RenderTexture2D);
+
+	// Function: EndTextureMode()
+	// Description: Ends drawing to the render texture and resumes drawing to the screen
+	@public:
+	#extern EndTextureMode :: ();
 
 	///////////////////////
 	// Shapes            //
@@ -474,6 +527,11 @@ Raylib :: module {
 	@public:
 	#extern GetImageColor :: Color32(image : Image, x : int, y : int);
 
+	// Function: ImageDrawPixel(image, x, y, color)
+	// Description: Sets the pixel color at (x, y) in the image
+	@public:
+	#extern ImageDrawPixel :: (image : *Image, posX : int, posY : int, color : Color32);
+
 	// Function: ImageResize(image, newWidth, newHeight)
 	// Description: Resizes an image in-place using bicubic scaling
 	@public:
@@ -487,6 +545,16 @@ Raylib :: module {
 	///////////////////////
 	// Textures          //
 	///////////////////////
+
+	// Function: LoadRenderTexture(width, height)
+	// Description: Loads a render texture (framebuffer) of the given size
+	@public:
+	#extern LoadRenderTexture :: RenderTexture2D(width : int, height : int);
+
+	// Function: UnloadRenderTexture(target)
+	// Description: Unloads a render texture from GPU memory
+	@public:
+	#extern UnloadRenderTexture :: (target : RenderTexture2D);
 
 	// Function: LoadTexture(fileName)
 	// Description: Loads a texture from file into GPU memory (VRAM)

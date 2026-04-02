@@ -12,7 +12,7 @@ int resolveDependencies(ASTNode*& node)
 		// Work backwards up node tree
 		for (;;) {
 			if (parent == nullptr) {
-				printTokenError(node->token, "Function definition not found");
+				printTokenError(getASTTokenRange(node), "Function definition not found");
 				exit(1);
 			}
 
@@ -28,7 +28,7 @@ int resolveDependencies(ASTNode*& node)
 		}
 	exitLoop:
 		if (!foundDefinition) {
-			printTokenError(node->token, "Function definition not found");
+			printTokenError(getASTTokenRange(node), "Function definition not found");
 			exit(1);
 		}
 	}

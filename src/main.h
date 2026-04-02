@@ -14,7 +14,8 @@
 #include "tokenizer.h"
 
 int verbosity = 2;
-int optimizationLevel = 0;
+int optimizationLevel = -1;
+int maxErrorTraceDepth = 2;
 
 
 CompilerFlags compilerFlags = Flags_None;

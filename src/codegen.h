@@ -3,6 +3,7 @@
 
 #include "console.h"
 #include "llvm.h"
+#include "messagehandler.h"
 #include "parser.h"
 #include "pch.h"
 #include "settings.h"
@@ -24,7 +25,7 @@ extern std::map<std::string, Value*> NamedValues;
 void initializeCodeGenerator();
 int outputObjectFile(std::string& objectFilePath);
 int generateExecutable(const std::string& irFilePath, const std::string& exeFilePath, const std::string& clangOptions);
-void removeUnusedPrototypes();
+void optimizeFunctions();
 void printFunctionPrototypes();
 
 extern std::map<std::string, std::string> compilerDefines;
@@ -35,4 +36,4 @@ extern Function* globalInitFn;
 void declareModuleScopeVariable(ASTNode* exprStmtNode, ASTNode* ownerNode, bool isModuleVar);
 void declareModuleScopeVariableFromColon(ASTNode* colonNode, ASTNode* ownerNode);
 void processModuleForDeclarations(ASTNode* moduleCompilerDefineNode, std::string parentName = "");
-void finalizeGlobalInit();
+bool finalizeGlobalInit();

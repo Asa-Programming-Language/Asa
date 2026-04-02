@@ -5,8 +5,8 @@
 #import Builtin.String;
 
 
-@version(1):
-gameObject :: struct{
+@version(2):
+GameObject :: struct{
 	position : Vector3;
 	rotation : Vector3;
 	scale    : Vector3;
@@ -14,27 +14,124 @@ gameObject :: struct{
 	velocity : Vector3;
 }
 
-isColliding :: bool(a : gameObject, b : gameObject){
+NamedTexture :: struct{
+	name : string;
+	texture : Texture2D;
+}
+
+create :: NamedTexture(name : string, texture : Texture2D){
+	n = NamedTexture();
+	n.name = name;
+	n.texture = texture;
+
+	return n;
+}
+
+loadNamedTexture :: *NamedTexture(name : string){
+	for(i : 0..loadedTexturesCount){
+		if(allTextures[i].name == name){
+			//printl("loading image, reusing cached \"" + name + "\"");
+			return &(allTextures[i]);
+		}
+	}
+	// If it doesnt exist yet, load it and add to allTextures
+	printl("loading image for the first time \"" + name + "\"");
+	img : Image = LoadImage(name);
+	imgPtr : *Image = &img;
+
+	// Set any pixels that match TRANSPARENT_KEY color to transparent
+	for(x : 0..img.width)
+	for(y : 0..img.height)
+		if(GetImageColor(img, x, y) == TRANSPARENT_KEY) // TODO: I tried having img being a *Image, then doing GetImageColor(*img, x, y), but it gave a compiler error
+			ImageDrawPixel(imgPtr, x, y, Color32(0, 0, 0, 0));
+
+	allTextures[loadedTexturesCount] = NamedTexture(name, LoadTextureFromImage(img));
+	loadedTexturesCount += 1;
+	return &allTextures[loadedTexturesCount-1];
+}
+
+Wall :: struct{
+	a : *Texture2D;
+	b : *Texture2D;
+	c : *Texture2D;
+	d : *Texture2D;
+	position : Vector3I;
+	rotation : uint8; // 0 -> a,b,c,d is north,east,south,west,  1 -> a,b,c,d is east,south,west,north,   etc.
+	style : uint8; // 0=abcd visible full cell,  1=bd visible ac invisible,  2=abcd visible with ac offset to middle for door,  3=abcd visible offset to center
+	symbol : char;
+}
+
+create :: Wall(symbol : char, a : string, b : string,  c : string,  d : string, position : Vector3I, rotation : uint8, style : uint8){
+	w : Wall = Wall();
+	w.symbol = symbol;
+	w.a = &(loadNamedTexture(a).texture);
+	w.b = &(loadNamedTexture(b).texture);
+	w.c = &(loadNamedTexture(c).texture);
+	w.d = &(loadNamedTexture(d).texture);
+	w.position = position;
+	w.rotation = rotation;
+	w.style = style;
+	return w;
+}
+
+Entity :: struct{
+	a : *Texture2D;
+	b : *Texture2D;
+	c : *Texture2D;
+	d : *Texture2D;
+	position : Vector3;
+	rotation : uint8; // 0 -> a,b,c,d is north,east,south,west,  1 -> a,b,c,d is east,south,west,north,   etc.
+	symbol : char;
+}
+
+create :: Entity(symbol : char, a : string, b : string,  c : string,  d : string, position : Vector3, rotation : uint8){
+	w : Entity = Entity();
+	w.symbol = symbol;
+	w.a = &(loadNamedTexture(a).texture);
+	w.b = &(loadNamedTexture(b).texture);
+	w.c = &(loadNamedTexture(c).texture);
+	w.d = &(loadNamedTexture(d).texture);
+	w.position = position;
+	w.rotation = rotation;
+	return w;
+}
+
+isColliding :: bool(a : const ref GameObject, b : const ref GameObject){
 	return (abs(a.position.x - b.position.x) < a.scale.x/2 + b.scale.x/2 && abs(a.position.y - b.position.y) < a.scale.y/2 + b.scale.y/2);
 }
 
-player : gameObject = gameObject();
+player : GameObject = GameObject();
 
-moveSpeed : float = 3.5;
-turnSpeed : float = 2.5;
+moveSpeed    : const float = 2.5;
+turnSpeed    : const float = 1.5;
+playerRadius : const float = 0.5;
+mapScale     : const float = 0.5;
 
 distances : *float = void; // Perpendicular wall distances, one per screen column
 
-TEX_SIZE   : int = 128;
-wallImage : Image = Image();
-doorImage : Image = Image();
+allTextures : *NamedTexture = void;
+loadedTexturesCount = 0;
 
-SCREEN_W : int = 800;
-SCREEN_H : int = 450;
+SCREEN_W  : const int = 320;
+SCREEN_H  : const int = 200;
+WINDOW_W  : const int = 800;
+WINDOW_H  : const int = 450;
 
-FOV = 1.0;
 
-LEVEL = "###################
+TRANSPARENT_KEY  : Color32 = Color32(153, 0, 153);
+
+renderTarget : RenderTexture2D = RenderTexture2D();
+
+FOV : const float = 1.0;
+
+levelObjects : *Wall = void;  // Stores static gameObjects
+levelObjectCount = 0;
+
+entities : *Entity = void;  // Stores moving billboarded game objects
+entityCount = 0;
+
+LEVEL : const string =
+"#########D#########
 #....#............#
 #....#......#.....#
 #....#......#.....#
@@ -42,9 +139,9 @@ D...........###.###
 #....#......#.....#
 #.................#
 #.................#
-#.................#
+#...........D.....#
 #....#............#
-#....#............#
+#....#...W........#
 #....#............#
 #.................#
 #.................#
@@ -55,17 +152,65 @@ D...........###.###
 ########D##########
 ";
 
-generateTextures :: () {
-	wallImage = LoadImage("stone.png");
-	doorImage = LoadImage("door.png");
+
+loadLevel :: (levelString : const ref string){
+	//if(#cast(levelObjects, int) != 0)
+	//	free(#cast(levelObjects, *int));
+	levelObjects = malloc(levelString.length * 2 * #sizeof(Wall));
+	entities = malloc(levelString.length * 0.5 * #sizeof(Wall));
+
+	levelObjectCount = 0;
+	x = 0;
+	y = 0;
+	for (i : 0..int(levelString.length)) {
+		levelVal = levelString[i];
+		if (levelVal == '\n') {
+			x = 0;
+			y++;
+			continue;
+		}
+		else if(levelVal == '#'){ // Stone wall
+			levelObjects[levelObjectCount++] = Wall(levelVal, "stone.png", "stone.png", "stone.png", "stone.png", Vector3I(x, 0, y), 0, 0);
+		}
+		else if(levelVal == 'D'){ // Closed door
+			direction : uint8 = 0;
+			// If left and right neighbors (same row) are walls, door panel faces N/S (rotation=0)
+			// Otherwise, door panel faces E/W (rotation=1)
+			if(i > 0 && i+1 < int(levelString.length)){
+				if(levelString[i-1] == '#' && levelString[i+1] == '#'){
+					direction = 0; // E/W neighbors are walls -> panel faces N/S
+				}
+				else
+					direction = 1; // no E/W walls -> panel faces E/W
+			}
+			levelObjects[levelObjectCount++] = Wall(levelVal, "door.png", "doorside.png", "door.png", "doorside.png", Vector3I(x, 0, y), direction, 2);
+		}
+		else if(levelVal == 'W'){ // Well object
+			entities[entityCount++] = Entity(levelVal, "well.png", "well.png", "well.png", "well.png", Vector3(x, 0, y), 0);
+		}
+
+		x++;
+	}
+
+}
+unloadLevel :: (){
+	for (i : 0..int(loadedTexturesCount)) {
+		UnloadTexture(allTextures[i].texture);
+	}
 }
 
 main:: (){
-	InitWindow(SCREEN_W, SCREEN_H, "ASA Wolfenstein");
-	SetTargetFPS(60);
+	InitWindow(WINDOW_W, WINDOW_H, "ASA Wolfenstein");
+	//SetTargetFPS(60);
 
+	renderTarget = LoadRenderTexture(SCREEN_W, SCREEN_H);
+	mapTarget = LoadRenderTexture(SCREEN_W, SCREEN_H);
 	distances = malloc(SCREEN_W * #sizeof(float));
-	generateTextures();
+	allTextures = malloc(128 * #sizeof(NamedTexture));
+
+	loadLevel(LEVEL);
+
+	getLevelWidthHeight();
 
 	player.pivot    = Vector3(0.5, 0.5, 0.5);
 	player.scale    = Vector3(15, 100);
@@ -73,59 +218,108 @@ main:: (){
 	player.rotation = Vector3(0, float(PI), 0); // face north
 
 	while (WindowShouldClose() == false) {
-		BeginDrawing();
+		BeginTextureMode(renderTarget);
 			ClearBackground(BLACK);
 			update(GetFrameTime());
+		EndTextureMode();
+
+		BeginTextureMode(mapTarget);
+			ClearBackground(Color32(0, 0, 0, 0));
+			drawMinimap();
+		EndTextureMode();
+
+		BeginDrawing();
+			ClearBackground(BLACK);
+
+			DrawTexturePro(renderTarget.texture,
+				Rect(0.0, 0.0, float(SCREEN_W), float(-SCREEN_H)),
+				Rect(0.0, 0.0, float(WINDOW_W), float(WINDOW_H)),
+				Vector2(0.0, 0.0), 0.0, WHITE);
+
+			DrawTexturePro(mapTarget.texture,
+				Rect(0.0, 0.0, float(SCREEN_W), float(-SCREEN_H)),
+				Rect(0.0, 0.0, float(WINDOW_W), float(WINDOW_H)),
+				Vector2(0.0, 0.0), 0.0, WHITE);
+
 			DrawFPS(0, 0);
+
+			DrawText(string(Vector3I(player.position)), 0, WINDOW_H-20, 20, RED);
 		EndDrawing();
 	}
 
+	UnloadRenderTexture(renderTarget);
+	UnloadRenderTexture(mapTarget);
+	unloadLevel();
 	CloseWindow();
 }
 
-getLevelValue :: char(x : int, y : int, level : ref string){
-	width : int = 0;
-	for (i : 0..int(level.length)) {
-		if (level[i] == '\n') {
-			width = i;
-			break;
+
+checkLevelValue :: char(x : const int, y : const int){
+	if(x < 0 || y < 0 || x > levelWidth || y > levelHeight) return 0;
+	for (i : 0..levelObjectCount) {
+		//if((levelObjects[i]).position.x == x && (levelObjects[i]).position.y == y){ // This way errored, so I'm using the following for now:
+		if((levelObjects[i]).position == Vector3I(x, 0, y)){
+			// If position matches search position, return it
+			return (levelObjects[i]).symbol;
 		}
 	}
-	if (width == 0) { return char(0); }
-
-	if (x < 0 || x >= width || y < 0 || y >= width) { return 0; }
-
-	idx : int = y * (width + 1) + x;
-	if (idx < 0 || idx >= int(level.length)) { return char(0); }
-
-	return level[idx];
+	return '.';
 }
+getLevelValue :: *Wall(x : const int, y : const int){
+	if(x < 0 || y < 0 || x > levelWidth || y > levelHeight) return void;
+	for (i : 0..levelObjectCount) {
+		if(levelObjects[i].position.x == x && levelObjects[i].position.z == y){
+		//if(levelObjects[i].position == Vector3I(x, 0, y)){
+			// If position matches search position, return it
+			return &(levelObjects[i]);
+		}
+	}
+	return void;
+}
+//getLevelValue :: char(x : const int, y : const int, level : const ref string){
+//	width : int = 0;
+//	for (i : 0..int(level.length)) {
+//		if (level[i] == '\n') {
+//			width = i;
+//			break;
+//		}
+//	}
+//	if (width == 0) { return char(0); }
+//
+//	if (x < 0 || x >= width || y < 0 || y >= width) { return 0; }
+//
+//	idx : int = y * (width + 1) + x;
+//	if (idx < 0 || idx >= int(level.length)) { return char(0); }
+//
+//	return level[idx];
+//}
 
-
-@hideast:
-drawMinimap :: () {
-	levelWidth  : int = 0;
-	levelHeight : int = 0;
+levelWidth  : int = 0;
+levelHeight : int = 0;
+getLevelWidthHeight :: (){
 	for (i : 0..int(LEVEL.length)) {
 		if (LEVEL[i] == '\n') {
 			if (levelWidth == 0) { levelWidth = i; }
 			levelHeight += 1;
 		}
 	}
+}
+
+drawMinimap :: () {
 	if (levelWidth == 0) { return; }
 
-	cellSize : int = 6;
-	padding  : int = 4;
-	mapW : int = levelWidth  * cellSize;
-	mapH : int = levelHeight * cellSize;
-	offX : int = SCREEN_W - mapW - padding;
-	offY : int = padding;
+	cellSize : const uint = int(6.0 * mapScale);
+	padding  : const uint = int(4.0 * mapScale);
+	mapW     : const uint = levelWidth  * cellSize;
+	mapH     : const uint = levelHeight * cellSize;
+	offX     : const uint = SCREEN_W - mapW - padding;
+	offY     : const uint = padding;
 
 	DrawRectangle(offX, offY, mapW, mapH, Color32(10, 10, 10));
 
 	for (row : 0..levelHeight) {
 		for (col : 0..levelWidth) {
-			c = getLevelValue(col, row, LEVEL);
+			c = checkLevelValue(col, row);
 			if (c == '#') {
 				DrawRectangle(offX + col*cellSize, offY + row*cellSize, cellSize-1, cellSize-1, Color32(180, 180, 180));
 			}
@@ -137,16 +331,40 @@ drawMinimap :: () {
 
 	px : int = offX + int(player.position.x * float(cellSize));
 	pz : int = offY + int(player.position.z * float(cellSize));
-	dx : int = int(-sin(player.rotation.y) * 8.0);
-	dz : int = int(cos(player.rotation.y) * 8.0);
+	dx : int = int(-sin(player.rotation.y) * 8.0 * mapScale);
+	dz : int = int(cos(player.rotation.y) * 8.0 * mapScale);
 	DrawLine(px, pz, px + dx, pz + dz, Color32(255, 220, 0));
-	DrawCircle(px, pz, 2.5, Color32(255, 220, 0));
+	DrawCircle(px, pz, 2.5 * mapScale, Color32(255, 220, 0));
 }
 
-update :: (dT : float){
+// Try to move by (dx, dz), resolving X and Z axes independently so the player slides along walls
+tryMove :: (dx : const float, dz : const float) {
+	r : float = playerRadius;
+	newX : float = player.position.x + dx;
+	newZ : float = player.position.z + dz;
+
+	marginX : float = r;
+	if (dx < 0.0) { marginX = -r; }
+	lvl = checkLevelValue(int(newX + marginX), int(player.position.z));
+	if (lvl == '.' || lvl == 'O') {
+		player.position.x = newX;
+	}
+
+	marginZ : float = r;
+	if (dz < 0.0) { marginZ = -r; }
+	lvl = checkLevelValue(int(player.position.x), int(newZ + marginZ));
+	if (lvl == '.' || lvl == 'O') {
+		player.position.z = newZ;
+	}
+}
+
+update :: (dT : const float){
 	// Flat Wolfenstein-style ceiling and floor
 	DrawRectangle(0, 0,          SCREEN_W, SCREEN_H/2, Color32(74, 74, 74));
 	DrawRectangle(0, SCREEN_H/2, SCREEN_W, SCREEN_H/2, Color32(45, 45, 45));
+
+	// Projection plane distance: makes 1-unit walls appear square
+	projDist : const float = float(SCREEN_W) * 0.5 / tanf(float(FOV) * 0.5);
 
 	// Cast one ray per screen column
 	for(i : 0..SCREEN_W){
@@ -166,8 +384,8 @@ update :: (dT : float){
 
 		deltaDistX : float = 0.0;
 		deltaDistZ : float = 0.0;
-		if (abs(rdx) > 0.0001) { deltaDistX = abs(1.0 / rdx); } else { deltaDistX = 9999999.0; }
-		if (abs(rdz) > 0.0001) { deltaDistZ = abs(1.0 / rdz); } else { deltaDistZ = 9999999.0; }
+		if (abs(rdx) > 0.000001) { deltaDistX = abs(1.0 / rdx); } else { deltaDistX = 9999999.0; }
+		if (abs(rdz) > 0.000001) { deltaDistZ = abs(1.0 / rdz); } else { deltaDistZ = 9999999.0; }
 
 		mapX : float = floorf(player.position.x);
 		mapZ : float = floorf(player.position.z);
@@ -195,88 +413,161 @@ update :: (dT : float){
 			sideDistZ = (1.0 - fracZ) * deltaDistZ;
 		}
 
-		if (sideDistX < 0.0001) { sideDistX = deltaDistX; }
-		if (sideDistZ < 0.0001) { sideDistZ = deltaDistZ; }
-
+		hitWall : *Wall = void;
 		hitChar : char = char(0);
-		side : int = 0;
-		for (j : 0..200) {
+		side : uint8 = 0;
+		hitDoorFrame : bool = false;
+		hitInnerFrame : bool = false;
+		doorHitCoord : float = 0.0;
+		hasDoorHitCoord : bool = false;
+
+
+		for (j : 0..100) {
+			currentWall : *Wall = getLevelValue(mapX, mapZ);
+			if(currentWall != void){
+				if(currentWall.style == 2){
+					// If the ray is already inside a door cell, crossing a boundary perpendicular
+					// to the door panel should hit the doorway threshold immediately.
+					exitsThroughThreshold : bool = (currentWall.rotation == 0 && sideDistX < sideDistZ) || (currentWall.rotation == 1 && sideDistZ <= sideDistX);
+					if(exitsThroughThreshold){
+						hitWall = currentWall;
+						hitDoorFrame = true;
+						if(currentWall.rotation == 0){
+							side = 1;
+							doorHitCoord = player.position.z + sideDistX * rdz;
+							hasDoorHitCoord = true;
+							sideDistX += deltaDistX;
+						} else {
+							side = 0;
+							doorHitCoord = player.position.x + sideDistZ * rdx;
+							hasDoorHitCoord = true;
+							sideDistZ += deltaDistZ;
+						}
+						break;
+					}
+				}
+			}
+
 			if (sideDistX < sideDistZ) {
 				sideDistX += deltaDistX;
 				mapX += stepX;
-				side = 0;
+				side = 1;
 			} else {
 				sideDistZ += deltaDistZ;
 				mapZ += stepZ;
-				side = 1;
+				side = 0;
 			}
-			hitChar = getLevelValue(mapX, mapZ, LEVEL);
-			if (hitChar != '.') { break; }
+			hitWall = getLevelValue(mapX, mapZ);
+
+			if(hitWall != void){
+				if(hitWall.style == 2){
+					// rotation=0: door panel faces N/S (hit via Z-step, side=0)
+					// rotation=1: door panel faces E/W (hit via X-step, side=1)
+					isDoorFace : bool = (hitWall.rotation == 0 && side == 0) || (hitWall.rotation == 1 && side == 1);
+					if(isDoorFace){
+						// Advance ray to the near face of the door panel.
+						// With thickness T, the near face is (0.5 - T/2) past the entry boundary.
+							panelThick : float = 0.1;
+							panelFaceOffset : float = 0.5 - panelThick * 0.5;
+							if(side == 0){
+								panelFaceDist : float = (sideDistZ - deltaDistZ) + deltaDistZ * panelFaceOffset;
+								if(sideDistX < panelFaceDist){
+									// The ray leaves the door cell through the left/right jamb before
+									// reaching the centered door plane, so draw the threshold wall.
+									side = 1;
+									sideDistX += deltaDistX;
+									hitDoorFrame = true;
+								} else {
+									sideDistZ += deltaDistZ * panelFaceOffset;
+									hitDoorFrame = false;
+								}
+							}
+							else{
+								panelFaceDist : float = (sideDistX - deltaDistX) + deltaDistX * panelFaceOffset;
+								if(sideDistZ < panelFaceDist){
+									side = 0;
+									sideDistZ += deltaDistZ;
+									hitDoorFrame = true;
+								} else {
+									sideDistX += deltaDistX * panelFaceOffset;
+									hitDoorFrame = false;
+								}
+							}
+					} else {
+						// Ray entered from perpendicular side -> outer frame face
+						// Check if ray hits the panel edge (gives door apparent thickness)
+						panelHalfWidth : float = 0.05;
+						perpEntryDist : float = 0.0;
+						perpEntryHit  : float = 0.0;
+						if(side == 0){
+							perpEntryDist = sideDistZ - deltaDistZ;
+							perpEntryHit  = player.position.x + perpEntryDist * rdx;
+						} else {
+							perpEntryDist = sideDistX - deltaDistX;
+							perpEntryHit  = player.position.z + perpEntryDist * rdz;
+						}
+						perpEntryHit = perpEntryHit - floorf(perpEntryHit);
+						if(perpEntryHit < 0.0) perpEntryHit += 1.0;
+						if(abs(perpEntryHit - 0.5) < panelHalfWidth){
+							hitDoorFrame = false; // panel edge: show door.png
+						} else {
+							hitDoorFrame = true;  // doorside.png
+						}
+					}
+					break;
+				}
+				else
+					break;
+			}
+			//hitChar = checkLevelValue(mapX, mapZ);
+			//if (hitChar != '.') { break; }
 		}
 
-		if (side == 0) {
+		if (side == 1 || side == 3) {
 			distances[i] = sideDistX - deltaDistX;
 		} else {
 			distances[i] = sideDistZ - deltaDistZ;
 		}
 
-		if (hitChar == '#' || hitChar == 'D') {
-			wallHeight : int = int(float(SCREEN_H) / distances[i]);
-			wallTop    : int = SCREEN_H/2 - wallHeight/2;
-			wallBottom : int = SCREEN_H/2 + wallHeight/2;
+			if (hitWall != void) {
+				wallHeight : int = int(projDist / distances[i]);
+				wallTop    : int = SCREEN_H/2 - wallHeight/2;
 
-			//printl(wallHeight);
+				// Compute texture U: fractional position where ray hit the wall face
+				wallHit : float = 0.0;
+				if(side == 1 || side == 3) wallHit = player.position.z + distances[i] * rdz;
+				else                       wallHit = player.position.x + distances[i] * rdx;
+				wallHit = wallHit - floorf(wallHit);
+				// Mirror so texture doesn't flip with ray direction
+				if ((side == 1 || side == 3) && rdx > 0.0) { wallHit = 1.0 - wallHit; } // E/W
+				if ((side == 0 || side == 2) && rdz < 0.0) { wallHit = 1.0 - wallHit; } // N/S
 
-			// Compute texture U: fractional position where ray hit the wall face
-			wallHit : float = 0.0;
-			if (side == 0) {
-				wallHit = player.position.z + distances[i] * rdz;
-			} else {
-				wallHit = player.position.x + distances[i] * rdx;
-			}
-			wallHit = wallHit - floorf(wallHit);
-			// Mirror so texture doesn't flip with ray direction
-			if (side == 0 && rdx > 0.0) { wallHit = 1.0 - wallHit; }
-			if (side == 1 && rdz < 0.0) { wallHit = 1.0 - wallHit; }
-			texU : int = int(wallHit * float(TEX_SIZE));
-			if (texU >= TEX_SIZE) { texU = TEX_SIZE - 1; }
+			// Pick texture and tint (darken N/S walls for depth cue)
+			srcTexPtr : *Texture2D = hitWall.a;
+			if(hitDoorFrame){ srcTexPtr = hitWall.b; }
+			srcTex : Texture2D = *srcTexPtr;
+			tint : Color32 = WHITE;
+			if(side == 0 || side == 2) tint = Color32(128, 128, 128); // N/S walls get depth cue 
 
-			// Render wall column pixel by pixel with texture
-			for (y : wallTop..wallBottom) {
-				if (y < 0 || y >= SCREEN_H) continue;
-
-
-				texV : int = int(float(y - wallTop) * float(TEX_SIZE) / float(wallHeight));
-				texV = clamp(texV, 0, TEX_SIZE);
-				texU = clamp(texU, 0, TEX_SIZE);
-				srcImg = wallImage;
-				if (hitChar == 'D') { srcImg = doorImage; }
-				srcX : int = texU * srcImg.width  / TEX_SIZE;
-				srcY : int = texV * srcImg.height / TEX_SIZE;
-				c : Color32 = GetImageColor(srcImg, srcX, srcY);
-				tr : uint8 = c.r;
-				tg : uint8 = c.g;
-				tb : uint8 = c.b;
-
-				// Darken N/S-facing walls for depth cue
-				if (side == 1) { tr = tr / 2; tg = tg / 2; tb = tb / 2; }
-				color = Color32(tr, tg, tb);
-				//printl("rgb: " + int(color.r) + ", " + int(color.g) + ", " + int(color.b) + ", " + int(color.a));
-				//printl("rgb: " + color.r + ", " + color.g + ", " + color.b + ", " + color.a);
-				DrawPixel(clamp(i, 0, SCREEN_W), clamp(y, 0, SCREEN_H), color);
-			}
+			// Draw the wall column as a single GPU texture strip
+			srcX : float = wallHit * srcTex.width;
+			DrawTexturePro(srcTex,
+				Rect(srcX, 0.0, 1.0, srcTex.height),
+				Rect(i, wallTop, 1.0, wallHeight),
+				Vector2(0.0, 0.0), 0.0, tint);
 		}
 	}
 
-	// WASD movement
+	// WASD movement with wall collision
+	spd : float = dT * moveSpeed;
 	if(IsKeyDown(KEY_W))
-		player.position += Vector3(-sin(player.rotation.y), 0, cos(player.rotation.y)) * (dT * moveSpeed);
+		tryMove(-sinf(player.rotation.y) * spd,  cosf(player.rotation.y) * spd);
 	if(IsKeyDown(KEY_S))
-		player.position -= Vector3(-sin(player.rotation.y), 0, cos(player.rotation.y)) * (dT * moveSpeed);
+		tryMove( sinf(player.rotation.y) * spd, -cosf(player.rotation.y) * spd);
 	if(IsKeyDown(KEY_A))
-		player.position += Vector3(cos(player.rotation.y), 0, sin(player.rotation.y)) * (dT * moveSpeed);
+		tryMove( cosf(player.rotation.y) * spd,  sinf(player.rotation.y) * spd);
 	if(IsKeyDown(KEY_D))
-		player.position -= Vector3(cos(player.rotation.y), 0, sin(player.rotation.y)) * (dT * moveSpeed);
+		tryMove(-cosf(player.rotation.y) * spd, -sinf(player.rotation.y) * spd);
 
 	// Arrow key turning
 	if(IsKeyDown(KEY_RIGHT))
@@ -284,5 +575,4 @@ update :: (dT : float){
 	else if(IsKeyDown(KEY_LEFT))
 		player.rotation.y += -turnSpeed * dT;
 
-	drawMinimap();
 }

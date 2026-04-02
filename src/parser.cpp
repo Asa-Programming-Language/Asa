@@ -1,6 +1,6 @@
 #include "parser.h"
 
-extern bool suppressCodegenErrors;
+//extern bool suppressCodegenErrors;
 
 // Returns true if an expression is allowed to continue past a newline, based
 // on the last collected token (trailing operator) or the next token (leading
@@ -107,7 +107,7 @@ bool GATHER_SCOPE_BODY(const std::vector<tokenPair*>& tokens, std::vector<tokenP
 	i--;
 	for (;;) {
 		if (i >= tokens.size() - 1 || tokens[i]->second == EndOfFile) {
-			printTokenError(firstToken, "Unmatched brace", __LINE__);
+			printTokenError(tokenRange {firstToken, firstToken}, "Unmatched brace", __LINE__);
 			exit(1);
 			break;
 		}
@@ -144,7 +144,7 @@ bool GATHER_SCOPE_BODY_APPEND(const std::vector<tokenPair*>& tokens, std::vector
 	i--;
 	for (;;) {
 		if (i >= tokens.size() - 1 || tokens[i]->second == EndOfFile) {
-			printTokenError(firstToken, "Unmatched brace");
+			printTokenError(tokenRange {firstToken, firstToken}, "Unmatched brace");
 			exit(1);
 			break;
 		}
@@ -185,7 +185,7 @@ void GATHER_PAREN_EXPRESSION(const std::vector<tokenPair*>& tokens, std::vector<
 		i--;
 	for (;;) {
 		if (i >= tokens.size() - 1 || tokens[i]->second == EndOfFile || tokens[i]->second == Semi_Colon) {
-			printTokenError(firstToken, "Unmatched parenthesis");
+			printTokenError(tokenRange {firstToken, firstToken}, "Unmatched parenthesis");
 			exit(1);
 			break;
 		}
@@ -227,7 +227,7 @@ bool GATHER_TO_SEMICOLON(const std::vector<tokenPair*>& tokens, std::vector<toke
 	for (;;) {
 		if (i >= tokens.size() - 1) {
 			if (!allowRunOut) {
-				printTokenError(firstToken, "Missing semicolon");
+				printTokenError(tokenRange {firstToken, firstToken}, "Missing semicolon");
 				exit(1);
 			}
 			return true;
@@ -243,7 +243,7 @@ bool GATHER_TO_SEMICOLON(const std::vector<tokenPair*>& tokens, std::vector<toke
 			if (subTokens.empty() || isLineContinuation(lastTok, nextTok))
 				continue;
 			if (!allowRunOut) {
-				printTokenError(firstToken, "Missing semicolon");
+				printTokenError(tokenRange {firstToken, firstToken}, "Missing semicolon");
 				exit(1);
 			}
 			return true;
@@ -275,7 +275,7 @@ bool GATHER_TO_SEMICOLON_MULTI_LINE(const std::vector<tokenPair*>& tokens, std::
 	for (;;) {
 		if (i >= tokens.size() - 1) {
 			if (!allowRunOut) {
-				printTokenError(firstToken, "Missing semicolon");
+				printTokenError(tokenRange {firstToken, firstToken}, "Missing semicolon");
 				exit(1);
 			}
 			return true;
@@ -311,7 +311,7 @@ bool GATHER_TO_SEMICOLON_OR_OTHER(const std::vector<tokenPair*>& tokens, std::ve
 	for (;;) {
 		if (i >= tokens.size() - 1) {
 			if (!allowRunOut) {
-				printTokenError(firstToken, "Missing semicolon");
+				printTokenError(tokenRange {firstToken, firstToken}, "Missing semicolon");
 				exit(1);
 			}
 			break;
@@ -327,7 +327,7 @@ bool GATHER_TO_SEMICOLON_OR_OTHER(const std::vector<tokenPair*>& tokens, std::ve
 			if (subTokens.empty() || isLineContinuation(lastTok, nextTok))
 				continue;
 			if (!allowRunOut) {
-				printTokenError(firstToken, "Missing semicolon");
+				printTokenError(tokenRange {firstToken, firstToken}, "Missing semicolon");
 				exit(1);
 			}
 			break;
@@ -358,7 +358,7 @@ bool GATHER_TO_A_OR_B(const std::vector<tokenPair*>& tokens, std::vector<tokenPa
 	i--;
 	for (;;) {
 		if (i >= tokens.size() - 1) {
-			printTokenError(firstToken, "End of file reached before expected " + tokenAsString(a) + " or " + tokenAsString(b));
+			printTokenError(tokenRange {firstToken, firstToken}, "End of file reached before expected " + tokenAsString(a) + " or " + tokenAsString(b));
 			exit(1);
 			break;
 		}
@@ -393,7 +393,7 @@ bool GATHER_TO_TOKEN(const std::vector<tokenPair*>& tokens, std::vector<tokenPai
 	for (;;) {
 		if (i >= tokens.size() - 1) {
 			if (!allowRunOut) {
-				printTokenError(firstToken, "End of file reached before expected " + tokenAsString(a));
+				printTokenError(tokenRange {firstToken, firstToken}, "End of file reached before expected " + tokenAsString(a));
 				exit(1);
 			}
 			break;
@@ -411,8 +411,31 @@ bool GATHER_TO_TOKEN(const std::vector<tokenPair*>& tokens, std::vector<tokenPai
 	return false;
 }
 
-void printTokenMarked(tokenPair*& token, std::string msgString, int sourceLineNumber, const char* fileName)
+static void getASTTokenRangeHelper(ASTNode* node, tokenPair*& start, tokenPair*& end)
 {
+	if (node->token && node->token->filePath && node->token->lineValue) {
+		if (!start || node->token->indexInLine < start->indexInLine)
+			start = node->token;
+		if (!end || node->token->indexInLine + node->token->first.size() > end->indexInLine + end->first.size())
+			end = node->token;
+	}
+
+	for (auto& c : node->childNodes)
+		getASTTokenRangeHelper(c, start, end);
+}
+
+tokenRange getASTTokenRange(ASTNode* node)
+{
+	tokenPair* start = nullptr;
+	tokenPair* end = nullptr;
+	getASTTokenRangeHelper(node, start, end);
+	return {start, end};
+}
+
+void printTokenMarked(tokenRange tokRange, std::string msgString, int sourceLineNumber, const char* fileName)
+{
+	tokenPair* startToken = tokRange.first;
+	tokenPair* endToken = tokRange.second;
 	if (verbosity >= 5) {
 		if (fileName != "" && fileName != "\0")
 			std::cerr << "Source file: " << fileName << std::endl;
@@ -421,25 +444,33 @@ void printTokenMarked(tokenPair*& token, std::string msgString, int sourceLineNu
 	}
 	if (msgString != "")
 		console::WriteLine(msgString);
+	console::ApplyIndent();
 	console::Write("In: ", console::yellowFGColor);
-	console::WriteLine(*(token->filePath), console::yellowFGColor);
-	std::string lineNumberStr = std::to_string(token->lineNumber);
+	console::Write(*(startToken->filePath), console::yellowFGColor);
+	console::Write("\n");
+	std::string lineNumberStr = std::to_string(startToken->lineNumber + 1);
+	console::ApplyIndent();
 	console::Write(lineNumberStr + " |  ", console::yellowFGColor);
-	console::WriteLine(*(token->lineValue));
-	for (int i = 0; i < lineNumberStr.size() + 4 + token->indexInLine - 1 + console::indentation * 4; i++)
+	console::Write(*(startToken->lineValue));
+	console::Write("\n");
+	console::ApplyIndent();
+	for (int i = 0; i < lineNumberStr.size() + 4 + startToken->indexInLine - 1; i++)
 		console::Write(" ");
-	for (int i = 0; i < token->length; i++)
+	for (int i = 0; i < endToken->indexInLine + endToken->length - startToken->indexInLine; i++)
 		console::Write("^", console::blueFGColor);
-	console::WriteLine();
-	for (int i = 0; i < lineNumberStr.size() + 4 + token->indexInLine - 1 + console::indentation * 4; i++)
+	console::Write("\n");
+	console::ApplyIndent();
+	for (int i = 0; i < lineNumberStr.size() + 4 + startToken->indexInLine - 1; i++)
 		console::Write(" ");
 	console::Write("here", console::blueFGColor);
 	console::WriteLine("\n");
 }
 
-void printTokenError(tokenPair*& token, std::string errorString, int sourceLineNumber, const char* fileName)
+void printTokenError(tokenRange tokRange, std::string errorString, int sourceLineNumber, const char* fileName)
 {
-	if (suppressCodegenErrors)
+	tokenPair* startToken = tokRange.first;
+	tokenPair* endToken = tokRange.second;
+	if (messageSystem::suppressErrors)
 		return;
 	if (verbosity >= 5) {
 		if (fileName != "" && fileName != "\0")
@@ -447,18 +478,29 @@ void printTokenError(tokenPair*& token, std::string errorString, int sourceLineN
 		if (sourceLineNumber > 0)
 			std::cerr << "Line: " << sourceLineNumber << std::endl;
 	}
+	console::ApplyIndent();
 	console::PrintError(errorString);
+	if (!startToken || !startToken->filePath || !startToken->lineValue) {
+		console::WriteLine("(no source location available)");  // This should never happen
+		return;
+	}
+	console::ApplyIndent();
 	console::Write("In: ", console::yellowFGColor);
-	console::WriteLine(*(token->filePath), console::yellowFGColor);
-	std::string lineNumberStr = std::to_string(token->lineNumber);
+	console::Write(*(startToken->filePath), console::yellowFGColor);
+	console::Write("\n");
+	std::string lineNumberStr = std::to_string(startToken->lineNumber + 1);
+	console::ApplyIndent();
 	console::Write(lineNumberStr + " |  ", console::yellowFGColor);
-	console::WriteLine(*(token->lineValue));
-	for (int i = 0; i < lineNumberStr.size() + 4 + token->indexInLine - 1 + console::indentation * 4; i++)
+	console::Write(*(startToken->lineValue));
+	console::Write("\n");
+	console::ApplyIndent();
+	for (int i = 0; i < lineNumberStr.size() + 4 + startToken->indexInLine - 1; i++)
 		console::Write(" ");
-	for (int i = 0; i < token->length; i++)
+	for (int i = 0; i < endToken->indexInLine + endToken->length - startToken->indexInLine; i++)
 		console::Write("^", console::redFGColor);
-	console::WriteLine();
-	for (int i = 0; i < lineNumberStr.size() + 4 + token->indexInLine - 1 + console::indentation * 4; i++)
+	console::Write("\n");
+	console::ApplyIndent();
+	for (int i = 0; i < lineNumberStr.size() + 4 + startToken->indexInLine - 1; i++)
 		console::Write(" ");
 	console::Write("here", console::redFGColor);
 	console::WriteLine("\n");
@@ -468,9 +510,11 @@ void printTokenError(tokenPair*& token, std::string errorString, int sourceLineN
 	//exit(1);
 }
 
-void printTokenWarning(tokenPair*& token, std::string errorString, int sourceLineNumber, const char* fileName)
+void printTokenWarning(tokenRange tokRange, std::string errorString, int sourceLineNumber, const char* fileName)
 {
-	if (suppressCodegenErrors)
+	tokenPair* startToken = tokRange.first;
+	tokenPair* endToken = tokRange.second;
+	if (messageSystem::suppressErrors)
 		return;
 	if (verbosity >= 5) {
 		if (fileName != "")
@@ -478,18 +522,24 @@ void printTokenWarning(tokenPair*& token, std::string errorString, int sourceLin
 		if (sourceLineNumber > 0)
 			std::cerr << "Line: " << sourceLineNumber << std::endl;
 	}
+	console::ApplyIndent();
 	console::PrintWarning(errorString);
 	console::Write("In: ", console::yellowFGColor);
-	console::WriteLine(*(token->filePath), console::yellowFGColor);
-	std::string lineNumberStr = std::to_string(token->lineNumber);
+	console::Write(*(startToken->filePath), console::yellowFGColor);
+	console::Write("\n");
+	std::string lineNumberStr = std::to_string(startToken->lineNumber + 1);
+	console::ApplyIndent();
 	console::Write(lineNumberStr + " |  ", console::yellowFGColor);
-	console::WriteLine(*(token->lineValue));
-	for (int i = 0; i < lineNumberStr.size() + 4 + token->indexInLine - 1 + console::indentation * 4; i++)
+	console::Write(*(startToken->lineValue));
+	console::Write("\n");
+	console::ApplyIndent();
+	for (int i = 0; i < lineNumberStr.size() + 4 + startToken->indexInLine - 1; i++)
 		console::Write(" ");
-	for (int i = 0; i < token->length; i++)
+	for (int i = 0; i < endToken->indexInLine + endToken->length - startToken->indexInLine; i++)
 		console::Write("^", console::yellowFGColor);
-	console::WriteLine();
-	for (int i = 0; i < lineNumberStr.size() + 4 + token->indexInLine - 1 + console::indentation * 4; i++)
+	console::Write("\n");
+	console::ApplyIndent();
+	for (int i = 0; i < lineNumberStr.size() + 4 + startToken->indexInLine - 1; i++)
 		console::Write(" ");
 	console::Write("here", console::yellowFGColor);
 	console::WriteLine("\n");
@@ -507,7 +557,7 @@ void printModuleLoaded(std::string& moduleName, std::string& modulePath)
 void findUnusedLeafNodes(ASTNode*& node)
 {
 	for (auto& l : node->leafNodes) {
-		printTokenError(l->token, "Failed to compile");
+		printTokenError(getASTTokenRange(l), "Failed to compile");
 		wasError = true;
 	}
 	if (wasError)
@@ -554,9 +604,10 @@ std::map<ASTNodeType, int> operatorPrecedence = {
 	{Colon_Separator_Node, 99},		// :
 	{Member_Access, 90},			// .
 	{Attribute_Access, 90},			// .@
-	{Access_Operation, 80},			// []
+	{Access_Operation, 90},			// []
 	{Expression_Paren_Term, 70},	// ()
 	{Address_Of_Operation, 50},		// &
+	{Dereference_Operation, 50},	// * (unary)
 	{Expression_Times, 40},			// *
 	{Expression_Divide, 40},		// /
 	{Expression_Modulo, 40},		// %
@@ -752,7 +803,7 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 
 			case Else_Statement: {
 
-				printTokenError(token, "'else' statement must be preceded by at least one 'if' statement");
+				printTokenError(tokenRange {token, token}, "'else' statement must be preceded by at least one 'if' statement");
 				exit(1);
 				goto dontAddNodeForce;
 			}
@@ -911,7 +962,7 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 
 			//	// Instead of backtracking to get the first term, pop the leafNodes vector
 			//	if (parentNode->leafNodes.size() == 0) {
-			//		printTokenError(token, "Binary operator expected left argument");
+			//		printTokenError(tokenRange{token, token}, "Binary operator expected left argument");
 			//		exit(1);
 			//	}
 			//	else {
@@ -947,7 +998,7 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 			//		subTokens.push_back(t);
 			//	}
 			//	if (subTokens.size() == 0) {
-			//		printTokenError(token, "Operator expected right argument");
+			//		printTokenError(tokenRange{token, token}, "Operator expected right argument");
 			//		exit(1);
 			//	}
 			//	secondTerm = generateAST(subTokens, depth + 1)->childNodes[0];
@@ -983,8 +1034,6 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 			case Left_Bracket:
 			case Arrow_Right:
 			// general:
-			case Minus_Minus:
-			case Plus_Plus:
 			case Bar:
 			case Bar_Bar:
 			case Ampersand:
@@ -1026,7 +1075,7 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 						goto addNode;
 					}
 					else {
-						printTokenError(nameTok, "Expected ':' or ';' after attribute name");
+						printTokenError(tokenRange {nameTok, nameTok}, "Expected ':' or ';' after attribute name");
 						wasError = true;
 						return nullptr;
 					}
@@ -1055,7 +1104,7 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 				// Instead of backtracking to get the first term, pop the leafNodes vector
 				if (parentNode->leafNodes.size() == 0) {
 					// if there are no leaf nodes, then assume this is a unary operator on R
-					//printTokenError(token, "Binary operator expected left argument");
+					//printTokenError(tokenRange{token, token}, "Binary operator expected left argument");
 					//exit(1);
 					isUnaryR = true;
 					node->codegen = &ASTNode::generateUnaryExpression;
@@ -1158,7 +1207,7 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 						if (bracketLevel == 0)
 							break;
 						if (parenLevel == 1 && braceLevel == 1 && bracketLevel == 1 && t->second == Equal) {
-							printTokenError(token, "Missing closing bracket");
+							printTokenError(tokenRange {token, token}, "Missing closing bracket");
 							exit(1);
 						}
 
@@ -1179,7 +1228,7 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 						noOp = true;
 					}
 					else {
-						printTokenError(token, "Operator expected right argument");
+						printTokenError(tokenRange {token, token}, "Operator expected right argument");
 						exit(1);
 					}
 				}
@@ -1188,7 +1237,7 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 					if (secondAST->childNodes.size() > 0)
 						secondTerm = secondAST->childNodes[0];
 					else {
-						printTokenError(subTokens[0], "Unexpected expression");
+						printTokenError(tokenRange {subTokens[0], subTokens[0]}, "Unexpected expression");
 						printAST(secondAST);
 						exit(1);
 					}
@@ -1203,6 +1252,32 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 				}
 				if (isLeaf)
 					goto addNodeAsLeaf;
+				break;
+			}
+
+			case Plus_Plus:
+			case Minus_Minus: {
+				node->nodeType = Expression_Statement;
+				node->codegen = &ASTNode::generateIncDecrement;
+
+				if (parentNode->leafNodes.size() > 0) {
+					// Postfix: x++ / x--
+					ASTNode* operand = parentNode->leafNodes.back();
+					parentNode->leafNodes.pop_back();
+					node->childNodes.push_back(operand);
+				}
+				else {
+					// Prefix: ++x / --x
+					std::vector<tokenPair*> subTokens;
+					GATHER_TO_SEMICOLON(tokens, subTokens, i, false);
+					ASTNode* operand = generateAST(subTokens, depth + 1);
+					if (!operand || operand->childNodes.empty()) {
+						printTokenError(tokenRange {token, token}, "Operator expected argument");
+						wasError = true;
+						return nullptr;
+					}
+					node->childNodes.push_back(operand->childNodes[0]);
+				}
 				break;
 			}
 
@@ -1406,7 +1481,7 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 				if (parentNode->leafNodes.size() > 0)
 					identifier = parentNode->leafNodes.back();
 				else {
-					printTokenError(token, "Expected a leaf node, but none were found", __LINE__);
+					printTokenError(tokenRange {token, token}, "Expected a leaf node, but none were found", __LINE__);
 					exit(1);
 				}
 				parentNode->leafNodes.pop_back();
@@ -1448,7 +1523,7 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 					std::vector<tokenPair*> subTokens = std::vector<tokenPair*>();
 					for (;;) {
 						if (i >= tokens.size() - 1) {
-							printTokenError(tt, "Unmatched parenthesis", __LINE__);
+							printTokenError(tokenRange {tt, tt}, "Unmatched parenthesis", __LINE__);
 							exit(1);
 						}
 						tokenPair* t = NEXT_TOKEN(tokens, i);
@@ -1473,12 +1548,12 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 					for (;;) {
 						if (i >= tokens.size() - 1) {
 							break;
-							printTokenError(tt, "Unmatched brace", __LINE__);
+							printTokenError(tokenRange {tt, tt}, "Unmatched brace", __LINE__);
 							exit(1);
 						}
 						tokenPair* t = NEXT_TOKEN(tokens, i);
 						//if (tokenNum >= 2 && t->second != Left_Brace) {
-						//	printTokenError(tt, "Unmatched brace");
+						//	printTokenError(tokenRange{tt, tt}, "Unmatched brace");
 						//	exit(1);
 						//}
 
@@ -1648,7 +1723,7 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 						else if (arguments[a]->leafNodes.size() == 0) {
 						}
 						else {
-							printTokenError(arguments[a]->leafNodes[0]->token, "Expected type followed by identifier");
+							printTokenError(getASTTokenRange(arguments[a]->leafNodes[0]), "Expected type followed by identifier");
 							exit(1);
 						}
 						if (a < (int)argumentDefaults.size() && argumentDefaults[a] != nullptr)
@@ -1694,7 +1769,7 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 						if (secondPart->childNodes.size() > 0)
 							node->token = secondPart->childNodes[0]->token;
 						else {
-							printTokenError(secondPart->token, "Cast function must have a return type");
+							printTokenError(getASTTokenRange(secondPart), "Cast function must have a return type");
 							exit(1);
 						}
 						node->nodeType = Compiler_Define_Cast;
@@ -1703,7 +1778,7 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 						if (secondPart->childNodes.size() > 0)
 							node->token = secondPart->childNodes[0]->token;
 						else {
-							printTokenError(secondPart->token, "Struct initializer function must have a return type");
+							printTokenError(getASTTokenRange(secondPart), "Struct initializer function must have a return type");
 							exit(1);
 						}
 						node->nodeType = Compiler_Define_Function;
@@ -1765,7 +1840,10 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 						break;
 					if (t->second == EndOfLine || t->second == Semi_Colon) {
 						if (t->second == EndOfLine) {
-							TokenType lastTok = subTokens.empty() ? Nothing : subTokens.back()->second;
+							// Between arguments (subTokens cleared after comma separator): always skip EOL
+							if (subTokens.empty())
+								continue;
+							TokenType lastTok = subTokens.back()->second;
 							TokenType nextTok = (i + 1 < (int)tokens.size()) ? tokens[i + 1]->second : Nothing;
 							if (isLineContinuation(lastTok, nextTok))
 								continue;
@@ -1812,7 +1890,7 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 			}
 
 			case Right_Brace: {
-				printTokenError(token, "Unmatched brace", __LINE__, __FILE__);
+				printTokenError(tokenRange {token, token}, "Unmatched brace", __LINE__, __FILE__);
 				exit(1);
 				break;
 			}
@@ -1996,7 +2074,7 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 
 			default: {
 				if (verbosity >= 4)
-					printTokenWarning(token, "Undefined node, token type: \"" + tokenAsString(tokenType) + "\"");
+					printTokenWarning(tokenRange {token, token}, "Undefined node, token type: \"" + tokenAsString(tokenType) + "\"");
 				goto dontAddNodeForce;
 			}
 		}
@@ -2035,7 +2113,7 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 
 	// Warn about any attributes that were never attached to a node
 	for (auto& a : pendingAttributes) {
-		printTokenWarning(a->token, "Attribute '@" + a->token->first + "' has nothing to attach to");
+		printTokenWarning(getASTTokenRange(a), "Attribute '@" + a->token->first + "' has nothing to attach to");
 	}
 
 	// If only one leaf node and no child nodes, it can be added as child instead
@@ -2215,7 +2293,7 @@ void resolveCompileTimeDirectives(ASTNode*& node, std::string moduleCtx, std::st
 		}
 		else if (name == "funcname") {
 			if (funcCtx.empty()) {
-				printTokenError(node->token, "#funcname used outside of a function");
+				printTokenError(getASTTokenRange(node), "#funcname used outside of a function");
 				exit(1);
 			}
 			node->nodeType = String_Constant_Node;
@@ -2225,7 +2303,7 @@ void resolveCompileTimeDirectives(ASTNode*& node, std::string moduleCtx, std::st
 		}
 		else if (name == "modulename") {
 			if (moduleCtx.empty()) {
-				printTokenError(node->token, "#modulename used outside of a module");
+				printTokenError(getASTTokenRange(node), "#modulename used outside of a module");
 				exit(1);
 			}
 			node->nodeType = String_Constant_Node;
@@ -2257,7 +2335,7 @@ void resolveCompileTimeDirectives(ASTNode*& node, std::string moduleCtx, std::st
 		}
 		else if (name == "nameof") {
 			if (node->childNodes.size() < 2 || node->childNodes[1]->childNodes.empty()) {
-				printTokenError(node->token, "#nameof requires an expression argument");
+				printTokenError(getASTTokenRange(node), "#nameof requires an expression argument");
 				exit(1);
 			}
 			// Walk to the rightmost leaf to get the simple name (e.g. A.B.C -> "C")
@@ -2304,7 +2382,7 @@ static void resolveAttributeAccessImpl(ASTNode*& node, const std::map<std::strin
 
 	auto it = declMap.find(symName);
 	if (it == declMap.end()) {
-		printTokenError(node->token, "Cannot find declaration '" + symName + "' for attribute access");
+		printTokenError(getASTTokenRange(node), "Cannot find declaration '" + symName + "' for attribute access");
 		return;
 	}
 	ASTNode* decl = it->second;
@@ -2394,7 +2472,7 @@ static void checkAttributeCompatibilityImpl(ASTNode* node)
 			ASTNode* scopeBody = attr->childNodes[0];
 			if (scopeBody->childNodes.empty() ||
 				literalNodeTypes.find(scopeBody->childNodes[0]->nodeType) == literalNodeTypes.end()) {
-				printTokenError(attr->token,
+				printTokenError(getASTTokenRange(attr),
 					"Argument to attribute '@" + attr->token->first + "' must be a compile-time constant (int, float, bool, or string)");
 				exit(1);
 			}
@@ -2412,7 +2490,7 @@ static void checkAttributeCompatibilityImpl(ASTNode* node)
 			std::string msg = "Incompatible attributes on '" + node->token->first + "': @" + conflicts[0];
 			for (int i = 1; i < (int)conflicts.size(); i++)
 				msg += " and @" + conflicts[i];
-			printTokenError(node->token, msg);
+			printTokenError(getASTTokenRange(node), msg);
 			exit(1);
 		}
 	}
@@ -2649,19 +2727,19 @@ void addFileIncludes(ASTNode*& node)
 
 						int e = loadFile(fileName, fileString);
 						if (e != 0) {
-							printTokenError(strChild->token, "Failed to include file from given path", __LINE__);
+							printTokenError(getASTTokenRange(strChild), "Failed to include file from given path", __LINE__);
 							exit(1);
 						}
 
 						importedFileNames.insert(fileName);
 					}
 					else {
-						printTokenError(strChild->token, "Expected string literal", __LINE__);
+						printTokenError(getASTTokenRange(strChild), "Expected string literal", __LINE__);
 						exit(1);
 					}
 				}
 				else {
-					printTokenError(node->childNodes[0]->token, "Expected string literal", __LINE__);
+					printTokenError(getASTTokenRange(node->childNodes[0]), "Expected string literal", __LINE__);
 					exit(1);
 				}
 
@@ -2780,7 +2858,7 @@ void getModuleNameAndPath(ASTNode*& node, std::string& modulePath, std::string& 
 	else if (node->childNodes.size() == 0)
 		modulePath = node->token->first;
 	else {
-		printTokenError(node->token, "Invalid module name expression");
+		printTokenError(getASTTokenRange(node), "Invalid module name expression");
 		wasError = true;
 		return;
 	}
@@ -2823,7 +2901,7 @@ void addModuleImports(ASTNode*& node)
 						}
 
 						if (!moduleFound) {
-							printTokenError(moduleNameNode->token, "Failed to import module with name: \"" + moduleName + "\" and expected path: \"" + modulePath + "\", not found", __LINE__);
+							printTokenError(getASTTokenRange(moduleNameNode), "Failed to import module with name: \"" + moduleName + "\" and expected path: \"" + modulePath + "\", not found", __LINE__);
 							console::WriteLine("Looked in the following directories:", console::yellowFGColor);
 							console::indentation++;
 							for (int i = 0; i < sizeof(searchPath) / sizeof(searchPath[0]); i++)
@@ -2861,18 +2939,18 @@ void addModuleImports(ASTNode*& node)
 					//	importedModuleNames.insert(moduleName);
 
 					//	if (!moduleFound) {
-					//		printTokenError(moduleNameNode->token, "Failed to import module, not found", __LINE__);
+					//		printTokenError(getASTTokenRange(moduleNameNode), "Failed to import module, not found", __LINE__);
 					//		exit(1);
 					//	}
 					//}
 					else {
-						printTokenError(moduleNameNode->token, "Expected module name", __LINE__);
+						printTokenError(getASTTokenRange(moduleNameNode), "Expected module name", __LINE__);
 						printAST(node);
 						exit(1);
 					}
 				}
 				else {
-					printTokenError(node->childNodes[0]->token, "Expected module name", __LINE__);
+					printTokenError(getASTTokenRange(node->childNodes[0]), "Expected module name", __LINE__);
 					printAST(node);
 					exit(1);
 				}

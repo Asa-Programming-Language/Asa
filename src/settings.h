@@ -5,6 +5,7 @@
 
 extern int verbosity;  // Verbosity of 0 is silent (no output), 1 is quiet, 2 is default, 3 is verbose
 extern int optimizationLevel;
+extern int maxErrorTraceDepth;
 
 enum CompilerFlags {
 	Flags_None = 0,

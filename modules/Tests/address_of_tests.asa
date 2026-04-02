@@ -1,0 +1,173 @@
+
+// AddressOfTests
+// Tests for the & (address-of) operator: plain variables, struct members,
+// array elements, globals, and chained struct access.
+
+@public:
+AddressOfTests :: module {
+
+	#import Tests.Testing;
+	#import Builtin.Memory;
+
+	AddrPair :: struct { x : int; y : int; }
+	AddrTriple :: struct { a : int; b : int; c : int; }
+
+	g_int : int = 0;
+	g_pair : AddrPair = AddrPair();
+
+	makeAddrPair :: AddrPair(){
+		p : AddrPair = AddrPair();
+		p.x = 42;
+		p.y = 99;
+		return p;
+	}
+
+	makeAddrPairPtr :: *AddrPair(){
+		g_pair.x = 55;
+		g_pair.y = 77;
+		return &g_pair;
+	}
+
+	@public:
+	runAddressOfTests :: () {
+		beginSection("Address-Of");
+
+		///////////////////////
+		// Plain local var   //
+		///////////////////////
+
+		v : int = 42;
+		p : *int = &v;
+		test(*p == 42,                        "&localVar: deref gives initial value");
+
+		v = 99;
+		test(*p == 99,                        "&localVar: deref follows variable update");
+
+		v = -7;
+		test(*p == -7,                        "&localVar: deref follows negative update");
+
+		///////////////////////
+		// Two pointers       //
+		///////////////////////
+
+		a : int = 10;
+		b : int = 20;
+		pa : *int = &a;
+		pb : *int = &b;
+		test(*pa == 10,                       "two ptrs: *pa == a");
+		test(*pb == 20,                       "two ptrs: *pb == b");
+		a = 100;
+		test(*pa == 100,                      "two ptrs: *pa follows a");
+		test(*pb == 20,                       "two ptrs: *pb unaffected by a change");
+
+		///////////////////////
+		// Struct member      //
+		///////////////////////
+
+		pt : AddrPair = AddrPair();
+		pt.x = 5;
+		pt.y = 8;
+
+		px : *int = &(pt.x);
+		py : *int = &(pt.y);
+		test(*px == 5,                        "&struct.x: deref gives x");
+		test(*py == 8,                        "&struct.y: deref gives y");
+
+		pt.x = 55;
+		test(*px == 55,                       "&struct.x: deref follows member update");
+		test(*py == 8,                        "&struct.y: unaffected by x update");
+
+		pt.y = 88;
+		test(*py == 88,                       "&struct.y: deref follows y update");
+
+		///////////////////////
+		// Triple struct      //
+		///////////////////////
+
+		tr : AddrTriple = AddrTriple();
+		tr.a = 1;
+		tr.b = 2;
+		tr.c = 3;
+
+		ta : *int = &(tr.a);
+		tb : *int = &(tr.b);
+		tc : *int = &(tr.c);
+		test(*ta == 1,                        "&struct.a: deref correct");
+		test(*tb == 2,                        "&struct.b: deref correct");
+		test(*tc == 3,                        "&struct.c: deref correct");
+
+		tr.b = 200;
+		test(*ta == 1,                        "&struct.a: unaffected by b update");
+		test(*tb == 200,                      "&struct.b: follows b update");
+		test(*tc == 3,                        "&struct.c: unaffected by b update");
+
+		///////////////////////
+		// Array element      //
+		///////////////////////
+
+		arr : *int = malloc(40);
+		arr[0] = 111;
+		arr[1] = 222;
+		arr[2] = 333;
+
+		p0 : *int = &arr[0];
+		p1 : *int = &arr[1];
+		p2 : *int = &arr[2];
+		test(*p0 == 111,                      "&arr[0]: deref gives 111");
+		test(*p1 == 222,                      "&arr[1]: deref gives 222");
+		test(*p2 == 333,                      "&arr[2]: deref gives 333");
+
+		arr[1] = 999;
+		test(*p0 == 111,                      "&arr[0]: unaffected by arr[1] update");
+		test(*p1 == 999,                      "&arr[1]: follows arr[1] update");
+		test(*p2 == 333,                      "&arr[2]: unaffected by arr[1] update");
+
+		///////////////////////
+		// Index expression   //
+		///////////////////////
+
+		idx : int = 2;
+		pe : *int = &arr[idx];
+		test(*pe == 333,                      "&arr[idx]: deref gives arr[idx]");
+
+		///////////////////////
+		// Global variable    //
+		///////////////////////
+
+		g_int = 77;
+		pg : *int = &g_int;
+		test(*pg == 77,                       "&globalVar: deref gives global value");
+
+		g_int = 88;
+		test(*pg == 88,                       "&globalVar: deref follows global update");
+
+		///////////////////////
+		// Pointer equality   //
+		///////////////////////
+
+		q : int = 42;
+		pq1 : *int = &q;
+		pq2 : *int = &q;
+		test(*pq1 == *pq2,                    "two ptrs to same var: deref values equal");
+
+		q = 0;
+		test(*pq1 == 0,                       "two ptrs to same var: both follow update (pq1)");
+		test(*pq2 == 0,                       "two ptrs to same var: both follow update (pq2)");
+
+		///////////////////////////////
+		// Inferred type (struct ret) //
+		///////////////////////////////
+
+		inferred1 = makeAddrPair();
+		pi1 : *int = &(inferred1.x);
+		test(*pi1 == 42,                      "inferred struct ret: &(member) gives correct value");
+
+		/////////////////////////////
+		// Inferred type (ptr ret)  //
+		/////////////////////////////
+
+		inferred2 = makeAddrPairPtr();
+		pi2 : *int = &(inferred2.x);
+		test(*pi2 == 55,                      "inferred *struct ret: &(member) gives correct value");
+	}
+}

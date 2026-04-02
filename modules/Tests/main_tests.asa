@@ -21,6 +21,9 @@
 #import Tests.CastTests;
 #import Tests.Color32Tests;
 #import Tests.StructTests;
+#import Tests.AddressOfTests;
+#import Tests.IncrementTests;
+#import Tests.PointerTests;
 
 @public:
 main :: () {
@@ -45,6 +48,9 @@ main :: () {
 	runCastTests();
 	runColor32Tests();
 	runStructTests();
+	runAddressOfTests();
+	runIncrementTests();
+	runPointerTests();
 	printSummary();
 	return;
 }

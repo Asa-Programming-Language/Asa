@@ -7,6 +7,7 @@
 BitcastTests :: module {
 
 	#import Tests.Testing;
+	#import Builtin.Memory;
 
 	@public:
 	runBitcastTests :: () {
@@ -63,5 +64,33 @@ BitcastTests :: module {
 		rt2_i : int = #bitcast(orig_f, int);
 		rt2_f : float = #bitcast(rt2_i, float);
 		test(rt2_f == orig_f,                 "float->int->float round-trip preserves bits");
+
+		//////////////////////////
+		// pointer <-> uint64   //
+		//////////////////////////
+
+		// Non-null pointer casts to non-zero
+		heap_i : *int = malloc(#sizeof(int));
+		p_as_int : uint64 = #bitcast(heap_i, uint64);
+		test(p_as_int != 0,                   "bitcast non-null ptr -> uint64 is non-zero");
+
+		// Null pointer casts to zero
+		null_p : *int = void;
+		null_as_int : uint64 = #bitcast(null_p, uint64);
+		test(null_as_int == 0,                "bitcast null ptr -> uint64 is zero");
+
+		// Round-trip: ptr -> uint64 -> ptr, dereference gives same value
+		heap_j : *int = malloc(#sizeof(int));
+		heap_j[0] = 42;
+		j_as_int : uint64 = #bitcast(heap_j, uint64);
+		j_back : *int = #bitcast(j_as_int, *int);
+		test(j_back[0] == 42,                 "bitcast ptr->uint64->ptr round-trip, deref matches");
+
+		// Two distinct heap allocations produce different uint64 values
+		p1 : *int = malloc(#sizeof(int));
+		p2 : *int = malloc(#sizeof(int));
+		p1_i : uint64 = #bitcast(p1, uint64);
+		p2_i : uint64 = #bitcast(p2, uint64);
+		test(p1_i != p2_i,                    "bitcast distinct ptrs give distinct uint64 values");
 	}
 }

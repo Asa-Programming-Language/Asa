@@ -31,7 +31,7 @@ set(CMAKE_CXX_FLAGS_MINSIZEREL "-Os -s -DNDEBUG")
 set(CMAKE_EXE_LINKER_FLAGS_MINSIZEREL "-s -Wl,--gc-sections")
 #set(CMAKE_CXX_FLAGS_RELEASE "-Os -s -fno-indent -fno-asynchronous-unwind-tables -ffunction-sections -fdata-sections -Wl,--gc-sections")
 
-add_executable(asa main.cpp main.h interpreter.cpp interpreter.h tests.cpp tests.h settings.h filemanager.cpp filemanager.h tokenizer.cpp tokenizer.h parser.cpp parser.h dependencies.cpp dependencies.h codegen.cpp codegen.h lexer.cpp lexer.h console.cpp console.h strops.cpp strops.h pch.cpp llvm.cpp monolithic.h)
+add_executable(asa main.cpp main.h messagehandler.cpp messagehandler.h interpreter.cpp interpreter.h tests.cpp tests.h settings.h filemanager.cpp filemanager.h tokenizer.cpp tokenizer.h parser.cpp parser.h dependencies.cpp dependencies.h codegen.cpp codegen.h lexer.cpp lexer.h console.cpp console.h strops.cpp strops.h pch.cpp llvm.cpp monolithic.h)
 target_compile_definitions(asa PUBLIC $<$<CONFIG:Debug>:DEBUG>)
 
 # Enable function and data sections for dead code elimination

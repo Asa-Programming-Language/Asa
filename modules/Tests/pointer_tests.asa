@@ -1,0 +1,39 @@
+
+// PointerTests
+// Tests for pointer operations: null checks (== void / != void).
+
+@public:
+PointerTests :: module {
+
+	#import Tests.Testing;
+	#import Builtin.Memory;
+
+	@public:
+	runPointerTests :: () {
+		beginSection("Pointers");
+
+		///////////////////////////////
+		// Null check: == void       //
+		///////////////////////////////
+
+		np : *int = void;
+		test(np == void,                      "null ptr == void is true");
+		test(!(np != void),                   "null ptr != void is false");
+
+		nnp : *int = malloc(#sizeof(int));
+		test(nnp != void,                     "non-null ptr != void is true");
+		test(!(nnp == void),                  "non-null ptr == void is false");
+
+		// Reset to null and re-check
+		mp : *int = malloc(#sizeof(int));
+		test(mp != void,                      "ptr != void before reset");
+		mp = void;
+		test(mp == void,                      "ptr == void after reset");
+
+		// Struct pointer null checks
+		mp2 : *int = void;
+		test(mp2 == void,                     "struct ptr == void when unset");
+		mp2 = malloc(#sizeof(int));
+		test(mp2 != void,                     "struct ptr != void after allocation");
+	}
+}

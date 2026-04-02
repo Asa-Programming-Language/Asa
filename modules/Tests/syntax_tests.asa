@@ -14,6 +14,30 @@ SyntaxTests :: module {
 	Vec3 :: struct { x : float; y : float; z : float; }
 	Node :: struct { val : int; depth : int; }
 
+	create :: Vec3(x : float, y : float, z : float) {
+		v : Vec3 = Vec3();
+		v.x = x; v.y = y; v.z = z;
+		return v;
+	}
+
+	vec3_sum :: float(v : Vec3) { return v.x + v.y + v.z; }
+	vec3_dot :: float(a : Vec3, b : Vec3) { return a.x*b.x + a.y*b.y + a.z*b.z; }
+
+	Wrapper :: struct { inner : Vec3; }
+	PtrContainer :: struct { ptr : *Vec3; }
+
+	makeWrapper :: Wrapper(v : Vec3) { w : Wrapper = Wrapper(); w.inner = v; return w; }
+
+	rect_width :: float(r : Rect) { return r.width; }
+	take_two_rects :: float(a : Rect, b : Rect) { return a.width + b.width; }
+	take_many :: float(w : Wrapper, a : Rect, b : Rect, o : Vec3, s : float) { return a.width + b.width + s; }
+	take_many_f :: float(f : float, a : Rect, b : Rect, o : Vec3, s : float) { return f + a.width + b.width + s; }
+
+	// Void helper for standalone-statement multiline call tests
+	accumulate :: (total : ref int, a : int, b : int, c : int) { total = total + a + b + c; }
+
+	GLOBAL_N : int = 10;
+
 	@public:
 	runSyntaxTests :: () {
 		beginSection("Syntax");
@@ -324,8 +348,103 @@ SyntaxTests :: module {
 		                         3);
 		test(ml_call3 == 6,                   "multiline: expr arg split across lines");
 
+		// Struct constructor as function argument
+		s3 : float = vec3_sum(Vec3(1.0, 2.0, 3.0));
+		test(s3 == 6.0,                       "struct ctor as function arg");
+
+		// Struct constructor as function argument, multiline
+		s3ml : float = vec3_sum(
+		                   Vec3(4.0, 5.0, 6.0));
+		test(s3ml == 15.0,                    "struct ctor as function arg, multiline");
+
+		// Function call as argument where line ends with comma
+		s3mc : float = add_one(
+		                   int(vec3_sum(Vec3(1.0, 2.0, 3.0))));
+		test(s3mc == 7,                       "call-as-arg multiline: inner call on next line");
+
+		s3mc2 : float = vec3_sum(Vec3(1.0, 2.0, 3.0)) +
+		                vec3_sum(Vec3(4.0, 5.0, 6.0));
+		test(s3mc2 == 21.0,                   "call-as-arg multiline: call expr continued on next line");
+
+		mc_result : int = clamp(
+		                      add_one(3),
+		                      add_one(1),
+		                      add_one(8));
+		test(mc_result == 4,                  "call-as-arg multiline: each arg a call, lines end with comma");
+
+		// Unary negation of variable in function call
+		nv : int = 5;
+		test(clamp(-nv, -10, 10) == -5,       "unary negation of variable as call arg");
+		test(add_one(-nv) == -4,              "unary negation of variable as sole call arg");
+		nf : float = 3.0;
+		test(vec3_sum(Vec3(1.0, -nf, 1.0)) == -1.0, "unary negation of float var as struct ctor arg");
+		test(clamp(-GLOBAL_N, -20, 20) == -10,  "unary negation of module-level var as call arg");
+		test(add_one(-GLOBAL_N) == -9,           "unary negation of module-level var, sole arg");
+		test(float(-GLOBAL_N) == -10.0,          "cast with unary negation of module-level var");
+		test(float(-nv) == -5.0,                 "cast with unary negation of local var");
+
+		// Struct constructor followed by comma in multiline call
+		dot1 : float = vec3_dot(
+		                   Vec3(1.0, 0.0, 0.0),
+		                   Vec3(1.0, 0.0, 0.0));
+		test(dot1 == 1.0,                        "struct ctor arg followed by comma in multiline call");
+
+		// Mimic raycaster: Rect(0.0, 0.0, float(N), float(-N)) as arg, multiline, comma after
+		tw : float = take_two_rects(
+		                 Rect(0.0, 0.0, float(GLOBAL_N), float(-GLOBAL_N)),
+		                 Rect(0.0, 0.0, float(GLOBAL_N), float(GLOBAL_N)));
+		test(tw == 20.0,                         "raycaster mimic: Rect with float(-var) arg, multiline comma");
+
+		// Full raycaster mimic: struct first arg, two Rects w/ float(-var), more args, multiline
+		wr : Wrapper = makeWrapper(Vec3(1.0, 0.0, 0.0));
+		tm : float = take_many(wr,
+		                 Rect(0.0, 0.0, float(GLOBAL_N), float(-GLOBAL_N)),
+		                 Rect(0.0, 0.0, float(GLOBAL_N), float(GLOBAL_N)),
+		                 Vec3(float(0), float(0), float(0)), 1.0);
+		test(tm == 21.0,                         "raycaster mimic: struct first arg then Rects with float(-var)");
+
+		// Member access as first arg, then Rects w/ float(-var)
+		tmf : float = take_many_f(vec3_sum(wr.inner),
+		                 Rect(0.0, 0.0, float(GLOBAL_N), float(-GLOBAL_N)),
+		                 Rect(0.0, 0.0, float(GLOBAL_N), float(GLOBAL_N)),
+		                 Vec3(float(0), float(0), float(0)), 1.0);
+		test(tmf == 22.0,                        "raycaster mimic: member-access first arg then Rects with float(-var)");
+
 		test(1 == 1 &&
 		     2 == 2,                          "multiline && inside test() args");
+
+		///////////////////////////////
+		// Standalone multiline calls //
+		///////////////////////////////
+
+		// test() itself is a standalone void call; verify it works multiline
+		test(
+		    1 == 1,
+		    "standalone void call: single arg on next line");
+
+		test(add_one(3) == 4 &&
+		     add_one(4) == 5,                 "standalone void call: multiline condition");
+
+		// Void function called as standalone statement, args on separate lines
+		acc : int = 0;
+		accumulate(acc,
+		           1,
+		           2,
+		           3);
+		test(acc == 6,                        "standalone void call: args on separate lines");
+
+		accumulate(acc,
+		           add_one(0),
+		           add_one(1),
+		           add_one(2));
+		test(acc == 12,                       "standalone void call: call-expr args on separate lines");
+
+		// Standalone call with struct args on separate lines (mimics raycaster DrawTexturePro pattern)
+		accumulate(acc,
+		           int(rect_width(Rect(0.0, 0.0, float(GLOBAL_N), float(-GLOBAL_N)))),
+		           int(rect_width(Rect(0.0, 0.0, float(GLOBAL_N),  float(GLOBAL_N)))),
+		           0);
+		test(acc == 32,                       "standalone void call: struct ctor args on separate lines with float(-var)");
 
 		///////////////////////
 		// Zero-effect ops    //
@@ -418,6 +537,46 @@ SyntaxTests :: module {
 
 		test(early_exit(5) == 1,              "return inside if");
 		test(early_exit(-1) == 0,             "falls through to return 0");
+
+		///////////////////////////////
+		// Deref pointer struct field //
+		///////////////////////////////
+
+		// Declaration+init with deref of a pointer-to-struct field (always worked)
+		va : Vec3 = Vec3(); va.x = 1.0; va.y = 2.0; va.z = 3.0;
+		vb : Vec3 = Vec3(); vb.x = 4.0; vb.y = 5.0; vb.z = 6.0;
+		pc : PtrContainer = PtrContainer();
+		pc.ptr = &va;
+		r1 : Vec3 = *pc.ptr;
+		test(r1.x == 1.0,                     "deref ptr struct field: decl+init");
+
+		// Plain assignment with deref of pointer-to-struct field
+		// (was broken: compiler produced 'int32' instead of 'Vec3')
+		pc.ptr = &vb;
+		r1 = *pc.ptr;
+		test(r1.x == 4.0,                     "deref ptr struct field: plain assignment");
+
+		//////////////////////////////////////////////
+		// Member access on parenthesized subscript //
+		//////////////////////////////////////////////
+
+		arr : *Vec3 = malloc(4 * #sizeof(Vec3));
+		arr[0] = Vec3(); arr[0].x = 10.0; arr[0].y = 20.0; arr[0].z = 30.0;
+		arr[1] = Vec3(); arr[1].x = 40.0;
+		test((arr[0]).x == 10.0,              "member access on parenthesized subscript");
+		test((arr[1]).x == 40.0,              "member access on parenthesized subscript, index 1");
+
+		/////////////////////////////////////////////
+		// Compound assignment on pointer subscript //
+		/////////////////////////////////////////////
+
+		floats : *float = malloc(4 * #sizeof(float));
+		floats[0] = 1.0;
+		floats[0] += 5.0;
+		test(floats[0] == 6.0,                "compound += on pointer subscript");
+		floats[1] = 10.0;
+		floats[1] -= 3.0;
+		test(floats[1] == 7.0,                "compound -= on pointer subscript");
 	}
 
 	double_val :: int(x : int) {

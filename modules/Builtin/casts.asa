@@ -360,7 +360,7 @@ Casts :: module {
 	// Description: Cast operators for converting pointers to integer types
 
 	// Function: int64(*char)
-	// Description: Converts a *char pointer to int64, useful for null checks
+	// Description: Converts a *char pointer to int64
 	@public:
 	@inline:
 	cast:: int64(x : *char) {

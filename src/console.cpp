@@ -178,77 +178,6 @@ namespace console {
 #endif
 	}
 
-	void NetworkPrint()
-	{
-		printIndent(indentation);
-		PrintColored("[", yellowFGColor, "");
-		PrintColored("Network", cyanFGColor, "");
-		PrintColored("]        - ", yellowFGColor, "");
-	}
-	void NetworkErrorPrint()
-	{
-		printIndent(indentation);
-		PrintColored("[", yellowFGColor, "");
-		PrintColored("Network-Error", redFGColor, "");
-		PrintColored("]  - ", yellowFGColor, "");
-	}
-	void MiningPrint()
-	{
-		printIndent(indentation);
-		PrintColored("[", yellowFGColor, "");
-		PrintColored("Mining", greenFGColor, "");
-		PrintColored("]         - ", yellowFGColor, "");
-	}
-	void MiningErrorPrint()
-	{
-		printIndent(indentation);
-		PrintColored("[", yellowFGColor, "");
-		PrintColored("Mining-Error", redFGColor, "");
-		PrintColored("]   - ", yellowFGColor, "");
-	}
-	void ContainerManagerPrint()
-	{
-		printIndent(indentation);
-		PrintColored("[", yellowFGColor, "");
-		PrintColored("Deluge", magentaFGColor, "");
-		PrintColored("]         - ", yellowFGColor, "");
-	}
-	void CompilerErrorPrint()
-	{
-		printIndent(indentation);
-		PrintColored("[", yellowFGColor, "");
-		PrintColored("Deluge-Error", redFGColor, "");
-		PrintColored("]   - ", yellowFGColor, "");
-	}
-	void BlockchainPrint()
-	{
-		printIndent(indentation);
-		PrintColored("[", yellowFGColor, "");
-		PrintColored("Blockchain", greenFGColor, "");
-		PrintColored("]     - ", yellowFGColor, "");
-	}
-	void DebugPrint()
-	{
-		printIndent(indentation);
-		PrintColored("[", yellowFGColor, "");
-		PrintColored("Debug", yellowFGColor, "");
-		PrintColored("]          - ", yellowFGColor, "");
-	}
-	void SystemPrint()
-	{
-		printIndent(indentation);
-		PrintColored("[", yellowFGColor, "");
-		PrintColored("System", blueFGColor, "");
-		PrintColored("]         - ", yellowFGColor, "");
-	}
-	void ErrorPrint()
-	{
-		printIndent(indentation);
-		PrintColored("[", yellowFGColor, "");
-		PrintColored("Error", redFGColor, "");
-		PrintColored("]          - ", yellowFGColor, "");
-	}
-
 	void WriteLine()
 	{
 		printIndent(indentation);
@@ -281,6 +210,10 @@ namespace console {
 	{
 		printIndent(indentation);
 		PrintColored(message, fgColor, bgColor);
+	}
+	void ApplyIndent()
+	{
+		printIndent(indentation);
 	}
 	void printIndent(int depth)
 	{
@@ -407,13 +340,6 @@ namespace console {
 		std::cout << "Press Enter to Exit";
 		std::cin.ignore();
 		exit(1);
-	}
-
-	// Print a connection error dialog
-	void ConnectionError()
-	{
-		NetworkErrorPrint();
-		WriteLine("Failed To Connect");
 	}
 
 }  // namespace console
