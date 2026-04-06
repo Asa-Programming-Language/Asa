@@ -6,7 +6,7 @@
   </picture>
 </div>
 
-[![Badge License]][License]   ![Relative date](https://img.shields.io/date/1920814400?label=release%20timeline&color=purple)   ![GitHub commits difference between two branches/tags/commits](https://img.shields.io/github/commits-difference/sam-astro/Asa?base=main&head=dev&label=commits%20ahead%20dev)  ![Dynamic Regex Badge](https://img.shields.io/badge/dynamic/regex?url=https%3A%2F%2Fraw.githubusercontent.com%2FAsa-Programming-Language%2FAsa%2Frefs%2Fheads%2Fdev%2Fbuild_num&search=.*&label=build%20num)
+[![Badge License]][License]   ![Relative date](https://img.shields.io/date/1920814400?label=release%20timeline&color=purple)   ![GitHub commits difference between two branches/tags/commits](https://img.shields.io/github/commits-difference/sam-astro/Asa?base=main&head=dev&label=commits%20behind%20dev&color=orange)  ![Dynamic Regex Badge](https://img.shields.io/badge/dynamic/regex?url=https%3A%2F%2Fraw.githubusercontent.com%2FAsa-Programming-Language%2FAsa%2Frefs%2Fheads%2Fdev%2Fbuild_num&search=.*&label=build%20num)
    [![Button Discord]][Discord Server] 
 
 ---
