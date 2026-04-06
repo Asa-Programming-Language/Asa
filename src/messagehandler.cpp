@@ -24,8 +24,11 @@ namespace messageSystem {
 	void endBlock()
 	{
 		if (currentNode) {
-			if (currentNode->parentNode)
-				currentNode = currentNode->parentNode;
+			ErrorNode* parentNode = currentNode->parentNode;
+			delete currentNode;
+
+			if (parentNode)
+				currentNode = parentNode;
 			else
 				currentNode = nullptr;
 		}

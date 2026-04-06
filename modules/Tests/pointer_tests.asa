@@ -1,6 +1,7 @@
 
 // PointerTests
-// Tests for pointer operations: null checks (== void / != void).
+// Tests for pointer operations: null checks (== void / != void),
+// and type modifier orderings (const/ref/*)
 
 @public:
 PointerTests :: module {
@@ -35,5 +36,248 @@ PointerTests :: module {
 		test(mp2 == void,                     "struct ptr == void when unset");
 		mp2 = malloc(#sizeof(int));
 		test(mp2 != void,                     "struct ptr != void after allocation");
+
+		///////////////////////////////
+		// Type modifier orderings   //
+		///////////////////////////////
+
+		// --- const ref *T ---
+		// (const reference to a pointer-to-int)
+		a : int = 42;
+		pa : *int = &a;
+		test(constRefPtr(pa) == 42,           "const ref *int: read through ref-to-ptr");
+		test(refConstPtr(pa) == 42,           "ref const *int: read through ref-to-ptr");
+
+		// --- const * *T / ref * *T (double pointer) ---
+		b : int = 99;
+		pb : *int = &b;
+		ppb : * *int = &pb;
+		test(constDblPtr(ppb) == 99,          "const * *int: read through const dbl-ptr");
+		test(refDblPtr(ppb) == 99,            "ref * *int: read through ref-to-dbl-ptr");
+
+		// --- mixed orderings passed to helpers ---
+		x : int = 7;
+		px : *int = &x;
+		test(constRefPtrSum(pa, px) == 42 + 7, "const ref *int: sum via two const ref *int params");
+
+		runTypeModifierOrderingTests();
+		runDoublePointerTests();
+	}
+
+	// const ref *int  (was previously a parse failure)
+	constRefPtr :: int(p : const ref *int) {
+		return *p;
+	}
+
+	// ref const *int  (was previously a parse failure)
+	refConstPtr :: int(p : ref const *int) {
+		return *p;
+	}
+
+	// const * *int  (was previously a parse failure)
+	constDblPtr :: int(pp : const * *int) {
+		return **pp;
+	}
+
+	// ref * *int  (was previously a parse failure)
+	refDblPtr :: int(pp : ref * *int) {
+		return **pp;
+	}
+
+	// Two const ref *int params together
+	constRefPtrSum :: int(a : const ref *int, b : const ref *int) {
+		return *a + *b;
+	}
+
+	// -----------------------------------------------
+	// Type modifier ordering helpers
+	// (all six orderings of const / exact / ref on *int)
+	// -----------------------------------------------
+
+	// const exact ref *int  (const before exact — was a parse failure)
+	constExactRefPtr :: int(p : const exact ref *int) {
+		return *p;
+	}
+
+	// exact const ref *int
+	exactConstRefPtr :: int(p : exact const ref *int) {
+		return *p;
+	}
+
+	// ref exact const *int
+	refExactConstPtr :: int(p : ref exact const *int) {
+		return *p;
+	}
+
+	// exact ref const *int
+	exactRefConstPtr :: int(p : exact ref const *int) {
+		return *p;
+	}
+
+	// exact *int  (exact with no ref — takes *int by value)
+	exactPtrRead :: int(p : exact *int) {
+		return *p;
+	}
+
+	// const exact *int  (const + exact, no ref)
+	constExactPtrRead :: int(p : const exact *int) {
+		return *p;
+	}
+
+	// * const *int  (two pointer levels with const between stars)
+	ptrConstPtr :: int(pp : * const *int) {
+		return **pp;
+	}
+
+	// const * *int  (const before two pointer levels)
+	constPtrPtr :: int(pp : const * *int) {
+		return **pp;
+	}
+
+	// **int  (no-space double pointer: `**T` as a variable declaration type)
+	readDblPtrNoSpace :: int(pp : **int) {
+		return **pp;
+	}
+
+	// const **int  (const + no-space double pointer)
+	readConstDblPtrNoSpace :: int(pp : const **int) {
+		return **pp;
+	}
+
+	runTypeModifierOrderingTests :: () {
+		beginSection("Type modifier orderings");
+
+		a : int = 42;
+		pa : *int = &a;
+
+		// All orderings of const / exact / ref on a *int parameter
+		test(constExactRefPtr(pa) == 42,   "const exact ref *int: read through ref-to-ptr");
+		test(exactConstRefPtr(pa) == 42,   "exact const ref *int: read through ref-to-ptr");
+		test(refExactConstPtr(pa) == 42,   "ref exact const *int: read through ref-to-ptr");
+		test(exactRefConstPtr(pa) == 42,   "exact ref const *int: read through ref-to-ptr");
+		test(exactPtrRead(pa) == 42,       "exact *int: read value via exact ptr");
+		test(constExactPtrRead(pa) == 42,  "const exact *int: read value via const exact ptr");
+
+		// Two pointer levels with modifier between the stars
+		ppa : * *int = &pa;
+		test(ptrConstPtr(ppa) == 42,       "* const *int: read through double ptr with const between");
+		test(constPtrPtr(ppa) == 42,       "const * *int: read through double ptr with leading const");
+
+		// No-space **T variable declarations and parameters
+		dp : **int = &pa;
+		test(**dp == 42,                       "**int var decl: double deref gives int value");
+		test(readDblPtrNoSpace(dp) == 42,      "**int param: read through no-space double ptr");
+		test(readConstDblPtrNoSpace(dp) == 42, "const **int param: read through const no-space double ptr");
+	}
+
+	///////////////////////////////
+	// Double-pointer tests      //
+	///////////////////////////////
+
+	// A minimal struct for grid tests
+	GridCell :: struct {
+		value  : int;
+		symbol : char;
+	}
+
+	runDoublePointerTests :: () {
+		beginSection("Double pointers");
+
+		///////////////////////////////
+		// Basic * *int              //
+		///////////////////////////////
+
+		// Null declaration
+		dp : * *int = void;
+		test(dp == void,                            "* *int starts as void");
+
+		// Array of *int pointers
+		a0 : int = 10;
+		a1 : int = 20;
+		a2 : int = 30;
+		arr : * *int = malloc(3 * #sizeof(*int));
+		arr[0] = &a0;
+		arr[1] = &a1;
+		arr[2] = &a2;
+		test(*arr[0] == 10,                         "* *int: deref arr[0] == 10");
+		test(*arr[1] == 20,                         "* *int: deref arr[1] == 20");
+		test(*arr[2] == 30,                         "* *int: deref arr[2] == 30");
+
+		// Mutate through double-pointer
+		*arr[1] = 99;
+		test(a1 == 99,                              "* *int: write through arr[1] updates original");
+
+		// Null slot
+		arr[2] = void;
+		test(arr[2] == void,                        "* *int: slot set to void is void");
+		test(arr[0] != void,                        "* *int: non-null slot != void");
+
+		///////////////////////////////
+		// * *struct grid            //
+		///////////////////////////////
+
+		// Build a 4-wide x 3-tall grid of *GridCell, all slots void initially
+		gridW : const int = 4;
+		gridH : const int = 3;
+		gridSize : int = gridH * gridW;
+		grid : * *GridCell = malloc(gridSize * #sizeof(*GridCell));
+		for (i : 0..gridSize)
+			grid[i] = void;
+
+		// Verify all slots start void
+		test(grid[0] == void,                       "grid: slot 0 starts void");
+		test(grid[gridSize - 1] == void,            "grid: last slot starts void");
+
+		// Place two cells at specific (row, col) positions
+		cellA : GridCell = GridCell();
+		cellA.value = 42;
+		cellA.symbol = 'A';
+		cellB : GridCell = GridCell();
+		cellB.value = 77;
+		cellB.symbol = 'B';
+		grid[1 * gridW + 2] = &cellA;   // row 1, col 2
+		grid[2 * gridW + 0] = &cellB;   // row 2, col 0
+
+		// Empty slots remain void
+		test(grid[0 * gridW + 0] == void,           "grid: (0,0) is void");
+		test(grid[0 * gridW + 3] == void,           "grid: (0,3) is void");
+
+		// Occupied slots are non-void and hold correct data
+		test(grid[1 * gridW + 2] != void,           "grid: (1,2) is non-void after placement");
+		test(grid[1 * gridW + 2].value == 42,       "grid: (1,2) value == 42");
+		test(grid[1 * gridW + 2].symbol == 'A',     "grid: (1,2) symbol == 'A'");
+		test(grid[2 * gridW + 0] != void,           "grid: (2,0) is non-void after placement");
+		test(grid[2 * gridW + 0].value == 77,       "grid: (2,0) value == 77");
+		test(grid[2 * gridW + 0].symbol == 'B',     "grid: (2,0) symbol == 'B'");
+
+		// Mutate a cell through the grid and verify the original reflects the change
+		grid[1 * gridW + 2].value = 100;
+		test(cellA.value == 100,                    "grid: write through grid pointer updates original");
+
+		// Round-trip through helper functions
+		test(gridLookupValue(grid, gridW, gridH, 2, 1) == 100,   "grid: helper lookup (2,1) value == 100");
+		test(gridLookupValue(grid, gridW, gridH, 0, 2) == 77,    "grid: helper lookup (0,2) value == 77");
+		test(gridLookupValue(grid, gridW, gridH, 0, 0) == -1,    "grid: helper returns -1 for void slot");
+		test(gridLookupSymbol(grid, gridW, gridH, 2, 1) == 'A',  "grid: helper lookup symbol (2,1) == 'A'");
+		test(gridLookupSymbol(grid, gridW, gridH, 9, 9) == '.',  "grid: helper returns '.' out-of-bounds");
+	}
+
+	// Return pointer from grid or void
+	gridLookupCell :: *GridCell(grid : * *GridCell, gridW : const int, gridH : const int, x : const int, y : const int) {
+		if (x < 0 || y < 0 || x >= gridW || y >= gridH) return void;
+		return grid[y * gridW + x];
+	}
+
+	gridLookupValue :: int(grid : * *GridCell, gridW : const int, gridH : const int, x : const int, y : const int) {
+		cell : *GridCell = gridLookupCell(grid, gridW, gridH, x, y);
+		if (cell == void) return -1;
+		return cell.value;
+	}
+
+	gridLookupSymbol :: char(grid : * *GridCell, gridW : const int, gridH : const int, x : const int, y : const int) {
+		if (x < 0 || y < 0 || x >= gridW || y >= gridH) return '.';
+		cell : *GridCell = grid[y * gridW + x];
+		if (cell == void) return '.';
+		return cell.symbol;
 	}
 }

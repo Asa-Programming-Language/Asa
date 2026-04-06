@@ -92,17 +92,17 @@ StructTests :: module {
 		}
 
 		swapped :: IntPair() {
-			result : IntPair = IntPair();
-			result.a = this.b;
-			result.b = this.a;
-			return result;
+			res : IntPair = IntPair();
+			res.a = this.b;
+			res.b = this.a;
+			return res;
 		}
 
 		withA :: IntPair(newA : int) {
-			result : IntPair = IntPair();
-			result.a = newA;
-			result.b = this.b;
-			return result;
+			res : IntPair = IntPair();
+			res.a = newA;
+			res.b = this.b;
+			return res;
 		}
 	}
 

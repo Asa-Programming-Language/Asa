@@ -43,11 +43,24 @@ operator|| :: bool(a : bool, b : bool) {
 	return false;
 }
 
-//binary[] :: int(i : *int, index : int) #inline{
-//	return *(i+index);
-//}
+@deprecated:
+someFunc :: (){
+	printl("someFunc Works");
+}
+
 
 TEST_MACRO :: {printl("Macro works!")};
+
+@inline: TEST_MACRO :: (){ printl("Macro works!") };
+
+@public:
+{
+	exampleVar0 : int;
+	exampleVar1 : int;
+	exampleVar2 : int;
+	exampleVar3 : int;
+}
+
 
 @public:
 main :: (){
@@ -67,8 +80,19 @@ main :: (){
 	printl("int16 size in bytes is: " + Fore.blue + #sizeof(int16) + Fore.reset);
 	printl("int8 size in bytes is: " + Fore.blue + #sizeof(int8) + Fore.reset);
 
+	TEST_MACRO();
+
+	someFunc();
 
 	test(4 == 3, "This should be an error, seeing this means success");
+
+	brValue : int = { 
+		y : int = 9;
+		x : int = 1283;
+		result y-x;
+	};
+
+	printl(brValue);
 
 	//newline();
 	//for (i : 0..100){  // for(<range>){} automatically iterates through range type

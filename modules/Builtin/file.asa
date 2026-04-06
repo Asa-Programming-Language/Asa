@@ -50,7 +50,7 @@ File :: module {
 	//     "a" (append), "r+" (read+write), "w+" (create+read+write).
 	//     Check .isOpen to confirm the file opened successfully.
 	@public:
-	openFile :: File(path : string, mode : string) {
+	openFile :: File(path : const string, mode : const string) {
 		f : File = File();
 		h : *char = _fopen_c_extern(path.address, mode.address);
 		if (int64(h) != 0) {
@@ -89,8 +89,8 @@ File :: module {
 	@public:
 	readLine :: string(f : File) {
 		buf : *char = malloc(int64(4096));
-		result : *char = _fgets_c_extern(buf, 4096, f.handle);
-		if (int64(result) == 0) {
+		res : *char = _fgets_c_extern(buf, 4096, f.handle);
+		if (int64(res) == 0) {
 			return string();
 		}
 		return string(buf);

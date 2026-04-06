@@ -35,9 +35,9 @@ Testing :: module {
 	// Description: Name of the currently active test section, shown in failure messages.
 	@public: currentSection : string = "";
 
-	@public: sectionStartFailCount : int = 0;
-	@public: sectionHasBegun : bool = false;
-	@public: sectionLine : string = "";
+	sectionStartFailCount : int = 0;
+	sectionHasBegun : bool = false;
+	sectionLine : string = "";
 
 	// Function: test(expression, failureMessage)
 	// Description: |

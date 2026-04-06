@@ -131,6 +131,7 @@ std::map<const std::string, const TokenType> subTokenTypes = {
 	{"for", For_Statement},
 	{"while", While_Statement},
 	{"return", Return_Statement},
+	{"result", Result_Statement},
 	{"break", Break_Statement},
 	{"continue", Continue_Statement},
 	{"goto", Goto_Statement},

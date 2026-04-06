@@ -4,6 +4,58 @@
 #import Rendering.Raylib;
 #import Builtin.String;
 
+playerObject : GameObject = GameObject();
+
+moveSpeed    : const float = 2.5;
+turnSpeed    : const float = 1.5;
+doorSpeed    : const float = 1.5;
+playerRadius : const float = 0.5;
+mapScale     : const float = 0.5;
+
+distances : *float = void; // Perpendicular wall distances, one per screen column
+
+allTextures : *NamedTexture = void;
+loadedTexturesCount : uint16 = 0;
+
+SCREEN_W  : const int = 320; // TODO: Making any of these a uint16 drastically changes how rendering looks for some reason
+SCREEN_H  : const int = 200;
+WINDOW_W  : const int = 800;
+WINDOW_H  : const int = 450;
+FOV       : const float = 1.0;
+
+TRANSPARENT_KEY  : Color32 = Color32(153, 0, 153);
+
+renderTarget : RenderTexture2D = RenderTexture2D();
+
+LEVEL : const string ="
+#####################################################........................
+#.................#.................................#........................
+#.................#.................................#........................
+#.................#.................................#........................
+#.................#.................................#........................
+#.................#.................................#........................
+#.................#.................................#........................
+#.................#.................................#........................
+#.................D.................................#........................
+#.................#.................................#........................
+#........W........#.................................#........................
+#.................#.................................#........................
+#.................#.................................#........................
+#.................#.................................#........................
+#.................#.................................#........................
+#.................#.................................#........................
+#.................#.................................#........................
+#.................#.................................#........................
+########D############################################........................
+";
+
+levelObjects : *Wall = void;  // Stores static gameObjects
+levelObjectCount : uint16 = 0; // TODO: Implement the list generic type
+levelGrid : **Wall = void;  // 2D grid for O(1) lookups, indexed by [z * (levelWidth+1) + x]
+
+entities : *Entity = void;  // Stores moving billboarded game objects
+entityCount : uint16 = 0;
+
 
 @version(2):
 GameObject :: struct{
@@ -19,7 +71,7 @@ NamedTexture :: struct{
 	texture : Texture2D;
 }
 
-create :: NamedTexture(name : string, texture : Texture2D){
+create :: NamedTexture(name : const string, texture : const Texture2D){
 	n = NamedTexture();
 	n.name = name;
 	n.texture = texture;
@@ -27,7 +79,7 @@ create :: NamedTexture(name : string, texture : Texture2D){
 	return n;
 }
 
-loadNamedTexture :: *NamedTexture(name : string){
+loadNamedTexture :: *NamedTexture(name : const ref string){
 	for(i : 0..loadedTexturesCount){
 		if(allTextures[i].name == name){
 			//printl("loading image, reusing cached \"" + name + "\"");
@@ -42,11 +94,11 @@ loadNamedTexture :: *NamedTexture(name : string){
 	// Set any pixels that match TRANSPARENT_KEY color to transparent
 	for(x : 0..img.width)
 	for(y : 0..img.height)
-		if(GetImageColor(img, x, y) == TRANSPARENT_KEY) // TODO: I tried having img being a *Image, then doing GetImageColor(*img, x, y), but it gave a compiler error
+		if(GetImageColor(img, x, y) == TRANSPARENT_KEY)
 			ImageDrawPixel(imgPtr, x, y, Color32(0, 0, 0, 0));
 
 	allTextures[loadedTexturesCount] = NamedTexture(name, LoadTextureFromImage(img));
-	loadedTexturesCount += 1;
+	loadedTexturesCount++;
 	return &allTextures[loadedTexturesCount-1];
 }
 
@@ -59,9 +111,11 @@ Wall :: struct{
 	rotation : uint8; // 0 -> a,b,c,d is north,east,south,west,  1 -> a,b,c,d is east,south,west,north,   etc.
 	style : uint8; // 0=abcd visible full cell,  1=bd visible ac invisible,  2=abcd visible with ac offset to middle for door,  3=abcd visible offset to center
 	symbol : char;
+	openAmount : float;
+	targetOpen : bool;
 }
 
-create :: Wall(symbol : char, a : string, b : string,  c : string,  d : string, position : Vector3I, rotation : uint8, style : uint8){
+create :: Wall(symbol : const char, a : const string, b : const string,  c : const string,  d : const string, position : const Vector3I, rotation : const uint8, style : const uint8){
 	w : Wall = Wall();
 	w.symbol = symbol;
 	w.a = &(loadNamedTexture(a).texture);
@@ -71,6 +125,12 @@ create :: Wall(symbol : char, a : string, b : string,  c : string,  d : string, 
 	w.position = position;
 	w.rotation = rotation;
 	w.style = style;
+	w.openAmount = 0.0;
+	w.targetOpen = false;
+	if(style == 1){
+		w.openAmount = 1.0;
+		w.targetOpen = true;
+	}
 	return w;
 }
 
@@ -81,10 +141,12 @@ Entity :: struct{
 	d : *Texture2D;
 	position : Vector3;
 	rotation : uint8; // 0 -> a,b,c,d is north,east,south,west,  1 -> a,b,c,d is east,south,west,north,   etc.
+	hasCollision : bool;
+	collisionRadius : float;
 	symbol : char;
 }
 
-create :: Entity(symbol : char, a : string, b : string,  c : string,  d : string, position : Vector3, rotation : uint8){
+create :: Entity(symbol : const char, a : const string, b : const string,  c : const string,  d : const string, position : const Vector3, rotation : const uint8, hasCollision : const bool, collisionRadius : const float){
 	w : Entity = Entity();
 	w.symbol = symbol;
 	w.a = &(loadNamedTexture(a).texture);
@@ -93,71 +155,31 @@ create :: Entity(symbol : char, a : string, b : string,  c : string,  d : string
 	w.d = &(loadNamedTexture(d).texture);
 	w.position = position;
 	w.rotation = rotation;
+	w.hasCollision = hasCollision;
+	w.collisionRadius = collisionRadius;
 	return w;
 }
 
-isColliding :: bool(a : const ref GameObject, b : const ref GameObject){
-	return (abs(a.position.x - b.position.x) < a.scale.x/2 + b.scale.x/2 && abs(a.position.y - b.position.y) < a.scale.y/2 + b.scale.y/2);
+@inline:
+getEntityTexture :: *Texture2D(entity : const ref Entity){
+	toPlayerX     : const float = playerObject.position.x - entity.position.x;
+	toPlayerZ     : const float = playerObject.position.z - entity.position.z;
+	viewAngle     : const float = wrap(atan2f(-toPlayerX, toPlayerZ), 0.0, TAU);
+	rotationAngle : const float = float(entity.rotation) * PI * 0.5;
+	relativeAngle : const float = wrap(viewAngle - rotationAngle + PI * 0.25, 0.0, TAU);
+
+	if(relativeAngle < PI * 0.5) return entity.a;
+	if(relativeAngle < PI)       return entity.b;
+	if(relativeAngle < PI * 1.5) return entity.c;
+	return entity.d;
 }
-
-player : GameObject = GameObject();
-
-moveSpeed    : const float = 2.5;
-turnSpeed    : const float = 1.5;
-playerRadius : const float = 0.5;
-mapScale     : const float = 0.5;
-
-distances : *float = void; // Perpendicular wall distances, one per screen column
-
-allTextures : *NamedTexture = void;
-loadedTexturesCount = 0;
-
-SCREEN_W  : const int = 320;
-SCREEN_H  : const int = 200;
-WINDOW_W  : const int = 800;
-WINDOW_H  : const int = 450;
-
-
-TRANSPARENT_KEY  : Color32 = Color32(153, 0, 153);
-
-renderTarget : RenderTexture2D = RenderTexture2D();
-
-FOV : const float = 1.0;
-
-levelObjects : *Wall = void;  // Stores static gameObjects
-levelObjectCount = 0;
-
-entities : *Entity = void;  // Stores moving billboarded game objects
-entityCount = 0;
-
-LEVEL : const string =
-"#########D#########
-#....#............#
-#....#......#.....#
-#....#......#.....#
-D...........###.###
-#....#......#.....#
-#.................#
-#.................#
-#...........D.....#
-#....#............#
-#....#...W........#
-#....#............#
-#.................#
-#.................#
-#.................#
-#.................#
-#.................#
-#.................#
-########D##########
-";
 
 
 loadLevel :: (levelString : const ref string){
 	//if(#cast(levelObjects, int) != 0)
 	//	free(#cast(levelObjects, *int));
 	levelObjects = malloc(levelString.length * 2 * #sizeof(Wall));
-	entities = malloc(levelString.length * 0.5 * #sizeof(Wall));
+	entities = malloc(levelString.length * #sizeof(Entity));
 
 	levelObjectCount = 0;
 	x = 0;
@@ -186,22 +208,24 @@ loadLevel :: (levelString : const ref string){
 			levelObjects[levelObjectCount++] = Wall(levelVal, "door.png", "doorside.png", "door.png", "doorside.png", Vector3I(x, 0, y), direction, 2);
 		}
 		else if(levelVal == 'W'){ // Well object
-			entities[entityCount++] = Entity(levelVal, "well.png", "well.png", "well.png", "well.png", Vector3(x, 0, y), 0);
+			entities[entityCount++] = Entity(levelVal, "well.png", "well.png", "well.png", "well.png", Vector3(x + 0.5, 0, y + 0.5), 0, true, 0.4);
 		}
 
 		x++;
 	}
 
 }
+
+@inline:
 unloadLevel :: (){
 	for (i : 0..int(loadedTexturesCount)) {
 		UnloadTexture(allTextures[i].texture);
 	}
 }
 
-main:: (){
+main :: (){
 	InitWindow(WINDOW_W, WINDOW_H, "ASA Wolfenstein");
-	//SetTargetFPS(60);
+	//SetTargetFPS(120);
 
 	renderTarget = LoadRenderTexture(SCREEN_W, SCREEN_H);
 	mapTarget = LoadRenderTexture(SCREEN_W, SCREEN_H);
@@ -211,11 +235,12 @@ main:: (){
 	loadLevel(LEVEL);
 
 	getLevelWidthHeight();
+	buildLevelGrid();
 
-	player.pivot    = Vector3(0.5, 0.5, 0.5);
-	player.scale    = Vector3(15, 100);
-	player.position = Vector3(9, 0, 5);
-	player.rotation = Vector3(0, float(PI), 0); // face north
+	playerObject.pivot    = Vector3(0.5, 0.5, 0.5);
+	playerObject.scale    = Vector3(15, 100);
+	playerObject.position = Vector3(9, 0, 5);
+	playerObject.rotation = Vector3(0, float(PI), 0); // face north
 
 	while (WindowShouldClose() == false) {
 		BeginTextureMode(renderTarget);
@@ -243,7 +268,7 @@ main:: (){
 
 			DrawFPS(0, 0);
 
-			DrawText(string(Vector3I(player.position)), 0, WINDOW_H-20, 20, RED);
+			DrawText(string(Vector3I(playerObject.position)), 0, WINDOW_H-20, 20, RED);
 		EndDrawing();
 	}
 
@@ -254,111 +279,288 @@ main:: (){
 }
 
 
+@inline:
 checkLevelValue :: char(x : const int, y : const int){
 	if(x < 0 || y < 0 || x > levelWidth || y > levelHeight) return 0;
-	for (i : 0..levelObjectCount) {
-		//if((levelObjects[i]).position.x == x && (levelObjects[i]).position.y == y){ // This way errored, so I'm using the following for now:
-		if((levelObjects[i]).position == Vector3I(x, 0, y)){
-			// If position matches search position, return it
-			return (levelObjects[i]).symbol;
-		}
-	}
-	return '.';
+	w : const *Wall = levelGrid[y * (levelWidth + 1) + x];
+	if(w == void) return '.';
+	return w.symbol;
 }
+
+@inline:
 getLevelValue :: *Wall(x : const int, y : const int){
 	if(x < 0 || y < 0 || x > levelWidth || y > levelHeight) return void;
-	for (i : 0..levelObjectCount) {
-		if(levelObjects[i].position.x == x && levelObjects[i].position.z == y){
-		//if(levelObjects[i].position == Vector3I(x, 0, y)){
-			// If position matches search position, return it
-			return &(levelObjects[i]);
-		}
-	}
-	return void;
+	return levelGrid[y * (levelWidth + 1) + x];
 }
-//getLevelValue :: char(x : const int, y : const int, level : const ref string){
-//	width : int = 0;
-//	for (i : 0..int(level.length)) {
-//		if (level[i] == '\n') {
-//			width = i;
-//			break;
-//		}
-//	}
-//	if (width == 0) { return char(0); }
-//
-//	if (x < 0 || x >= width || y < 0 || y >= width) { return 0; }
-//
-//	idx : int = y * (width + 1) + x;
-//	if (idx < 0 || idx >= int(level.length)) { return char(0); }
-//
-//	return level[idx];
-//}
 
-levelWidth  : int = 0;
-levelHeight : int = 0;
+levelWidth  : uint16 = 0;
+levelHeight : uint16 = 0;
 getLevelWidthHeight :: (){
 	for (i : 0..int(LEVEL.length)) {
 		if (LEVEL[i] == '\n') {
-			if (levelWidth == 0) { levelWidth = i; }
-			levelHeight += 1;
+			if (levelWidth == 0)
+				levelWidth = i;
+			levelHeight++;
 		}
 	}
 }
 
-drawMinimap :: () {
-	if (levelWidth == 0) { return; }
+buildLevelGrid :: (){
+	gridSize : int = (levelHeight + 1) * (levelWidth + 1);
+	levelGrid = malloc(gridSize * #sizeof(*Wall));
+	for (i : 0..gridSize)
+		levelGrid[i] = void;
+	for (i : 0..levelObjectCount)
+		levelGrid[levelObjects[i].position.z * (levelWidth + 1) + levelObjects[i].position.x] = &levelObjects[i];
+}
 
+drawMinimap :: () {
+	if (levelWidth == 0) 
+		return;
+
+	viewRadius : const int = 10;
+	viewDiameter : const int = viewRadius * 2 + 1;
 	cellSize : const uint = int(6.0 * mapScale);
-	padding  : const uint = int(4.0 * mapScale);
-	mapW     : const uint = levelWidth  * cellSize;
-	mapH     : const uint = levelHeight * cellSize;
-	offX     : const uint = SCREEN_W - mapW - padding;
-	offY     : const uint = padding;
+	padding : const uint = int(4.0 * mapScale);
+	mapW : const uint = viewDiameter * cellSize;
+	mapH : const uint = viewDiameter * cellSize;
+	offX : const uint = SCREEN_W - mapW - padding;
+	offY : const uint = padding;
+	playerCellX : const int = int(floorf(playerObject.position.x));
+	playerCellZ : const int = int(floorf(playerObject.position.z));
 
 	DrawRectangle(offX, offY, mapW, mapH, Color32(10, 10, 10));
 
-	for (row : 0..levelHeight) {
-		for (col : 0..levelWidth) {
+	for (rowOffset : 0..viewDiameter) {
+		for (colOffset : 0..viewDiameter) {
+			col : int = playerCellX + colOffset - viewRadius;
+			row : int = playerCellZ + rowOffset - viewRadius;
 			c = checkLevelValue(col, row);
 			if (c == '#') {
-				DrawRectangle(offX + col*cellSize, offY + row*cellSize, cellSize-1, cellSize-1, Color32(180, 180, 180));
+				DrawRectangle(offX + colOffset*cellSize, offY + rowOffset*cellSize, cellSize-1, cellSize-1, Color32(180, 180, 180));
 			}
 			else if (c == 'D') {
-				DrawRectangle(offX + col*cellSize, offY + row*cellSize, cellSize-1, cellSize-1, Color32(200, 140, 60));
+				DrawRectangle(offX + colOffset*cellSize, offY + rowOffset*cellSize, cellSize-1, cellSize-1, Color32(200, 140, 60));
+			}
+			else if (c == 'd') {
+				DrawRectangle(offX + colOffset*cellSize, offY + rowOffset*cellSize, cellSize-1, cellSize-1, Color32(180, 120, 50));
 			}
 		}
 	}
 
-	px : int = offX + int(player.position.x * float(cellSize));
-	pz : int = offY + int(player.position.z * float(cellSize));
-	dx : int = int(-sin(player.rotation.y) * 8.0 * mapScale);
-	dz : int = int(cos(player.rotation.y) * 8.0 * mapScale);
+	for (i : 0..entityCount) {
+		relX : const float = entities[i].position.x - playerObject.position.x;
+		relZ : const float = entities[i].position.z - playerObject.position.z;
+		if(abs(relX) > float(viewRadius) + 1.0 || abs(relZ) > float(viewRadius) + 1.0) continue;
+		ex : const int = offX + mapW/2 + int(relX * float(cellSize));
+		ez : const int = offY + mapH/2 + int(relZ * float(cellSize));
+		DrawCircle(ex, ez, 2.0 * mapScale, Color32(80, 200, 255));
+	}
+
+	px : const int = offX + mapW/2;
+	pz : const int = offY + mapH/2;
+	dx : const int = int(-sin(playerObject.rotation.y) * 8.0 * mapScale);
+	dz : const int = int(cos(playerObject.rotation.y) * 8.0 * mapScale);
 	DrawLine(px, pz, px + dx, pz + dz, Color32(255, 220, 0));
 	DrawCircle(px, pz, 2.5 * mapScale, Color32(255, 220, 0));
+}
+
+@inline:
+collidesWithEntities :: bool(x : const float, z : const float){
+	for (i : 0..entityCount) {
+		if(entities[i].hasCollision == false) continue;
+
+		dx : float = x - entities[i].position.x;
+		dz : float = z - entities[i].position.z;
+		collisionDist : float = playerRadius + entities[i].collisionRadius;
+		if(dx*dx + dz*dz < collisionDist*collisionDist){
+			return true;
+		}
+	}
+	return false;
+}
+
+drawEntities :: (projDist : const float){
+	dirX : const float = -sinf(playerObject.rotation.y);
+	dirZ : const float = cosf(playerObject.rotation.y);
+	planeScale : const float = tanf(FOV * 0.5);
+	// Match the wall ray orientation used above so sprites stay fixed in world space.
+	planeX : const float = -dirZ * planeScale;
+	planeZ : const float = dirX * planeScale;
+
+	// Draw far-to-near so alpha-blended billboards layer correctly.
+	for (sortBase : 0..entityCount) {
+		farthestIndex : int = sortBase;
+		farthestDist2 : float = -1.0;
+		for (j : sortBase..entityCount) {
+			dx : const float = entities[j].position.x - playerObject.position.x;
+			dz : const float = entities[j].position.z - playerObject.position.z;
+			dist2 : const float = dx*dx + dz*dz;
+			if(dist2 > farthestDist2){
+				farthestDist2 = dist2;
+				farthestIndex = j;
+			}
+		}
+
+		if(farthestIndex != sortBase){
+			tmp : const Entity = entities[sortBase];
+			entities[sortBase] = entities[farthestIndex];
+			entities[farthestIndex] = tmp;
+		}
+
+		entity : Entity = entities[sortBase];
+		spriteX : float = entity.position.x - playerObject.position.x;
+		spriteZ : float = entity.position.z - playerObject.position.z;
+
+		invDet : float = planeX * dirZ - dirX * planeZ;
+		if(abs(invDet) < 0.000001) continue;
+		invDet = 1.0 / invDet;
+
+		transformX : float = invDet * (dirZ * spriteX - dirX * spriteZ);
+		transformY : float = invDet * (-planeZ * spriteX + planeX * spriteZ);
+		if(transformY <= 0.001) continue;
+
+		srcTexPtr : *Texture2D = getEntityTexture(entity);
+		srcTex : Texture2D = *srcTexPtr;
+
+		spriteScreenX : float = float(SCREEN_W) * 0.5 * (1.0 + transformX / transformY);
+		spriteHeightF : float = float(SCREEN_H) / transformY;
+		spriteWidthF  : float = spriteHeightF * (float(srcTex.width) / float(srcTex.height));
+		if(spriteHeightF <= 0.0 || spriteWidthF <= 0.0) continue;
+
+		drawStartYF : float = float(SCREEN_H) * 0.5 - spriteHeightF * 0.5;
+		drawEndYF   : float = float(SCREEN_H) * 0.5 + spriteHeightF * 0.5;
+		drawStartY : int = int(floorf(drawStartYF));
+		drawEndY   : int = int(ceilf(drawEndYF));
+		drawStartX : int = int(spriteScreenX - spriteWidthF * 0.5);
+		drawEndX   : int = int(spriteScreenX + spriteWidthF * 0.5);
+
+		clipStartY : int = drawStartY;
+		clipEndY   : int = drawEndY;
+		if(clipStartY < 0) clipStartY = 0;
+		if(clipEndY > SCREEN_H) clipEndY = SCREEN_H;
+		if(drawStartX < 0) drawStartX = 0;
+		if(drawEndX > SCREEN_W) drawEndX = SCREEN_W;
+		if(clipEndY <= clipStartY) continue;
+
+		for (stripe : drawStartX..drawEndX) {
+			if(stripe < 0 || stripe >= SCREEN_W) continue;
+			if(transformY >= distances[stripe]) continue;
+
+			texCoord : float = (float(stripe) - (spriteScreenX - spriteWidthF * 0.5)) / spriteWidthF;
+			if(texCoord < 0.0 || texCoord > 1.0) continue;
+			srcX : float = texCoord * float(srcTex.width);
+			srcStartY : float = (float(clipStartY) - drawStartYF) / spriteHeightF * float(srcTex.height);
+			srcEndY   : float = (float(clipEndY) - drawStartYF) / spriteHeightF * float(srcTex.height);
+			srcStartY = clamp(srcStartY, 0.0, float(srcTex.height));
+			srcEndY   = clamp(srcEndY,   0.0, float(srcTex.height));
+			if(srcEndY <= srcStartY) continue;
+
+			DrawTexturePro(srcTex,
+				Rect(srcX, srcStartY, 1.0, srcEndY - srcStartY),
+				Rect(stripe, clipStartY, 1.0, clipEndY - clipStartY),
+				Vector2(0.0, 0.0), 0.0, WHITE);
+		}
+	}
+}
+
+tryOpenDoor :: bool(cellX : const int, cellZ : const int){
+	door : *Wall = getLevelValue(cellX, cellZ);
+	if(door == void) return false;
+	if(door.symbol == 'D' || door.symbol == 'd'){
+		door.targetOpen = !door.targetOpen;
+		return true;
+	}
+	return false;
+}
+
+updateDoors :: (dT : const float){
+	for (i : 0..levelObjectCount) {
+		if(levelObjects[i].symbol != 'D' && levelObjects[i].symbol != 'd') continue;
+
+		if(levelObjects[i].targetOpen){
+			levelObjects[i].openAmount += dT * doorSpeed;
+			if(levelObjects[i].openAmount > 1.0) levelObjects[i].openAmount = 1.0;
+		}
+		else{
+			levelObjects[i].openAmount -= dT * doorSpeed;
+			if(levelObjects[i].openAmount < 0.0) levelObjects[i].openAmount = 0.0;
+		}
+
+		if(levelObjects[i].openAmount >= 1.0){
+			levelObjects[i].style = 1;
+			levelObjects[i].symbol = 'd';
+		}
+		else{
+			levelObjects[i].style = 2;
+			levelObjects[i].symbol = 'D';
+		}
+	}
+}
+
+@inline:
+isPassableCell :: bool(x : const int, z : const int){
+	wall : *Wall = getLevelValue(x, z);
+	if(wall == void) return true;
+	if(wall.symbol == 'd' && wall.openAmount >= 1.0) return true;
+	return false;
+}
+
+tryInteract :: (){
+	cellX : const int = int(floorf(playerObject.position.x));
+	cellZ : const int = int(floorf(playerObject.position.z));
+
+	currentDoor : const *Wall = getLevelValue(cellX, cellZ);
+	if(currentDoor != void && currentDoor.symbol == 'D'){
+		if(tryOpenDoor(cellX, cellZ)) return;
+	}
+
+	dirX : const float = -sinf(playerObject.rotation.y);
+	dirZ : const float = cosf(playerObject.rotation.y);
+	stepX : int8 = 0;
+	stepZ : int8 = 0;
+
+	if(abs(dirX) > abs(dirZ)){
+		if(dirX > 0.0) stepX = 1;
+		else           stepX = -1;
+	}
+	else{
+		if(dirZ > 0.0) stepZ = 1;
+		else           stepZ = -1;
+	}
+
+	tryOpenDoor(cellX + stepX, cellZ + stepZ);
 }
 
 // Try to move by (dx, dz), resolving X and Z axes independently so the player slides along walls
 tryMove :: (dx : const float, dz : const float) {
 	r : float = playerRadius;
-	newX : float = player.position.x + dx;
-	newZ : float = player.position.z + dz;
+	newX : float = playerObject.position.x + dx;
+	newZ : float = playerObject.position.z + dz;
 
 	marginX : float = r;
-	if (dx < 0.0) { marginX = -r; }
-	lvl = checkLevelValue(int(newX + marginX), int(player.position.z));
-	if (lvl == '.' || lvl == 'O') {
-		player.position.x = newX;
+	if (dx < 0.0) 
+		marginX = -r;
+	targetCellX : int = int(newX + marginX);
+	targetCellZ : int = int(playerObject.position.z);
+	lvl = checkLevelValue(targetCellX, targetCellZ);
+	if ((lvl == '.' || isPassableCell(targetCellX, targetCellZ)) && collidesWithEntities(newX, playerObject.position.z) == false) {
+		playerObject.position.x = newX;
 	}
 
 	marginZ : float = r;
 	if (dz < 0.0) { marginZ = -r; }
-	lvl = checkLevelValue(int(player.position.x), int(newZ + marginZ));
-	if (lvl == '.' || lvl == 'O') {
-		player.position.z = newZ;
+	targetCellX = int(playerObject.position.x);
+	targetCellZ = int(newZ + marginZ);
+	lvl = checkLevelValue(targetCellX, targetCellZ);
+	if ((lvl == '.' || isPassableCell(targetCellX, targetCellZ)) && collidesWithEntities(playerObject.position.x, newZ) == false) {
+		playerObject.position.z = newZ;
 	}
 }
 
 update :: (dT : const float){
+	updateDoors(dT);
+
 	// Flat Wolfenstein-style ceiling and floor
 	DrawRectangle(0, 0,          SCREEN_W, SCREEN_H/2, Color32(74, 74, 74));
 	DrawRectangle(0, SCREEN_H/2, SCREEN_W, SCREEN_H/2, Color32(45, 45, 45));
@@ -366,32 +568,38 @@ update :: (dT : const float){
 	// Projection plane distance: makes 1-unit walls appear square
 	projDist : const float = float(SCREEN_W) * 0.5 / tanf(float(FOV) * 0.5);
 
+	// Hoist per-frame constants out of the ray loop
+	playerObject.rotation.y = wrap(playerObject.rotation.y, -2.0*float(PI), 2.0*float(PI));
+	playerRotY : const float = playerObject.rotation.y;
+	sinRotY    : const float = sinf(playerRotY);
+	cosRotY    : const float = cosf(playerRotY);
+	invScreenW : const float = 1.0 / float(SCREEN_W);
+
+	playerFloorX : const float = floorf(playerObject.position.x);
+	playerFloorZ : const float = floorf(playerObject.position.z);
+	playerFracX  : const float = playerObject.position.x - playerFloorX;
+	playerFracZ  : const float = playerObject.position.z - playerFloorZ;
+
 	// Cast one ray per screen column
 	for(i : 0..SCREEN_W){
-		player.rotation.y = wrap(player.rotation.y, -2.0*PI, 2.0*PI);
-		subRayAngle = wrap((float(i)/float(SCREEN_W) - 0.5) * FOV, -2.0*PI, 2.0*PI);
-		rayAngle    = wrap(player.rotation.y + subRayAngle, -2.0*PI, 2.0*PI);
+		subRayAngle : const float = (i * invScreenW - 0.5) * FOV;
+		rayAngle    : const float = playerRotY + subRayAngle;
 
-		directionNew = Vector3(0, 0, 0);
-		directionNew.x = -sin(rayAngle);
-		directionNew.z = cos(rayAngle);
-		directionNew.normalize();
+		rdx : const float = -sinf(rayAngle);
+		rdz : const float = cosf(rayAngle);
 
 		distances[i] = 9999.0;
-
-		rdx : float = directionNew.x;
-		rdz : float = directionNew.z;
 
 		deltaDistX : float = 0.0;
 		deltaDistZ : float = 0.0;
 		if (abs(rdx) > 0.000001) { deltaDistX = abs(1.0 / rdx); } else { deltaDistX = 9999999.0; }
 		if (abs(rdz) > 0.000001) { deltaDistZ = abs(1.0 / rdz); } else { deltaDistZ = 9999999.0; }
 
-		mapX : float = floorf(player.position.x);
-		mapZ : float = floorf(player.position.z);
+		mapX : float = playerFloorX;
+		mapZ : float = playerFloorZ;
 
-		fracX : float = player.position.x - mapX;
-		fracZ : float = player.position.z - mapZ;
+		fracX : const float = playerFracX;
+		fracZ : const float = playerFracZ;
 
 		stepX : int = 0;
 		stepZ : int = 0;
@@ -414,7 +622,7 @@ update :: (dT : const float){
 		}
 
 		hitWall : *Wall = void;
-		hitChar : char = char(0);
+		hitChar : char = 0;
 		side : uint8 = 0;
 		hitDoorFrame : bool = false;
 		hitInnerFrame : bool = false;
@@ -423,9 +631,9 @@ update :: (dT : const float){
 
 
 		for (j : 0..100) {
-			currentWall : *Wall = getLevelValue(mapX, mapZ);
+			currentWall : const *Wall = getLevelValue(mapX, mapZ);
 			if(currentWall != void){
-				if(currentWall.style == 2){
+				if(currentWall.symbol == 'D' || currentWall.symbol == 'd'){
 					// If the ray is already inside a door cell, crossing a boundary perpendicular
 					// to the door panel should hit the doorway threshold immediately.
 					exitsThroughThreshold : bool = (currentWall.rotation == 0 && sideDistX < sideDistZ) || (currentWall.rotation == 1 && sideDistZ <= sideDistX);
@@ -434,12 +642,12 @@ update :: (dT : const float){
 						hitDoorFrame = true;
 						if(currentWall.rotation == 0){
 							side = 1;
-							doorHitCoord = player.position.z + sideDistX * rdz;
+							doorHitCoord = playerObject.position.z + sideDistX * rdz;
 							hasDoorHitCoord = true;
 							sideDistX += deltaDistX;
 						} else {
 							side = 0;
-							doorHitCoord = player.position.x + sideDistZ * rdx;
+							doorHitCoord = playerObject.position.x + sideDistZ * rdx;
 							hasDoorHitCoord = true;
 							sideDistZ += deltaDistZ;
 						}
@@ -460,87 +668,115 @@ update :: (dT : const float){
 			hitWall = getLevelValue(mapX, mapZ);
 
 			if(hitWall != void){
-				if(hitWall.style == 2){
+				if(hitWall.symbol == 'D' || hitWall.symbol == 'd'){
 					// rotation=0: door panel faces N/S (hit via Z-step, side=0)
 					// rotation=1: door panel faces E/W (hit via X-step, side=1)
 					isDoorFace : bool = (hitWall.rotation == 0 && side == 0) || (hitWall.rotation == 1 && side == 1);
 					if(isDoorFace){
-						// Advance ray to the near face of the door panel.
-						// With thickness T, the near face is (0.5 - T/2) past the entry boundary.
-							panelThick : float = 0.1;
-							panelFaceOffset : float = 0.5 - panelThick * 0.5;
-							if(side == 0){
-								panelFaceDist : float = (sideDistZ - deltaDistZ) + deltaDistZ * panelFaceOffset;
-								if(sideDistX < panelFaceDist){
-									// The ray leaves the door cell through the left/right jamb before
-									// reaching the centered door plane, so draw the threshold wall.
-									side = 1;
-									sideDistX += deltaDistX;
-									hitDoorFrame = true;
-								} else {
+						panelThick : const float = 0.1;
+						panelFaceOffset : const float = 0.5 - panelThick * 0.5;
+						passesOpening : bool = false;
+						openAmount : const float = hitWall.openAmount;
+						if(side == 0){
+							panelFaceDist : float = (sideDistZ - deltaDistZ) + deltaDistZ * panelFaceOffset;
+							if(sideDistX < panelFaceDist){
+								// The ray leaves the door cell through the left/right jamb before
+								// reaching the centered door plane, so draw the threshold wall.
+								side = 1;
+								sideDistX += deltaDistX;
+								hitDoorFrame = true;
+							} else {
+								panelHitX : float = playerObject.position.x + panelFaceDist * rdx;
+								panelHitX = panelHitX - floorf(panelHitX);
+								if(panelHitX < 0.0) panelHitX += 1.0;
+								if(panelHitX < openAmount){
+									passesOpening = true;
+								}
+								else{
 									sideDistZ += deltaDistZ * panelFaceOffset;
 									hitDoorFrame = false;
 								}
 							}
-							else{
-								panelFaceDist : float = (sideDistX - deltaDistX) + deltaDistX * panelFaceOffset;
-								if(sideDistZ < panelFaceDist){
-									side = 0;
-									sideDistZ += deltaDistZ;
-									hitDoorFrame = true;
-								} else {
+						}
+						else{
+							panelFaceDist : float = (sideDistX - deltaDistX) + deltaDistX * panelFaceOffset;
+							if(sideDistZ < panelFaceDist){
+								side = 0;
+								sideDistZ += deltaDistZ;
+								hitDoorFrame = true;
+							} else {
+								panelHitZ : float = playerObject.position.z + panelFaceDist * rdz;
+								panelHitZ = panelHitZ - floorf(panelHitZ);
+								if(panelHitZ < 0.0) panelHitZ += 1.0;
+								if(panelHitZ < openAmount){
+									passesOpening = true;
+								}
+								else{
 									sideDistX += deltaDistX * panelFaceOffset;
 									hitDoorFrame = false;
 								}
 							}
-					} else {
-						// Ray entered from perpendicular side -> outer frame face
-						// Check if ray hits the panel edge (gives door apparent thickness)
-						panelHalfWidth : float = 0.05;
-						perpEntryDist : float = 0.0;
-						perpEntryHit  : float = 0.0;
-						if(side == 0){
-							perpEntryDist = sideDistZ - deltaDistZ;
-							perpEntryHit  = player.position.x + perpEntryDist * rdx;
-						} else {
-							perpEntryDist = sideDistX - deltaDistX;
-							perpEntryHit  = player.position.z + perpEntryDist * rdz;
 						}
-						perpEntryHit = perpEntryHit - floorf(perpEntryHit);
-						if(perpEntryHit < 0.0) perpEntryHit += 1.0;
-						if(abs(perpEntryHit - 0.5) < panelHalfWidth){
-							hitDoorFrame = false; // panel edge: show door.png
-						} else {
-							hitDoorFrame = true;  // doorside.png
+						if(passesOpening){
+							hitWall = void;
+							continue;
 						}
+					} 
+					else {
+						panelSideDist : float = 0.0;
+						if(hitWall.rotation == 0 && side == 1){
+							panelOffsetX : float = hitWall.openAmount;
+							if(stepX < 0) panelOffsetX = 0.0;
+							panelSideDist = (sideDistX - deltaDistX) + deltaDistX * panelOffsetX;
+							if(sideDistZ < panelSideDist){
+								hitWall = void;
+								continue;
+							}
+						}
+						else if(hitWall.rotation == 1 && side == 0){
+							panelOffsetZ : float = hitWall.openAmount;
+							if(stepZ < 0) panelOffsetZ = 0.0;
+							panelSideDist = (sideDistZ - deltaDistZ) + deltaDistZ * panelOffsetZ;
+							if(sideDistX < panelSideDist){
+								hitWall = void;
+								continue;
+							}
+						}
+						hitDoorFrame = true;
 					}
 					break;
 				}
 				else
 					break;
 			}
-			//hitChar = checkLevelValue(mapX, mapZ);
-			//if (hitChar != '.') { break; }
 		}
 
 		if (side == 1 || side == 3) {
 			distances[i] = sideDistX - deltaDistX;
-		} else {
+		}
+		else {
 			distances[i] = sideDistZ - deltaDistZ;
 		}
 
-			if (hitWall != void) {
-				wallHeight : int = int(projDist / distances[i]);
-				wallTop    : int = SCREEN_H/2 - wallHeight/2;
+		if (hitWall != void) {
+			wallHeight : const int = int(projDist / distances[i]);
+			wallTop    : const int = SCREEN_H/2 - wallHeight/2;
 
-				// Compute texture U: fractional position where ray hit the wall face
-				wallHit : float = 0.0;
-				if(side == 1 || side == 3) wallHit = player.position.z + distances[i] * rdz;
-				else                       wallHit = player.position.x + distances[i] * rdx;
-				wallHit = wallHit - floorf(wallHit);
-				// Mirror so texture doesn't flip with ray direction
-				if ((side == 1 || side == 3) && rdx > 0.0) { wallHit = 1.0 - wallHit; } // E/W
-				if ((side == 0 || side == 2) && rdz < 0.0) { wallHit = 1.0 - wallHit; } // N/S
+			// Compute texture U: fractional position where ray hit the wall face
+			wallHit : float = 0.0;
+			if(side == 1 || side == 3) wallHit = playerObject.position.z + distances[i] * rdz;
+			else                       wallHit = playerObject.position.x + distances[i] * rdx;
+			wallHit = wallHit - floorf(wallHit);
+			isDoorPanel : const bool = (hitWall.symbol == 'D' || hitWall.symbol == 'd') && hitDoorFrame == false;
+			if(isDoorPanel){
+				wallHit -= hitWall.openAmount;
+				wallHit = clamp(wallHit, 0.0, 1.0);
+			}
+			// Mirror so texture doesn't flip with ray direction
+			if ((side == 1 || side == 3) && rdx > 0.0) { wallHit = 1.0 - wallHit; } // E/W
+			if ((side == 0 || side == 2) && rdz < 0.0) { wallHit = 1.0 - wallHit; } // N/S
+			if(isDoorPanel && side == 0 && rdz < 0.0) { wallHit = 1.0 - wallHit; } // south face of sliding door
+			if(isDoorPanel && side == 1 && rdx > 0.0) { wallHit = 1.0 - wallHit; } // west face of sliding door
 
 			// Pick texture and tint (darken N/S walls for depth cue)
 			srcTexPtr : *Texture2D = hitWall.a;
@@ -554,25 +790,52 @@ update :: (dT : const float){
 			DrawTexturePro(srcTex,
 				Rect(srcX, 0.0, 1.0, srcTex.height),
 				Rect(i, wallTop, 1.0, wallHeight),
-				Vector2(0.0, 0.0), 0.0, tint);
+				Vector2(0.0, 0.0), 
+				0.0, 
+				tint
+			);
 		}
 	}
 
+	drawEntities(projDist);
+
 	// WASD movement with wall collision
-	spd : float = dT * moveSpeed;
+	spd : const float = dT * moveSpeed;
+	moveDir : Vector2 = Vector2(0.0, 0.0);
 	if(IsKeyDown(KEY_W))
-		tryMove(-sinf(player.rotation.y) * spd,  cosf(player.rotation.y) * spd);
+	{
+		moveDir.x += -sinRotY;
+		moveDir.y +=  cosRotY;
+	}
 	if(IsKeyDown(KEY_S))
-		tryMove( sinf(player.rotation.y) * spd, -cosf(player.rotation.y) * spd);
+	{
+		moveDir.x +=  sinRotY;
+		moveDir.y += -cosRotY;
+	}
 	if(IsKeyDown(KEY_A))
-		tryMove( cosf(player.rotation.y) * spd,  sinf(player.rotation.y) * spd);
+	{
+		moveDir.x +=  cosRotY;
+		moveDir.y +=  sinRotY;
+	}
 	if(IsKeyDown(KEY_D))
-		tryMove(-cosf(player.rotation.y) * spd, -sinf(player.rotation.y) * spd);
+	{
+		moveDir.x += -cosRotY;
+		moveDir.y += -sinRotY;
+	}
+	moveLen : const float = moveDir.magnitude();
+	if(moveLen > 0.000001){
+		moveDir.x /= moveLen;
+		moveDir.y /= moveLen;
+		tryMove(moveDir.x * spd, moveDir.y * spd);
+	}
+
+	if(IsKeyPressed(KEY_SPACE))
+		tryInteract();
 
 	// Arrow key turning
 	if(IsKeyDown(KEY_RIGHT))
-		player.rotation.y += turnSpeed * dT;
+		playerObject.rotation.y += turnSpeed * dT;
 	else if(IsKeyDown(KEY_LEFT))
-		player.rotation.y += -turnSpeed * dT;
+		playerObject.rotation.y += -turnSpeed * dT;
 
 }

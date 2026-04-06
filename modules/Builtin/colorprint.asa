@@ -31,8 +31,8 @@ ColorPrint :: module {
 		return false;
 	}
 
-	@public: colorChecked : bool = false;
-	@public: colorSupported : bool = false;
+	colorChecked : bool = false;
+	colorSupported : bool = false;
 
 	@inline:
 	@public:
@@ -46,7 +46,7 @@ ColorPrint :: module {
 
 	// Constant: resetColor
 	// Description: ANSI escape code to reset all color formatting back to terminal defaults
-	@public: resetColor : string = "\033[0m";
+	@public: resetColor : const string = "\033[0m";
 
 	// Function: colorPrint(string, color)
 	// Description: Prints a string to the terminal with the specified color, then resets color formatting
@@ -55,7 +55,7 @@ ColorPrint :: module {
 	//     s: The string to print
 	//     col: The color code to use, see <Fore> and <Back>
 	@public:
-	colorPrint:: (s : string, col : string) {
+	colorPrint:: (s : const string, col : const string) {
 		if (getColorSupported()) {
 			print(col + s + resetColor);
 		} else {
@@ -71,7 +71,7 @@ ColorPrint :: module {
 	//     s: The string to print
 	//     col: The color code to use, see <Fore> and <Back>
 	@public:
-	colorPrintl:: (s : string, col : string) {
+	colorPrintl:: (s : const string, col : const string) {
 		if (getColorSupported()) {
 			print(col + s + resetColor + "\n");
 		} else {
@@ -88,7 +88,7 @@ ColorPrint :: module {
 	//     fg: The color code to use for the foreground see <Fore>
 	//     bg: The color code to use for the background see <Back>
 	@public:
-	colorPrint:: (s : string, fg : string, bg : string) {
+	colorPrint:: (s : const string, fg : const string, bg : const string) {
 		if (getColorSupported()) {
 			print(fg + bg + s + resetColor);
 		} else {
@@ -105,7 +105,7 @@ ColorPrint :: module {
 	//     fg: The color code to use for the foreground see <Fore>
 	//     bg: The color code to use for the background see <Back>
 	@public:
-	colorPrintl:: (s : string, fg : string, bg : string) {
+	colorPrintl:: (s : const string, fg : const string, bg : const string) {
 		if (getColorSupported()) {
 			print(fg + bg + s + resetColor + "\n");
 		} else {
@@ -125,42 +125,47 @@ ColorPrint :: module {
 	@scoped:
 	@public:
 	Fore :: module{
-		// Constants: Color names
-		// Values:
-		//     black: black color
-		//     red: red color
-		//     green: green color
-		//     yellow: yellow color
-		//     blue: blue color
-		//     magenta: magenta color
-		//     cyan: cyan color
-		//     white: white color
-		//     brightBlack: brightBlack color
-		//     brightRed: brightRed color
-		//     brightGreen: brightGreen color
-		//     brightYellow: brightYellow color
-		//     brightBlue: brightBlue color
-		//     brightMagenta: brightMagenta color
-		//     brightCyan: brightCyan color
-		//     brightWhite: brightWhite color
-		@public: black : string = "\x1B[30m";
-		@public: red : string = "\x1B[31m";
-		@public: green : string = "\x1B[32m";
-		@public: yellow : string = "\x1B[33m";
-		@public: blue : string = "\x1B[34m";
-		@public: magenta : string = "\x1B[35m";
-		@public: cyan : string = "\x1B[36m";
-		@public: white : string = "\x1B[37m";
-		@public: brightBlack : string = "\x1B[90m";
-		@public: brightRed : string = "\x1B[91m";
-		@public: brightGreen : string = "\x1B[92m";
-		@public: brightYellow : string = "\x1B[93m";
-		@public: brightBlue : string = "\x1B[94m";
-		@public: brightMagenta : string = "\x1B[95m";
-		@public: brightCyan : string = "\x1B[96m";
-		@public: brightWhite : string = "\x1B[97m";
+		@public:
+		{
+			// Constants: Color names
+			// Values:
+			//     black: black color
+			//     red: red color
+			//     green: green color
+			//     yellow: yellow color
+			//     blue: blue color
+			//     magenta: magenta color
+			//     cyan: cyan color
+			//     white: white color
+			//     brightBlack: brightBlack color
+			//     brightRed: brightRed color
+			//     brightGreen: brightGreen color
+			//     brightYellow: brightYellow color
+			//     brightBlue: brightBlue color
+			//     brightMagenta: brightMagenta color
+			//     brightCyan: brightCyan color
+			//     brightWhite: brightWhite color
+			black : const string = "\x1B[30m";
+			red : const string = "\x1B[31m";
+			green : const string = "\x1B[32m";
+			yellow : const string = "\x1B[33m";
+			blue : const string = "\x1B[34m";
+			magenta : const string = "\x1B[35m";
+			cyan : const string = "\x1B[36m";
+			white : const string = "\x1B[37m";
+			brightBlack : const string = "\x1B[90m";
+			brightRed : const string = "\x1B[91m";
+			brightGreen : const string = "\x1B[92m";
+			brightYellow : const string = "\x1B[93m";
+			brightBlue : const string = "\x1B[94m";
+			brightMagenta : const string = "\x1B[95m";
+			brightCyan : const string = "\x1B[96m";
+			brightWhite : const string = "\x1B[97m";
 
-		@public: reset : string = "\033[0m";
+			// Constant: resetColor
+			// Description: ANSI escape code to reset all color formatting back to terminal defaults
+			reset : const string = "\033[0m";
+		}
 	}
 
 	// Module: Back
@@ -174,42 +179,47 @@ ColorPrint :: module {
 	@scoped:
 	@public:
 	Back :: module{
-		// Constants: Color names
-		// Values:
-		//     black: black color
-		//     red: red color
-		//     green: green color
-		//     yellow: yellow color
-		//     blue: blue color
-		//     magenta: magenta color
-		//     cyan: cyan color
-		//     white: white color
-		//     brightBlack: brightBlack color
-		//     brightRed: brightRed color
-		//     brightGreen: brightGreen color
-		//     brightYellow: brightYellow color
-		//     brightBlue: brightBlue color
-		//     brightMagenta: brightMagenta color
-		//     brightCyan: brightCyan color
-		//     brightWhite: brightWhite color
-		@public: black : string = "\x1B[40m";
-		@public: red : string = "\x1B[41m";
-		@public: green : string = "\x1B[42m";
-		@public: yellow : string = "\x1B[43m";
-		@public: blue : string = "\x1B[44m";
-		@public: magenta : string = "\x1B[45m";
-		@public: cyan : string = "\x1B[46m";
-		@public: white : string = "\x1B[47m";
-		@public: brightBlack : string = "\x1B[100m";
-		@public: brightRed : string = "\x1B[101m";
-		@public: brightGreen : string = "\x1B[102m";
-		@public: brightYellow : string = "\x1B[103m";
-		@public: brightBlue : string = "\x1B[104m";
-		@public: brightMagenta : string = "\x1B[105m";
-		@public: brightCyan : string = "\x1B[106m";
-		@public: brightWhite : string = "\x1B[107m";
+		@public:
+		{
+			// Constants: Color names
+			// Values:
+			//     black: black color
+			//     red: red color
+			//     green: green color
+			//     yellow: yellow color
+			//     blue: blue color
+			//     magenta: magenta color
+			//     cyan: cyan color
+			//     white: white color
+			//     brightBlack: brightBlack color
+			//     brightRed: brightRed color
+			//     brightGreen: brightGreen color
+			//     brightYellow: brightYellow color
+			//     brightBlue: brightBlue color
+			//     brightMagenta: brightMagenta color
+			//     brightCyan: brightCyan color
+			//     brightWhite: brightWhite color
+			black : const string = "\x1B[40m";
+			red : const string = "\x1B[41m";
+			green : const string = "\x1B[42m";
+			yellow : const string = "\x1B[43m";
+			blue : const string = "\x1B[44m";
+			magenta : const string = "\x1B[45m";
+			cyan : const string = "\x1B[46m";
+			white : const string = "\x1B[47m";
+			brightBlack : const string = "\x1B[100m";
+			brightRed : const string = "\x1B[101m";
+			brightGreen : const string = "\x1B[102m";
+			brightYellow : const string = "\x1B[103m";
+			brightBlue : const string = "\x1B[104m";
+			brightMagenta : const string = "\x1B[105m";
+			brightCyan : const string = "\x1B[106m";
+			brightWhite : const string = "\x1B[107m";
 
-		@public: reset : string = "\033[0m";
+			// Constant: resetColor
+			// Description: ANSI escape code to reset all color formatting back to terminal defaults
+			reset : const string = "\033[0m";
+		}
 	}
 }
 

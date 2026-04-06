@@ -26,7 +26,7 @@ add_definitions(${LLVM_DEFINITIONS_LIST})
 #set(CMAKE_CXX_FLAGS "-Wall -Wextra")
 set(CMAKE_CXX_FLAGS_DEBUG "-g -Og")
 
-set(CMAKE_CXX_FLAGS_RELEASE "-Os -s")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3 -s")
 set(CMAKE_CXX_FLAGS_MINSIZEREL "-Os -s -DNDEBUG")
 set(CMAKE_EXE_LINKER_FLAGS_MINSIZEREL "-s -Wl,--gc-sections")
 #set(CMAKE_CXX_FLAGS_RELEASE "-Os -s -fno-indent -fno-asynchronous-unwind-tables -ffunction-sections -fdata-sections -Wl,--gc-sections")

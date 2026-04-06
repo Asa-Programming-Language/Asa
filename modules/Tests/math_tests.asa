@@ -134,6 +134,7 @@ MathTests :: module {
 		test(s2i.x == 9.0f && s2i.y == 12.0f, "Vector2 * int");
 		s2ir : Vector2 = 3 * a2;
 		test(s2ir.x == 9.0f && s2ir.y == 12.0f, "int * Vector2");
+		test(a2.magnitude() == 5.0f, "Vector2 magnitude");
 
 		///////////////////////
 		// Vector3 ops       //
@@ -162,6 +163,7 @@ MathTests :: module {
 		test(s3i.x == 3.0f && s3i.y == 6.0f && s3i.z == 9.0f, "Vector3 * int");
 		s3ir : Vector3 = 3 * a3;
 		test(s3ir.x == 3.0f && s3ir.y == 6.0f && s3ir.z == 9.0f, "int * Vector3");
+		test(a3.magnitude() > 3.74165f && a3.magnitude() < 3.74166f, "Vector3 magnitude");
 
 		///////////////////////
 		// lerp (Vector)     //

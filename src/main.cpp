@@ -304,12 +304,21 @@ int main(int argc, char** argv)
 	}
 	bool res = finalizeGlobalInit();
 
-	if (!wasError)
-		optimizeFunctions();
-	else
-		goto errorsEncountered;
-
+	// Finalize debug info before optimization so the optimizer sees a consistent,
+	// fully-resolved module. Running optimizeFunctions() on an unfinalized module
+	// can cause incorrect loop elimination and other misoptimizations.
 	DBuilder->finalize();
+
+	std::string irFilePath = projectDirectory + "build/" + baseFileName + ".ll";
+
+	// Note: for optimizationLevel >= 1, optimization is handled by clang when
+	// compiling the .ll file, so we skip the in-memory LLVM pass pipeline here.
+	// Running it in-memory can produce misoptimizations due to module state
+	// that doesn't round-trip cleanly through the text IR format.
+	if (!wasError && optimizationLevel < 1)
+		optimizeFunctions();
+	else if (wasError)
+		goto errorsEncountered;
 
 	// Print out all of the generated code.
 	if (verbosity >= 5) {
@@ -320,16 +329,15 @@ int main(int argc, char** argv)
 		goto errorsEncountered;
 
 	// Write IR to <projectpath>/build/<basename>.ll
-	std::string irFilePath = projectDirectory + "build/" + baseFileName + ".ll";
-	std::error_code EC;
-	llvm::raw_fd_ostream OS(irFilePath, EC, llvm::sys::fs::OF_None);
-	if (EC) {
-		// Handle error
-		llvm::errs() << "Could not open file: " << EC.message() << "\n";
-		exit(1);
+	{
+		std::error_code EC;
+		llvm::raw_fd_ostream OS(irFilePath, EC, llvm::sys::fs::OF_None);
+		if (EC) {
+			llvm::errs() << "Could not open file: " << EC.message() << "\n";
+			exit(1);
+		}
+		TheModule->print(OS, nullptr);
 	}
-	TheModule->print(OS, nullptr);
-	OS.close();
 
 
 	// Verify the module
@@ -370,5 +378,6 @@ errorsEncountered:
 		}
 		std::filesystem::remove(irFilePath);
 		std::filesystem::remove(irFilePath + ".s");
+		std::filesystem::remove(irFilePath + ".opt.ll");
 	}
 }

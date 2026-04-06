@@ -97,6 +97,13 @@ struct LoopContext {
 };
 std::stack<LoopContext> loopContextStack;
 
+// Stack to track value-block contexts (for result)
+struct ResultContext {
+	AllocaInst* resultSlot;	 // Stack slot that holds the block's result value (set by generateResult)
+	BasicBlock* mergeBB;	 // Block to branch to after a result statement
+};
+static std::stack<ResultContext> resultContextStack;
+
 std::unordered_map<std::string, bool> typeSigns = {
 	{"int128", true},
 	{"int64", true},
@@ -1475,17 +1482,28 @@ void processModuleForDeclarations(ASTNode* moduleCompilerDefineNode, std::string
 	if (innerScope->nodeType != Scope_Body)
 		return;
 
-	for (auto& child : innerScope->childNodes) {
+	// Helper to process one child node of the module's inner scope.
+	// Declared as a std::function so it can recurse into Scope_Body wrappers.
+	std::function<void(ASTNode*)> processChild = [&](ASTNode* child) {
 		if (child->nodeType == Expression_Statement)
 			declareModuleScopeVariable(child, moduleCompilerDefineNode, true);
 		// Typed declaration without initializer: `g_intbuf : *int;` parses as a bare
 		// Colon_Separator_Node (no Expression_Statement wrapper because there's no `=`).
 		else if (child->nodeType == Colon_Separator_Node)
 			declareModuleScopeVariableFromColon(child, moduleCompilerDefineNode);
-		// Recurse into nested sub-modules, registering with compound dot-separated names
+		// Recurse into nested sub-modules, registering with compound dot-separated names.
 		else if (child->nodeType == Compiler_Define)
 			processModuleForDeclarations(child, fullName);
-	}
+		// Scope_Body used as an attribute group (e.g. @public: { KEY_A : ...; })
+		// Flatten its children into the enclosing module scope.
+		else if (child->nodeType == Scope_Body) {
+			for (auto& scopeChild : child->childNodes)
+				processChild(scopeChild);
+		}
+	};
+
+	for (auto& child : innerScope->childNodes)
+		processChild(child);
 }
 
 // Fill in __asa_global_init's body and finalize it. returns false on error/failure
@@ -1496,6 +1514,9 @@ bool finalizeGlobalInit()
 
 
 	BasicBlock* BB = BasicBlock::Create(*TheContext, "entry", globalInitFn);
+	// Clear any stale debug location so __asa_global_init instructions don't
+	// inherit a scope from the last user-function that was generated.
+	Builder->SetCurrentDebugLocation(DebugLoc());
 	Builder->SetInsertPoint(BB);
 
 	for (auto& gi : globalInitList) {
@@ -1984,22 +2005,20 @@ void* ASTNode::generateVariableExpression(int pass)
 
 void* ASTNode::generateThrow(int pass)
 {
+	messageSystem::startBlock(this, "Generating throw statement", __func__, __LINE__, __FILE__);
+
 	// If it has a child node, we will output it's value as a string
 	ASTNode* exprNode = nullptr;
 	Value* outVal = nullptr;
 	if (childNodes.size() > 0) {
 		exprNode = childNodes[0]->childNodes[0];
 		if (exprNode->codegen == nullptr) {
-			console::indentation = errorDepth;
-			if (errorDepth < maxErrorTraceDepth)
-				printTokenError(getASTTokenRange(exprNode), "Node `" + ASTNodeTypeAsString(exprNode->nodeType) + "` does not have a code generator");
-			wasError = true;
-			errorDepth++;
-			return nullptr;
+			return messageSystem::error("Node `" + ASTNodeTypeAsString(exprNode->nodeType) + "` does not have a code generator");
 		}
 		outVal = (Value*)(exprNode->*(exprNode->codegen))(pass);
 	}
 	if (wasError) {
+		messageSystem::endBlock();
 		return nullptr;
 	}
 
@@ -2069,6 +2088,8 @@ void* ASTNode::generateThrow(int pass)
 
 	// Create an unreachable instruction since exit() doesn't return
 	Builder->CreateUnreachable();
+
+	messageSystem::endBlock();
 
 	return nullptr;
 }
@@ -2152,6 +2173,44 @@ void* ASTNode::generateReturn(int pass)
 }
 
 // Value*
+void* ASTNode::generateResult(int pass)
+{
+	messageSystem::startBlock(this, "Generating result statement", __func__, __LINE__, __FILE__);
+
+	if (resultContextStack.empty()) {
+		return messageSystem::error("'result' used outside a value block");
+	}
+
+	ASTNode* exprNode = childNodes[0];
+	Value* val = (Value*)(exprNode->*(exprNode->codegen))(pass);
+	if (wasError || !val) {
+		messageSystem::endBlock();
+		return nullptr;
+	}
+
+	ResultContext& ctx = resultContextStack.top();
+
+	// Allocate the result slot in the function entry block the first time we see a result.
+	if (!ctx.resultSlot) {
+		Function* theFunction = Builder->GetInsertBlock()->getParent();
+		IRBuilder<> entryBuilder(&theFunction->getEntryBlock(),
+			theFunction->getEntryBlock().begin());
+		ctx.resultSlot = entryBuilder.CreateAlloca(val->getType(), nullptr, "result_slot");
+	}
+
+	Builder->CreateStore(val, ctx.resultSlot);
+	Builder->CreateBr(ctx.mergeBB);
+
+	// Any code after 'result' is unreachable; give LLVM a valid insertion point.
+	Function* theFunction = Builder->GetInsertBlock()->getParent();
+	BasicBlock* afterResult = BasicBlock::Create(*TheContext, "after_result", theFunction);
+	Builder->SetInsertPoint(afterResult);
+
+	messageSystem::endBlock();
+	return nullptr;
+}
+
+// Value*
 void* ASTNode::generateExpression(int pass)
 {
 	messageSystem::startBlock(this, "Generating expression", __func__, __LINE__, __FILE__);
@@ -2218,21 +2277,21 @@ void* ASTNode::generateIncDecrement(int pass)
 
 
 	Value* current = Builder->CreateLoad(targetType, targetPtr, "incdec_load");
-	Value* result = nullptr;
+	Value* updated = nullptr;
 	bool isFloat = targetType->isFloatingPointTy();
 	if (token->second == Plus_Plus)
-		result = isFloat ? Builder->CreateFAdd(current, ConstantFP::get(targetType, 1.0), "incr")
-						 : Builder->CreateAdd(current, ConstantInt::get(targetType, 1), "incr");
+		updated = isFloat ? Builder->CreateFAdd(current, ConstantFP::get(targetType, 1.0), "incr")
+						  : Builder->CreateAdd(current, ConstantInt::get(targetType, 1), "incr");
 	else if (token->second == Minus_Minus)
-		result = isFloat ? Builder->CreateFSub(current, ConstantFP::get(targetType, 1.0), "decr")
-						 : Builder->CreateSub(current, ConstantInt::get(targetType, 1), "decr");
+		updated = isFloat ? Builder->CreateFSub(current, ConstantFP::get(targetType, 1.0), "decr")
+						  : Builder->CreateSub(current, ConstantInt::get(targetType, 1), "decr");
 	else
 		return messageSystem::error("Unknown operator");
-	Builder->CreateStore(result, targetPtr);
+	Builder->CreateStore(updated, targetPtr);
 
 
 	messageSystem::endBlock();
-	return result;
+	return isPostfix ? current : updated;
 }
 
 // Value*
@@ -2289,23 +2348,6 @@ void* ASTNode::generateExpressionStatement(int pass)
 			targetType = lastRetrievedElementType.top()->baseLLVMType;
 			lastRetrievedElementType.pop();
 		}
-	}
-	else {
-		//targetPtr = (Value*)(leftNode->*(leftNode->codegen))(pass);
-		//if (!targetPtr || !targetPtr->getType()->isPointerTy()) {
-		//	printTokenError(tokenRange{token, token}, "Left side must evaluate to a pointer");
-		//}
-		//// For safety: insert runtime null check (optional, but recommended)
-		//Value* nullPtr = ConstantPointerNull::get(targetPtr->getType());
-		//Value* isNull = Builder->CreateICmpEQ(targetPtr, nullPtr, "nullcheck");
-		//BasicBlock* currentBB = Builder->GetInsertBlock();
-		//BasicBlock* validBB = BasicBlock::Create(*TheContext, "validstore", currentBB->getParent());
-		//BasicBlock* errorBB = BasicBlock::Create(*TheContext, "nullerror", currentBB->getParent());
-		//Builder->CreateCondBr(isNull, errorBB, validBB);
-		//Builder->SetInsertPoint(errorBB);
-		//// Call some error handler or abort
-		//Builder->CreateUnreachable();  // Or print error and exit
-		//Builder->SetInsertPoint(validBB);
 	}
 
 	ASTNode* typeNode = nullptr;
@@ -2371,6 +2413,7 @@ void* ASTNode::generateExpressionStatement(int pass)
 
 
 	// If the left side is an identifier
+	bool newConstLocal = false;
 	if (leftNode->nodeType == Identifier_Node) {
 		// Simple variable: find alloca and use it as targetPtr.
 		// If there is an explicit type annotation, this is always a new declaration (shadowing).
@@ -2389,6 +2432,7 @@ void* ASTNode::generateExpressionStatement(int pass)
 			namedValues[leftNode->token->first] = new valueType(leftNode->token->first, actualType, targetPtr);
 			namedValues[leftNode->token->first]->isConstant = isConst;
 			namedValues[leftNode->token->first]->declNode = this->parentNode;
+			newConstLocal = isConst;
 
 			// Add debug info ONLY if we have a valid scope and the stack is not empty
 			if (DBuilder && !LexicalBlocks.empty() && token && token->filePath) {
@@ -2538,7 +2582,25 @@ void* ASTNode::generateExpressionStatement(int pass)
 			return messageSystem::error("Could not implicitly cast expression to variable type.");
 	}
 
-	Builder->CreateStore(exprVal, targetPtr);
+	StoreInst* storeInst = Builder->CreateStore(exprVal, targetPtr);
+
+	// For a newly declared const local, tell the optimizer this memory is
+	// invariant after initialization so it can treat reads as constants.
+	// Only emit invariant.start when in the entry block: non-entry blocks
+	// (e.g. after a branch) can cause numbering conflicts in LLVM 21.
+	if (newConstLocal && theFunction) {
+		BasicBlock* curBB = Builder->GetInsertBlock();
+		BasicBlock* entryBB = &theFunction->getEntryBlock();
+		if (curBB == entryBB) {
+			Type* storedType = exprVal->getType();
+			uint64_t typeSize = TheModule->getDataLayout().getTypeAllocSize(storedType);
+			Function* invariantStartFn = Intrinsic::getDeclaration(
+				TheModule.get(), Intrinsic::invariant_start,
+				{PointerType::getUnqual(*TheContext)});
+			Builder->CreateCall(invariantStartFn,
+				{ConstantInt::get(Type::getInt64Ty(*TheContext), typeSize), targetPtr});
+		}
+	}
 
 	messageSystem::endBlock();
 
@@ -2563,28 +2625,23 @@ void* ASTNode::generateIterator(int pass)
 // Value*
 void* ASTNode::generateUnaryExpression(int pass)
 {
+	messageSystem::startBlock(this, "Generating unary expression", __func__, __LINE__, __FILE__);
+
 	if (childNodes.size() == 0) {
-		console::indentation = errorDepth;
-		if (errorDepth < maxErrorTraceDepth)
-			printTokenError(getASTTokenRange(this), "Unary expression reqires an argument");
-		wasError = true;
-		errorDepth++;
-		return nullptr;
+		return messageSystem::error("Unary expression requires argument");
 	}
 	if (childNodes[0]->codegen == nullptr) {
-		console::indentation = errorDepth;
-		if (errorDepth < maxErrorTraceDepth)
-			printTokenError(getASTTokenRange(childNodes[0]), "Node `" + ASTNodeTypeAsString(childNodes[0]->nodeType) + "` does not have a code generator");
-		wasError = true;
-		errorDepth++;
-		return nullptr;
+		return messageSystem::error("Node `" + ASTNodeTypeAsString(childNodes[0]->nodeType) + "` does not have a code generator");
 	}
 	Value* R = (Value*)(childNodes[0]->*(childNodes[0]->codegen))(pass);
 	if (wasError) {
+		messageSystem::endBlock();
 		return nullptr;
 	}
-	if (!R)
+	if (!R) {
+		messageSystem::endBlock();
 		return nullptr;
+	}
 
 	ASTNodeType t = childNodes[0]->nodeType;
 
@@ -2595,28 +2652,22 @@ void* ASTNode::generateUnaryExpression(int pass)
 				// Plain variable: return the alloca directly without touching asaType
 				valueType* val = findNamedValue(parentNode, this, child->token->first, token);
 				if (!val && !wasError) {
-					console::indentation = errorDepth;
-					if (errorDepth < maxErrorTraceDepth)
-						printTokenError(getASTTokenRange(this), "Unknown variable name for address-of");
-					wasError = true;
-					errorDepth++;
-					return nullptr;
+					return messageSystem::error("Unknown variable name for address-of");
 				}
+				messageSystem::endBlock();
 				return (Value*)(val->val);
 			}
 			// For member access, array subscript, etc.: evaluate as lvalue to get pointer
 			child->lvalue = true;
 			Value* ptr = (Value*)(child->*(child->codegen))(pass);
-			if (wasError)
-				return nullptr;
-			if (!ptr) {
-				console::indentation = errorDepth;
-				if (errorDepth < maxErrorTraceDepth)
-					printTokenError(getASTTokenRange(this), "Cannot take address of expression");
-				wasError = true;
-				errorDepth++;
+			if (wasError) {
+				messageSystem::endBlock();
 				return nullptr;
 			}
+			if (!ptr) {
+				return messageSystem::error("Cannot take address of expression");
+			}
+			messageSystem::endBlock();
 			return ptr;
 		}
 
@@ -2624,29 +2675,40 @@ void* ASTNode::generateUnaryExpression(int pass)
 			ASTNode* ptrNode = childNodes[0];
 			Value* ptrVal = (Value*)(ptrNode->*(ptrNode->codegen))(pass);
 			if (wasError) {
+				messageSystem::endBlock();
 				return nullptr;
 			}
 			if (!ptrVal) {
-				console::indentation = errorDepth;
-				if (errorDepth < maxErrorTraceDepth)
-					printTokenError(getASTTokenRange(this), "Dereference of null pointer");
-				wasError = true;
-				errorDepth++;
-				return nullptr;
+				return messageSystem::error("Dereference of null pointer");
 			}
 			// Determine element type from allocation when available
 			Type* elementType = nullptr;
+			std::string elementTypeStr;
 			if (AllocaInst* allocaVal = dyn_cast<AllocaInst>(ptrVal)) {
 				elementType = allocaVal->getAllocatedType();
 			}
-			else if (ptrNode->asaType && ptrNode->asaType->pointerLevel >= 1 && !ptrNode->asaType->strVal.empty()) {
-				// Strip one pointer level from the type string to get the element type
-				std::string baseStr = ptrNode->asaType->strVal.substr(1);
+			else if (ptrNode->asaType && !ptrNode->asaType->strVal.empty() && ptrNode->asaType->strVal[0] == '*') {
+				// Resolve the pointee type from the recorded ASA type string
+				elementTypeStr = ptrNode->asaType->strVal.substr(1);
 				bool wasDefined = true;
-				elementType = getLLVMTypeFromString(baseStr, 0, token, wasDefined, pass);
+				elementType = getLLVMTypeFromString(elementTypeStr, 0, token, wasDefined, pass);
 			}
 			if (!elementType)
 				elementType = Type::getInt32Ty(*TheContext);
+
+			// If used as lvalue (*ptr = val), return the pointer so the caller stores through it
+			if (lvalue) {
+				if (!asaType)
+					asaType = new ASAType(elementType);
+				else
+					asaType->baseLLVMType = elementType;
+				asaType->strVal = elementTypeStr;
+				lastRetrievedElementType.push(asaType);
+				messageSystem::endBlock();
+				return ptrVal;
+			}
+
+			messageSystem::endBlock();
 			return Builder->CreateLoad(elementType, ptrVal, "deref_tmp");
 		}
 
@@ -2654,89 +2716,37 @@ void* ASTNode::generateUnaryExpression(int pass)
 			ASTNode* valueNode = childNodes[0];
 			Value* v = (Value*)(valueNode->*(valueNode->codegen))(pass);
 			if (wasError) {
+				messageSystem::endBlock();
 				return nullptr;
 			}
 			if (!v) {
-				console::indentation = errorDepth;
-				if (errorDepth < maxErrorTraceDepth)
-					printTokenError(getASTTokenRange(this), "Cannot take negative of value");
-				wasError = true;
-				errorDepth++;
-				return nullptr;
+				return messageSystem::error("Cannot take negative of value");
 			}
-			if (v->getType()->isIntegerTy())
+			if (v->getType()->isIntegerTy()) {
+				messageSystem::endBlock();
 				return Builder->CreateNeg(v, "neg_tmp");
-			else if (v->getType()->isFloatingPointTy())
+			}
+			else if (v->getType()->isFloatingPointTy()) {
+				messageSystem::endBlock();
 				return Builder->CreateFNeg(v, "fneg_tmp");
+			}
 			else {
-				console::indentation = errorDepth;
-				if (errorDepth < maxErrorTraceDepth)
-					printTokenError(getASTTokenRange(this), "Cannot take negative of value");
-				wasError = true;
-				errorDepth++;
-				return nullptr;
+				return messageSystem::error("Cannot take negative of value");
 			}
 		}
 
 		case Logical_Not: {
-			Value* boolVal = R->getType()->isIntegerTy(1) ? R
-														  : Builder->CreateICmpNE(R, Constant::getNullValue(R->getType()), "tobool");
-			return Builder->CreateNot(boolVal, "not_tmp");
+			Value* boolVal = R->getType()->isIntegerTy(1) ? R : Builder->CreateICmpNE(R, Constant::getNullValue(R->getType()), "tobool");
+			Value* result = Builder->CreateNot(boolVal, "not_tmp");
+			messageSystem::endBlock();
+			return result;
 		}
 
 		default:
-			console::indentation = errorDepth;
-			if (errorDepth < maxErrorTraceDepth)
-				printTokenError(getASTTokenRange(this), "Unknown or undefined operator");
-			wasError = true;
-			errorDepth++;
-			return nullptr;
+			return messageSystem::error("Unknown or undefined operator");
 	}
 
-	switch (t) {
-		//	case Integer_Node:
-		//		switch (nodeType) {
-		//			case Expression_Plus:
-		//				return Builder->CreateAdd(L, R, "addtmp");
-		//			case Expression_Minus:
-		//				return Builder->CreateSub(L, R, "subtmp");
-		//			case Expression_Times:
-		//				return Builder->CreateMul(L, R, "multmp");
-		//			case Compare_Less:
-		//				return Builder->CreateICmpULT(L, R, "cmptmp");
-		//			default:
-		//				printTokenError(tokenRange{childNodes[0]->token, childNodes[0]->token}, "Unknown operator \"" + childNodes[0]->token->first + "\"");
-		//		}
-
-		//	case Float_Node:
-		//		switch (nodeType) {
-		//			case Expression_Plus:
-		//				return Builder->CreateFAdd(L, R, "addtmp");
-		//			case Expression_Minus:
-		//				return Builder->CreateFSub(L, R, "subtmp");
-		//			case Expression_Times:
-		//				return Builder->CreateFMul(L, R, "multmp");
-		//			case Compare_Less:
-		//				return Builder->CreateFCmpULT(L, R, "cmptmp");
-		//			default:
-		//				printTokenError(tokenRange{childNodes[0]->token, childNodes[0]->token}, "Unknown operator \"" + childNodes[0]->token->first + "\"");
-		//		}
-
-		//	default:
-		//		switch (nodeType) {
-		//			case Expression_Plus:
-		//				return Builder->CreateAdd(L, R, "addtmp");
-		//			case Expression_Minus:
-		//				return Builder->CreateSub(L, R, "subtmp");
-		//			case Expression_Times:
-		//				return Builder->CreateMul(L, R, "multmp");
-		//			case Compare_Less:
-		//				return Builder->CreateICmpULT(L, R, "cmptmp");
-		//			default:
-		//				printTokenError(tokenRange{childNodes[0]->token, childNodes[0]->token}, "Unknown operator \"" + childNodes[0]->token->first + "\"");
-		//		}
-	}
-
+	messageSystem::endBlock();
 	return nullptr;
 }
 
@@ -2807,24 +2817,16 @@ bool isSignedType(const std::string& typeStr)
 // Value*
 void* ASTNode::generateBinaryExpression(int pass)
 {
+	messageSystem::startBlock(this, "Generating binary expression", __func__, __LINE__, __FILE__);
+
 	if (!LexicalBlocks.empty() && token && token->filePath)
 		Builder->SetCurrentDebugLocation(DILocation::get(LexicalBlocks.back()->getContext(), token->lineNumber + 1, 0, LexicalBlocks.back()));
 	if (childNodes.size() < 2) {
-		console::indentation = errorDepth;
-		if (errorDepth < maxErrorTraceDepth)
-			printTokenError(getASTTokenRange(this), "Binary expression requires left and right arguments");
-		wasError = true;
-		errorDepth++;
-		return nullptr;
+		return messageSystem::error("Binary expression requires left and right arguments");
 	}
 
 	if (!childNodes[0]->codegen || !childNodes[1]->codegen) {
-		console::indentation = errorDepth;
-		if (errorDepth < maxErrorTraceDepth)
-			printTokenError(getASTTokenRange(this), "Binary expression operands missing code generators");
-		wasError = true;
-		errorDepth++;
-		return nullptr;
+		return messageSystem::error("Binary expression operands missing code generators");
 	}
 
 	// Check if it is the pipe operator first
@@ -2837,53 +2839,82 @@ void* ASTNode::generateBinaryExpression(int pass)
 		// pop stack
 		pipeOperationValue.pop();
 
+		messageSystem::endBlock();
 		return R;
+	}
+
+	if (nodeType == Logical_And || nodeType == Logical_Or) {
+		auto toBool = [&](Value* V, const std::string& name) -> Value* {
+			return V->getType()->isIntegerTy(1) ? V : Builder->CreateICmpNE(V, Constant::getNullValue(V->getType()), name);
+		};
+
+		Value* L = (Value*)(childNodes[0]->*(childNodes[0]->codegen))(pass);
+		if (!L) {
+			return messageSystem::error("Error generating left side of logical expression");
+		}
+
+		Value* lBool = toBool(L, "tobool_l");
+		Function* TheFunction = Builder->GetInsertBlock()->getParent();
+		BasicBlock* LhsBB = Builder->GetInsertBlock();
+		BasicBlock* RhsBB = BasicBlock::Create(*TheContext, nodeType == Logical_And ? "land.rhs" : "lor.rhs", TheFunction);
+		BasicBlock* MergeBB = BasicBlock::Create(*TheContext, nodeType == Logical_And ? "land.end" : "lor.end");
+
+		if (nodeType == Logical_And)
+			Builder->CreateCondBr(lBool, RhsBB, MergeBB);
+		else
+			Builder->CreateCondBr(lBool, MergeBB, RhsBB);
+
+		Builder->SetInsertPoint(RhsBB);
+		Value* R = (Value*)(childNodes[1]->*(childNodes[1]->codegen))(pass);
+		if (!R) {
+			return messageSystem::error("Error generating right side of logical expression");
+		}
+
+		Value* rBool = toBool(R, "tobool_r");
+		Builder->CreateBr(MergeBB);
+		BasicBlock* RhsEvalBB = Builder->GetInsertBlock();
+
+		TheFunction->insert(TheFunction->end(), MergeBB);
+		Builder->SetInsertPoint(MergeBB);
+
+		PHINode* Phi = Builder->CreatePHI(Type::getInt1Ty(*TheContext), 2, nodeType == Logical_And ? "and_tmp" : "or_tmp");
+		if (nodeType == Logical_And) {
+			Phi->addIncoming(ConstantInt::getFalse(*TheContext), LhsBB);
+			Phi->addIncoming(rBool, RhsEvalBB);
+		}
+		else {
+			Phi->addIncoming(ConstantInt::getTrue(*TheContext), LhsBB);
+			Phi->addIncoming(rBool, RhsEvalBB);
+		}
+		messageSystem::endBlock();
+		return Phi;
 	}
 
 	Value* L = (Value*)(childNodes[0]->*(childNodes[0]->codegen))(pass);
 	Value* R = (Value*)(childNodes[1]->*(childNodes[1]->codegen))(pass);
 
 	if (!L || !R) {
-		console::indentation = errorDepth;
-		if (errorDepth < maxErrorTraceDepth)
-			printTokenError(getASTTokenRange(this), "Error generating term");
-		wasError = true;
-		errorDepth++;
-		return nullptr;
-	}
-
-	// Logical AND / OR: truncate both operands to i1 and apply LLVM and/or
-	if (nodeType == Logical_And || nodeType == Logical_Or) {
-		Type* i1 = Type::getInt1Ty(*TheContext);
-		Value* lBool = L->getType()->isIntegerTy(1) ? L : Builder->CreateICmpNE(L, Constant::getNullValue(L->getType()), "tobool_l");
-		Value* rBool = R->getType()->isIntegerTy(1) ? R : Builder->CreateICmpNE(R, Constant::getNullValue(R->getType()), "tobool_r");
-		if (nodeType == Logical_And)
-			return Builder->CreateAnd(lBool, rBool, "and_tmp");
-		else
-			return Builder->CreateOr(lBool, rBool, "or_tmp");
+		return messageSystem::error("Error generating term");
 	}
 
 	// Check for operator overloads first (skip for pointer operands)
 	bool eitherIsPointer = L->getType()->isPointerTy() || R->getType()->isPointerTy();
 	if (!eitherIsPointer && (nodeType == Redefined_Operator_Expr || checkForOperatorOverload(L, R))) {
+		messageSystem::endBlock();
 		return generateOperatorOverloadCall(L, R);
 	}
 
 	// Auto-cast to highest precision if types differ
 	if (L->getType() != R->getType()) {
 		if (warningFlags == W_Conversion)
-			printTokenWarning(getASTTokenRange(this), "Operand type mismatch, performing implicit conversion");
+			printTokenWarning(getASTTokenRange(this), "Operand type mismatch, performing implicit conversion.  (-wconversion)");
 		castToHighestAccuracy(L, R, token);
 		if (wasError) {
+			messageSystem::endBlock();
 			return nullptr;
 		}
 		if (L->getType() != R->getType()) {
-			console::indentation = errorDepth;
-			if (errorDepth < maxErrorTraceDepth)
-				printTokenError(getASTTokenRange(this), "Operands to multiply are not the same type (after automatic cast)");
-			wasError = true;
-			errorDepth++;
-			return nullptr;
+			return messageSystem::error("Operands to multiply are not the same type (after automatic cast)");
 		}
 	}
 
@@ -2892,119 +2923,93 @@ void* ASTNode::generateBinaryExpression(int pass)
 	switch (category) {
 		case ValueCategory::Integer:
 			if (!L->getType()->isIntegerTy() || !R->getType()->isIntegerTy()) {
-				console::indentation = errorDepth;
-				if (errorDepth < maxErrorTraceDepth)
-					printTokenError(getASTTokenRange(this), "Multiply: operands are not both integers");
-				wasError = true;
-				errorDepth++;
-				return nullptr;
+				return messageSystem::error("Integer operation: operands are not both integers");
 			}
+			messageSystem::endBlock();
 			return generateIntegerBinaryOp(L, R);
 		case ValueCategory::Float:
 			if (!L->getType()->isFloatingPointTy() || !R->getType()->isFloatingPointTy()) {
-				console::indentation = errorDepth;
-				if (errorDepth < maxErrorTraceDepth)
-					printTokenError(getASTTokenRange(this), "Float operation: operands are not both floating-point");
-				wasError = true;
-				errorDepth++;
-				return nullptr;
+				return messageSystem::error("Float operation: operands are not both floating-point");
 			}
+			messageSystem::endBlock();
 			return generateFloatBinaryOp(L, R);
 		case ValueCategory::Pointer:
+			messageSystem::endBlock();
 			return generatePointerBinaryOp(L, R);
 		default:
-			console::indentation = errorDepth;
-			if (errorDepth < maxErrorTraceDepth)
-				printTokenError(getASTTokenRange(this), "Unsupported operand types for binary operation, <" + getStringTypeFromLLVMType(L->getType()) + "> and <" + getStringTypeFromLLVMType(R->getType()) + ">");
-			wasError = true;
-			errorDepth++;
-			return nullptr;
+			return messageSystem::error("Unsupported operand types for binary operation, <" + getStringTypeFromLLVMType(L->getType()) + "> and <" + getStringTypeFromLLVMType(R->getType()) + ">");
 	}
+
+	messageSystem::endBlock();
+	return nullptr;
 }
 
 Value* ASTNode::generateIntegerBinaryOp(Value* L, Value* R)
 {
+	messageSystem::startBlock(this, "Generating integer binary operation", __func__, __LINE__, __FILE__);
+
 	// Check for comparison operations first
 	auto compIt = intCompareOps.find(nodeType);
 	if (compIt != intCompareOps.end()) {
+		messageSystem::endBlock();
 		return Builder->CreateICmp(compIt->second, L, R, "icmp_tmp");
 	}
 
 	// Regular arithmetic/bitwise operations
 	auto opIt = integerOps.find(nodeType);
 	if (opIt != integerOps.end()) {
+		messageSystem::endBlock();
 		return Builder->CreateBinOp(opIt->second, L, R, "int_op");
 	}
 
-	console::indentation = errorDepth;
-	if (errorDepth < maxErrorTraceDepth)
-		printTokenError(getASTTokenRange(this), "Unknown integer binary operator");
-	wasError = true;
-	errorDepth++;
-	return nullptr;
+	return (Value*)messageSystem::error("Unknown integer binary operator");
 }
 
 Value* ASTNode::generateFloatBinaryOp(Value* L, Value* R)
 {
+	messageSystem::startBlock(this, "Generating float binary operation", __func__, __LINE__, __FILE__);
+
 	// Check for comparison operations first
 	auto compIt = floatCompareOps.find(nodeType);
 	if (compIt != floatCompareOps.end()) {
+		messageSystem::endBlock();
 		return Builder->CreateFCmp(compIt->second, L, R, "fcmp_tmp");
 	}
 
 	// Regular arithmetic operations
 	auto opIt = floatOps.find(nodeType);
 	if (opIt != floatOps.end()) {
+		messageSystem::endBlock();
 		return Builder->CreateBinOp(opIt->second, L, R, "float_op");
 	}
 
-	console::indentation = errorDepth;
-	if (errorDepth < maxErrorTraceDepth)
-		printTokenError(getASTTokenRange(this), "Unknown float binary operator");
-	wasError = true;
-	errorDepth++;
-	return nullptr;
+	return (Value*)messageSystem::error("Unknown float binary operator");
 }
 
 Value* ASTNode::generatePointerBinaryOp(Value* L, Value* R)
 {
-	//// Handle pointer arithmetic (ptr + int, ptr - int, ptr - ptr)
-	//if (nodeType == Expression_Plus && R->getType()->isIntegerTy()) {
-	//	return Builder->CreateGEP(L->getType()->getPointerElementType(), L, R, "ptr_add");
-	//}
-	//if (nodeType == Expression_Minus && R->getType()->isIntegerTy()) {
-	//	Value* negR = Builder->CreateNeg(R, "neg_offset");
-	//	return Builder->CreateGEP(L->getType()->getPointerElementType(), L, negR, "ptr_sub");
-	//}
-	//if (nodeType == Expression_Minus && R->getType()->isPointerTy()) {
-	//	return Builder->CreatePtrDiff(L->getType()->getPointerElementType(), L, R, "ptr_diff");
-	//}
+	messageSystem::startBlock(this, "Generating pointer binary operation", __func__, __LINE__, __FILE__);
 
 	// Pointer comparisons (== and !=, e.g. ptr == void / ptr != void)
 	auto compIt = intCompareOps.find(nodeType);
 	if (compIt != intCompareOps.end()) {
+		messageSystem::endBlock();
 		return Builder->CreateICmp(compIt->second, L, R, "ptr_cmp");
 	}
 
-	console::indentation = errorDepth;
-	if (errorDepth < maxErrorTraceDepth)
-		printTokenError(getASTTokenRange(this), "Invalid pointer operation");
-	wasError = true;
-	errorDepth++;
-	return nullptr;
+	return (Value*)messageSystem::error("Invalid pointer operation");
 }
 
 void* ASTNode::generatePipePlaceholder(int pass)
 {
+	messageSystem::startBlock(this, "Generating pipe operation placeholder", __func__, __LINE__, __FILE__);
+
 	if (pipeOperationValue.size() > 0) {
+		messageSystem::endBlock();
 		return pipeOperationValue.top();
 	}
-	console::indentation = errorDepth;
-	if (errorDepth < maxErrorTraceDepth)
-		printTokenError(getASTTokenRange(this), "Pipe operation placeholder '%' can only be used after a pipe operation");
-	wasError = true;
-	errorDepth++;
-	return nullptr;
+
+	return messageSystem::error("Pipe operation placeholder '%' can only be used after a pipe operation");
 }
 
 // Get the type string for one operand of a binary expression.
@@ -3084,6 +3089,8 @@ bool ASTNode::checkForOperatorOverload(Value* L, Value* R)
 
 Value* ASTNode::generateOperatorOverloadCall(Value* L, Value* R)
 {
+	messageSystem::startBlock(this, "Generating operator overload call", __func__, __LINE__, __FILE__);
+
 	std::string operatorName = "operator." + tokenAsString(token->second);
 
 	// Build argumentList from L and R types
@@ -3109,13 +3116,7 @@ Value* ASTNode::generateOperatorOverloadCall(Value* L, Value* R)
 	functionID* calleeID = getFunctionFromID(functionIDs, operatorName, argList, token, true);
 
 	if (!calleeID || !calleeID->fnValue) {
-		console::indentation = errorDepth;
-		if (!wasError) {
-			wasError = true;
-			errorDepth++;
-			printTokenError(getASTTokenRange(this), "Expected operator overload for undefined operator `" + tokenAsString(token->second) + "`, but none were not found");
-		}
-		return nullptr;
+		return (Value*)messageSystem::error("Expected operator overload for undefined operator `" + tokenAsString(token->second) + "`, but none were not found");
 	}
 
 	calleeID->uses++;
@@ -3130,8 +3131,10 @@ Value* ASTNode::generateOperatorOverloadCall(Value* L, Value* R)
 				!ArgsV[i]->getType()->isStructTy() && !ArgsV[i]->getType()->isPointerTy() &&
 				!formalType->isStructTy() && !formalType->isPointerTy()) {
 				ArgsV[i] = castValue(ArgsV[i], formalType, true, false, token);
-				if (wasError)
+				if (wasError) {
+					messageSystem::endBlock();
 					return nullptr;
+				}
 			}
 		}
 	}
@@ -3140,54 +3143,48 @@ Value* ASTNode::generateOperatorOverloadCall(Value* L, Value* R)
 	if (calleeID->isStructReturn) {
 		auto structIt = structDefinitions.find(calleeID->returnType);
 		if (structIt == structDefinitions.end() || !structIt->second->structVal) {
-			console::indentation = errorDepth;
-			if (errorDepth < maxErrorTraceDepth)
-				printTokenError(getASTTokenRange(this), "Struct return type not defined for operator overload");
-			wasError = true;
-			errorDepth++;
-			return nullptr;
+			return (Value*)messageSystem::error("Struct return type not defined for operator overload");
 		}
 		AllocaInst* sretAlloc = CreateEntryBlockAlloca(Builder->GetInsertBlock()->getParent(), structIt->second->structVal, "op_sret");
 		ArgsV.insert(ArgsV.begin(), sretAlloc);
 		Builder->CreateCall(calleeID->fnValue, ArgsV);
+
+		messageSystem::endBlock();
 		return Builder->CreateLoad(structIt->second->structVal, sretAlloc, "op_overload");
 	}
 
+	messageSystem::endBlock();
 	return Builder->CreateCall(calleeID->fnValue, ArgsV, "op_overload");
 }
 
 // Value*
 void* ASTNode::generateAccessOperation(int pass)
 {
+	messageSystem::startBlock(this, "Generating access operation", __func__, __LINE__, __FILE__);
+
 	if (childNodes.size() == 0) {
-		console::indentation = errorDepth;
-		if (errorDepth < maxErrorTraceDepth)
-			printTokenError(getASTTokenRange(this), "Access operation requires a left and right argument");
-		wasError = true;
-		errorDepth++;
-		return nullptr;
+		return messageSystem::error("Access operation requires a left and right argument");
 	}
 
 	childNodes[0]->lvalue = true;  // Set flag for base to return address if needed
 	Value* L = (Value*)(childNodes[0]->*(childNodes[0]->codegen))(pass);
 	if (wasError) {
+		messageSystem::endBlock();
 		return nullptr;
 	}
 	Value* R = (Value*)(childNodes[1]->*(childNodes[1]->codegen))(pass);
 	if (wasError) {
+		messageSystem::endBlock();
 		return nullptr;
 	}
-	if (!L || !R)
+	if (!L || !R) {
+		messageSystem::endBlock();
 		return nullptr;
+	}
 
 	// Check if R is an integer
 	if (!R->getType()->isIntegerTy()) {
-		console::indentation = errorDepth;
-		if (errorDepth < maxErrorTraceDepth)
-			printTokenError(getASTTokenRange(this), "Right argument of access operator must be an integer");
-		wasError = true;
-		errorDepth++;
-		return nullptr;
+		return messageSystem::error("Right argument of access operator must be an integer");
 	}
 
 	// Inherit asaType from the child if not already set
@@ -3195,26 +3192,23 @@ void* ASTNode::generateAccessOperation(int pass)
 		asaType = childNodes[0]->asaType;
 
 	if (!asaType) {
-		console::indentation = errorDepth;
-		if (errorDepth < maxErrorTraceDepth)
-			printTokenError(getASTTokenRange(this), "Was unable to resolve type");
-		wasError = true;
-		errorDepth++;
-		return nullptr;
+		return messageSystem::error("Was unable to resolve type of base being accessed");
 	}
 
 	// Get the element type from baseType (set by member access or previous operations)
 	Type* elementType = asaType->baseLLVMType;
+	std::string resolvedElementTypeStr;
 
 	// If baseType is a pointer, we need to determine what it points to
 	bool isRefToStruct = false;
 	if (asaType->baseLLVMType && asaType->baseLLVMType->isPointerTy()) {
-		// Try to resolve element type from the type string by stripping pointer prefix
 		std::string typeStr = asaType->strVal;
-		while (!typeStr.empty() && typeStr[0] == '*')
-			typeStr = typeStr.substr(1);
+		// Strip exactly one leading '*' to get the element type string for this subscript.
+		// getLLVMTypeFromString handles any further '*' prefixes in the element type string.
+		std::string elementTypeStr = (!typeStr.empty() && typeStr[0] == '*') ? typeStr.substr(1) : typeStr;
+		resolvedElementTypeStr = elementTypeStr;
 		// If no stars were present and the base names a known struct, this is ref-to-struct
-		if (typeStr == asaType->strVal && !typeStr.empty() && structDefinitions.count(typeStr)) {
+		if (elementTypeStr == typeStr && !typeStr.empty() && structDefinitions.count(typeStr)) {
 			// ref T where T is a struct: resolve element type from struct members
 			isRefToStruct = true;
 			auto structIt = structDefinitions.find(typeStr);
@@ -3231,10 +3225,10 @@ void* ASTNode::generateAccessOperation(int pass)
 				}
 			}
 		}
-		else if (!typeStr.empty()) {
+		else if (!elementTypeStr.empty()) {
 			bool wd = true;
 			int resolvePass = 2;
-			Type* resolved = getLLVMTypeFromString(typeStr, 0, token, wd, resolvePass);
+			Type* resolved = getLLVMTypeFromString(elementTypeStr, 0, token, wd, resolvePass);
 			if (resolved)
 				elementType = resolved;
 		}
@@ -3242,12 +3236,7 @@ void* ASTNode::generateAccessOperation(int pass)
 			elementType = lastRetrievedElementType.top()->baseLLVMType;
 		}
 		else {
-			console::indentation = errorDepth;
-			if (errorDepth < maxErrorTraceDepth)
-				printTokenError(getASTTokenRange(this), "Was unable to resolve type");
-			wasError = true;
-			errorDepth++;
-			return nullptr;
+			return messageSystem::error("Was unable to resolve type of base being accessed");
 		}
 	}
 	// If baseType is a struct, find the first pointer member and use its element type
@@ -3304,9 +3293,21 @@ void* ASTNode::generateAccessOperation(int pass)
 	// If this is an lvalue (for assignment), push element type so compound assignment can load it
 	if (lvalue) {
 		asaType = new ASAType(elementType);
+		asaType->strVal = resolvedElementTypeStr;
 		lastRetrievedElementType.push(asaType);
+
+		messageSystem::endBlock();
 		return gep;
 	}
+
+	// Propagate element type string for rvalue uses (e.g. member access on subscript result)
+	if (!asaType)
+		asaType = new ASAType(elementType);
+	else
+		asaType->baseLLVMType = elementType;
+	asaType->strVal = resolvedElementTypeStr;
+
+	messageSystem::endBlock();
 
 	// If rvalue, load and return the value
 	return Builder->CreateLoad(elementType, gep, "accessop_load");
@@ -3315,13 +3316,10 @@ void* ASTNode::generateAccessOperation(int pass)
 // Value*
 void* ASTNode::generateMemberAccess(int pass)
 {
+	messageSystem::startBlock(this, "Generating member access operation", __func__, __LINE__, __FILE__);
+
 	if (childNodes.size() == 0) {
-		console::indentation = errorDepth;
-		if (errorDepth < maxErrorTraceDepth)
-			printTokenError(getASTTokenRange(this), "Member access operation reqires a left and right argument");
-		wasError = true;
-		errorDepth++;
-		return nullptr;
+		return messageSystem::error("Member access operation requires a left and right argument");
 	}
 	// Module member access: resolve via module registry, not struct GEP.
 	// Handles both single-level (Mod.member) and chained (Mod.Sub.member) access.
@@ -3355,35 +3353,21 @@ void* ASTNode::generateMemberAccess(int pass)
 					asaType = new ASAType(gvType);
 					asaType->strVal = vt->type;
 					lastRetrievedElementType.push(asaType);
+					messageSystem::endBlock();
 					if (lvalue)
 						return gv;
 					return Builder->CreateLoad(gvType, gv, memberName + "_load");
 				}
 			}
-			console::indentation = errorDepth;
-			if (errorDepth < maxErrorTraceDepth)
-				printTokenError(getASTTokenRange(childNodes[1]), "Module '" + modName + "' has no member '" + memberName + "'");
-			wasError = true;
-			errorDepth++;
-			return nullptr;
+			return messageSystem::error("Module '" + modName + "' has no member '" + memberName + "'");
 		}
 	}
 
 	if (childNodes[0]->codegen == nullptr) {
-		console::indentation = errorDepth;
-		if (errorDepth < maxErrorTraceDepth)
-			printTokenError(getASTTokenRange(childNodes[0]), "Node `" + ASTNodeTypeAsString(childNodes[0]->nodeType) + "` does not have a code generator");
-		wasError = true;
-		errorDepth++;
-		return nullptr;
+		return messageSystem::error("Node `" + ASTNodeTypeAsString(childNodes[0]->nodeType) + "` does not have a code generator");
 	}
 	if (childNodes[1]->codegen == nullptr) {
-		console::indentation = errorDepth;
-		if (errorDepth < maxErrorTraceDepth)
-			printTokenError(getASTTokenRange(childNodes[1]), "Node `" + ASTNodeTypeAsString(childNodes[1]->nodeType) + "` does not have a code generator");
-		wasError = true;
-		errorDepth++;
-		return nullptr;
+		return messageSystem::error("Node `" + ASTNodeTypeAsString(childNodes[1]->nodeType) + "` does not have a code generator");
 	}
 	childNodes[0]->lvalue = true;  // Set flag for base to return address if needed
 
@@ -3396,41 +3380,21 @@ void* ASTNode::generateMemberAccess(int pass)
 	size_t stackDepthBefore = lastRetrievedElementType.size();
 	Value* L = (Value*)(childNodes[0]->*(childNodes[0]->codegen))(pass);
 	if (wasError) {
+		messageSystem::endBlock();
 		return nullptr;
 	}
-	//Type* lastMemberType = lastRetrievedElementType.top();
-	//lastRetrievedElementType.pop();
-	//if (!L)
-	//	return nullptr;
-
-	//if (L->getType()->isPointerTy() == false) {
-	//	printTokenError(tokenRange{token, token}, "Left argument of member access operator must be a pointer type");
-	//}
-	//if (R->getType()->isIntegerTy() == false) {
-	//	printTokenError(tokenRange{token, token}, "Right argument of member access operator must be an integer");
-	//}
 
 	// Evaluate base pointer
 	Value* basePtr = L;
 	if (!basePtr || !basePtr->getType()->isPointerTy()) {
-		console::indentation = errorDepth;
-		if (errorDepth < maxErrorTraceDepth)
-			printTokenError(getASTTokenRange(this), "Base must be a pointer for access");
-		wasError = true;
-		errorDepth++;
-		return nullptr;
+		return messageSystem::error("Base must be a pointer for access");
 	}
 
 	if (childNodes[0]->nodeType == Identifier_Node) {
 		valueType* v = findNamedValue(this, nullptr, childNodes[0]->token->first, token);
 
 		if (!v && !wasError) {
-			console::indentation = errorDepth;
-			if (errorDepth < maxErrorTraceDepth)
-				printTokenError(getASTTokenRange(childNodes[0]), "Unknown variable name used");
-			wasError = true;
-			errorDepth++;
-			return nullptr;
+			return messageSystem::error("Unknown variable name used");
 		}
 
 		// Resolve through pointer indirection if needed
@@ -3451,12 +3415,7 @@ void* ASTNode::generateMemberAccess(int pass)
 		}
 
 		if (structDefinitions.find(structTypeName) == structDefinitions.end()) {
-			console::indentation = errorDepth;
-			if (errorDepth < maxErrorTraceDepth)
-				printTokenError(getASTTokenRange(this), "Type \"" + v->type + "\" has not been defined");
-			wasError = true;
-			errorDepth++;
-			return nullptr;
+			return messageSystem::error("Type \"" + v->type + "\" has not been defined");
 		}
 		structType* structDefinition = structDefinitions[structTypeName];
 
@@ -3464,6 +3423,7 @@ void* ASTNode::generateMemberAccess(int pass)
 		if (structDefinition->structVal == nullptr)
 			Value* argVal = (Value*)(structDefinition->sourceNode->*(structDefinition->sourceNode->codegen))(pass);
 		if (wasError) {
+			messageSystem::endBlock();
 			return nullptr;
 		}
 
@@ -3474,7 +3434,7 @@ void* ASTNode::generateMemberAccess(int pass)
 			if (structDefinition->memberNameIndexes.find(memberName) == structDefinition->memberNameIndexes.end()) {
 				console::indentation = errorDepth;
 				if (errorDepth < maxErrorTraceDepth)
-					printTokenError(getASTTokenRange(childNodes[1]), "Struct definition does not contain member");
+					printTokenError(getASTTokenRange(childNodes[1]), "Struct definition does not contain member");	// TODO
 				console::indentation++;
 				if (errorDepth < maxErrorTraceDepth)
 					console::WriteLine("It does have:");
@@ -3502,21 +3462,11 @@ void* ASTNode::generateMemberAccess(int pass)
 			//Type* elementType = getLLVMTypeFromString(v->type, -1, childNodes[0]->token);
 			//Type* elementType = getLLVMTypeFromString(baseType);
 			if (!elementType) {
-				console::indentation = errorDepth;
-				if (errorDepth < maxErrorTraceDepth)
-					printTokenError(getASTTokenRange(this), "Invalid element type");
-				wasError = true;
-				errorDepth++;
-				return nullptr;
+				return messageSystem::error("Invalid element type");
 			}
 
 			if (structDefinition->members[memberIndex].isConstant && lvalue) {
-				console::indentation = errorDepth;
-				if (errorDepth < maxErrorTraceDepth)
-					printTokenError(getASTTokenRange(this), "Cannot modify const member '" + memberName + "'");
-				wasError = true;
-				errorDepth++;
-				return nullptr;
+				return messageSystem::error("Cannot modify const member '" + memberName + "'");
 			}
 
 
@@ -3532,6 +3482,8 @@ void* ASTNode::generateMemberAccess(int pass)
 			memberStrVal += structDefinition->members[memberIndex].typeString;
 			asaType = new ASAType(elementType, false, structDefinition->members[memberIndex].isConstant, memberStrVal, (uint8_t)structDefinition->members[memberIndex].pointerLevel);
 			lastRetrievedElementType.push(asaType);
+
+			messageSystem::endBlock();
 			if (lvalue)
 				return gep;
 			// If rvalue, return value
@@ -3554,18 +3506,23 @@ void* ASTNode::generateMemberAccess(int pass)
 			argumentList argList = argumentList();
 			// 'this' goes in ArgsV (LLVM call) but NOT in argList (lookup uses userArguments which excludes 'this')
 			ArgsV.push_back(basePtr);
-			if (!ArgsV.back())
+			if (!ArgsV.back()) {
+				messageSystem::endBlock();
 				return nullptr;
+			}
 			// Add rest of argument values
 			for (int i = 0; i < args.size(); i++) {
 				Value* argVal = (Value*)(args[i]->*(args[i]->codegen))(pass);
 				if (wasError) {
+					messageSystem::endBlock();
 					return nullptr;
 				}
 				ArgsV.push_back(argVal);
 				argList.push_back(argType(getStringTypeFromLLVMType(argVal->getType()), getASTNodeTypeFromString(getStringTypeFromLLVMType(argVal->getType())), 0));
-				if (!ArgsV.back())
+				if (!ArgsV.back()) {
+					messageSystem::endBlock();
 					return nullptr;
+				}
 			}
 
 			// Look up the id in the struct function (against userArguments, which excludes 'this').
@@ -3573,7 +3530,7 @@ void* ASTNode::generateMemberAccess(int pass)
 			if (!CalleeFID) {
 				console::indentation = errorDepth;
 				if (!wasError) {
-					printTokenError(getASTTokenRange(childNodes[1]), "Struct definition does not contain member function \"" + memberName + "\"");
+					printTokenError(getASTTokenRange(childNodes[1]), "Struct definition does not contain member function \"" + memberName + "\"");	// TODO
 					bool anyFound = false;
 					for (auto& f : structDefinition->memberFunctions) {
 						if (f->name != memberName)
@@ -3604,12 +3561,7 @@ void* ASTNode::generateMemberAccess(int pass)
 			if (memberIsStructReturn) {
 				structType* retStruct = structDefinitions[CalleeFID->returnType];
 				if (!retStruct || retStruct->structVal == nullptr) {
-					console::indentation = errorDepth;
-					if (errorDepth < maxErrorTraceDepth)
-						printTokenError(getASTTokenRange(this), "Struct return type not fully defined");
-					wasError = true;
-					errorDepth++;
-					return nullptr;
+					return messageSystem::error("Struct return type not fully defined");
 				}
 				memberSretAlloc = CreateEntryBlockAlloca(Builder->GetInsertBlock()->getParent(), retStruct->structVal, "member_sret");
 				ArgsV.insert(ArgsV.begin(), memberSretAlloc);
@@ -3618,48 +3570,55 @@ void* ASTNode::generateMemberAccess(int pass)
 			// If argument mismatch error. ArgsV has [sret?] + 'this' + user args = full LLVM arg count.
 			if (CalleeFID->variableNumArguments == false)
 				if (CalleeF->arg_size() != ArgsV.size()) {
-					console::indentation = errorDepth;
-					if (errorDepth < maxErrorTraceDepth)
-						printTokenError(getASTTokenRange(this), "Incorrect number of arguments passed to function", __LINE__);
-					wasError = true;
-					errorDepth++;
-					return nullptr;
+					return messageSystem::error("Incorrect number of arguments passed to function");
 				}
 				// If variable arguments, make sure the amount in call are <= the required amount
 				else if (CalleeF->arg_size() > ArgsV.size()) {
-					console::indentation = errorDepth;
-					if (errorDepth < maxErrorTraceDepth)
-						printTokenError(getASTTokenRange(this), "Incorrect number of arguments passed to function", __LINE__);
-					wasError = true;
-					errorDepth++;
-					return nullptr;
+					return messageSystem::error("Incorrect number of arguments passed to function");
 				}
 
 			// Rebuild ArgsV for the actual call
 			ArgsV = std::vector<Value*>();
 			ArgsV.push_back(basePtr);
-			if (!ArgsV.back())
+			if (!ArgsV.back()) {
+				messageSystem::endBlock();
 				return nullptr;
+			}
 			// Add rest of argument values
 			for (int i = 0; i < args.size(); i++) {
 				if (CalleeFID->userArguments[i].isReference) {
 					if (args[i]->childNodes.size() != 1 || args[i]->childNodes[0]->nodeType != Identifier_Node) {
-						console::indentation = errorDepth;
-						if (errorDepth < maxErrorTraceDepth)
-							printTokenError(getASTTokenRange(args[i]), "Cannot pass value as reference");
-						wasError = true;
-						errorDepth++;
-						return nullptr;
+						messageSystem::startBlock(args[i], "Generating reference argument", __func__, __LINE__, __FILE__);
+						return messageSystem::error("Cannot pass value as reference");
+					}
+					// Check that the argument type matches the ref parameter type
+					{
+						ASTNode* identNode = args[i]->childNodes[0];
+						valueType* argVar = findNamedValue(parentNode, this, identNode->token->first, token);
+						if (argVar) {
+							Type* actualType = getValueStoredType(argVar->val);
+							const argType& fa = CalleeFID->userArguments[i];
+							bool wasDef = true;
+							Type* formalType = getLLVMTypeFromString(fa.typeString, 0, token, wasDef, pass);
+							if (formalType && actualType && !actualType->isPointerTy() && !formalType->isPointerTy() && actualType != formalType) {
+								messageSystem::startBlock(args[i], "Generating reference argument", __func__, __LINE__, __FILE__);
+								return messageSystem::error("Cannot pass '" + getStringTypeFromLLVMType(actualType) +
+															"' as 'ref " + fa.typeString + "': implicit cast to reference is not allowed");
+							}
+						}
 					}
 					args[i]->childNodes[0]->isRef = true;
 				}
 				Value* argVal = (Value*)(args[i]->*(args[i]->codegen))(pass);
 				if (wasError) {
+					messageSystem::endBlock();
 					return nullptr;
 				}
 				ArgsV.push_back(argVal);
-				if (!ArgsV.back())
+				if (!ArgsV.back()) {
+					messageSystem::endBlock();
 					return nullptr;
+				}
 			}
 			if (memberIsStructReturn)
 				ArgsV.insert(ArgsV.begin(), memberSretAlloc);
@@ -3679,6 +3638,7 @@ void* ASTNode::generateMemberAccess(int pass)
 			else
 				callResult = Builder->CreateCall(CalleeF, ArgsV, "calltmp");
 
+			messageSystem::endBlock();
 			if (memberIsStructReturn) {
 				structType* retStruct = structDefinitions[CalleeFID->returnType];
 				return Builder->CreateLoad(retStruct->structVal, memberSretAlloc, "member_sret_load");
@@ -3692,8 +3652,24 @@ void* ASTNode::generateMemberAccess(int pass)
 
 		if (lastRetrievedElementType.size() > stackDepthBefore) {
 			// Left child pushed a type (e.g. chained member access) -- use it
-			structDefinition = getStructTypeFromLLVMType(lastRetrievedElementType.top()->baseLLVMType);
+			ASAType* poppedType = lastRetrievedElementType.top();
 			lastRetrievedElementType.pop();
+			structDefinition = getStructTypeFromLLVMType(poppedType->baseLLVMType);
+			// If LLVM type is opaque (e.g. element from a double-pointer subscript), fall back to strVal
+			if (!structDefinition && !poppedType->strVal.empty()) {
+				std::string typeName = poppedType->strVal;
+				int ptrDepth = 0;
+				while (!typeName.empty() && typeName[0] == '*') {
+					typeName = typeName.substr(1);
+					ptrDepth++;
+				}
+				// Load through each pointer level to reach the struct pointer
+				for (int i = 0; i < ptrDepth; i++)
+					basePtr = Builder->CreateLoad(PointerType::getUnqual(*TheContext), basePtr, "elem_ptr_deref");
+				auto sdIt = structDefinitions.find(typeName);
+				if (sdIt != structDefinitions.end())
+					structDefinition = sdIt->second;
+			}
 		}
 		else if (childNodes[0]->asaType && !childNodes[0]->asaType->strVal.empty()) {
 			// Left child is a function call or similar -- resolve from declared return type
@@ -3713,12 +3689,8 @@ void* ASTNode::generateMemberAccess(int pass)
 		}
 
 		if (structDefinition == nullptr) {
-			console::indentation = errorDepth;
-			if (errorDepth < maxErrorTraceDepth)
-				printTokenError(getASTTokenRange(childNodes[1]), "Struct could not be found");
-			wasError = true;
-			errorDepth++;
-			return nullptr;
+			messageSystem::startBlock(childNodes[0], "Generating struct access", __func__, __LINE__, __FILE__);
+			return messageSystem::error("Struct could not be found");
 		}
 
 		// Get member name and index
@@ -3728,7 +3700,7 @@ void* ASTNode::generateMemberAccess(int pass)
 			if (structDefinition->memberNameIndexes.find(memberName) == structDefinition->memberNameIndexes.end()) {
 				console::indentation = errorDepth;
 				if (errorDepth < maxErrorTraceDepth)
-					printTokenError(getASTTokenRange(childNodes[1]), "Struct definition does not contain member");
+					printTokenError(getASTTokenRange(childNodes[1]), "Struct definition does not contain member");	// TODO
 				console::indentation++;
 				if (errorDepth < maxErrorTraceDepth)
 					console::WriteLine("It does have:");
@@ -3752,12 +3724,7 @@ void* ASTNode::generateMemberAccess(int pass)
 			//Type* elementType = getLLVMTypeFromString(v->type, -1, childNodes[0]->token);
 			//Type* elementType = getLLVMTypeFromString(baseType);
 			if (!elementType) {
-				console::indentation = errorDepth;
-				if (errorDepth < maxErrorTraceDepth)
-					printTokenError(getASTTokenRange(this), "Invalid element type");
-				wasError = true;
-				errorDepth++;
-				return nullptr;
+				return messageSystem::error("Invalid element type");
 			}
 
 			//// Create GEP to compute the address
@@ -3767,6 +3734,8 @@ void* ASTNode::generateMemberAccess(int pass)
 			asaType = new ASAType(elementType);
 
 			lastRetrievedElementType.push(asaType);
+
+			messageSystem::endBlock();
 
 			// If this is an lvalue (for assignment), return the pointer gep
 			if (lvalue)
@@ -3791,29 +3760,30 @@ void* ASTNode::generateMemberAccess(int pass)
 			argumentList argList = argumentList();
 			// 'this' goes in ArgsV (LLVM call) but NOT in argList (lookup uses userArguments which excludes 'this')
 			ArgsV.push_back(basePtr);
-			if (!ArgsV.back())
+			if (!ArgsV.back()) {
+				messageSystem::endBlock();
 				return nullptr;
+			}
 			// Add rest of argument values
 			for (int i = 0; i < args.size(); i++) {
 				Value* argVal = (Value*)(args[i]->*(args[i]->codegen))(pass);
 				if (wasError) {
+					messageSystem::endBlock();
 					return nullptr;
 				}
 				ArgsV.push_back(argVal);
 				argList.push_back(argType(getStringTypeFromLLVMType(argVal->getType()), getASTNodeTypeFromString(getStringTypeFromLLVMType(argVal->getType())), 0));
-				if (!ArgsV.back())
+				if (!ArgsV.back()) {
+					messageSystem::endBlock();
 					return nullptr;
+				}
 			}
 
 			// Look up the id in the struct function (against userArguments, which excludes 'this').
 			functionID* CalleeFID = getFunctionFromID(structDefinition->memberFunctions, memberName, argList, token, true, true);
 			if (!CalleeFID) {
-				console::indentation = errorDepth;
-				if (!wasError)
-					printTokenError(getASTTokenRange(childNodes[1]), "Struct definition does not contain member function");
-				wasError = true;
-				errorDepth++;
-				return nullptr;
+				messageSystem::startBlock(childNodes[1], "Generating struct function call", __func__, __LINE__, __FILE__);
+				return messageSystem::error("Struct definition does not contain member function");
 			}
 
 			// Call function
@@ -3827,12 +3797,7 @@ void* ASTNode::generateMemberAccess(int pass)
 			if (memberIsStructReturn) {
 				structType* retStruct = structDefinitions[CalleeFID->returnType];
 				if (!retStruct || retStruct->structVal == nullptr) {
-					console::indentation = errorDepth;
-					if (errorDepth < maxErrorTraceDepth)
-						printTokenError(getASTTokenRange(this), "Struct return type not fully defined");
-					wasError = true;
-					errorDepth++;
-					return nullptr;
+					return messageSystem::error("Struct return type not fully defined");
 				}
 				memberSretAlloc = CreateEntryBlockAlloca(Builder->GetInsertBlock()->getParent(), retStruct->structVal, "member_sret");
 				ArgsV.insert(ArgsV.begin(), memberSretAlloc);
@@ -3841,48 +3806,55 @@ void* ASTNode::generateMemberAccess(int pass)
 			// If argument mismatch error. ArgsV has [sret?] + 'this' + user args = full LLVM arg count.
 			if (CalleeFID->variableNumArguments == false)
 				if (CalleeF->arg_size() != ArgsV.size()) {
-					console::indentation = errorDepth;
-					if (errorDepth < maxErrorTraceDepth)
-						printTokenError(getASTTokenRange(this), "Incorrect number of arguments passed to function", __LINE__);
-					wasError = true;
-					errorDepth++;
-					return nullptr;
+					return messageSystem::error("Incorrect number of arguments passed to function");
 				}
 				// If variable arguments, make sure the amount in call are <= the required amount
 				else if (CalleeF->arg_size() > ArgsV.size()) {
-					console::indentation = errorDepth;
-					if (errorDepth < maxErrorTraceDepth)
-						printTokenError(getASTTokenRange(this), "Incorrect number of arguments passed to function", __LINE__);
-					wasError = true;
-					errorDepth++;
-					return nullptr;
+					return messageSystem::error("Incorrect number of arguments passed to function");
 				}
 
 			// Rebuild ArgsV for the actual call
 			ArgsV = std::vector<Value*>();
 			ArgsV.push_back(basePtr);
-			if (!ArgsV.back())
+			if (!ArgsV.back()) {
+				messageSystem::endBlock();
 				return nullptr;
+			}
 			// Add rest of argument values
 			for (int i = 0; i < args.size(); i++) {
 				if (CalleeFID->userArguments[i].isReference) {
 					if (args[i]->childNodes.size() != 1 || args[i]->childNodes[0]->nodeType != Identifier_Node) {
-						console::indentation = errorDepth;
-						if (errorDepth < maxErrorTraceDepth)
-							printTokenError(getASTTokenRange(args[i]), "Cannot pass value as reference");
-						wasError = true;
-						errorDepth++;
-						return nullptr;
+						messageSystem::startBlock(args[i], "Generating reference argument", __func__, __LINE__, __FILE__);
+						return messageSystem::error("Cannot pass value as reference");
+					}
+					// Check that the argument type matches the ref parameter type
+					{
+						ASTNode* identNode = args[i]->childNodes[0];
+						valueType* argVar = findNamedValue(parentNode, this, identNode->token->first, token);
+						if (argVar) {
+							Type* actualType = getValueStoredType(argVar->val);
+							const argType& fa = CalleeFID->userArguments[i];
+							bool wasDef = true;
+							Type* formalType = getLLVMTypeFromString(fa.typeString, 0, token, wasDef, pass);
+							if (formalType && actualType && !actualType->isPointerTy() && !formalType->isPointerTy() && actualType != formalType) {
+								messageSystem::startBlock(args[i], "Generating reference argument", __func__, __LINE__, __FILE__);
+								return messageSystem::error("Cannot pass '" + getStringTypeFromLLVMType(actualType) +
+															"' as 'ref " + fa.typeString + "': implicit cast to reference is not allowed");
+							}
+						}
 					}
 					args[i]->childNodes[0]->isRef = true;
 				}
 				Value* argVal = (Value*)(args[i]->*(args[i]->codegen))(pass);
 				if (wasError) {
+					messageSystem::endBlock();
 					return nullptr;
 				}
 				ArgsV.push_back(argVal);
-				if (!ArgsV.back())
+				if (!ArgsV.back()) {
+					messageSystem::endBlock();
 					return nullptr;
+				}
 			}
 			if (memberIsStructReturn)
 				ArgsV.insert(ArgsV.begin(), memberSretAlloc);
@@ -3902,6 +3874,9 @@ void* ASTNode::generateMemberAccess(int pass)
 			else
 				callResult = Builder->CreateCall(CalleeF, ArgsV, "calltmp");
 
+
+			messageSystem::endBlock();
+
 			if (memberIsStructReturn) {
 				structType* retStruct = structDefinitions[CalleeFID->returnType];
 				return Builder->CreateLoad(retStruct->structVal, memberSretAlloc, "member_sret_load");
@@ -3913,6 +3888,7 @@ void* ASTNode::generateMemberAccess(int pass)
 	}
 
 
+	messageSystem::endBlock();
 	return nullptr;
 }
 
@@ -3920,41 +3896,74 @@ void* ASTNode::generateMemberAccess(int pass)
 // Value*
 void* ASTNode::generateScopeBody(int pass)
 {
+	messageSystem::startBlock(this, "Generating scope body", __func__, __LINE__, __FILE__);
+
+	// Only value blocks (parser-marked via isValueBlock) get their own ResultContext.
+	// Control-flow bodies (if/for bodies) that contain `result` propagate to the
+	// enclosing value block's context on the stack instead.
+	bool isValueBlock = this->isValueBlock;
+
+	BasicBlock* mergeBB = nullptr;
+	if (isValueBlock) {
+		Function* theFunction = Builder->GetInsertBlock()->getParent();
+		mergeBB = BasicBlock::Create(*TheContext, "result_merge", theFunction);
+		resultContextStack.push({nullptr, mergeBB});
+	}
+
 	for (auto& c : childNodes) {
 		if (c->codegen != nullptr) {
-			Value* cCode = (Value*)(c->*(c->codegen))(pass);
+			(void)(Value*)(c->*(c->codegen))(pass);
 			if (wasError) {
+				if (isValueBlock)
+					resultContextStack.pop();
+				messageSystem::endBlock();
 				return nullptr;
 			}
 		}
 		else {
-			console::indentation = errorDepth;
-			if (errorDepth < maxErrorTraceDepth)
-				printTokenError(getASTTokenRange(c), "Node `" + ASTNodeTypeAsString(c->nodeType) + "` does not have a code generator");
-			wasError = true;
-			errorDepth++;
-			return nullptr;
+			if (isValueBlock)
+				resultContextStack.pop();
+			return messageSystem::error("Node `" + ASTNodeTypeAsString(c->nodeType) + "` does not have a code generator");
 		}
 	}
 
+	if (isValueBlock) {
+		// Branch to merge in case the result was inside a conditional and this path
+		// has no terminator (keeps the IR well-formed).
+		if (!Builder->GetInsertBlock()->getTerminator())
+			Builder->CreateBr(mergeBB);
+
+		ResultContext ctx = resultContextStack.top();
+		resultContextStack.pop();
+
+		Builder->SetInsertPoint(mergeBB);
+
+		if (!ctx.resultSlot) {
+			return messageSystem::error("Value block has no reachable 'result' statement");
+		}
+
+		Value* resultVal = Builder->CreateLoad(
+			ctx.resultSlot->getAllocatedType(), ctx.resultSlot, "result_val");
+		messageSystem::endBlock();
+		return resultVal;
+	}
+
+	messageSystem::endBlock();
 	return nullptr;
 }
 
 // Value*
 void* ASTNode::generateCast(int pass)
 {
+	messageSystem::startBlock(this, "Generating cast", __func__, __LINE__, __FILE__);
+
 	if (childNodes.size() < 2 ||
 		childNodes[1]->nodeType != Scope_Body ||
 		childNodes[1]->childNodes.size() == 0 ||
 		childNodes[1]->childNodes[0]->nodeType != Comma_Node ||
 		childNodes[1]->childNodes[0]->childNodes.size() < 2) {
 
-		console::indentation = errorDepth;
-		if (errorDepth < maxErrorTraceDepth)
-			printTokenError(getASTTokenRange(this), "Cast expression expected: #cast(x, type)");
-		wasError = true;
-		errorDepth++;
-		return nullptr;
+		return messageSystem::error("Cast expression expected: `#cast(var, type)`");
 	}
 	ASTNode* argsNode = childNodes[1]->childNodes[0];
 	std::string varName = argsNode->childNodes[0]->token->first;
@@ -3963,12 +3972,7 @@ void* ASTNode::generateCast(int pass)
 
 	valueType* val = findNamedValue(parentNode, this, varName, token);
 	if (!val && !wasError) {
-		console::indentation = errorDepth;
-		if (errorDepth < maxErrorTraceDepth)
-			printTokenError(getASTTokenRange(this), "Unknown variable name used");
-		wasError = true;
-		errorDepth++;
-		return nullptr;
+		return messageSystem::error("Unknown variable name used");
 	}
 	Value* var = val->val;
 	Value* value = Builder->CreateLoad(getValueStoredType(var), var, varName + "_load");
@@ -3980,6 +3984,9 @@ void* ASTNode::generateCast(int pass)
 		srcTypeStr = srcTypeStr.substr(1);
 	bool isSrcSigned = typeSigns.count(srcTypeStr) ? typeSigns[srcTypeStr] : true;
 	Value* casted = castValue(value, toType, isSrcSigned, typeSigns[tyVal], token);
+
+	messageSystem::endBlock();
+
 	if (wasError)
 		return nullptr;
 	return casted;
@@ -4002,18 +4009,15 @@ static std::string typeStringFromNode(ASTNode* node)
 
 void* ASTNode::generateBitcast(int pass)
 {
+	messageSystem::startBlock(this, "Generating bitcast", __func__, __LINE__, __FILE__);
+
 	if (childNodes.size() < 2 ||
 		childNodes[1]->nodeType != Scope_Body ||
 		childNodes[1]->childNodes.size() == 0 ||
 		childNodes[1]->childNodes[0]->nodeType != Comma_Node ||
 		childNodes[1]->childNodes[0]->childNodes.size() < 2) {
 
-		console::indentation = errorDepth;
-		if (errorDepth < maxErrorTraceDepth)
-			printTokenError(getASTTokenRange(this), "Bitcast expression expected: #bitcast(x, type)");
-		wasError = true;
-		errorDepth++;
-		return nullptr;
+		return messageSystem::error("Bitcast expression expected: `#bitcast(var, type)`");
 	}
 	ASTNode* argsNode = childNodes[1]->childNodes[0];
 	std::string varName = argsNode->childNodes[0]->token->first;
@@ -4021,12 +4025,7 @@ void* ASTNode::generateBitcast(int pass)
 
 	valueType* val = findNamedValue(parentNode, this, varName, token);
 	if (!val && !wasError) {
-		console::indentation = errorDepth;
-		if (errorDepth < maxErrorTraceDepth)
-			printTokenError(getASTTokenRange(this), "Unknown variable name used");
-		wasError = true;
-		errorDepth++;
-		return nullptr;
+		return messageSystem::error("Unknown variable name used");
 	}
 	Value* var = val->val;
 	Value* value = Builder->CreateLoad(getValueStoredType(var), var, varName + "_load");
@@ -4034,54 +4033,42 @@ void* ASTNode::generateBitcast(int pass)
 	bool wasDefined = true;
 	Type* toType = getLLVMTypeFromString(tyVal, 0, argsNode->childNodes[1]->token, wasDefined, pass);
 	if (!toType) {
-		console::indentation = errorDepth;
-		if (errorDepth < maxErrorTraceDepth)
-			printTokenError(getASTTokenRange(argsNode->childNodes[1]), "Unknown type in #bitcast");
-		wasError = true;
-		errorDepth++;
-		return nullptr;
+		return messageSystem::error("Unknown type name used in #bitcast");
 	}
 
 	// Pointer <-> integer conversions (ptrtoint / inttoptr)
-	if (value->getType()->isPointerTy() && toType->isIntegerTy())
+	if (value->getType()->isPointerTy() && toType->isIntegerTy()) {
+		messageSystem::endBlock();
 		return Builder->CreatePtrToInt(value, toType, "ptrtoint");
-	if (value->getType()->isIntegerTy() && toType->isPointerTy())
+	}
+	if (value->getType()->isIntegerTy() && toType->isPointerTy()) {
+		messageSystem::endBlock();
 		return Builder->CreateIntToPtr(value, toType, "inttoptr");
+	}
 
 	uint64_t srcBits = value->getType()->getPrimitiveSizeInBits();
 	uint64_t dstBits = toType->getPrimitiveSizeInBits();
 	if (srcBits == 0 || dstBits == 0 || srcBits != dstBits) {
-		console::indentation = errorDepth;
-		if (errorDepth < maxErrorTraceDepth)
-			printTokenError(getASTTokenRange(this), "Bitcast requires source and destination types to have the same bit width. (" + std::to_string(srcBits) + " != " + std::to_string(dstBits) + ").");
-		wasError = true;
-		errorDepth++;
-		return nullptr;
+		return messageSystem::error("Bitcast requires source and destination types to have the same bit width. (" + std::to_string(srcBits) + " != " + std::to_string(dstBits) + ").");
 	}
 
+	messageSystem::endBlock();
 	return Builder->CreateBitCast(value, toType, "bitcast");
 }
 
 // Value*
 void* ASTNode::generateTypeInstance(int pass)
 {
+	messageSystem::startBlock(this, "Generating struct instance", __func__, __LINE__, __FILE__);
+
 	if (childNodes.size() < 2 || childNodes[1]->childNodes.size() == 0) {
-		console::indentation = errorDepth;
-		if (errorDepth < maxErrorTraceDepth)
-			printTokenError(getASTTokenRange(this), "New expression requires type name, like #new ty;");
-		wasError = true;
-		errorDepth++;
-		return nullptr;
+		return messageSystem::error("New expression requires type name, like `#new type;`");
 	}
 
 	std::string typeName = childNodes[1]->childNodes[0]->token->first;
 	if (structDefinitions.find(typeName) == structDefinitions.end()) {
-		console::indentation = errorDepth;
-		if (errorDepth < maxErrorTraceDepth)
-			printTokenError(getASTTokenRange(childNodes[1]->childNodes[0]), "Unknown type name used");
-		wasError = true;
-		errorDepth++;
-		return nullptr;
+		messageSystem::startBlock(childNodes[1]->childNodes[0], "Generating type from name", __func__, __LINE__, __FILE__);
+		return messageSystem::error("Unknown type name used");
 	}
 
 	structType* typeVal = structDefinitions[typeName];
@@ -4090,6 +4077,7 @@ void* ASTNode::generateTypeInstance(int pass)
 	if (typeVal->structVal == nullptr)
 		Value* argVal = (Value*)(typeVal->sourceNode->*(typeVal->sourceNode->codegen))(pass);
 	if (wasError) {
+		messageSystem::endBlock();
 		return nullptr;
 	}
 
@@ -4124,17 +4112,22 @@ void* ASTNode::generateTypeInstance(int pass)
 		Type* memberType = typeVal->structVal->getElementType(idx);
 		bool isSigned = typeSigns.count(typeVal->members[idx].typeString) ? typeSigns[typeVal->members[idx].typeString] : false;
 		defaultVal = castValue(defaultVal, memberType, true, isSigned, token);
-		if (wasError)
+		if (wasError) {
+			messageSystem::endBlock();
 			return nullptr;
+		}
 		Builder->CreateStore(defaultVal, memberPtr);
 	}
 
+	messageSystem::endBlock();
 	return var;
 }
 
 // Value*
 void* ASTNode::generateCallExpression(int pass)
 {
+	messageSystem::startBlock(this, "Generating function call", __func__, __LINE__, __FILE__);
+
 	if (!LexicalBlocks.empty() && token && token->filePath)
 		Builder->SetCurrentDebugLocation(DILocation::get(LexicalBlocks.back()->getContext(), token->lineNumber + 1, 0, LexicalBlocks.back()));
 	ASTNode* argsNode = childNodes[0];
@@ -4246,12 +4239,7 @@ void* ASTNode::generateCallExpression(int pass)
 			ASTNode* defNode = CalleeFID->userArguments[di].defaultNode;
 			const std::vector<tokenPair*>& rawToks = CalleeFID->userArguments[di].defaultRawTokens;
 			if (!defNode) {
-				console::indentation = errorDepth;
-				if (errorDepth < maxErrorTraceDepth)
-					printTokenError(getASTTokenRange(this), "Missing argument with no default value");
-				wasError = true;
-				errorDepth++;
-				return nullptr;
+				return messageSystem::error("Missing argument with no default value");
 			}
 			Value* defVal = nullptr;
 			if (!rawToks.empty()) {
@@ -4303,12 +4291,7 @@ void* ASTNode::generateCallExpression(int pass)
 		// Get the struct type from definitions
 		structType* retStruct = structDefinitions[CalleeFID->returnType];
 		if (retStruct->structVal == nullptr) {
-			console::indentation = errorDepth;
-			if (errorDepth < maxErrorTraceDepth)
-				printTokenError(getASTTokenRange(this), "Struct return type not fully defined");
-			wasError = true;
-			errorDepth++;
-			return nullptr;
+			return messageSystem::error("Struct return type not fully defined");
 		}
 
 		// Allocate space for the returned struct on the caller's stack
@@ -4338,7 +4321,8 @@ void* ASTNode::generateCallExpression(int pass)
 				CalleeFID->print();
 			wasError = true;
 			errorDepth++;
-			return nullptr;
+			return nullptr;	 // TODO
+			return messageSystem::error("Incorrect number of arguments passed to function (expected " + std::to_string(CalleeF->arg_size()) + ")");
 		}
 	}
 	else if (CalleeF->arg_size() > ArgsV.size()) {
@@ -4349,7 +4333,8 @@ void* ASTNode::generateCallExpression(int pass)
 			CalleeFID->print();
 		wasError = true;
 		errorDepth++;
-		return nullptr;
+		return nullptr;	 // TODO
+		return messageSystem::error("Incorrect number of arguments passed to function (expected " + std::to_string(CalleeF->arg_size()) + ")");
 	}
 
 	int formalArgCount = (int)CalleeFID->userArguments.size();
@@ -4362,27 +4347,40 @@ void* ASTNode::generateCallExpression(int pass)
 		// For variadic extra args (beyond declared params), just pass the value through
 		if (CalleeFID->variableNumArguments && i >= formalArgCount) {
 			ArgsV.push_back(cachedArgVals[i]);
-			if (!ArgsV.back())
+			if (!ArgsV.back()) {
+				messageSystem::endBlock();
 				return nullptr;
+			}
 			irArgIdx++;
 			continue;
 		}
 		bool isRef = CalleeFID->arguments[formalArgIdx].isReference;
 		Value* argVal = nullptr;
 		if (isRef) {
+			messageSystem::startBlock(args[i], "Generating reference argument", __func__, __LINE__, __FILE__);
+
 			if (args[i]->childNodes.size() != 1 || args[i]->childNodes[0]->nodeType != Identifier_Node) {
-				console::indentation = errorDepth;
-				if (errorDepth < maxErrorTraceDepth)
-					printTokenError(getASTTokenRange(args[i]), "Cannot pass value as reference");
-				wasError = true;
-				errorDepth++;
-				return nullptr;
+				return messageSystem::error("Cannot pass value as reference");
+			}
+			// Passing a value that requires an implicit cast to a ref parameter is not allowed:
+			// the cast would produce a temporary, and a reference to a temporary is meaningless.
+			{
+				Value* actualVal = cachedArgVals[i];
+				const argType& fa = CalleeFID->arguments[formalArgIdx];
+				bool wasDef = true;
+				Type* formalType = getLLVMTypeFromString(fa.typeString, 0, token, wasDef, pass);
+				if (formalType && actualVal && !actualVal->getType()->isPointerTy() && !formalType->isPointerTy() && actualVal->getType() != formalType) {
+					return messageSystem::error("Cannot pass '" + getStringTypeFromLLVMType(actualVal->getType()) + "' as 'ref " + fa.typeString + "': implicit cast to reference is not allowed");
+				}
 			}
 			args[i]->childNodes[0]->isRef = true;
 			argVal = (Value*)(args[i]->*(args[i]->codegen))(pass);
 			if (wasError) {
+				messageSystem::endBlock();
 				return nullptr;
 			}
+
+			messageSystem::endBlock();
 		}
 		else {
 			// Reuse the Value already generated in the first pass to avoid double side-effects
@@ -4455,13 +4453,17 @@ void* ASTNode::generateCallExpression(int pass)
 				const std::string& srcTs = (formalArgIdx < (int)argList.size()) ? argList[formalArgIdx].typeString : "";
 				bool isSrcSig = srcTs.empty() ? true : (typeSigns.count(srcTs) ? typeSigns[srcTs] : true);
 				argVal = castValue(argVal, formalLLVMType, isSrcSig, false, token);
-				if (wasError)
+				if (wasError) {
+					messageSystem::endBlock();
 					return nullptr;
+				}
 			}
 		}
 		ArgsV.push_back(argVal);
-		if (!ArgsV.back())
+		if (!ArgsV.back()) {
+			messageSystem::endBlock();
 			return nullptr;
+		}
 		irArgIdx++;
 	}
 	// Append evaluated default argument values for omitted trailing params
@@ -4481,8 +4483,10 @@ void* ASTNode::generateCallExpression(int pass)
 		else {
 			ArgsV.push_back(defVal);
 		}
-		if (!ArgsV.back())
+		if (!ArgsV.back()) {
+			messageSystem::endBlock();
 			return nullptr;
+		}
 	}
 
 	// If struct return, re-insert sret as first arg (after rebuilding)
@@ -4510,6 +4514,7 @@ void* ASTNode::generateCallExpression(int pass)
 		}
 	}
 
+	messageSystem::endBlock();
 	// For struct returns, return the loaded struct value (or pointer if lvalue)
 	if (isStructReturn) {
 		if (!asaType)
@@ -4551,34 +4556,31 @@ void* ASTNode::generateCallExpression(int pass)
 // Value*
 void* ASTNode::generateIf(int pass)
 {
+	messageSystem::startBlock(this, "Generating if statement", __func__, __LINE__, __FILE__);
+
 	if (!LexicalBlocks.empty() && token && token->filePath)
 		Builder->SetCurrentDebugLocation(DILocation::get(LexicalBlocks.back()->getContext(), token->lineNumber + 1, 0, LexicalBlocks.back()));
 	ASTNode* condExpr = childNodes[0];
 	if (condExpr->childNodes.size() == 0) {
-		console::indentation = errorDepth;
-		if (errorDepth < maxErrorTraceDepth)
-			printTokenError(getASTTokenRange(condExpr), "Expected condition expression");
-		wasError = true;
-		errorDepth++;
-		return nullptr;
+		messageSystem::startBlock(condExpr, "Generating condition", __func__, __LINE__, __FILE__);
+		return messageSystem::error("Expected condition expression");
 	}
 	condExpr = condExpr->childNodes[0];
 
 	if (condExpr->codegen == nullptr) {
-		console::indentation = errorDepth;
-		if (errorDepth < maxErrorTraceDepth)
-			printTokenError(getASTTokenRange(condExpr), "Node `" + ASTNodeTypeAsString(condExpr->nodeType) + "` does not have a code generator");
-		wasError = true;
-		errorDepth++;
-		return nullptr;
+		messageSystem::startBlock(condExpr, "Generating condition", __func__, __LINE__, __FILE__);
+		return messageSystem::error("Node `" + ASTNodeTypeAsString(condExpr->nodeType) + "` does not have a code generator");
 	}
 
 	Value* CondV = (Value*)(condExpr->*(condExpr->codegen))(pass);
 	if (wasError) {
+		messageSystem::endBlock();
 		return nullptr;
 	}
-	if (!CondV)
+	if (!CondV) {
+		messageSystem::endBlock();
 		return nullptr;
+	}
 
 	// Convert condition to a bool by comparing non-equal to i1 1.
 	CondV = Builder->CreateICmpNE(CondV, ConstantInt::get(*TheContext, APInt(1, 0)), "ifcond");
@@ -4599,16 +4601,12 @@ void* ASTNode::generateIf(int pass)
 	ASTNode* scopeBody = childNodes[1];
 
 	if (scopeBody->codegen == nullptr) {
-		console::indentation = errorDepth;
-		if (errorDepth < maxErrorTraceDepth)
-			printTokenError(getASTTokenRange(scopeBody), "Node `" + ASTNodeTypeAsString(scopeBody->nodeType) + "` does not have a code generator");
-		wasError = true;
-		errorDepth++;
-		return nullptr;
+		return messageSystem::error("Node `" + ASTNodeTypeAsString(scopeBody->nodeType) + "` does not have a code generator");
 	}
 
 	Value* ThenV = (Value*)(scopeBody->*(scopeBody->codegen))(pass);
 	if (wasError) {
+		messageSystem::endBlock();
 		return nullptr;
 	}
 
@@ -4624,16 +4622,12 @@ void* ASTNode::generateIf(int pass)
 	ASTNode* elseBody = childNodes[2];
 
 	if (elseBody->codegen == nullptr) {
-		console::indentation = errorDepth;
-		if (errorDepth < maxErrorTraceDepth)
-			printTokenError(getASTTokenRange(elseBody), "Node `" + ASTNodeTypeAsString(elseBody->nodeType) + "` does not have a code generator");
-		wasError = true;
-		errorDepth++;
-		return nullptr;
+		return messageSystem::error("Node `" + ASTNodeTypeAsString(elseBody->nodeType) + "` does not have a code generator");
 	}
 
 	Value* ElseV = (Value*)(elseBody->*(elseBody->codegen))(pass);
 	if (wasError) {
+		messageSystem::endBlock();
 		return nullptr;
 	}
 
@@ -4645,30 +4639,22 @@ void* ASTNode::generateIf(int pass)
 	// Emit merge block.
 	TheFunction->insert(TheFunction->end(), MergeBB);
 	Builder->SetInsertPoint(MergeBB);
-	//PHINode* PN =
-	//	Builder->CreatePHI(Type::getDoubleTy(*TheContext), 2, "iftmp");
 
-	//PN->addIncoming(ThenV, ThenBB);
-	//PN->addIncoming(ElseV, ElseBB);
-	//return PN;
+	messageSystem::endBlock();
 	return nullptr;
 }
 
 // Value*
-// Value*
 void* ASTNode::generateStruct(int pass)
 {
+	messageSystem::startBlock(this, "Generating struct definition", __func__, __LINE__, __FILE__);
+
 	std::string structName = token->first;
 
 	// Do not create a struct with the same name
 	if (structDefinitions.find(structName) != structDefinitions.end()) {
 		if (structDefinitions[structName]->token != token) {
-			console::indentation = errorDepth;
-			if (errorDepth < maxErrorTraceDepth)
-				printTokenError(getASTTokenRange(this), "Struct cannot be redefined");
-			wasError = true;
-			errorDepth++;
-			return nullptr;
+			return messageSystem::error("Struct cannot be redefined");
 		}
 	}
 
@@ -4696,14 +4682,9 @@ void* ASTNode::generateStruct(int pass)
 			// If it is a member variable declaration
 			if ((fieldNode->nodeType == Identifier_Node || fieldNode->nodeType == Colon_Separator_Node) && generatingType == 0 && pass > 0) {
 				if (fieldNode->childNodes.size() == 0) {
-					console::indentation = errorDepth;
-					if (errorDepth < maxErrorTraceDepth)
-						printTokenError(getASTTokenRange(fieldNode), "Member declaration must have type");
-					//printAST(fieldNode);
-					wasError = true;
-					errorDepth++;
 					currentStructName.pop();
-					return nullptr;
+					messageSystem::startBlock(fieldNode, "Generating struct member", __func__, __LINE__, __FILE__);
+					return messageSystem::error("Member declaration must have type");
 				}
 
 				ASTNode* typeNode = fieldNode->childNodes[1];
@@ -4746,6 +4727,7 @@ void* ASTNode::generateStruct(int pass)
 				Function* memberFunction = (Function*)(fieldNode->*(fieldNode->codegen))(pass);
 				if (wasError) {
 					currentStructName.pop();
+					messageSystem::endBlock();
 					return nullptr;
 				}
 				// Get pointer to generated function from global
@@ -4788,19 +4770,24 @@ void* ASTNode::generateStruct(int pass)
 					uint16_t idx = idxIt->second;
 					Value* memberPtr = Builder->CreateStructGEP(sTy, sretPtr, idx, memberName + "_init");
 					Value* defaultVal = (Value*)(defaultNode->*(defaultNode->codegen))(pass);
-					if (wasError)
+					if (wasError) {
+						messageSystem::endBlock();
 						return nullptr;
+					}
 					if (!defaultVal)
 						continue;
 					bool isSigned = typeSigns.count(members[idx].typeString) ? typeSigns[members[idx].typeString] : false;
 					defaultVal = castValue(defaultVal, sTy->getElementType(idx), true, isSigned, token);
-					if (wasError)
+					if (wasError) {
+						messageSystem::endBlock();
 						return nullptr;
+					}
 					Builder->CreateStore(defaultVal, memberPtr);
 				}
 				Builder->CreateRetVoid();
 			}
 		}
+		messageSystem::endBlock();
 		return nullptr;
 	}
 
@@ -4828,6 +4815,7 @@ void* ASTNode::generateStruct(int pass)
 			}
 		};
 		addDefaultCtorProto(existingTy);
+		messageSystem::endBlock();
 		return existingTy;
 	}
 
@@ -4860,12 +4848,15 @@ void* ASTNode::generateStruct(int pass)
 		}
 	};
 	addDefaultCtorProto(structTy);
+	messageSystem::endBlock();
 	return structTy;
 }
 
 // Value*
 void* ASTNode::generateBreak(int pass)
 {
+	messageSystem::startBlock(this, "Generating break statement", __func__, __LINE__, __FILE__);
+
 	// Check if we have a label
 	std::string targetLabel = "";
 	if (childNodes.size() > 0 && childNodes[0]->nodeType == Identifier_Node) {
@@ -4874,12 +4865,7 @@ void* ASTNode::generateBreak(int pass)
 
 	// Make sure we're inside a loop
 	if (loopContextStack.empty()) {
-		console::indentation = errorDepth;
-		if (errorDepth < maxErrorTraceDepth)
-			printTokenError(getASTTokenRange(this), "Break statement must be inside a loop");
-		wasError = true;
-		errorDepth++;
-		return nullptr;
+		return messageSystem::error("Break statement must be inside a loop");
 	}
 
 	// If no label, break from the innermost loop
@@ -4892,6 +4878,7 @@ void* ASTNode::generateBreak(int pass)
 		BasicBlock* afterBreak = BasicBlock::Create(*TheContext, "after_break", TheFunction);
 		Builder->SetInsertPoint(afterBreak);
 
+		messageSystem::endBlock();
 		return nullptr;
 	}
 
@@ -4911,12 +4898,7 @@ void* ASTNode::generateBreak(int pass)
 	}
 
 	if (!found) {
-		console::indentation = errorDepth;
-		if (errorDepth < maxErrorTraceDepth)
-			printTokenError(getASTTokenRange(this), "Break label \"" + targetLabel + "\" not found in enclosing loops");
-		wasError = true;
-		errorDepth++;
-		return nullptr;
+		return messageSystem::error("Break label \"" + targetLabel + "\" not found in enclosing loops");
 	}
 
 	Builder->CreateBr(targetBreakBB);
@@ -4926,12 +4908,15 @@ void* ASTNode::generateBreak(int pass)
 	BasicBlock* afterBreak = BasicBlock::Create(*TheContext, "after_break", TheFunction);
 	Builder->SetInsertPoint(afterBreak);
 
+	messageSystem::endBlock();
 	return nullptr;
 }
 
 // Value*
 void* ASTNode::generateContinue(int pass)
 {
+	messageSystem::startBlock(this, "Generating continue statement", __func__, __LINE__, __FILE__);
+
 	// Check if we have a label
 	std::string targetLabel = "";
 	if (childNodes.size() > 0 && childNodes[0]->nodeType == Identifier_Node) {
@@ -4940,12 +4925,7 @@ void* ASTNode::generateContinue(int pass)
 
 	// Make sure we're inside a loop
 	if (loopContextStack.empty()) {
-		console::indentation = errorDepth;
-		if (errorDepth < maxErrorTraceDepth)
-			printTokenError(getASTTokenRange(this), "Continue statement must be inside a loop");
-		wasError = true;
-		errorDepth++;
-		return nullptr;
+		return messageSystem::error("Continue statement must be inside a loop");
 	}
 
 	// If no label, continue to the innermost loop
@@ -4958,6 +4938,7 @@ void* ASTNode::generateContinue(int pass)
 		BasicBlock* afterContinue = BasicBlock::Create(*TheContext, "after_continue", TheFunction);
 		Builder->SetInsertPoint(afterContinue);
 
+		messageSystem::endBlock();
 		return nullptr;
 	}
 
@@ -4977,12 +4958,7 @@ void* ASTNode::generateContinue(int pass)
 	}
 
 	if (!found) {
-		console::indentation = errorDepth;
-		if (errorDepth < maxErrorTraceDepth)
-			printTokenError(getASTTokenRange(this), "Continue label \"" + targetLabel + "\" not found in enclosing loops");
-		wasError = true;
-		errorDepth++;
-		return nullptr;
+		return messageSystem::error("Continue label \"" + targetLabel + "\" not found in enclosing loops");
 	}
 
 	Builder->CreateBr(targetContinueBB);
@@ -4992,6 +4968,7 @@ void* ASTNode::generateContinue(int pass)
 	BasicBlock* afterContinue = BasicBlock::Create(*TheContext, "after_continue", TheFunction);
 	Builder->SetInsertPoint(afterContinue);
 
+	messageSystem::endBlock();
 	return nullptr;
 }
 
@@ -4999,39 +4976,36 @@ void* ASTNode::generateContinue(int pass)
 // Value*
 void* ASTNode::generateLabeledLoop(int pass)
 {
+	messageSystem::startBlock(this, "Generating labeled loop", __func__, __LINE__, __FILE__);
+
 	std::string label = token->first;
 
 	// Find the loop
 	if (childNodes.size() == 0) {
-		console::indentation = errorDepth;
-		if (errorDepth < maxErrorTraceDepth)
-			printTokenError(getASTTokenRange(this), "Labeled loop is empty");
-		wasError = true;
-		errorDepth++;
-		return nullptr;
+		return messageSystem::error("Labeled loop is empty");
 	}
 
 	ASTNode* loopNode = childNodes[0];
 
 	// Verify it's actually a loop
 	if (loopNode->nodeType != For_Statement_Node && loopNode->nodeType != While_Statement_Node) {
-		console::indentation = errorDepth;
-		if (errorDepth < maxErrorTraceDepth)
-			printTokenError(getASTTokenRange(this), "Label can only be applied to for or while loops");
-		wasError = true;
-		errorDepth++;
-		return nullptr;
+		return messageSystem::error("Label can only be applied to for or while loops");
 	}
 
 	// Store the label in the loop node and generate it
 	loopNode->label = label;
-	return (loopNode->*(loopNode->codegen))(pass);
+	void* generatedLoop = (loopNode->*(loopNode->codegen))(pass);
+
+	messageSystem::endBlock();
+	return generatedLoop;
 }
 
 // Now update the generateFor function to use the label:
 // Value*
 void* ASTNode::generateFor(int pass)
 {
+	messageSystem::startBlock(this, "Generating for loop", __func__, __LINE__, __FILE__);
+
 	if (!LexicalBlocks.empty() && token && token->filePath)
 		Builder->SetCurrentDebugLocation(DILocation::get(LexicalBlocks.back()->getContext(), token->lineNumber + 1, 0, LexicalBlocks.back()));
 	std::string varName = "_iterator";
@@ -5047,22 +5021,53 @@ void* ASTNode::generateFor(int pass)
 	}
 
 	ASTNode* rangeStart = childNodes[1]->childNodes[0];
+	ASTNode* rangeEnd = childNodes[1]->childNodes[1];
 
-	// Compute the start value.
+	// Compute start value.
 	if (rangeStart->codegen == nullptr) {
-		console::indentation = errorDepth;
-		if (errorDepth < maxErrorTraceDepth)
-			printTokenError(getASTTokenRange(rangeStart), "Node `" + ASTNodeTypeAsString(rangeStart->nodeType) + "` does not have a code generator");
-		wasError = true;
-		errorDepth++;
-		return nullptr;
+		return messageSystem::error("Node `" + ASTNodeTypeAsString(rangeStart->nodeType) + "` does not have a code generator");
 	}
 	Value* StartVal = (Value*)(rangeStart->*(rangeStart->codegen))(pass);
 	if (wasError) {
+		messageSystem::endBlock();
 		return nullptr;
 	}
-	if (!StartVal)
+	if (!StartVal) {
+		messageSystem::endBlock();
 		return nullptr;
+	}
+
+	// Compute end value in the preheader so we can determine the iterator type.
+	if (rangeEnd->codegen == nullptr) {
+		return messageSystem::error("Node `" + ASTNodeTypeAsString(rangeEnd->nodeType) + "` does not have a code generator");
+	}
+	Value* EndVal = (Value*)(rangeEnd->*(rangeEnd->codegen))(pass);
+	if (wasError) {
+		messageSystem::endBlock();
+		return nullptr;
+	}
+	if (!EndVal) {
+		messageSystem::endBlock();
+		return nullptr;
+	}
+
+	// Determine iterator type: widest integer type among start and end, minimum i32.
+	unsigned iterBits = 32;
+	if (StartVal->getType()->isIntegerTy())
+		iterBits = std::max(iterBits, StartVal->getType()->getIntegerBitWidth());
+	if (EndVal->getType()->isIntegerTy())
+		iterBits = std::max(iterBits, EndVal->getType()->getIntegerBitWidth());
+	Type* iterType = Type::getIntNTy(*TheContext, iterBits);
+
+	// Cast start and end to the iterator type if needed.
+	if (StartVal->getType() != iterType) {
+		std::string tyStr = getStringTypeFromLLVMType(StartVal->getType());
+		StartVal = Builder->CreateIntCast(StartVal, iterType, typeSigns.count(tyStr) ? typeSigns[tyStr] : true, "startcast");
+	}
+	if (EndVal->getType() != iterType) {
+		std::string tyStr = getStringTypeFromLLVMType(EndVal->getType());
+		EndVal = Builder->CreateIntCast(EndVal, iterType, typeSigns.count(tyStr) ? typeSigns[tyStr] : true, "endcast");
+	}
 
 	// Make the new basic block for the loop header, inserting after current block.
 	Function* TheFunction = Builder->GetInsertBlock()->getParent();
@@ -5072,7 +5077,7 @@ void* ASTNode::generateFor(int pass)
 	BasicBlock* StepBB = BasicBlock::Create(*TheContext, "loopstep", TheFunction);
 	BasicBlock* AfterBB = BasicBlock::Create(*TheContext, "afterloop", TheFunction);
 
-	AllocaInst* Alloca = CreateEntryBlockAlloca(TheFunction, Type::getInt32Ty(*TheContext), varName);
+	AllocaInst* Alloca = CreateEntryBlockAlloca(TheFunction, iterType, varName);
 	// Store the value into the alloca.
 	Builder->CreateStore(StartVal, Alloca);
 
@@ -5081,14 +5086,7 @@ void* ASTNode::generateFor(int pass)
 
 	Builder->SetInsertPoint(LoopCondBB);
 
-	// Get loop limit
-	ASTNode* rangeEnd = childNodes[1]->childNodes[1];
-	Value* EndVal = (Value*)(rangeEnd->*(rangeEnd->codegen))(pass);
-	if (wasError) {
-		return nullptr;
-	}
-
-	Value* CurVar = Builder->CreateLoad(Alloca->getAllocatedType(), Alloca, varName.c_str());
+	Value* CurVar = Builder->CreateLoad(iterType, Alloca, varName.c_str());
 
 	// Compare: exclusive (i < N)
 	Value* Cond = Builder->CreateICmpSLT(CurVar, EndVal, "loopcond");
@@ -5106,23 +5104,18 @@ void* ASTNode::generateFor(int pass)
 	ctx.label = label;		  // Empty for unlabeled loops
 	loopContextStack.push(ctx);
 
-	namedValues[varName] = new valueType(varName, "int32", Alloca);
+	namedValues[varName] = new valueType(varName, getStringTypeFromLLVMType(iterType), Alloca);
 
 	// Emit the body of the loop
 	ASTNode* scopeBody = childNodes[2];
 
 	if (scopeBody->codegen == nullptr) {
-		console::indentation = errorDepth;
-		if (errorDepth < maxErrorTraceDepth)
-			printTokenError(getASTTokenRange(scopeBody), "Node `" + ASTNodeTypeAsString(scopeBody->nodeType) + "` does not have a code generator");
-		wasError = true;
-		errorDepth++;
-		loopContextStack.pop();	 // Clean up context
-		return nullptr;
+		return messageSystem::error("Node `" + ASTNodeTypeAsString(scopeBody->nodeType) + "` does not have a code generator");
 	}
 	(scopeBody->*(scopeBody->codegen))(pass);
 	if (wasError) {
 		loopContextStack.pop();	 // Clean up context
+		messageSystem::endBlock();
 		return nullptr;
 	}
 
@@ -5134,7 +5127,7 @@ void* ASTNode::generateFor(int pass)
 
 	// Step block: increment iterator then jump back to condition
 	Builder->SetInsertPoint(StepBB);
-	Value* StepVal = ConstantInt::get(*TheContext, APInt(32, 1));
+	Value* StepVal = ConstantInt::get(*TheContext, APInt(iterBits, 1));
 	Value* CurVar2 = Builder->CreateLoad(Alloca->getAllocatedType(), Alloca, varName.c_str());
 	Value* NextVar = Builder->CreateAdd(CurVar2, StepVal, "nextvar");
 	Builder->CreateStore(NextVar, Alloca);
@@ -5143,6 +5136,7 @@ void* ASTNode::generateFor(int pass)
 	// After loop
 	Builder->SetInsertPoint(AfterBB);
 
+	messageSystem::endBlock();
 	return nullptr;
 }
 
@@ -5150,8 +5144,11 @@ void* ASTNode::generateFor(int pass)
 // Value*
 void* ASTNode::generateWhile(int pass)
 {
+	messageSystem::startBlock(this, "Generating while loop", __func__, __LINE__, __FILE__);
+
 	if (!LexicalBlocks.empty() && token)
 		Builder->SetCurrentDebugLocation(DILocation::get(LexicalBlocks.back()->getContext(), token->lineNumber + 1, 0, LexicalBlocks.back()));
+
 	std::string label = "";	 // Optional label
 
 	// Check if this loop has a label (set by generateCompilerDefine)
@@ -5172,30 +5169,24 @@ void* ASTNode::generateWhile(int pass)
 	// Evaluate condition
 	ASTNode* condExpr = childNodes[0];
 	if (condExpr->childNodes.size() == 0) {
-		console::indentation = errorDepth;
-		if (errorDepth < maxErrorTraceDepth)
-			printTokenError(getASTTokenRange(condExpr), "Expected condition expression");
-		wasError = true;
-		errorDepth++;
-		return nullptr;
+		messageSystem::startBlock(condExpr, "Generating condition expression", __func__, __LINE__, __FILE__);
+		return messageSystem::error("Expected condition expression");
 	}
 	condExpr = condExpr->childNodes[0];
 
 	if (condExpr->codegen == nullptr) {
-		console::indentation = errorDepth;
-		if (errorDepth < maxErrorTraceDepth)
-			printTokenError(getASTTokenRange(condExpr), "Node `" + ASTNodeTypeAsString(condExpr->nodeType) + "` does not have a code generator");
-		wasError = true;
-		errorDepth++;
-		return nullptr;
+		return messageSystem::error("Node `" + ASTNodeTypeAsString(condExpr->nodeType) + "` does not have a code generator");
 	}
 
 	Value* CondV = (Value*)(condExpr->*(condExpr->codegen))(pass);
 	if (wasError) {
+		messageSystem::endBlock();
 		return nullptr;
 	}
-	if (!CondV)
+	if (!CondV) {
+		messageSystem::endBlock();
 		return nullptr;
+	}
 
 	// Convert condition to bool
 	CondV = Builder->CreateICmpNE(CondV, ConstantInt::get(*TheContext, APInt(1, 0)), "whilecond");
@@ -5216,18 +5207,13 @@ void* ASTNode::generateWhile(int pass)
 	// Generate loop body
 	ASTNode* scopeBody = childNodes[1];
 	if (scopeBody->codegen == nullptr) {
-		console::indentation = errorDepth;
-		if (errorDepth < maxErrorTraceDepth)
-			printTokenError(getASTTokenRange(scopeBody), "Node `" + ASTNodeTypeAsString(scopeBody->nodeType) + "` does not have a code generator");
-		wasError = true;
-		errorDepth++;
-		loopContextStack.pop();
-		return nullptr;
+		return messageSystem::error("Node `" + ASTNodeTypeAsString(scopeBody->nodeType) + "` does not have a code generator");
 	}
 
 	(scopeBody->*(scopeBody->codegen))(pass);
 	if (wasError) {
 		loopContextStack.pop();
+		messageSystem::endBlock();
 		return nullptr;
 	}
 
@@ -5240,12 +5226,15 @@ void* ASTNode::generateWhile(int pass)
 	// After loop
 	Builder->SetInsertPoint(AfterBB);
 
+	messageSystem::endBlock();
 	return nullptr;
 }
 
 // Function*
 void* ASTNode::generatePrototype(int pass)
 {
+	messageSystem::startBlock(this, "Generating prototype", __func__, __LINE__, __FILE__);
+
 	argumentList argList = argumentList();
 	std::vector<Type*> argTypes = std::vector<Type*>();
 	std::vector<int> byvalParamIndices;
@@ -5358,12 +5347,7 @@ void* ASTNode::generatePrototype(int pass)
 			}
 		}
 		catch (...) {
-			console::indentation = errorDepth;
-			if (errorDepth < maxErrorTraceDepth)
-				printTokenError(getASTTokenRange(this), "Invalid argument type given");
-			wasError = true;
-			errorDepth++;
-			return nullptr;
+			return messageSystem::error("Invalid argument type given");
 		}
 
 		// Unknown type name
@@ -5388,13 +5372,8 @@ void* ASTNode::generatePrototype(int pass)
 				if (nameNode->nodeType != Identifier_Node) {
 					// Prefer the name node's token, then the colon node's, then fall back to
 					// the function name token (this->token) which always has source location.
-					tokenPair* errTok = nameNode->token ? nameNode->token
-														: (colonNode->token ? colonNode->token : token);
-					console::indentation = errorDepth;
-					printTokenError(tokenRange {errTok, errTok}, "Parameter name must be a plain identifier (did you write 'ref name : type' instead of 'name : ref type'?)");
-					wasError = true;
-					errorDepth++;
-					return nullptr;
+					messageSystem::startBlock(nameNode, "Generating argument name", __func__, __LINE__, __FILE__);
+					return messageSystem::error("Parameter name must be a plain singular identifier");
 				}
 				std::string typeStr = "";
 				bool isReference = false;
@@ -5539,14 +5518,8 @@ void* ASTNode::generatePrototype(int pass)
 				goto invalidArgument;
 			continue;
 		invalidArgument:
-			// a->token and child tokens may be null for synthetic nodes; fall back to
-			// the function name token (this->token) which always has source location.
-			console::indentation = errorDepth;
-			if (errorDepth < maxErrorTraceDepth)
-				printTokenError(getASTTokenRange(a->childNodes[0]), "Invalid function parameter syntax (expected 'name : type', got something else)");
-			wasError = true;
-			errorDepth++;
-			return nullptr;
+			messageSystem::startBlock(a->childNodes[0], "Generating argument", __func__, __LINE__, __FILE__);
+			return messageSystem::error("Invalid function parameter syntax (expected 'name : type', got something else)");
 		}
 	}
 	bool isAlwaysInline = false;
@@ -5573,6 +5546,7 @@ void* ASTNode::generatePrototype(int pass)
 			console::WriteLine(" (" + theFunctionID->mangledName + ")", console::yellowFGColor);
 			//theFunctionID->print();
 		}
+		messageSystem::endBlock();
 		return theFunctionID->fnValue;
 	}
 
@@ -5598,7 +5572,7 @@ void* ASTNode::generatePrototype(int pass)
 	for (auto& arg : fn->args()) {
 		arg.setName(argNames[Idx++]);
 
-		if (Idx < (int)argList.size() && argList[Idx].isConstant) {
+		if (argList[Idx - 1].isConstant) {
 			Type* argType = arg.getType();
 
 			// readonly can only be applied to pointer types
@@ -5617,12 +5591,14 @@ void* ASTNode::generatePrototype(int pass)
 		console::WriteLine("-- Added function \"" + fnName + "\" to functionIDs");
 	}
 
+	messageSystem::endBlock();
 	return fn;
 }
 
 // Function*
 void* ASTNode::generateFunction(int pass)
 {
+	messageSystem::startBlock(this, "Generating function", __func__, __LINE__, __FILE__);
 
 	// First, check for an existing function from a previous declaration.
 	//Function* theFunction = TheModule->getFunction(token->first);
@@ -5643,18 +5619,13 @@ void* ASTNode::generateFunction(int pass)
 
 	// If the function wasn't generated, try later
 	if (!theFunction) {
-		console::indentation = errorDepth;
-		if (errorDepth < maxErrorTraceDepth)
-			printTokenError(getASTTokenRange(this), "There was a failure to create a function");
-		wasError = true;
-		errorDepth++;
-		return nullptr;
+		return messageSystem::error("There was a failure to create a function");
 	}
 
 	if (!theFunction->empty() && replaceableDefinition == false) {
 		console::indentation = errorDepth;
 		if (errorDepth < maxErrorTraceDepth)
-			printTokenError(getASTTokenRange(this), "Function cannot be redefined, requires unique identity");
+			printTokenError(getASTTokenRange(this), "Function cannot be redefined, requires unique identity");	// TODO
 		theFunctionID = getFunctionIDFromFunctionPointer(functionIDs, theFunction);
 		console::indentation++;
 		if (errorDepth < maxErrorTraceDepth)
@@ -5669,17 +5640,14 @@ void* ASTNode::generateFunction(int pass)
 		theFunction->deleteBody();
 	}
 
-	if (pass <= 1)
+	if (pass <= 1) {
+		messageSystem::endBlock();
 		return theFunction;
+	}
 
 	theFunctionID = getFunctionIDFromFunctionPointer(functionIDs, theFunction);
 	if (!theFunctionID) {
-		console::indentation = errorDepth;
-		if (errorDepth < maxErrorTraceDepth)
-			printTokenError(getASTTokenRange(this), "There was a failure to create a function");
-		wasError = true;
-		errorDepth++;
-		return nullptr;
+		return messageSystem::error("There was a failure to create a function");
 	}
 
 	// Create debug info for the function
@@ -5730,40 +5698,27 @@ void* ASTNode::generateFunction(int pass)
 		DILocation::get(SP->getContext(), LineNo, 0, SP));
 
 
-	//// Create a new basic block to start insertion into.
-	//BasicBlock* fnBlock = BasicBlock::Create(*TheContext, "entry", theFunction);
-	//Builder->SetInsertPoint(fnBlock);
-
-	// Record the function arguments in the NamedValues map.
-	// If it is a struct, first add a "this" argument like: (this : ref structName, ...)
-	int i = 0;
-	//if (isStruct) {
-	//	if (i >= theFunctionID->arguments.size()) {
-	//		printTokenError(tokenRange{token, token}, "Mismatch in number of arguments, expected " + std::to_string(theFunctionID->arguments.size()), __LINE__);
-	//	return nullptr;
-	//	}
-	//	// It's a pointer/ref value, dont copy
-	//	std::string baseType = "*" + currentStructName;
-	//	namedValues["this"] = new valueType("this", baseType + theFunctionID->arguments[i].typeString, &(*theFunction->arg_begin()));
-
-	//	i++;
-	//}
 	// Add remaining arguments
+	int i = 0;
 	for (auto& arg : theFunction->args()) {
 		if (i >= theFunctionID->arguments.size()) {
 			theFunctionID->print();
-			console::indentation = errorDepth;
-			if (errorDepth < maxErrorTraceDepth)
-				printTokenError(getASTTokenRange(this), "Mismatch in number of arguments vs function signature: " + std::to_string(theFunctionID->arguments.size()), __LINE__);
-			wasError = true;
-			errorDepth++;
-			return nullptr;
+			return messageSystem::error("Mismatch in number of arguments vs function signature: " + std::to_string(theFunctionID->arguments.size()));
 		}
 
 		// Always create an alloca for the incoming argument so we'll have addressable storage
 		AllocaInst* Alloca = CreateEntryBlockAlloca(theFunction, arg.getType(), arg.getName());
 		// Store the incoming argument value into the alloca
 		Builder->CreateStore(&arg, Alloca);
+		// For const parameters, mark the alloca as invariant after the initial store
+		if (theFunctionID->arguments[i].isConstant) {
+			uint64_t typeSize = TheModule->getDataLayout().getTypeAllocSize(arg.getType());
+			Function* invariantStartFn = Intrinsic::getDeclaration(
+				TheModule.get(), Intrinsic::invariant_start,
+				{PointerType::getUnqual(*TheContext)});
+			Builder->CreateCall(invariantStartFn,
+				{ConstantInt::get(Type::getInt64Ty(*TheContext), typeSize), Alloca});
+		}
 
 		// Build the "actual type" string the rest of your compiler expects (pointer stars + type name)
 		std::string baseType = "";
@@ -5810,16 +5765,12 @@ void* ASTNode::generateFunction(int pass)
 			body = n;
 
 	if (body->codegen == nullptr) {
-		console::indentation = errorDepth;
-		if (errorDepth < maxErrorTraceDepth)
-			printTokenError(getASTTokenRange(body), "Node `" + ASTNodeTypeAsString(body->nodeType) + "` does not have a code generator");
-		wasError = true;
-		errorDepth++;
-		return nullptr;
+		return messageSystem::error("Node `" + ASTNodeTypeAsString(body->nodeType) + "` does not have a code generator");
 	}
 
 	(body->*(body->codegen))(pass);
 	if (wasError) {
+		messageSystem::endBlock();
 		return nullptr;
 	}
 
@@ -5842,13 +5793,8 @@ void* ASTNode::generateFunction(int pass)
 	//if (optimizationLevel >= 1)
 	//	TheFPM->run(*theFunction, *TheFAM);
 
+	messageSystem::endBlock();
 	return theFunction;
-
-	//// Error reading body, remove function.
-	//theFunction->eraseFromParent();
-	//printTokenError(tokenRange{token, token}, "Function is missing a return statement");
-
-	//return nullptr;
 }
 
 // Nothing
@@ -6030,7 +5976,7 @@ void* ASTNode::generateTypeofDirective(int pass)
 }
 
 // #sizeof(T) - returns the alloc size in bytes of T as an int64 constant.
-// T can be a type name (e.g. int, string, MyStruct) or a variable name.
+// T can be a variable name, a plain type name, or a pointer-modified type (e.g. *int, * *Wall).
 void* ASTNode::generateSizeofDirective(int pass)
 {
 	if (pass == 0)
@@ -6045,20 +5991,46 @@ void* ASTNode::generateSizeofDirective(int pass)
 	ASTNode* argNode = childNodes[1]->childNodes[0];
 	Type* llvmType = nullptr;
 
-	if (argNode->nodeType == Identifier_Node) {
-		// Try as a direct type name first
-		bool wasDefined = true;
-		llvmType = getLLVMTypeFromString(argNode->token->first, 0, token, wasDefined, pass);
-		if (!wasDefined || !llvmType) {
-			// Try as a variable - use its stored type string
-			valueType* val = findNamedValue(parentNode, this, argNode->token->first, token);
-			if (val) {
-				wasDefined = true;
-				llvmType = getLLVMTypeFromString(val->type, 0, token, wasDefined, pass);
-				if (!wasDefined)
-					llvmType = nullptr;
-			}
+	// Walk a chain of Dereference_Operation / Pointer_Node nodes to count pointer
+	// indirections, then resolve the base identifier as a type.
+	auto resolvePointerTypeNode = [&](ASTNode* n) -> Type* {
+		int stars = 0;
+		while (n->nodeType == Dereference_Operation || n->nodeType == Pointer_Node) {
+			stars++;
+			if (n->childNodes.empty())
+				return nullptr;
+			n = n->childNodes[0];
 		}
+		if (n->nodeType != Identifier_Node)
+			return nullptr;
+		bool wasDefined = true;
+		std::string typeName = std::string(stars, '*') + n->token->first;
+		Type* t = getLLVMTypeFromString(typeName, 0, token, wasDefined, pass);
+		return (wasDefined && t) ? t : nullptr;
+	};
+
+	if (argNode->nodeType == Identifier_Node) {
+		std::string name = argNode->token->first;
+
+		// Try as a variable first, using its stored type string (which encodes pointer depth)
+		valueType* val = findNamedValue(parentNode, this, name, token);
+		if (val) {
+			bool wasDefined = true;
+			llvmType = getLLVMTypeFromString(val->type, 0, token, wasDefined, pass);
+			if (!wasDefined)
+				llvmType = nullptr;
+		}
+
+		// Fall back to treating the identifier as a plain type name
+		if (!llvmType) {
+			bool wasDefined = true;
+			llvmType = getLLVMTypeFromString(name, 0, token, wasDefined, pass);
+			if (!wasDefined)
+				llvmType = nullptr;
+		}
+	}
+	else if (argNode->nodeType == Dereference_Operation || argNode->nodeType == Pointer_Node) {
+		llvmType = resolvePointerTypeNode(argNode);
 	}
 
 	// Fallback: generate the expression and read the LLVM type
@@ -6208,20 +6180,35 @@ int generateExecutable(const std::string& irFilePath, const std::string& exeFile
 		optimizationOption = " -O" + std::to_string(optimizationLevel);
 
 	if (optimizationLevel >= 1) {
-		// When optimized, emit object file directly from the in-memory module
-		// to avoid LLVM IR text roundtrip issues (slot numbering after inlining).
-		std::string objectFilePath = irFilePath + ".o";
+		// For optimized builds, use opt + llc + clang to avoid misoptimizations
+		// that occur when running LLVM passes on the in-memory module. The text
+		// IR round-trip through opt produces correct results.
+		std::string optIRPath = irFilePath + ".opt.ll";
+		std::string sFilePath = irFilePath + ".s";
+
+		std::string commandOpt = "opt" + optimizationOption + " " + irFilePath + " -S -o " + optIRPath;
 		{
 			auto t0 = std::chrono::steady_clock::now();
-			int result = outputObjectFile(objectFilePath);
+			int result = std::system(commandOpt.c_str());
 			if (doTime) {
 				double secs = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
-				fprintf(stderr, "\n[obj] real\t%.3fs\n", secs);
+				fprintf(stderr, "\n[opt] real\t%.3fs\n", secs);
 			}
 			if (result != 0)
 				exit(1);
 		}
-		std::string commandClang = "clang -fPIE -o " + exeFilePath + optimizationOption + " " + objectFilePath + libFlags + " -Wl,-rpath,\\$ORIGIN " + clangOptions;
+		std::string commandLLC = "llc -relocation-model=pic " + optIRPath + " -o " + sFilePath;
+		{
+			auto t0 = std::chrono::steady_clock::now();
+			int result = std::system(commandLLC.c_str());
+			if (doTime) {
+				double secs = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
+				fprintf(stderr, "[llc] real\t%.3fs\n", secs);
+			}
+			if (result != 0)
+				exit(1);
+		}
+		std::string commandClang = "clang -fPIE -o " + exeFilePath + " " + sFilePath + libFlags + " -Wl,-rpath,\\$ORIGIN " + clangOptions;
 		{
 			auto t0 = std::chrono::steady_clock::now();
 			int result = std::system(commandClang.c_str());

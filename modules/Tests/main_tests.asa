@@ -24,6 +24,8 @@
 #import Tests.AddressOfTests;
 #import Tests.IncrementTests;
 #import Tests.PointerTests;
+#import Tests.ScopingTests;
+#import Tests.ResultTests;
 
 @public:
 main :: () {
@@ -51,6 +53,8 @@ main :: () {
 	runAddressOfTests();
 	runIncrementTests();
 	runPointerTests();
+	runScopingTests();
+	runResultTests();
 	printSummary();
 	return;
 }

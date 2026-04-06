@@ -59,6 +59,7 @@ Raylib :: module {
 	// Constructor: Color32(r, g, b, a)
 	// Description: Creates a Color32 from individual RGBA components (0-255 each)
 	@public:
+	@inline:
 	create :: Color32(r : int, g : int, b : int, a : int = 255) {
 		c : Color32 = Color32();
 		c.r = uint8(r);
@@ -71,6 +72,7 @@ Raylib :: module {
 	// Constructor: Color32(l)
 	// Description: Creates a grayscale Color32 from a single integer component (0-255)
 	@public:
+	@inline:
 	create :: Color32(l : int) {
 		c : Color32 = Color32();
 		c.r = uint8(l);
@@ -80,10 +82,14 @@ Raylib :: module {
 		return c;
 	}
 
+	@public:
+	@inline:
 	operator== :: bool(l : Color32, r : Color32){
 		return l.r == r.r && l.g == r.g && l.b == r.b && l.a == r.a;
 	}
 
+	@public:
+	@inline:
 	operator* :: Color32(l : float, r : Color32){
 		r.r *= l;
 		r.g *= l;
@@ -91,32 +97,35 @@ Raylib :: module {
 		return r;
 	}
 
-	// Predefined color constants matching raylib's built-in palette
-	@public: LIGHTGRAY  : Color32 = Color32(200, 200, 200, 255);
-	@public: GRAY       : Color32 = Color32(130, 130, 130, 255);
-	@public: DARKGRAY   : Color32 = Color32(80,  80,  80,  255);
-	@public: YELLOW     : Color32 = Color32(253, 249, 0,   255);
-	@public: GOLD       : Color32 = Color32(255, 203, 0,   255);
-	@public: ORANGE     : Color32 = Color32(255, 161, 0,   255);
-	@public: PINK       : Color32 = Color32(255, 109, 194, 255);
-	@public: RED        : Color32 = Color32(230, 41,  55,  255);
-	@public: MAROON     : Color32 = Color32(190, 33,  55,  255);
-	@public: GREEN      : Color32 = Color32(0,   228, 48,  255);
-	@public: LIME       : Color32 = Color32(0,   158, 47,  255);
-	@public: DARKGREEN  : Color32 = Color32(0,   117, 44,  255);
-	@public: SKYBLUE    : Color32 = Color32(102, 191, 255, 255);
-	@public: BLUE       : Color32 = Color32(0,   121, 241, 255);
-	@public: DARKBLUE   : Color32 = Color32(0,   82,  172, 255);
-	@public: PURPLE     : Color32 = Color32(200, 122, 255, 255);
-	@public: VIOLET     : Color32 = Color32(135, 60,  190, 255);
-	@public: DARKPURPLE : Color32 = Color32(112, 31,  126, 255);
-	@public: BEIGE      : Color32 = Color32(211, 176, 131, 255);
-	@public: BROWN      : Color32 = Color32(127, 106, 79,  255);
-	@public: DARKBROWN  : Color32 = Color32(76,  63,  47,  255);
-	@public: WHITE      : Color32 = Color32(255, 255, 255, 255);
-	@public: BLACK      : Color32 = Color32(0,   0,   0,   255);
-	@public: BLANK      : Color32 = Color32(0,   0,   0,   0);
-	@public: MAGENTA    : Color32 = Color32(255, 0,   255, 255);
+	@public:
+	{
+		// Predefined color constants matching raylib's built-in palette
+		LIGHTGRAY  : Color32 = Color32(200, 200, 200, 255);
+		GRAY       : Color32 = Color32(130, 130, 130, 255);
+		DARKGRAY   : Color32 = Color32(80,  80,  80,  255);
+		YELLOW     : Color32 = Color32(253, 249, 0,   255);
+		GOLD       : Color32 = Color32(255, 203, 0,   255);
+		ORANGE     : Color32 = Color32(255, 161, 0,   255);
+		PINK       : Color32 = Color32(255, 109, 194, 255);
+		RED        : Color32 = Color32(230, 41,  55,  255);
+		MAROON     : Color32 = Color32(190, 33,  55,  255);
+		GREEN      : Color32 = Color32(0,   228, 48,  255);
+		LIME       : Color32 = Color32(0,   158, 47,  255);
+		DARKGREEN  : Color32 = Color32(0,   117, 44,  255);
+		SKYBLUE    : Color32 = Color32(102, 191, 255, 255);
+		BLUE       : Color32 = Color32(0,   121, 241, 255);
+		DARKBLUE   : Color32 = Color32(0,   82,  172, 255);
+		PURPLE     : Color32 = Color32(200, 122, 255, 255);
+		VIOLET     : Color32 = Color32(135, 60,  190, 255);
+		DARKPURPLE : Color32 = Color32(112, 31,  126, 255);
+		BEIGE      : Color32 = Color32(211, 176, 131, 255);
+		BROWN      : Color32 = Color32(127, 106, 79,  255);
+		DARKBROWN  : Color32 = Color32(76,  63,  47,  255);
+		WHITE      : Color32 = Color32(255, 255, 255, 255);
+		BLACK      : Color32 = Color32(0,   0,   0,   255);
+		BLANK      : Color32 = Color32(0,   0,   0,   0);
+		MAGENTA    : Color32 = Color32(255, 0,   255, 255);
+	}
 
 
 	// Struct: Image
@@ -176,322 +185,284 @@ Raylib :: module {
 	// Window            //
 	///////////////////////
 
-	// Function: InitWindow(width, height, title)
-	// Description: Initialises the window and OpenGL context
 	@public:
-	#extern InitWindow :: (width : int, height : int, title : *char);
+	{
+		// Function: InitWindow(width, height, title)
+		// Description: Initialises the window and OpenGL context
+		#extern InitWindow :: (width : int, height : int, title : *char);
 
-	// Function: CloseWindow()
-	// Description: Closes the window and unloads the OpenGL context
-	@public:
-	#extern CloseWindow :: ();
+		// Function: CloseWindow()
+		// Description: Closes the window and unloads the OpenGL context
+		#extern CloseWindow :: ();
 
-	// Function: WindowShouldClose()
-	// Description: Returns true when the user presses Escape or clicks the close button
-	@public:
-	#extern WindowShouldClose :: bool();
+		// Function: WindowShouldClose()
+		// Description: Returns true when the user presses Escape or clicks the close button
+		#extern WindowShouldClose :: bool();
 
-	// Function: IsWindowReady()
-	// Description: Returns true if the window has been initialized successfully
-	@public:
-	#extern IsWindowReady :: bool();
+		// Function: IsWindowReady()
+		// Description: Returns true if the window has been initialized successfully
+		#extern IsWindowReady :: bool();
 
-	// Function: IsWindowMinimized()
-	// Description: Returns true if the window is currently minimized
-	@public:
-	#extern IsWindowMinimized :: bool();
+		// Function: IsWindowMinimized()
+		// Description: Returns true if the window is currently minimized
+		#extern IsWindowMinimized :: bool();
 
-	// Function: IsWindowMaximized()
-	// Description: Returns true if the window is currently maximized
-	@public:
-	#extern IsWindowMaximized :: bool();
+		// Function: IsWindowMaximized()
+		// Description: Returns true if the window is currently maximized
+		#extern IsWindowMaximized :: bool();
 
-	// Function: IsWindowFocused()
-	// Description: Returns true if the window is currently focused
-	@public:
-	#extern IsWindowFocused :: bool();
+		// Function: IsWindowFocused()
+		// Description: Returns true if the window is currently focused
+		#extern IsWindowFocused :: bool();
 
-	// Function: IsWindowResized()
-	// Description: Returns true if the window was resized this frame
-	@public:
-	#extern IsWindowResized :: bool();
+		// Function: IsWindowResized()
+		// Description: Returns true if the window was resized this frame
+		#extern IsWindowResized :: bool();
 
-	// Function: SetWindowTitle(title)
-	// Description: Sets the window title
-	@public:
-	#extern SetWindowTitle :: (title : *char);
+		// Function: SetWindowTitle(title)
+		// Description: Sets the window title
+		#extern SetWindowTitle :: (title : *char);
 
-	// Function: SetWindowSize(width, height)
-	// Description: Sets the window dimensions
-	@public:
-	#extern SetWindowSize :: (width : int, height : int);
+		// Function: SetWindowSize(width, height)
+		// Description: Sets the window dimensions
+		#extern SetWindowSize :: (width : int, height : int);
 
-	// Function: SetWindowPosition(x, y)
-	// Description: Sets the window position on screen
-	@public:
-	#extern SetWindowPosition :: (x : int, y : int);
+		// Function: SetWindowPosition(x, y)
+		// Description: Sets the window position on screen
+		#extern SetWindowPosition :: (x : int, y : int);
 
-	// Function: GetScreenWidth()
-	// Description: Returns the current screen width in pixels
-	@public:
-	#extern GetScreenWidth :: int();
+		// Function: GetScreenWidth()
+		// Description: Returns the current screen width in pixels
+		#extern GetScreenWidth :: int();
 
-	// Function: GetScreenHeight()
-	// Description: Returns the current screen height in pixels
-	@public:
-	#extern GetScreenHeight :: int();
+		// Function: GetScreenHeight()
+		// Description: Returns the current screen height in pixels
+		#extern GetScreenHeight :: int();
 
-	// Function: SetTargetFPS(fps)
-	// Description: Sets the target frames-per-second
-	@public:
-	#extern SetTargetFPS :: (fps : int);
+		// Function: SetTargetFPS(fps)
+		// Description: Sets the target frames-per-second
+		#extern SetTargetFPS :: (fps : int);
 
-	// Function: GetFPS()
-	// Description: Returns the current frames-per-second
-	@public:
-	#extern GetFPS :: int();
+		// Function: GetFPS()
+		// Description: Returns the current frames-per-second
+		#extern GetFPS :: int();
 
-	// Function: GetFrameTime()
-	// Description: Returns time in seconds for the last frame drawn (delta time)
-	@public:
-	#extern GetFrameTime :: float();
+		// Function: GetFrameTime()
+		// Description: Returns time in seconds for the last frame drawn (delta time)
+		#extern GetFrameTime :: float();
 
-	// Function: GetTime()
-	// Description: Returns elapsed time in seconds since InitWindow()
-	@public:
-	#extern GetTime :: double();
+		// Function: GetTime()
+		// Description: Returns elapsed time in seconds since InitWindow()
+		#extern GetTime :: double();
 
-	///////////////////////
-	// Drawing           //
-	///////////////////////
+		///////////////////////
+		// Drawing           //
+		///////////////////////
 
-	// Function: BeginDrawing()
-	// Description: Sets up the canvas to start drawing
-	@public:
-	#extern BeginDrawing :: ();
+		// Function: BeginDrawing()
+		// Description: Sets up the canvas to start drawing
+		#extern BeginDrawing :: ();
 
-	// Function: EndDrawing()
-	// Description: Ends canvas drawing and swaps buffers
-	@public:
-	#extern EndDrawing :: ();
+		// Function: EndDrawing()
+		// Description: Ends canvas drawing and swaps buffers
+		#extern EndDrawing :: ();
 
-	// Function: ClearBackground(color)
-	// Description: Sets the background colour for this frame
-	@public:
-	#extern ClearBackground :: (color : Color32);
+		// Function: ClearBackground(color)
+		// Description: Sets the background colour for this frame
+		#extern ClearBackground :: (color : Color32);
 
-	// Function: BeginTextureMode(target)
-	// Description: Begins drawing to an off-screen render texture
-	@public:
-	#extern BeginTextureMode :: (target : RenderTexture2D);
+		// Function: BeginTextureMode(target)
+		// Description: Begins drawing to an off-screen render texture
+		#extern BeginTextureMode :: (target : RenderTexture2D);
 
-	// Function: EndTextureMode()
-	// Description: Ends drawing to the render texture and resumes drawing to the screen
-	@public:
-	#extern EndTextureMode :: ();
+		// Function: EndTextureMode()
+		// Description: Ends drawing to the render texture and resumes drawing to the screen
+		#extern EndTextureMode :: ();
 
-	///////////////////////
-	// Shapes            //
-	///////////////////////
+		///////////////////////
+		// Shapes            //
+		///////////////////////
 
-	// Function: DrawPixel(posX, posY, color)
-	// Description: Draws a single pixel
-	@public:
-	#extern DrawPixel :: (posX : int, posY : int, color : Color32);
+		// Function: DrawPixel(posX, posY, color)
+		// Description: Draws a single pixel
+		#extern DrawPixel :: (posX : int, posY : int, color : Color32);
 
-	// Function: DrawLine(startPosX, startPosY, endPosX, endPosY, color)
-	// Description: Draws a line between two points
-	@public:
-	#extern DrawLine :: (startPosX : int, startPosY : int, endPosX : int, endPosY : int, color : Color32);
+		// Function: DrawLine(startPosX, startPosY, endPosX, endPosY, color)
+		// Description: Draws a line between two points
+		#extern DrawLine :: (startPosX : int, startPosY : int, endPosX : int, endPosY : int, color : Color32);
 
-	// Function: DrawRectangle(posX, posY, width, height, color)
-	// Description: Draws a filled rectangle
-	@public:
-	#extern DrawRectangle :: (posX : int, posY : int, width : int, height : int, color : Color32);
+		// Function: DrawRectangle(posX, posY, width, height, color)
+		// Description: Draws a filled rectangle
+		#extern DrawRectangle :: (posX : int, posY : int, width : int, height : int, color : Color32);
 
-	// Function: DrawRectangleRect(rect, color)
-	// Description: Draws a filled rectangle using a Rect struct
-	@public:
-	#extern DrawRectangleRec as DrawRectangleRect :: (rect : Rect, color : Color32);
+		// Function: DrawRectangleRect(rect, color)
+		// Description: Draws a filled rectangle using a Rect struct
+		#extern DrawRectangleRec as DrawRectangleRect :: (rect : Rect, color : Color32);
 
-	// Function: DrawRectangleOutline(posX, posY, width, height, color)
-	// Description: Draws the outline of a rectangle
-	@public:
-	#extern DrawRectangleLines as DrawRectangleOutline :: (posX : int, posY : int, width : int, height : int, color : Color32);
+		// Function: DrawRectangleOutline(posX, posY, width, height, color)
+		// Description: Draws the outline of a rectangle
+		#extern DrawRectangleLines as DrawRectangleOutline :: (posX : int, posY : int, width : int, height : int, color : Color32);
 
-	// Function: DrawCircle(centerX, centerY, radius, color)
-	// Description: Draws a filled circle
-	@public:
-	#extern DrawCircle :: (centerX : int, centerY : int, radius : float, color : Color32);
+		// Function: DrawCircle(centerX, centerY, radius, color)
+		// Description: Draws a filled circle
+		#extern DrawCircle :: (centerX : int, centerY : int, radius : float, color : Color32);
 
-	// Function: DrawCircleOutline(centerX, centerY, radius, color)
-	// Description: Draws the outline of a circle
-	@public:
-	#extern DrawCircleLines as DrawCircleOutline :: (centerX : int, centerY : int, radius : float, color : Color32);
+		// Function: DrawCircleOutline(centerX, centerY, radius, color)
+		// Description: Draws the outline of a circle
+		#extern DrawCircleLines as DrawCircleOutline :: (centerX : int, centerY : int, radius : float, color : Color32);
 
-	///////////////////////
-	// Text              //
-	///////////////////////
+		///////////////////////
+		// Text              //
+		///////////////////////
 
-	// Function: DrawFPS(posX, posY)
-	// Description: Draws the current FPS counter at the given position
-	@public:
-	#extern DrawFPS :: (posX : int, posY : int);
+		// Function: DrawFPS(posX, posY)
+		// Description: Draws the current FPS counter at the given position
+		#extern DrawFPS :: (posX : int, posY : int);
 
-	// Function: DrawText(text, posX, posY, fontSize, color)
-	// Description: Draws text using the default font
-	@public:
-	#extern DrawText :: (text : *char, posX : int, posY : int, fontSize : int, color : Color32);
+		// Function: DrawText(text, posX, posY, fontSize, color)
+		// Description: Draws text using the default font
+		#extern DrawText :: (text : *char, posX : int, posY : int, fontSize : int, color : Color32);
 
-	// Function: MeasureText(text, fontSize)
-	// Description: Returns the width in pixels of the given text at the given font size
-	@public:
-	#extern MeasureText :: int(text : *char, fontSize : int);
+		// Function: MeasureText(text, fontSize)
+		// Description: Returns the width in pixels of the given text at the given font size
+		#extern MeasureText :: int(text : *char, fontSize : int);
 
-	///////////////////////
-	// Input: Keyboard   //
-	///////////////////////
+		///////////////////////
+		// Input: Keyboard   //
+		///////////////////////
 
-	// Function: IsKeyPressed(key)
-	// Description: Returns true if the key was pressed this frame (once)
-	@public:
-	#extern IsKeyPressed :: bool(key : int);
+		// Function: IsKeyPressed(key)
+		// Description: Returns true if the key was pressed this frame (once)
+		#extern IsKeyPressed :: bool(key : int);
 
-	// Function: IsKeyDown(key)
-	// Description: Returns true while the key is held down
-	@public:
-	#extern IsKeyDown :: bool(key : int);
+		// Function: IsKeyDown(key)
+		// Description: Returns true while the key is held down
+		#extern IsKeyDown :: bool(key : int);
 
-	// Function: IsKeyReleased(key)
-	// Description: Returns true if the key was released this frame
-	@public:
-	#extern IsKeyReleased :: bool(key : int);
+		// Function: IsKeyReleased(key)
+		// Description: Returns true if the key was released this frame
+		#extern IsKeyReleased :: bool(key : int);
 
-	// Function: IsKeyUp(key)
-	// Description: Returns true while the key is not held
-	@public:
-	#extern IsKeyUp :: bool(key : int);
+		// Function: IsKeyUp(key)
+		// Description: Returns true while the key is not held
+		#extern IsKeyUp :: bool(key : int);
 
-	// Function: GetKeyPressed()
-	// Description: Returns the keycode of the next key in the input queue, or 0
-	@public:
-	#extern GetKeyPressed :: int();
+		// Function: GetKeyPressed()
+		// Description: Returns the keycode of the next key in the input queue, or 0
+		#extern GetKeyPressed :: int();
 
-	///////////////////////
-	// Input: Mouse      //
-	///////////////////////
+		///////////////////////
+		// Input: Mouse      //
+		///////////////////////
 
-	// Function: IsMouseButtonPressed(button)
-	// Description: Returns true if the mouse button was pressed this frame
-	@public:
-	#extern IsMouseButtonPressed :: bool(button : int);
+		// Function: IsMouseButtonPressed(button)
+		// Description: Returns true if the mouse button was pressed this frame
+		#extern IsMouseButtonPressed :: bool(button : int);
 
-	// Function: IsMouseButtonDown(button)
-	// Description: Returns true while the mouse button is held
-	@public:
-	#extern IsMouseButtonDown :: bool(button : int);
+		// Function: IsMouseButtonDown(button)
+		// Description: Returns true while the mouse button is held
+		#extern IsMouseButtonDown :: bool(button : int);
 
-	// Function: IsMouseButtonReleased(button)
-	// Description: Returns true if the mouse button was released this frame
-	@public:
-	#extern IsMouseButtonReleased :: bool(button : int);
+		// Function: IsMouseButtonReleased(button)
+		// Description: Returns true if the mouse button was released this frame
+		#extern IsMouseButtonReleased :: bool(button : int);
 
-	// Function: GetMouseX()
-	// Description: Returns the current mouse X position in pixels
-	@public:
-	#extern GetMouseX :: int();
+		// Function: GetMouseX()
+		// Description: Returns the current mouse X position in pixels
+		#extern GetMouseX :: int();
 
-	// Function: GetMouseY()
-	// Description: Returns the current mouse Y position in pixels
-	@public:
-	#extern GetMouseY :: int();
+		// Function: GetMouseY()
+		// Description: Returns the current mouse Y position in pixels
+		#extern GetMouseY :: int();
 
-	// Function: GetMouseWheelMove()
-	// Description: Returns the mouse wheel scroll delta for this frame
-	@public:
-	#extern GetMouseWheelMove :: float();
+		// Function: GetMouseWheelMove()
+		// Description: Returns the mouse wheel scroll delta for this frame
+		#extern GetMouseWheelMove :: float();
 
-	// Function: SetMousePosition(x, y)
-	// Description: Sets the mouse cursor position
-	@public:
-	#extern SetMousePosition :: (x : int, y : int);
+		// Function: SetMousePosition(x, y)
+		// Description: Sets the mouse cursor position
+		#extern SetMousePosition :: (x : int, y : int);
+
+	}
 
 	///////////////////////
 	// Key codes         //
 	///////////////////////
 	// A subset of raylib's KeyboardKey enum values
+	@public:
+	{
+		KEY_NULL         : const uint16 = 0;
+		KEY_APOSTROPHE   : const uint16 = 39;
+		KEY_COMMA        : const uint16 = 44;
+		KEY_MINUS        : const uint16 = 45;
+		KEY_PERIOD       : const uint16 = 46;
+		KEY_SLASH        : const uint16 = 47;
+		KEY_ZERO         : const uint16 = 48;
+		KEY_ONE          : const uint16 = 49;
+		KEY_TWO          : const uint16 = 50;
+		KEY_THREE        : const uint16 = 51;
+		KEY_FOUR         : const uint16 = 52;
+		KEY_FIVE         : const uint16 = 53;
+		KEY_SIX          : const uint16 = 54;
+		KEY_SEVEN        : const uint16 = 55;
+		KEY_EIGHT        : const uint16 = 56;
+		KEY_NINE         : const uint16 = 57;
+		KEY_SEMICOLON    : const uint16 = 59;
+		KEY_EQUAL        : const uint16 = 61;
+		KEY_A            : const uint16 = 65;
+		KEY_B            : const uint16 = 66;
+		KEY_C            : const uint16 = 67;
+		KEY_D            : const uint16 = 68;
+		KEY_E            : const uint16 = 69;
+		KEY_F            : const uint16 = 70;
+		KEY_G            : const uint16 = 71;
+		KEY_H            : const uint16 = 72;
+		KEY_I            : const uint16 = 73;
+		KEY_J            : const uint16 = 74;
+		KEY_K            : const uint16 = 75;
+		KEY_L            : const uint16 = 76;
+		KEY_M            : const uint16 = 77;
+		KEY_N            : const uint16 = 78;
+		KEY_O            : const uint16 = 79;
+		KEY_P            : const uint16 = 80;
+		KEY_Q            : const uint16 = 81;
+		KEY_R            : const uint16 = 82;
+		KEY_S            : const uint16 = 83;
+		KEY_T            : const uint16 = 84;
+		KEY_U            : const uint16 = 85;
+		KEY_V            : const uint16 = 86;
+		KEY_W            : const uint16 = 87;
+		KEY_X            : const uint16 = 88;
+		KEY_Y            : const uint16 = 89;
+		KEY_Z            : const uint16 = 90;
+		KEY_SPACE        : const uint16 = 32;
+		KEY_ESCAPE       : const uint16 = 256;
+		KEY_ENTER        : const uint16 = 257;
+		KEY_TAB          : const uint16 = 258;
+		KEY_BACKSPACE    : const uint16 = 259;
+		KEY_RIGHT        : const uint16 = 262;
+		KEY_LEFT         : const uint16 = 263;
+		KEY_DOWN         : const uint16 = 264;
+		KEY_UP           : const uint16 = 265;
+		KEY_F1           : const uint16 = 290;
+		KEY_F2           : const uint16 = 291;
+		KEY_F3           : const uint16 = 292;
+		KEY_F4           : const uint16 = 293;
+		KEY_F5           : const uint16 = 294;
+		KEY_F6           : const uint16 = 295;
+		KEY_F7           : const uint16 = 296;
+		KEY_F8           : const uint16 = 297;
+		KEY_F9           : const uint16 = 298;
+		KEY_F10          : const uint16 = 299;
+		KEY_LEFT_SHIFT   : const uint16 = 340;
+		KEY_LEFT_CONTROL : const uint16 = 341;
+		KEY_LEFT_ALT     : const uint16 = 342;
 
-	@public: KEY_NULL         : int = 0;
-	@public: KEY_APOSTROPHE   : int = 39;
-	@public: KEY_COMMA        : int = 44;
-	@public: KEY_MINUS        : int = 45;
-	@public: KEY_PERIOD       : int = 46;
-	@public: KEY_SLASH        : int = 47;
-	@public: KEY_ZERO         : int = 48;
-	@public: KEY_ONE          : int = 49;
-	@public: KEY_TWO          : int = 50;
-	@public: KEY_THREE        : int = 51;
-	@public: KEY_FOUR         : int = 52;
-	@public: KEY_FIVE         : int = 53;
-	@public: KEY_SIX          : int = 54;
-	@public: KEY_SEVEN        : int = 55;
-	@public: KEY_EIGHT        : int = 56;
-	@public: KEY_NINE         : int = 57;
-	@public: KEY_SEMICOLON    : int = 59;
-	@public: KEY_EQUAL        : int = 61;
-	@public: KEY_A            : int = 65;
-	@public: KEY_B            : int = 66;
-	@public: KEY_C            : int = 67;
-	@public: KEY_D            : int = 68;
-	@public: KEY_E            : int = 69;
-	@public: KEY_F            : int = 70;
-	@public: KEY_G            : int = 71;
-	@public: KEY_H            : int = 72;
-	@public: KEY_I            : int = 73;
-	@public: KEY_J            : int = 74;
-	@public: KEY_K            : int = 75;
-	@public: KEY_L            : int = 76;
-	@public: KEY_M            : int = 77;
-	@public: KEY_N            : int = 78;
-	@public: KEY_O            : int = 79;
-	@public: KEY_P            : int = 80;
-	@public: KEY_Q            : int = 81;
-	@public: KEY_R            : int = 82;
-	@public: KEY_S            : int = 83;
-	@public: KEY_T            : int = 84;
-	@public: KEY_U            : int = 85;
-	@public: KEY_V            : int = 86;
-	@public: KEY_W            : int = 87;
-	@public: KEY_X            : int = 88;
-	@public: KEY_Y            : int = 89;
-	@public: KEY_Z            : int = 90;
-	@public: KEY_SPACE        : int = 32;
-	@public: KEY_ESCAPE       : int = 256;
-	@public: KEY_ENTER        : int = 257;
-	@public: KEY_TAB          : int = 258;
-	@public: KEY_BACKSPACE    : int = 259;
-	@public: KEY_RIGHT        : int = 262;
-	@public: KEY_LEFT         : int = 263;
-	@public: KEY_DOWN         : int = 264;
-	@public: KEY_UP           : int = 265;
-	@public: KEY_F1           : int = 290;
-	@public: KEY_F2           : int = 291;
-	@public: KEY_F3           : int = 292;
-	@public: KEY_F4           : int = 293;
-	@public: KEY_F5           : int = 294;
-	@public: KEY_F6           : int = 295;
-	@public: KEY_F7           : int = 296;
-	@public: KEY_F8           : int = 297;
-	@public: KEY_F9           : int = 298;
-	@public: KEY_F10          : int = 299;
-	@public: KEY_LEFT_SHIFT   : int = 340;
-	@public: KEY_LEFT_CONTROL : int = 341;
-	@public: KEY_LEFT_ALT     : int = 342;
-
-	// Mouse button codes
-	@public: MOUSE_LEFT_BUTTON   : int = 0;
-	@public: MOUSE_RIGHT_BUTTON  : int = 1;
-	@public: MOUSE_MIDDLE_BUTTON : int = 2;
+		// Mouse button codes
+		MOUSE_LEFT_BUTTON   : const uint16 = 0;
+		MOUSE_RIGHT_BUTTON  : const uint16 = 1;
+		MOUSE_MIDDLE_BUTTON : const uint16 = 2;
+	}
 
 	///////////////////////
 	// Images            //

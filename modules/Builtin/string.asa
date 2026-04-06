@@ -24,26 +24,18 @@ String :: module{
 	@public:
 	@version(1):
 	string :: struct {
+
+		@unsafe:
 		address : *char;
 		length : uint32 = 0;
 
 		// Function: size()
 		// Returns: The length in characters of the string
 		@public:
+		@inline:
 		size :: uint32() {
 			return this.length;
 		}
-		// Function: dump()
-		// Description: Prints all of the info related to the string instance to the terminal
-		@public:
-		dump :: () {
-			print("string: {\"value\":\"");
-			print(this.address);
-			print("\", length:");
-			print(this.length);
-			print("}\n");
-		}
-
 	}
 
 	// Constructor: string(*char)
@@ -54,7 +46,7 @@ String :: module{
 	//
 	// Returns: A new string containing the characters from the array
 	@public:
-	create :: string(c : exact *char) {
+	create :: string(c : exact const *char) {
 		s : string = string();
 
 		len : uint32 = 0;
@@ -82,22 +74,19 @@ String :: module{
 	//
 	// Returns: A new string containing the concatenation of both strings
 	@public:
-	operator+ :: string(thisStr : exact string, otherStr : exact string){
+	operator+ :: string(thisStr : const exact string, otherStr : const exact string){
 		newStr : string = string();
 
-		len : uint32 = thisStr.length + otherStr.length;
+		len : const uint32 = thisStr.length + otherStr.length;
 		newStr.address = malloc(len*2 + 1);
 		newStr.length = len;
 		for(i : 0..thisStr.length){
 			newStr.address[i] = thisStr[i];
 		}
 		for(i : 0..otherStr.length){
-			// TODO: Currently having an expression within access operator doesnt work,
-			//       like: newStr.address[i + thisStr.length]  // Gives error
-			newAddr = i + thisStr.length;
-			newStr.address[newAddr] = otherStr[i];
+			newStr.address[i + thisStr.length] = otherStr[i];
 		}
-		newStr.address[len] = char(0);
+		newStr.address[len] = 0;
 		return newStr;
 	}
 
@@ -110,17 +99,17 @@ String :: module{
 	//
 	// Returns: A new string containing the concatenation of the string and character
 	@public:
-	operator+ :: string(thisStr : exact string, ch : exact char){
+	operator+ :: string(thisStr : const exact string, ch : const exact char){
 		newStr : string = string();
 
-		len : uint32 = thisStr.length + 1;
+		len : const uint32 = thisStr.length + 1;
 		newStr.address = malloc(len*2 + 1);
 		newStr.length = len;
 		for(i : 0..thisStr.length){
 			newStr.address[i] = thisStr[i];
 		}
 		newStr.address[thisStr.length] = ch;
-		newStr.address[len] = char(0);
+		newStr.address[len] = 0;
 		return newStr;
 	}
 
@@ -133,7 +122,8 @@ String :: module{
 	//
 	// Returns: A new string containing the concatenation of the string and uint8
 	@public:
-	operator+ :: string(thisStr : exact string, n : exact uint8){
+	@inline:
+	operator+ :: string(thisStr : const exact string, n : const exact uint8){
 		return thisStr + string(int64(n));
 	}
 
@@ -146,7 +136,8 @@ String :: module{
 	//
 	// Returns: A new string containing the concatenation
 	@public:
-	operator+ :: string(thisStr : exact string, n : int64){
+	@inline:
+	operator+ :: string(thisStr : const exact string, n : const int64){
 		return thisStr + string(n);
 	}
 
@@ -159,7 +150,8 @@ String :: module{
 	//
 	// Returns: A new string containing the concatenation
 	@public:
-	operator+ :: string(n : int64, otherStr : exact string){
+	@inline:
+	operator+ :: string(n : const int64, otherStr : const exact string){
 		return string(n) + otherStr;
 	}
 
@@ -172,7 +164,8 @@ String :: module{
 	//
 	// Returns: A new string containing the concatenation
 	@public:
-	operator+ :: string(thisStr : exact string, f : float){
+	@inline:
+	operator+ :: string(thisStr : const exact string, f : const float){
 		return thisStr + string(f);
 	}
 
@@ -185,7 +178,8 @@ String :: module{
 	//
 	// Returns: A new string containing the concatenation
 	@public:
-	operator+ :: string(f : float, thisStr : exact string){
+	@inline:
+	operator+ :: string(f : const float, thisStr : exact const string){
 		return string(f) + thisStr;
 	}
 
@@ -198,7 +192,7 @@ String :: module{
 	//
 	// Returns: A pointer to a new character array containing the concatenation
 	@public:
-	operator+ :: *char(thisStr : exact *char, otherStr : exact *char){
+	operator+ :: *char(thisStr : const exact *char, otherStr : const exact *char){
 		newStr : *char = void;
 
 		lenA : uint32 = 0;
@@ -256,7 +250,7 @@ String :: module{
 	// Constructor: string(char)
 	// Description: Converts a char to a single-character string
 	@public:
-	cast :: string(c : exact char) {
+	cast :: string(c : const exact char) {
 		s : string = string();
 		s.address = malloc(2);
 		s.length = 1;
@@ -273,14 +267,16 @@ String :: module{
 	//
 	// Returns: A new string containing the decimal representation of n
 	@public:
-	cast :: string(n : exact uint8) {
+	@inline:
+	cast :: string(n : const exact uint8) {
 		return string(int64(n));
 	}
 
 	// Constructor: string(double)
 	// Description: Converts a double to its string representation using %g format
 	@public:
-	cast :: string(x : double) {
+	@inline:
+	cast :: string(x : const double) {
 		buf : *char = malloc(32);
 		snprintf(buf, 32, "%g", x);
 		return string(buf);
@@ -289,7 +285,8 @@ String :: module{
 	// Constructor: string(float)
 	// Description: Converts a float to its string representation
 	@public:
-	cast :: string(x : float) {
+	@inline:
+	cast :: string(x : const float) {
 		return string(double(x));
 	}
 
@@ -299,7 +296,7 @@ String :: module{
 	// Returns: true if the contents are identical, false otherwise
 	@public:
 	@inline:
-	operator== :: bool(a : exact *char, b : exact *char) {
+	operator== :: bool(a : const exact *char, b : const exact *char) {
 		return strcmp(a, b) == 0;
 	}
 
@@ -309,7 +306,7 @@ String :: module{
 	// Returns: true if both strings have equal length and identical characters
 	@public:
 	@inline:
-	operator== :: bool(a : exact string, b : exact string) {
+	operator== :: bool(a : const exact string, b : const exact string) {
 		if (a.length != b.length)
 			return false;
 		return strcmp(a.address, b.address) == 0;
@@ -317,14 +314,15 @@ String :: module{
 
 	@public:
 	@inline:
-	operator!= :: bool(a : exact string, b : exact string) {
+	operator!= :: bool(a : const exact string, b : const exact string) {
 		return !(a == b);
 	}
 
 	// Function: print(string)
 	// Description: A function to overload <print(*char)> for strings
 	@public:
-	print :: (s : exact string) {
+	@inline:
+	print :: (s : const exact string) {
 		print(s.address);
 		return;
 	}
@@ -332,7 +330,8 @@ String :: module{
 	// Function: printl(string)
 	// Description: A function to overload <printl(*char)> for strings
 	@public:
-	printl :: (s : exact string) {
+	@inline:
+	printl :: (s : const exact string) {
 		printl(s.address);
 		return;
 	}
@@ -341,20 +340,20 @@ String :: module{
 	// Description: Returns s with ch appended on the right until length reaches targetLen.
 	//              If s is already at or beyond targetLen, returns s unchanged.
 	@public:
-	padRight :: string(s : exact string, ch : exact char, targetLen : int) {
-		result : string = s;
+	padRight :: string(s : const exact string, ch : const exact char, targetLen : const int) {
+		res : string = s;
 		len : int = int(s.length);
 		for (i : len..targetLen) {
-			result = result + ch;
+			res = res + ch;
 		}
-		return result;
+		return res;
 	}
 
 	// Function: padLeft(s, ch, targetLen)
 	// Description: Returns s with ch prepended on the left until length reaches targetLen.
 	//              If s is already at or beyond targetLen, returns s unchanged.
 	@public:
-	padLeft :: string(s : exact string, ch : exact char, targetLen : int) {
+	padLeft :: string(s : const exact string, ch : const exact char, targetLen : const int) {
 		prefix : string = string();
 		len : int = int(s.length);
 		for (i : len..targetLen) {
@@ -367,7 +366,7 @@ String :: module{
 	// Description: Returns the filename portion of a path (everything after the last '/').
 	//              If no '/' is found, returns s unchanged.
 	@public:
-	basename :: string(s : exact string) {
+	basename :: string(s : const exact string) {
 		lastSlash : int = -1;
 		for (i : 0..int(s.length)) {
 			if (s[i] == '/') {
@@ -377,20 +376,20 @@ String :: module{
 		if (lastSlash == -1) {
 			return s;
 		}
-		result : string = string();
+		res : string = string();
 		start : int = lastSlash + 1;
 		for (i : start..int(s.length)) {
-			result = result + s[i];
+			res = res + s[i];
 		}
-		return result;
+		return res;
 	}
 
 	// Function: find(s, sub)
 	// Description: Returns the index of the first occurrence of sub in s, or -1 if not found
 	@public:
-	find :: int64(s : exact string, sub : exact string) {
-		result : *char = strstr(s.address, sub.address);
-		resAddr : int64 = int64(result);
+	find :: int64(s : const exact string, sub : const exact string) {
+		res : *char = strstr(s.address, sub.address);
+		resAddr : int64 = int64(res);
 		if (resAddr == 0) { return -1; }
 		startAddr : int64 = int64(s.address);
 		return resAddr - startAddr;

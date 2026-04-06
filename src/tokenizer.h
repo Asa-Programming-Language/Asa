@@ -88,6 +88,7 @@ enum TokenType {
 	While_Statement,
 
 	Return_Statement,
+	Result_Statement,
 	Continue_Statement,
 	Break_Statement,
 	Else_Statement,
@@ -187,6 +188,7 @@ const std::string tokenTypeStrings[] = {
 	"While_Statement",
 
 	"Return_Statement",
+	"Result_Statement",
 	"Continue_Statement",
 	"Break_Statement",
 	"Else_Statement",

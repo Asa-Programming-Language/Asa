@@ -1,0 +1,239 @@
+
+// ScopingTests
+// Tests for anonymous scope blocks (redundant curly braces {}).
+// Covers: outer mutation, variable shadowing, nested blocks,
+// consecutive blocks re-using the same name, and interaction
+// with control flow.
+
+@public:
+ScopingTests :: module {
+
+	#import Tests.Testing;
+
+	@public:
+	runScopingTests :: () {
+		beginSection("Scoping");
+
+		/////////////////////////////////////
+		// Outer variable mutation         //
+		/////////////////////////////////////
+
+		a : int = 5;
+		{ a = 10; }
+		test(a == 10,                        "outer var modified inside redundant braces");
+
+		b : int = 0;
+		{
+			b = 1;
+			b = b + 1;
+		}
+		test(b == 2,                         "multi-statement block updates outer var");
+
+		b2 : int = 0;
+		{
+			{
+				b2 += 7;
+			}
+		}
+		test(b2 == 7,                        "double-nested block mutates outer var");
+
+		/////////////////////////////////////
+		// Variable shadowing              //
+		/////////////////////////////////////
+
+		x : int = 100;
+		{
+			x : int = 1;
+			test(x == 1,                     "inner shadow hides outer inside block");
+		}
+		test(x == 100,                       "outer survives inner shadow");
+
+		y : int = 42;
+		{
+			y : int = 0;
+			y += 7;
+			test(y == 7,                     "inner shadow modified independently");
+		}
+		test(y == 42,                        "outer y unchanged after inner shadow modified");
+
+		// Shadow with different type (int vs float at outer/inner)
+		fi : int = 10;
+		{
+			fi : float = 3.5;
+			test(fi == 3.5,                  "inner shadow of different type hides outer");
+		}
+		test(fi == 10,                       "outer int survives float shadow");
+
+		/////////////////////////////////////
+		// Nested blocks                   //
+		/////////////////////////////////////
+
+		n : int = 1;
+		{
+			n += 1;
+			{
+				n += 1;
+				{
+					n += 1;
+				}
+			}
+		}
+		test(n == 4,                         "triple-nested blocks all accumulate into outer var");
+
+		// Deep shadow nesting: each level shadows the last
+		d : int = 0;
+		{
+			d : int = 1;
+			{
+				d : int = 2;
+				{
+					d : int = 3;
+					test(d == 3,             "innermost shadow == 3");
+				}
+				test(d == 2,                 "middle shadow == 2 after inner exits");
+			}
+			test(d == 1,                     "outer shadow == 1 after middle exits");
+		}
+		test(d == 0,                         "original d == 0 after all scopes exit");
+
+		/////////////////////////////////////
+		// Consecutive blocks              //
+		/////////////////////////////////////
+
+		// The same identifier may be declared in consecutive independent blocks.
+		total : int = 0;
+		{
+			tmp : int = 10;
+			total += tmp;
+		}
+		{
+			tmp : int = 20;
+			total += tmp;
+		}
+		{
+			tmp : int = 30;
+			total += tmp;
+		}
+		test(total == 60,                    "consecutive blocks each declare 'tmp'; sum == 60");
+
+		// Shadowing across consecutive blocks
+		outer_val : int = 99;
+		{
+			outer_val : int = 1;
+			test(outer_val == 1,             "first consecutive block shadows outer_val");
+		}
+		{
+			outer_val : int = 2;
+			test(outer_val == 2,             "second consecutive block shadows outer_val");
+		}
+		test(outer_val == 99,                "outer_val unchanged after two consecutive shadows");
+
+		/////////////////////////////////////
+		// Blocks around control flow      //
+		/////////////////////////////////////
+
+		c : int = 0;
+		{
+			for (i : 0..5) { c += 1; }
+		}
+		test(c == 5,                         "for loop inside redundant outer block");
+
+		wc : int = 0;
+		wn : int = 0;
+		{
+			while (wn < 3) {
+				wc += 1;
+				wn += 1;
+			}
+		}
+		test(wc == 3,                        "while loop inside redundant outer block");
+
+		// for loop with inner block that shadows loop variable
+		shadow_sum : int = 0;
+		for (i : 0..3) {
+			{
+				i2 : int = i * 2;
+				shadow_sum += i2;
+			}
+		}
+		test(shadow_sum == 6,                "inner block inside for loop uses loop var");
+
+		// Block around if/else
+		if_result : int = 0;
+		{
+			if (true) {
+				if_result = 1;
+			} else {
+				if_result = 2;
+			}
+		}
+		test(if_result == 1,                 "if/else inside redundant block");
+
+		/////////////////////////////////////
+		// Block at function boundary      //
+		/////////////////////////////////////
+
+		r : int = 0;
+		{
+			r = scopedHelper(5);
+		}
+		test(r == 10,                        "function call result captured outside block");
+
+		// Call result used inside block
+		{
+			inner_r : int = scopedHelper(7);
+			test(inner_r == 14,              "function call result used inside block");
+		}
+
+		/////////////////////////////////////
+		// Compound ops in blocks          //
+		/////////////////////////////////////
+
+		cpd : int = 10;
+		{
+			cpd += 5;
+		}
+		test(cpd == 15,                      "+= inside block visible outside");
+
+		{
+			cpd -= 3;
+		}
+		test(cpd == 12,                      "-= inside block visible outside");
+
+		{
+			cpd *= 2;
+		}
+		test(cpd == 24,                      "*= inside block visible outside");
+
+		{
+			cpd /= 4;
+		}
+		test(cpd == 6,                       "/= inside block visible outside");
+
+		/////////////////////////////////////
+		// Block with break/continue       //
+		/////////////////////////////////////
+
+		bc_sum : int = 0;
+		for (i : 0..10) {
+			{
+				if (i == 5) { break; }
+			}
+			bc_sum += i;
+		}
+		test(bc_sum == 10,                   "break inside nested block exits loop (0+1+2+3+4)");
+
+		cont_sum : int = 0;
+		for (i : 0..6) {
+			{
+				if (i % 2 == 0) { continue; }
+			}
+			cont_sum += i;
+		}
+		test(cont_sum == 9,                  "continue inside nested block skips evens (1+3+5)");
+	}
+
+	scopedHelper :: int(x : int) {
+		return x * 2;
+	}
+}

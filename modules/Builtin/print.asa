@@ -65,6 +65,7 @@ Print :: module {
 	// Arguments:
 	//     n: The integer to print.
 	@public:
+	@inline:
 	print :: (n : int64) {
 		print(string(n));
 		return;
@@ -76,6 +77,7 @@ Print :: module {
 	// Arguments:
 	//     n: The integer to print.
 	@public:
+	@inline:
 	printl :: (n : int64) {
 		printl(string(n));
 		return;
@@ -84,6 +86,7 @@ Print :: module {
 	// Function: print(float)
 	// Description: Prints a float to the terminal
 	@public:
+	@inline:
 	print :: (x : float) {
 		print(string(x));
 		return;
@@ -92,6 +95,7 @@ Print :: module {
 	// Function: printl(float)
 	// Description: Prints a float to the terminal with a newline
 	@public:
+	@inline:
 	printl :: (x : float) {
 		printl(string(x));
 		return;
@@ -100,6 +104,7 @@ Print :: module {
 	// Function: print(double)
 	// Description: Prints a double to the terminal
 	@public:
+	@inline:
 	print :: (x : double) {
 		print(string(x));
 		return;
@@ -108,15 +113,9 @@ Print :: module {
 	// Function: printl(double)
 	// Description: Prints a double to the terminal with a newline
 	@public:
+	@inline:
 	printl :: (x : double) {
 		printl(string(x));
 		return;
 	}
 }
-
-@public:
-main :: (){
-//tests
-}
-
-//#run init();

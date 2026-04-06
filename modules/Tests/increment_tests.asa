@@ -26,6 +26,11 @@ IncrementTests :: module {
 		i++;
 		test(i == 11, "i++ increments from 10 to 11");
 
+		i = 7;
+		postfixValue : int = i++;
+		test(postfixValue == 7, "postfix ++ expression returns original int value");
+		test(i == 8, "postfix ++ expression still increments int");
+
 		///////////////////////
 		// Postfix --        //
 		///////////////////////
@@ -40,6 +45,25 @@ IncrementTests :: module {
 		j = 0;
 		j--;
 		test(j == -1, "j-- decrements below zero");
+
+		j = 3;
+		postfixDecValue : int = j--;
+		test(postfixDecValue == 3, "postfix -- expression returns original int value");
+		test(j == 2, "postfix -- expression still decrements int");
+
+		///////////////////////
+		// Prefix ++/--      //
+		///////////////////////
+
+		p : int = 4;
+		prefixValue : int = ++p;
+		test(prefixValue == 5, "prefix ++ expression returns incremented int value");
+		test(p == 5, "prefix ++ expression stores incremented int value");
+
+		q : int = 4;
+		prefixDecValue : int = --q;
+		test(prefixDecValue == 3, "prefix -- expression returns decremented int value");
+		test(q == 3, "prefix -- expression stores decremented int value");
 
 		///////////////////////
 		// In a loop         //
@@ -65,7 +89,18 @@ IncrementTests :: module {
 		f++;
 		test(f == 2.0, "f++ increments float from 1.0 to 2.0");
 
+		f = 3.5;
+		postfixFloat : float = f++;
+		test(postfixFloat == 3.5, "postfix ++ expression returns original float value");
+		test(f == 4.5, "postfix ++ expression increments float");
+
+		f = 2.0;
 		f--;
 		test(f == 1.0, "f-- decrements float back to 1.0");
+
+		f = 3.5;
+		prefixFloat : float = ++f;
+		test(prefixFloat == 4.5, "prefix ++ expression returns incremented float value");
+		test(f == 4.5, "prefix ++ expression stores incremented float value");
 	}
 }

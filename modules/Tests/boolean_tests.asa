@@ -7,6 +7,19 @@ BooleanTests :: module {
 
 	#import Tests.Testing;
 
+	andEvalCount : int = 0;
+	orEvalCount  : int = 0;
+
+	markTrue :: bool() {
+		andEvalCount++;
+		return true;
+	}
+
+	markFalse :: bool() {
+		orEvalCount++;
+		return false;
+	}
+
 	// runBooleanTests()
 	// Runs all logical operator tests.
 
@@ -50,5 +63,18 @@ BooleanTests :: module {
 		// Operator precedence: && binds tighter than ||
 		test(false && false || true,  "false && false || true  (||  wins)");
 		test(true || false && false,  "true || false && false  (&&  first)");
+
+		// Short-circuit evaluation
+		andEvalCount = 0;
+		test(!(false && markTrue()), "false && rhs short-circuits");
+		test(andEvalCount == 0,      "false && rhs was not evaluated");
+		test(true && markTrue(),     "true && rhs still evaluates");
+		test(andEvalCount == 1,      "true && rhs evaluated once");
+
+		orEvalCount = 0;
+		test(true || markFalse(),     "true || rhs short-circuits");
+		test(orEvalCount == 0,        "true || rhs was not evaluated");
+		test(!(false || markFalse()), "false || rhs still evaluates");
+		test(orEvalCount == 1,        "false || rhs evaluated once");
 	}
 }

@@ -29,7 +29,7 @@ x :: 5;
 
 Of course, more interesting expressions are better. Let's put a lambda expression on the right side:
 ```asa
-x :: int(){ return 5 }
+x :: int(){ return 5; }
 ```
 Now this is a function.
 

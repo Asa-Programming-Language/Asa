@@ -14,14 +14,17 @@ gameObject :: struct{
 	velocity : Vector3;
 }
 
-drawPaddle :: (g : gameObject){
+@inline:
+drawPaddle :: (g : const ref gameObject){
 	DrawRectangle(g.position.x - g.scale.x * g.pivot.x, g.position.y - g.scale.y * g.pivot.y, g.scale.x, g.scale.y, WHITE);
 }
 
+@inline:
 drawBall ::(){
 	DrawCircle(ball.position.x, ball.position.y, ball.scale.x/2, WHITE);
 }
 
+@inline:
 drawNet :: (){
 	for(i : 0..SCREEN_H){
 		if(i/10 % 2 == 0){
@@ -32,7 +35,8 @@ drawNet :: (){
 	}
 }
 
-isColliding :: bool(a : gameObject, b : gameObject){
+@inline:
+isColliding :: bool(a : const ref gameObject, b : const ref gameObject){
 	return (abs(a.position.x - b.position.x) < a.scale.x/2 + b.scale.x/2 && abs(a.position.y - b.position.y) < a.scale.y/2 + b.scale.y/2);
 }
 
@@ -40,15 +44,15 @@ paddle_0 : gameObject = gameObject();
 paddle_1 : gameObject = gameObject();
 ball : gameObject = gameObject();
 
-score_0 = 0;
-score_1 = 0;
+score_0 : uint8 = 0;
+score_1 : uint8 = 0;
 
 moveSpeed : const float = 500;
 
-SCREEN_W : const int = 800;
-SCREEN_H : const int = 450;
+SCREEN_W : const uint16 = 800;
+SCREEN_H : const uint16 = 450;
 
-FONT_SCALE : const int = 90;
+FONT_SCALE : const uint16 = 90;
 
 main:: (){
 	InitWindow(SCREEN_W, SCREEN_H, "Asa Pong");
@@ -79,7 +83,7 @@ main:: (){
 }
 
 
-update :: (dT : float){
+update :: (dT : const float){
 
 	// Left paddle input
 	if(IsKeyDown(KEY_W) && paddle_0.position.y-paddle_0.scale.y*paddle_0.pivot.y > 0)

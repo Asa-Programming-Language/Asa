@@ -1,0 +1,152 @@
+
+// ResultTests
+// Tests for the `result` keyword: value-returning anonymous scope blocks.
+// A block of the form `{ ...; result <expr>; }` evaluates to the value
+// of <expr> and can be used anywhere an expression is expected.
+
+@public:
+ResultTests :: module {
+
+	#import Tests.Testing;
+	#import Builtin.Math;
+
+	@public:
+	runResultTests :: () {
+		beginSection("Result blocks");
+
+		/////////////////////////////////////
+		// Basic result: single statement  //
+		/////////////////////////////////////
+
+		a : int = { result 42; };
+		test(a == 42,                         "result: literal int");
+
+		b : float = { result 3.5; };
+		test(b == 3.5,                        "result: literal float");
+
+		c : bool = { result true; };
+		test(c,                               "result: literal bool");
+
+		/////////////////////////////////////
+		// Result with local variables     //
+		/////////////////////////////////////
+
+		d : int = {
+			y : int = 5;
+			result y;
+		};
+		test(d == 5,                          "result: local var");
+
+		e : int = {
+			x : int = 10;
+			y : int = 3;
+			result x + y;
+		};
+		test(e == 13,                         "result: expression of locals");
+
+		f : int = {
+			x : int = 6;
+			x = x * 2;
+			result x;
+		};
+		test(f == 12,                         "result: mutated local");
+
+		/////////////////////////////////////
+		// Result with control flow        //
+		/////////////////////////////////////
+
+		g : int = {
+			x : int = 10;
+			if (x > 5) {
+				result 1;
+			}
+			result 0;
+		};
+		test(g == 1,                          "result: from if branch");
+
+		h : int = {
+			x : int = 2;
+			if (x > 5) {
+				result 1;
+			}
+			result 0;
+		};
+		test(h == 0,                          "result: fallthrough when if not taken");
+
+		/////////////////////////////////////
+		// Result with loop accumulation   //
+		/////////////////////////////////////
+
+		sum_block : int = {
+			s : int = 0;
+			for (i : 0..5) {
+				s += i;
+			}
+			result s;
+		};
+		test(sum_block == 10,                 "result: loop accumulation (0+1+2+3+4)");
+
+		/////////////////////////////////////
+		// Result used in expressions      //
+		/////////////////////////////////////
+
+		two_x : int = { result 7; } * 2;
+		test(two_x == 14,                     "result block in arithmetic expression");
+
+		added : int = { result 3; } + { result 4; };
+		test(added == 7,                      "two result blocks added");
+
+		compared : bool = { result 5; } > { result 3; };
+		test(compared,                        "result blocks in comparison");
+
+		/////////////////////////////////////
+		// Result as function argument     //
+		/////////////////////////////////////
+
+		test({ result 1 == 1; },              "result block as test() bool arg");
+
+		abs_val : int = abs({ result -9; });
+		test(abs_val == 9,                    "result block as function argument");
+
+		/////////////////////////////////////
+		// Result with outer scope access  //
+		/////////////////////////////////////
+
+		outer : int = 100;
+		inner_read : int = {
+			result outer + 1;
+		};
+		test(inner_read == 101,               "result block reads outer variable");
+
+		// Block can mutate outer variable and then result from it
+		counter : int = 0;
+		final_count : int = {
+			counter += 1;
+			counter += 1;
+			counter += 1;
+			result counter;
+		};
+		test(final_count == 3,                "result block mutates outer and results it");
+		test(counter == 3,                    "outer var mutation from result block persists");
+
+		/////////////////////////////////////
+		// Nested result blocks            //
+		/////////////////////////////////////
+
+		outer_block : int = {
+			inner_val : int = {
+				result 21;
+			};
+			result inner_val * 2;
+		};
+		test(outer_block == 42,               "nested result blocks");
+
+		/////////////////////////////////////
+		// Result assigned then used       //
+		/////////////////////////////////////
+
+		p : int = { result 8; };
+		q : int = { result p * 2; };
+		test(q == 16,                         "result block uses previously assigned result block value");
+	}
+}

@@ -102,6 +102,7 @@ enum ASTNodeType {
 	Pointer_Node,
 
 	Return_Node,
+	Result_Node,
 	Continue_Node,
 	Break_Node,
 	Goto_Node,
@@ -225,6 +226,7 @@ const std::string ASTNodeTypeStrings[] = {
 	"Pointer_Node",
 
 	"Return_Node",
+	"Result_Node",
 	"Continue_Node",
 	"Break_Node",
 	"Goto_Node",
@@ -302,6 +304,7 @@ struct ASTNode {
 	bool isConst = false;
 	bool isExtern = false;
 	bool lvalue = false;
+	bool isPostfix = false;
 	std::string label = "";
 	std::string externSymbolName = "";	// when non-empty, the actual C symbol to link (overrides fnName for LLVM)
 	bool showInASTOutput = true;
@@ -309,6 +312,7 @@ struct ASTNode {
 	bool isModuleScope = false;		   // true for Compiler_Define nodes representing named modules
 	std::string enclosingModule = "";  // set on imported nodes to record source module name
 	bool currentNodeDoneGenerating = false;
+	bool isValueBlock = false;  // true for Scope_Body nodes that are value-returning { result ...; } expressions
 	//Type* llvmType;
 	//Type* baseType = nullptr;
 	ASAType* asaType = nullptr;
@@ -327,6 +331,7 @@ struct ASTNode {
 	void* generateConstant(int pass = 0);
 	void* generateVariableExpression(int pass = 0);
 	void* generateReturn(int pass = 0);
+	void* generateResult(int pass = 0);
 	void* generateBreak(int pass = 0);
 	void* generateContinue(int pass = 0);
 	void* generateExpression(int pass = 0);
@@ -437,7 +442,7 @@ extern ASTNode* rootNode;
 extern std::vector<ASTNode*> importedNodes;
 
 int beginParse(const std::vector<tokenPair*>& tokens);
-ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth = 0, ASTNode* parentNodePtr = nullptr);
+ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth = 0, ASTNode* parentNodePtr = nullptr, bool isScopeBody = false);
 void orderASTOperations(ASTNode* startNode);
 const std::string ASTNodeTypeAsString(ASTNodeType t);
 int printAST(ASTNode* startNode, int depth = 0);

@@ -224,6 +224,7 @@ bool GATHER_TO_SEMICOLON(const std::vector<tokenPair*>& tokens, std::vector<toke
 		return true;
 	}
 	i--;
+	int braceDepth = 0;
 	for (;;) {
 		if (i >= tokens.size() - 1) {
 			if (!allowRunOut) {
@@ -238,6 +239,9 @@ bool GATHER_TO_SEMICOLON(const std::vector<tokenPair*>& tokens, std::vector<toke
 			continue;
 
 		if (t->second == EndOfLine) {
+			// Inside a brace block the newline is always a continuation.
+			if (braceDepth > 0)
+				continue;
 			TokenType lastTok = subTokens.empty() ? Nothing : subTokens.back()->second;
 			TokenType nextTok = (i + 1 < (int)tokens.size()) ? tokens[i + 1]->second : Nothing;
 			if (subTokens.empty() || isLineContinuation(lastTok, nextTok))
@@ -249,7 +253,13 @@ bool GATHER_TO_SEMICOLON(const std::vector<tokenPair*>& tokens, std::vector<toke
 			return true;
 		}
 
-		if (t->second == Semi_Colon) {
+		if (t->second == Left_Brace)
+			braceDepth++;
+		if (t->second == Right_Brace)
+			braceDepth--;
+
+		// Only treat ';' as a terminator at the top brace level.
+		if (t->second == Semi_Colon && braceDepth == 0) {
 			if (includeLast)
 				subTokens.push_back(t);
 			break;
@@ -597,6 +607,7 @@ std::map<TokenType, ASTNodeType> operatorDefaultNodeType = {
 	{Ampersand_Ampersand, Logical_And},
 	{Bar_Bar, Logical_Or},
 	{Bang, Logical_Not},
+	{Bang_Bang, Logical_Not},
 };
 
 std::map<ASTNodeType, int> operatorPrecedence = {
@@ -656,7 +667,86 @@ std::vector<ASTNode*> importedNodes = std::vector<ASTNode*>();
 std::unordered_set<std::string> importedModuleNames = std::unordered_set<std::string>();
 std::unordered_set<std::string> importedFileNames = std::unordered_set<std::string>();
 
-ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* parentNodePtr)
+// Parses a type expression from a flat token list.
+// Used for the right-hand side of ':' declarations where '*' means pointer level,
+// not multiply, and const/ref/exact are always type modifiers regardless of order.
+// Returns the root of a right-nested modifier chain, e.g.:
+//   [*, ref, *, const, *, char] -> * { ref { * { const { * { char } } } } }
+static ASTNode* parseType(const std::vector<tokenPair*>& tokens, int depth)
+{
+	if (depth >= MAX_AST_DEPTH) {
+		printf("Error: Max AST Depth of %d Reached\n", MAX_AST_DEPTH);
+		exit(1);
+	}
+	if (tokens.empty())
+		return nullptr;
+
+	tokenPair* tok = tokens[0];
+	ASTNodeType nodeType = Nothing_Node;
+	bool isModifier = false;
+
+	switch (tok->second) {
+		case Const:
+			nodeType = Const_Keyword;
+			isModifier = true;
+			break;
+		case Ref:
+			nodeType = Reference_Operation;
+			isModifier = true;
+			break;
+		case Exact:
+			nodeType = Exact_Type_Node;
+			isModifier = true;
+			break;
+		case Star:
+			nodeType = Dereference_Operation;
+			isModifier = true;
+			break;
+		case Star_Star:
+			nodeType = Dereference_Operation;
+			isModifier = true;
+			break;
+		default:
+			break;
+	}
+
+	ASTNode* node = new ASTNode();
+	ASTNodes.push_back(node);
+	node->token = tok;
+	node->lineNumber = tok->lineNumber;
+
+	if (isModifier) {
+		node->nodeType = nodeType;
+		node->codegen = &ASTNode::generateUnaryExpression;
+
+		std::vector<tokenPair*> rest;
+		if (tok->second == Star_Star) {
+			// `**T` expands to two pointer levels. Both nodes must use "*" as their token
+			// value so that gatherTypeModifiers in codegen recognises each as a pointer level.
+			tokenPair* syntheticStar = new tokenPair("*", Star);
+			node->token = syntheticStar;
+			rest.push_back(syntheticStar);
+			rest.insert(rest.end(), tokens.begin() + 1, tokens.end());
+		}
+		else {
+			rest = std::vector<tokenPair*>(tokens.begin() + 1, tokens.end());
+		}
+
+		ASTNode* child = parseType(rest, depth + 1);
+		if (!child) {
+			printTokenError(tokenRange {tok, tok}, "Expected type after modifier");
+			exit(1);
+		}
+		node->childNodes.push_back(child);
+	}
+	else {
+		node->nodeType = Identifier_Node;
+		node->codegen = &ASTNode::generateVariableExpression;
+	}
+	return node;
+}
+
+ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* parentNodePtr, bool isScopeBody)
 {
 	if (depth == MAX_AST_DEPTH) {
 		printf("Error: Max AST Depth of %d Reached", MAX_AST_DEPTH);
@@ -723,7 +813,7 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 					subTokens.push_back(new tokenPair("}", Right_Brace));
 				}
 
-				bodyNode = generateAST(subTokens, depth + 1);
+				bodyNode = generateAST(subTokens, depth + 1, nullptr, true);
 				bodyNode->nodeType = Scope_Body;
 				bodyNode->codegen = &ASTNode::generateScopeBody;
 
@@ -785,7 +875,7 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 								subTokens.insert(subTokens.begin(), new tokenPair("{", Left_Brace));
 								subTokens.push_back(new tokenPair("}", Right_Brace));
 							}
-							ASTNode* elseNode = generateAST(subTokens, depth + 1);
+							ASTNode* elseNode = generateAST(subTokens, depth + 1, nullptr, true);
 							elseNode->nodeType = Else_Statement_Node;
 							elseNode->codegen = &ASTNode::generateScopeBody;
 							prevNode->childNodes[2] = elseNode;
@@ -837,7 +927,7 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 					subTokens.push_back(new tokenPair("}", Right_Brace));
 				}
 
-				bodyNode = generateAST(subTokens, depth + 1);
+				bodyNode = generateAST(subTokens, depth + 1, nullptr, true);
 				bodyNode->nodeType = Scope_Body;
 				bodyNode->codegen = &ASTNode::generateScopeBody;
 
@@ -908,7 +998,7 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 					subTokens.push_back(new tokenPair("}", Right_Brace));
 				}
 
-				bodyNode = generateAST(subTokens, depth + 1);
+				bodyNode = generateAST(subTokens, depth + 1, nullptr, true);
 				bodyNode->nodeType = Scope_Body;
 				bodyNode->codegen = &ASTNode::generateScopeBody;
 
@@ -930,7 +1020,7 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 				// Step through all tokens to gather body until braces are closed
 				GATHER_SCOPE_BODY(tokens, subTokens, 0, i, true);
 
-				bodyNode = generateAST(subTokens, depth + 1);
+				bodyNode = generateAST(subTokens, depth + 1, nullptr, true);
 				bodyNode->nodeType = Scope_Body;
 				bodyNode->codegen = &ASTNode::generateScopeBody;
 
@@ -1020,6 +1110,7 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 			case Bang_Equal:
 			case Equal_Equal:
 			case Bang:
+			case Bang_Bang:
 			case Less:
 			case Less_Equal:
 			case Greater:
@@ -1027,6 +1118,7 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 			case Plus:
 			case Minus:
 			case Star:
+			case Star_Star:
 			case Slash:
 			case Ref:
 			case Const:
@@ -1117,7 +1209,7 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 
 				if (isUnaryR && tokenType == Ampersand)
 					node->nodeType = Address_Of_Operation;
-				else if (isUnaryR && tokenType == Star)
+				else if (isUnaryR && (tokenType == Star || tokenType == Star_Star))
 					node->nodeType = Dereference_Operation;
 
 				// Step through all following tokens until parens are closed
@@ -1156,9 +1248,11 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 						// For unary operators: stop at binary infix operators once we have a primary operand.
 						// This prevents `-5 == -5` from parsing as `-(5 == -5)`.
 						// Stopping only after the first token allows `- -5` and `-*ptr` to work correctly.
+						bool isTypeModifier = (node->nodeType == Const_Keyword || node->nodeType == Reference_Operation || node->nodeType == Exact_Type_Node);
 						if (isUnaryR && !subTokens.empty() &&
 							parenLevel == 1 && braceLevel == 1 && bracketLevel == 1 &&
-							(t->second == Plus || t->second == Minus || t->second == Star ||
+							((!isTypeModifier && t->second == Star) ||
+								t->second == Plus || t->second == Minus ||
 								t->second == Slash || t->second == Percent ||
 								t->second == Equal_Equal || t->second == Bang_Equal ||
 								t->second == Less || t->second == Greater ||
@@ -1170,6 +1264,11 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 							break;
 						}
 						if (t->second == EndOfLine || t->second == Semi_Colon) {
+							if (braceLevel > 1) {
+								// Inside a { block } — keep token and continue collecting
+								subTokens.push_back(t);
+								continue;
+							}
 							if (t->second == EndOfLine) {
 								TokenType lastTok = subTokens.empty() ? Nothing : subTokens.back()->second;
 								TokenType nextTok = (i + 1 < (int)tokens.size()) ? tokens[i + 1]->second : Nothing;
@@ -1233,13 +1332,25 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 					}
 				}
 				else {
-					ASTNode* secondAST = generateAST(subTokens, depth + 1);
-					if (secondAST->childNodes.size() > 0)
-						secondTerm = secondAST->childNodes[0];
+					// For ':' (type annotation), use the dedicated type parser so that
+					// modifier combinations like `const exact ref *int` or `* ref * const *char`
+					// are handled correctly regardless of ordering and pointer depth.
+					if (tokenType == Colon) {
+						secondTerm = parseType(subTokens, depth + 1);
+						if (!secondTerm) {
+							printTokenError(tokenRange {subTokens[0], subTokens[0]}, "Expected type after ':'");
+							exit(1);
+						}
+					}
 					else {
-						printTokenError(tokenRange {subTokens[0], subTokens[0]}, "Unexpected expression");
-						printAST(secondAST);
-						exit(1);
+						ASTNode* secondAST = generateAST(subTokens, depth + 1);
+						if (secondAST->childNodes.size() > 0)
+							secondTerm = secondAST->childNodes[0];
+						else {
+							printTokenError(tokenRange {subTokens[0], subTokens[0]}, "Unexpected expression");
+							printAST(secondAST);
+							exit(1);
+						}
 					}
 				}
 				//secondTerm->nodeType = Expression_Term;
@@ -1249,6 +1360,17 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 						node->childNodes.push_back(firstTerm);
 					if (!isUnaryL)
 						node->childNodes.push_back(secondTerm);
+				}
+				// ** and !! as double operators: wrap the inner op in an outer one of the same kind
+				if ((tokenType == Star_Star || tokenType == Bang_Bang) && isUnaryR) {
+					ASTNode* outerOp = new ASTNode();
+					ASTNodes.push_back(outerOp);
+					outerOp->token = token;
+					outerOp->lineNumber = node->lineNumber;
+					outerOp->nodeType = node->nodeType;
+					outerOp->codegen = node->codegen;
+					outerOp->childNodes.push_back(node);
+					node = outerOp;
 				}
 				if (isLeaf)
 					goto addNodeAsLeaf;
@@ -1262,14 +1384,61 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 
 				if (parentNode->leafNodes.size() > 0) {
 					// Postfix: x++ / x--
+					node->isPostfix = true;
 					ASTNode* operand = parentNode->leafNodes.back();
 					parentNode->leafNodes.pop_back();
 					node->childNodes.push_back(operand);
 				}
 				else {
 					// Prefix: ++x / --x
+					node->isPostfix = false;
+					int parenLevel = 1;
+					int braceLevel = 1;
+					int bracketLevel = 1;
 					std::vector<tokenPair*> subTokens;
-					GATHER_TO_SEMICOLON(tokens, subTokens, i, false);
+					for (;;) {
+						if (i >= (int)tokens.size() - 1)
+							break;
+						tokenPair* t = NEXT_TOKEN(tokens, i);
+
+						if (t->second == Left_Paren)
+							parenLevel++;
+						if (t->second == Right_Paren)
+							parenLevel--;
+						if (t->second == Left_Brace)
+							braceLevel++;
+						if (t->second == Right_Brace)
+							braceLevel--;
+						if (t->second == Left_Bracket)
+							bracketLevel++;
+						if (t->second == Right_Bracket)
+							bracketLevel--;
+
+						if (!subTokens.empty() &&
+							parenLevel == 1 && braceLevel == 1 && bracketLevel == 1 &&
+							(t->second == Plus || t->second == Minus || t->second == Star ||
+								t->second == Slash || t->second == Percent ||
+								t->second == Equal_Equal || t->second == Bang_Equal ||
+								t->second == Less || t->second == Greater ||
+								t->second == Less_Equal || t->second == Greater_Equal ||
+								t->second == Ampersand_Ampersand || t->second == Bar_Bar ||
+								t->second == Ampersand || t->second == Bar || t->second == Caret ||
+								t->second == Comma || t->second == Dot_Dot || t->second == Arrow_Right)) {
+							i--;
+							break;
+						}
+						if (t->second == EndOfLine || t->second == Semi_Colon) {
+							if (t->second == EndOfLine) {
+								TokenType lastTok = subTokens.empty() ? Nothing : subTokens.back()->second;
+								TokenType nextTok = (i + 1 < (int)tokens.size()) ? tokens[i + 1]->second : Nothing;
+								if (isLineContinuation(lastTok, nextTok))
+									continue;
+							}
+							break;
+						}
+
+						subTokens.push_back(t);
+					}
 					ASTNode* operand = generateAST(subTokens, depth + 1);
 					if (!operand || operand->childNodes.empty()) {
 						printTokenError(tokenRange {token, token}, "Operator expected argument");
@@ -1412,7 +1581,7 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 					}
 				}
 
-				bodyNode = generateAST(subTokens, depth + 1);
+				bodyNode = generateAST(subTokens, depth + 1, nullptr, true);
 				bodyNode->nodeType = Scope_Body;
 				bodyNode->codegen = &ASTNode::generateScopeBody;
 
@@ -1570,7 +1739,7 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 					//GATHER_SCOPE_BODY_APPEND(tokens, subTokens, 0, i, true);
 					GATHER_SCOPE_BODY_APPEND(tokens, subTokens, 0, i, isCompileTimeDefinableKeyword);
 
-					bodyNode = generateAST(subTokens, depth + 1);
+					bodyNode = generateAST(subTokens, depth + 1, nullptr, true);
 					bodyNode->nodeType = Scope_Body;
 					bodyNode->codegen = &ASTNode::generateScopeBody;
 
@@ -1749,7 +1918,7 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 					bool endedEarly = GATHER_SCOPE_BODY(tokens, subTokens, 0, i, true);
 
 					if (!endedEarly) {
-						bodyNode = generateAST(subTokens, depth + 1);
+						bodyNode = generateAST(subTokens, depth + 1, nullptr, true);
 						bodyNode->nodeType = Scope_Body;
 						bodyNode->codegen = &ASTNode::generateScopeBody;
 					}
@@ -1825,6 +1994,7 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 				// Collect all comma-separated terms
 				// Step through all following tokens until last paren
 				int parenLevel = 1;
+				int braceDepth = 0;	 // track { } so semicolons inside blocks don't terminate
 				std::vector<tokenPair*> subTokens = std::vector<tokenPair*>();
 				for (;;) {
 					if (i >= tokens.size() - 1)
@@ -1835,10 +2005,14 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 						parenLevel++;
 					if (t->second == Right_Paren)
 						parenLevel--;
+					if (t->second == Left_Brace)
+						braceDepth++;
+					if (t->second == Right_Brace)
+						braceDepth--;
 
 					if (parenLevel == 0)
 						break;
-					if (t->second == EndOfLine || t->second == Semi_Colon) {
+					if (braceDepth == 0 && (t->second == EndOfLine || t->second == Semi_Colon)) {
 						if (t->second == EndOfLine) {
 							// Between arguments (subTokens cleared after comma separator): always skip EOL
 							if (subTokens.empty())
@@ -1847,12 +2021,18 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 							TokenType nextTok = (i + 1 < (int)tokens.size()) ? tokens[i + 1]->second : Nothing;
 							if (isLineContinuation(lastTok, nextTok))
 								continue;
+							// Peek past any trailing EOL/Nothing tokens: if ')' closes this call, skip EOL
+							int peek = i + 1;
+							while (peek < (int)tokens.size() && (tokens[peek]->second == EndOfLine || tokens[peek]->second == Nothing))
+								peek++;
+							if (peek < (int)tokens.size() && tokens[peek]->second == Right_Paren)
+								continue;
 						}
 						isLeaf = false;
 						break;
 					}
-					// If comma and parenLevel is in same scope
-					if ((t->second == Comma && parenLevel == 1)) {
+					// If comma and parenLevel is in same scope (not inside a nested brace block)
+					if (t->second == Comma && parenLevel == 1 && braceDepth == 0) {
 						ASTNode* newNode = new ASTNode();
 						generateAST(subTokens, depth + 1, newNode);
 						newNode->nodeType = Expression_Term;
@@ -2002,6 +2182,10 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 				node->nodeType = Return_Node;
 				node->codegen = &ASTNode::generateReturn;
 				goto getStatementArgument;
+			case Result_Statement:
+				node->nodeType = Result_Node;
+				node->codegen = &ASTNode::generateResult;
+				goto getStatementArgument;
 			case Break_Statement:
 				node->nodeType = Break_Node;
 				node->codegen = &ASTNode::generateBreak;
@@ -2063,6 +2247,24 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 				node = generateAST(subTokens, depth + 1);
 				node->nodeType = Scope_Body;
 				node->codegen = &ASTNode::generateScopeBody;
+
+				// If this block contains a `result` statement it produces a value and
+				// must be treated as an expression leaf so binary operators (*, +, etc.)
+				// can use it as their left operand.
+				{
+					bool isValueBlock = false;
+					for (auto& c : node->childNodes) {
+						if (c->nodeType == Result_Node) {
+							isValueBlock = true;
+							break;
+						}
+					}
+					if (isValueBlock && !isScopeBody) {
+						node->isValueBlock = true;
+						i--;  // undo explicit i++ so for-loop's i++ lands on the next token
+						goto addNodeAsLeaf;
+					}
+				}
 				break;
 			}
 
@@ -2073,9 +2275,9 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 			}
 
 			default: {
-				if (verbosity >= 4)
-					printTokenWarning(tokenRange {token, token}, "Undefined node, token type: \"" + tokenAsString(tokenType) + "\"");
-				goto dontAddNodeForce;
+				printTokenError(tokenRange {token, token}, "No parser handling for token type: \"" + tokenAsString(tokenType) + "\"");
+				wasError = true;
+				return nullptr;
 			}
 		}
 
@@ -2090,9 +2292,19 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 			}
 			pendingCommentText.clear();
 		}
-		for (auto& a : pendingAttributes)
-			node->attributes.push_back(a);
-		pendingAttributes.clear();
+		// When attributes are applied to a standalone scope body, distribute them
+		// to each child rather than keeping them on the scope body itself.
+		if (node->nodeType == Scope_Body && !pendingAttributes.empty()) {
+			for (auto* child : node->childNodes) {
+				for (auto* a : pendingAttributes)
+					child->attributes.push_back(a);
+			}
+			pendingAttributes.clear();
+		} else {
+			for (auto& a : pendingAttributes)
+				node->attributes.push_back(a);
+			pendingAttributes.clear();
+		}
 		parentNode->childNodes.push_back(node);
 		continue;
 
@@ -2231,7 +2443,7 @@ void unifyNodes(ASTNode*& node)
 	if (node->parentNode != nullptr) {
 		// If the parent only has one child (this) and is the same type, make them the same
 		ASTNode* oldP = node->parentNode;
-		if (oldP->childNodes.size() == 1 && node->nodeType == oldP->nodeType) {
+		if (oldP->childNodes.size() == 1 && node->nodeType == oldP->nodeType && node->codegen != &ASTNode::generateUnaryExpression) {
 			ASTNode* p = node->parentNode->parentNode;
 			node->parentNode = p;
 			// Set oldP in new parents childnodes to this
@@ -3184,6 +3396,18 @@ void generateOutputCode(ASTNode*& node, int depth, int pass)
 				console::WriteLine(": generating scope body");
 			}
 			for (auto& c : node->childNodes) {
+				// Variable declarations inside a root-level Scope_Body (e.g. @public: { X : T = v; })
+				// must be stored in the Scope_Body node itself so that findNamedValue can find them
+				// via the depth-0 direct-child scan (the Scope_Body IS a direct child of rootNode,
+				// but the Expression_Statement grandchildren are not).
+				if (pass == 1 && c->nodeType == Expression_Statement) {
+					declareModuleScopeVariable(c, node, false);
+					continue;
+				}
+				if (pass == 1 && c->nodeType == Colon_Separator_Node) {
+					declareModuleScopeVariableFromColon(c, node);
+					continue;
+				}
 				generateOutputCode(c, depth + 1, pass);
 				if (wasError)
 					goto errorDuringCodegen;
