@@ -24,15 +24,15 @@ File :: module {
 	#import Builtin.Casts;
 
 	// C standard file I/O - FILE* is represented as *char (opaque pointer)
-	#extern fopen as _fopen_c_extern    :: *char(path : *char, mode : *char);
+	#extern fopen  as _fopen_c_extern   :: *char(path : *char, mode : *char);
 	#extern fclose as _fclose_c_extern  :: int(handle : *char);
-	#extern fread as _fread_c_extern    :: uint64(buf : *char, size : uint64, count : uint64, handle : *char);
+	#extern fread  as _fread_c_extern   :: uint64(buf : *char, size : uint64, count : uint64, handle : *char);
 	#extern fwrite as _fwrite_c_extern  :: uint64(buf : *char, size : uint64, count : uint64, handle : *char);
-	#extern fgets as _fgets_c_extern    :: *char(buf : *char, n : int, handle : *char);
-	#extern fseek as _fseek_c_extern    :: int(handle : *char, offset : int64, whence : int);
-	#extern ftell as _ftell_c_extern    :: int64(handle : *char);
+	#extern fgets  as _fgets_c_extern   :: *char(buf : *char, n : int, handle : *char);
+	#extern fseek  as _fseek_c_extern   :: int(handle : *char, offset : int64, whence : int);
+	#extern ftell  as _ftell_c_extern   :: int64(handle : *char);
 	#extern rewind as _rewind_c_extern  :: (handle : *char);
-	#extern feof as _feof_c_extern      :: int(handle : *char);
+	#extern feof   as _feof_c_extern    :: int(handle : *char);
 	#extern unlink as _unlink_c_extern  :: int(path : *char);
 
 	// Struct: File
@@ -125,7 +125,7 @@ File :: module {
 	@public:
 	deleteFile :: bool(path : string) {
 		r : int = _unlink_c_extern(path.address);
-		if (r == 0) { return true; }
+		if (r == 0) return true;
 		return false;
 	}
 }

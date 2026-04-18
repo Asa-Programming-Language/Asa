@@ -137,6 +137,9 @@ enum ASTNodeType {
 	Standalone_Attribute_Node,
 	Comment_Node,
 
+	Variants_Node,
+	Variant_Param_Node,
+
 	Fully_Defined,
 
 	// Nothing below this
@@ -261,6 +264,9 @@ const std::string ASTNodeTypeStrings[] = {
 	"Standalone_Attribute_Node",
 	"Comment_Node",
 
+	"Variants_Node",
+	"Variant_Param_Node",
+
 	"Fully_Defined",
 };
 
@@ -312,7 +318,7 @@ struct ASTNode {
 	bool isModuleScope = false;		   // true for Compiler_Define nodes representing named modules
 	std::string enclosingModule = "";  // set on imported nodes to record source module name
 	bool currentNodeDoneGenerating = false;
-	bool isValueBlock = false;  // true for Scope_Body nodes that are value-returning { result ...; } expressions
+	bool isValueBlock = false;	// true for Scope_Body nodes that are value-returning { result ...; } expressions
 	//Type* llvmType;
 	//Type* baseType = nullptr;
 	ASAType* asaType = nullptr;

@@ -9,7 +9,7 @@ String :: module{
 	#import Builtin.Memory;
 	#import Builtin.Casts;
 
-	#extern snprintf :: int32(buf : *char, size : uint64, fmt : *char, ...);
+	#extern snprintf as _snprintf_c_extern :: int32(buf : *char, size : uint64, fmt : *char, ...);
 
 	#define IN_STRING_MODULE true;
 
@@ -25,8 +25,8 @@ String :: module{
 	@version(1):
 	string :: struct {
 
-		@unsafe:
-		address : *char;
+		@unsafe: address : *char;
+
 		length : uint32 = 0;
 
 		// Function: size()
@@ -35,6 +35,111 @@ String :: module{
 		@inline:
 		size :: uint32() {
 			return this.length;
+		}
+
+		// Function: substr(start, len)
+		// Description: Returns a new string of `len` characters starting at `start`.
+		//              Clamps start and len to valid bounds.
+		//
+		// Arguments:
+		//     start: Starting offset (clamped to [0, length))
+		//     len:   Number of characters (clamped so start+len <= length)
+		//
+		// Returns: A new string
+		@public:
+		substr :: string(start : int, len : int) {
+			res : string = string();
+			strLen : int = int(this.length);
+			if (start < 0) { start = 0; }
+			if (start > strLen) { start = strLen; }
+			if (len < 0) { len = 0; }
+			if (start + len > strLen) { len = strLen - start; }
+			res.address = malloc(len * 2 + 1);
+			res.length = uint32(len);
+			for (i in 0..len) {
+				res.address[i] = this.address[start + i];
+			}
+			res.address[len] = char(0);
+			return res;
+		}
+
+		// Function: isEmpty()
+		// Returns: true if the string has zero characters
+		@public:
+		@inline:
+		isEmpty :: bool() {
+			return this.length == 0;
+		}
+
+		// Function: contains(sub)
+		// Returns: true if sub appears anywhere in this string
+		@public:
+		@inline:
+		contains :: bool(sub : string) {
+			res : *char = strstr(this.address, sub.address);
+			return int64(res) != 0;
+		}
+
+		// Function: indexOf(sub)
+		// Returns: Index of the first occurrence of sub, or -1 if not found
+		@public:
+		indexOf :: int(sub : string) {
+			res : *char = strstr(this.address, sub.address);
+			resAddr : int64 = int64(res);
+			if (resAddr == 0) { return -1; }
+			startAddr : int64 = int64(this.address);
+			return int(resAddr - startAddr);
+		}
+
+		// Function: startsWith(prefix)
+		// Returns: true if this string begins with prefix
+		@public:
+		startsWith :: bool(prefix : string) {
+			prefLen : int = int(prefix.length);
+			if (prefLen > int(this.length)) { return false; }
+			for (i in 0..prefLen) {
+				if (this.address[i] != prefix.address[i]) { return false; }
+			}
+			return true;
+		}
+
+		// Function: endsWith(suffix)
+		// Returns: true if this string ends with suffix
+		@public:
+		endsWith :: bool(suffix : string) {
+			sufLen : int = int(suffix.length);
+			strLen : int = int(this.length);
+			if (sufLen > strLen) { return false; }
+			offset : int = strLen - sufLen;
+			for (i in 0..sufLen) {
+				if (this.address[offset + i] != suffix.address[i]) { return false; }
+			}
+			return true;
+		}
+
+		// Function: repeat(n)
+		// Returns: This string concatenated with itself n times. Empty string if n <= 0.
+		@public:
+		repeat :: string(n : int) {
+			res : string = string();
+			thisLen : int = int(this.length);
+			if (n <= 0 || thisLen == 0) {
+				res.address = malloc(1);
+				res.address[0] = char(0);
+				res.length = uint32(0);
+				return res;
+			}
+			totalLen : int = thisLen * n;
+			res.address = malloc(totalLen * 2 + 1);
+			res.length = uint32(totalLen);
+			for (i in 0..n) {
+				offset : int = i * thisLen;
+				for (j in 0..thisLen) {
+					res.address[offset + j] = this.address[j];
+				}
+			}
+			res.address[totalLen] = char(0);
+			return res;
 		}
 	}
 
@@ -50,7 +155,7 @@ String :: module{
 		s : string = string();
 
 		len : uint32 = 0;
-		for(i : 0..65535){
+		for(i in 0..65535){
 			if(c[i] == 0){
 				len = i;
 				break;
@@ -58,7 +163,7 @@ String :: module{
 		}
 		s.address = malloc(len*2 + 1);
 		s.length = len;
-		for(i : 0..(len)){
+		for(i in 0..(len)){
 			s.address[i] = c[i];
 		}
 		s.address[len] = char(0);
@@ -80,10 +185,10 @@ String :: module{
 		len : const uint32 = thisStr.length + otherStr.length;
 		newStr.address = malloc(len*2 + 1);
 		newStr.length = len;
-		for(i : 0..thisStr.length){
+		for(i in 0..thisStr.length){
 			newStr.address[i] = thisStr[i];
 		}
-		for(i : 0..otherStr.length){
+		for(i in 0..otherStr.length){
 			newStr.address[i + thisStr.length] = otherStr[i];
 		}
 		newStr.address[len] = 0;
@@ -105,7 +210,7 @@ String :: module{
 		len : const uint32 = thisStr.length + 1;
 		newStr.address = malloc(len*2 + 1);
 		newStr.length = len;
-		for(i : 0..thisStr.length){
+		for(i in 0..thisStr.length){
 			newStr.address[i] = thisStr[i];
 		}
 		newStr.address[thisStr.length] = ch;
@@ -198,13 +303,13 @@ String :: module{
 		lenA : uint32 = 0;
 		lenB : uint32 = 0;
 		len : uint32 = 0;
-		for(i : 0..65535){
+		for(i in 0..65535){
 			if(thisStr[i] == 0){
 				lenA = i-1;
 				break;
 			}
 		}
-		for(i : 0..65535){
+		for(i in 0..65535){
 			if(otherStr[i] == 0){
 				lenB = i;
 				break;
@@ -213,10 +318,10 @@ String :: module{
 		len : uint32 = lenA + lenB;
 
 		newStr = malloc(len*2);
-		for(i : 0..lenA){
+		for(i in 0..lenA){
 			newStr[i] = thisStr[i];
 		}
-		for(i : 0..lenB){
+		for(i in 0..lenB){
 			newStr[i] = otherStr[i];
 		}
 		return newStr;
@@ -278,7 +383,7 @@ String :: module{
 	@inline:
 	cast :: string(x : const double) {
 		buf : *char = malloc(32);
-		snprintf(buf, 32, "%g", x);
+		_snprintf_c_extern(buf, 32, "%g", x);
 		return string(buf);
 	}
 
@@ -343,7 +448,7 @@ String :: module{
 	padRight :: string(s : const exact string, ch : const exact char, targetLen : const int) {
 		res : string = s;
 		len : int = int(s.length);
-		for (i : len..targetLen) {
+		for (i in len..targetLen) {
 			res = res + ch;
 		}
 		return res;
@@ -356,7 +461,7 @@ String :: module{
 	padLeft :: string(s : const exact string, ch : const exact char, targetLen : const int) {
 		prefix : string = string();
 		len : int = int(s.length);
-		for (i : len..targetLen) {
+		for (i in len..targetLen) {
 			prefix = prefix + ch;
 		}
 		return prefix + s;
@@ -368,7 +473,7 @@ String :: module{
 	@public:
 	basename :: string(s : const exact string) {
 		lastSlash : int = -1;
-		for (i : 0..int(s.length)) {
+		for (i in 0..int(s.length)) {
 			if (s[i] == '/') {
 				lastSlash = i;
 			}
@@ -378,7 +483,7 @@ String :: module{
 		}
 		res : string = string();
 		start : int = lastSlash + 1;
-		for (i : start..int(s.length)) {
+		for (i in start..int(s.length)) {
 			res = res + s[i];
 		}
 		return res;

@@ -60,6 +60,7 @@ enum TokenType {
 	Percent_Percent,
 	At,
 	At_At,
+	Dollar,
 	Arrow_Left,
 	Arrow_Right,
 
@@ -86,6 +87,7 @@ enum TokenType {
 	If_Statement,
 	For_Statement,
 	While_Statement,
+	In_Keyword,
 
 	Return_Statement,
 	Result_Statement,
@@ -160,6 +162,7 @@ const std::string tokenTypeStrings[] = {
 	"Percent_Percent",
 	"At",
 	"At_At",
+	"Dollar",
 	"Arrow_Left",
 	"Arrow_Right",
 
@@ -186,6 +189,7 @@ const std::string tokenTypeStrings[] = {
 	"If_Statement",
 	"For_Statement",
 	"While_Statement",
+	"In_Keyword",
 
 	"Return_Statement",
 	"Result_Statement",

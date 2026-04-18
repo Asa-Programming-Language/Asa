@@ -1,8 +1,3 @@
-#import Basic.Print;
-
-#import Builtin.Casts;
-#import Builtin.Memory;
-#import Builtin.Strings;
 
 
 @inline:
@@ -48,7 +43,7 @@ main :: (){
 	s2.length = 291;
 	printint(s2.length);
 	puts("after malloc");
-	for(j : 0..5){
+	for(j in 0..5){
 		puts("before set");
 		s2.address[j] = 'A';
 	}

@@ -221,7 +221,7 @@ PointerTests :: module {
 		gridH : const int = 3;
 		gridSize : int = gridH * gridW;
 		grid : * *GridCell = malloc(gridSize * #sizeof(*GridCell));
-		for (i : 0..gridSize)
+		for (i in 0..gridSize)
 			grid[i] = void;
 
 		// Verify all slots start void

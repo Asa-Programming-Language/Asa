@@ -3009,7 +3009,7 @@ void* ASTNode::generatePipePlaceholder(int pass)
 		return pipeOperationValue.top();
 	}
 
-	return messageSystem::error("Pipe operation placeholder '%' can only be used after a pipe operation");
+	return messageSystem::error("Pipe operation placeholder '$' can only be used after a pipe operation");
 }
 
 // Get the type string for one operand of a binary expression.
@@ -3387,7 +3387,19 @@ void* ASTNode::generateMemberAccess(int pass)
 	// Evaluate base pointer
 	Value* basePtr = L;
 	if (!basePtr || !basePtr->getType()->isPointerTy()) {
-		return messageSystem::error("Base must be a pointer for access");
+		// A member function returning a struct by value gives us a raw struct Value, not a pointer.
+		// Store it into a temporary alloca so we have an addressable pointer for GEP/member calls.
+		if (basePtr && basePtr->getType()->isStructTy()) {
+			StructType* sty = cast<StructType>(basePtr->getType());
+			AllocaInst* tmp = CreateEntryBlockAlloca(Builder->GetInsertBlock()->getParent(), sty, "struct_tmp");
+			Builder->CreateStore(basePtr, tmp);
+			basePtr = tmp;
+			// Push the LLVM struct type so the else branch below can look up the struct definition.
+			lastRetrievedElementType.push(new ASAType(sty, false, false, "", 0));
+		}
+		else {
+			return messageSystem::error("Base must be a pointer for access");
+		}
 	}
 
 	if (childNodes[0]->nodeType == Identifier_Node) {
@@ -3587,9 +3599,36 @@ void* ASTNode::generateMemberAccess(int pass)
 			// Add rest of argument values
 			for (int i = 0; i < args.size(); i++) {
 				if (CalleeFID->userArguments[i].isReference) {
+					const argType& fa = CalleeFID->userArguments[i];
 					if (args[i]->childNodes.size() != 1 || args[i]->childNodes[0]->nodeType != Identifier_Node) {
-						messageSystem::startBlock(args[i], "Generating reference argument", __func__, __LINE__, __FILE__);
-						return messageSystem::error("Cannot pass value as reference");
+						if (!fa.isConstant) {
+							messageSystem::startBlock(args[i], "Generating reference argument", __func__, __LINE__, __FILE__);
+							return messageSystem::error("Cannot pass value as reference");
+						}
+						// const ref: auto-materialize the rvalue into a temporary alloca
+						messageSystem::startBlock(args[i], "Generating const ref argument (auto-materialize)", __func__, __LINE__, __FILE__);
+						Value* tmpVal = (Value*)(args[i]->*(args[i]->codegen))(pass);
+						if (wasError) {
+							messageSystem::endBlock();
+							return nullptr;
+						}
+						if (!tmpVal) {
+							messageSystem::endBlock();
+							return nullptr;
+						}
+						bool wasDef = true;
+						Type* formalType = getLLVMTypeFromString(fa.typeString, fa.pointerLevel, token, wasDef, pass);
+						if (!formalType) {
+							return messageSystem::error("Cannot determine type for const ref materialization: " + fa.typeString);
+						}
+						AllocaInst* tmpAlloc = CreateEntryBlockAlloca(Builder->GetInsertBlock()->getParent(), formalType, "constref_tmp");
+						Builder->CreateStore(tmpVal, tmpAlloc);
+						messageSystem::endBlock();
+						ArgsV.push_back(tmpAlloc);
+						if (!ArgsV.back()) {
+							return nullptr;
+						}
+						continue;
 					}
 					// Check that the argument type matches the ref parameter type
 					{
@@ -3597,7 +3636,6 @@ void* ASTNode::generateMemberAccess(int pass)
 						valueType* argVar = findNamedValue(parentNode, this, identNode->token->first, token);
 						if (argVar) {
 							Type* actualType = getValueStoredType(argVar->val);
-							const argType& fa = CalleeFID->userArguments[i];
 							bool wasDef = true;
 							Type* formalType = getLLVMTypeFromString(fa.typeString, 0, token, wasDef, pass);
 							if (formalType && actualType && !actualType->isPointerTy() && !formalType->isPointerTy() && actualType != formalType) {
@@ -3823,9 +3861,36 @@ void* ASTNode::generateMemberAccess(int pass)
 			// Add rest of argument values
 			for (int i = 0; i < args.size(); i++) {
 				if (CalleeFID->userArguments[i].isReference) {
+					const argType& fa = CalleeFID->userArguments[i];
 					if (args[i]->childNodes.size() != 1 || args[i]->childNodes[0]->nodeType != Identifier_Node) {
-						messageSystem::startBlock(args[i], "Generating reference argument", __func__, __LINE__, __FILE__);
-						return messageSystem::error("Cannot pass value as reference");
+						if (!fa.isConstant) {
+							messageSystem::startBlock(args[i], "Generating reference argument", __func__, __LINE__, __FILE__);
+							return messageSystem::error("Cannot pass value as reference");
+						}
+						// const ref: auto-materialize the rvalue into a temporary alloca
+						messageSystem::startBlock(args[i], "Generating const ref argument (auto-materialize)", __func__, __LINE__, __FILE__);
+						Value* tmpVal = (Value*)(args[i]->*(args[i]->codegen))(pass);
+						if (wasError) {
+							messageSystem::endBlock();
+							return nullptr;
+						}
+						if (!tmpVal) {
+							messageSystem::endBlock();
+							return nullptr;
+						}
+						bool wasDef = true;
+						Type* formalType = getLLVMTypeFromString(fa.typeString, fa.pointerLevel, token, wasDef, pass);
+						if (!formalType) {
+							return messageSystem::error("Cannot determine type for const ref materialization: " + fa.typeString);
+						}
+						AllocaInst* tmpAlloc = CreateEntryBlockAlloca(Builder->GetInsertBlock()->getParent(), formalType, "constref_tmp");
+						Builder->CreateStore(tmpVal, tmpAlloc);
+						messageSystem::endBlock();
+						ArgsV.push_back(tmpAlloc);
+						if (!ArgsV.back()) {
+							return nullptr;
+						}
+						continue;
 					}
 					// Check that the argument type matches the ref parameter type
 					{
@@ -3833,7 +3898,6 @@ void* ASTNode::generateMemberAccess(int pass)
 						valueType* argVar = findNamedValue(parentNode, this, identNode->token->first, token);
 						if (argVar) {
 							Type* actualType = getValueStoredType(argVar->val);
-							const argType& fa = CalleeFID->userArguments[i];
 							bool wasDef = true;
 							Type* formalType = getLLVMTypeFromString(fa.typeString, 0, token, wasDef, pass);
 							if (formalType && actualType && !actualType->isPointerTy() && !formalType->isPointerTy() && actualType != formalType) {
@@ -4358,29 +4422,48 @@ void* ASTNode::generateCallExpression(int pass)
 		Value* argVal = nullptr;
 		if (isRef) {
 			messageSystem::startBlock(args[i], "Generating reference argument", __func__, __LINE__, __FILE__);
+			const argType& fa = CalleeFID->arguments[formalArgIdx];
 
 			if (args[i]->childNodes.size() != 1 || args[i]->childNodes[0]->nodeType != Identifier_Node) {
-				return messageSystem::error("Cannot pass value as reference");
-			}
-			// Passing a value that requires an implicit cast to a ref parameter is not allowed:
-			// the cast would produce a temporary, and a reference to a temporary is meaningless.
-			{
-				Value* actualVal = cachedArgVals[i];
-				const argType& fa = CalleeFID->arguments[formalArgIdx];
-				bool wasDef = true;
-				Type* formalType = getLLVMTypeFromString(fa.typeString, 0, token, wasDef, pass);
-				if (formalType && actualVal && !actualVal->getType()->isPointerTy() && !formalType->isPointerTy() && actualVal->getType() != formalType) {
-					return messageSystem::error("Cannot pass '" + getStringTypeFromLLVMType(actualVal->getType()) + "' as 'ref " + fa.typeString + "': implicit cast to reference is not allowed");
+				if (!fa.isConstant) {
+					return messageSystem::error("Cannot pass value as reference");
 				}
-			}
-			args[i]->childNodes[0]->isRef = true;
-			argVal = (Value*)(args[i]->*(args[i]->codegen))(pass);
-			if (wasError) {
+				// const ref: materialize the cached rvalue into a temporary alloca
+				Value* tmpVal = cachedArgVals[i];
+				if (!tmpVal) {
+					messageSystem::endBlock();
+					return nullptr;
+				}
+				bool wasDef = true;
+				Type* formalType = getLLVMTypeFromString(fa.typeString, fa.pointerLevel, token, wasDef, pass);
+				if (!formalType) {
+					return messageSystem::error("Cannot determine type for const ref materialization: " + fa.typeString);
+				}
+				AllocaInst* tmpAlloc = CreateEntryBlockAlloca(Builder->GetInsertBlock()->getParent(), formalType, "constref_tmp");
+				Builder->CreateStore(tmpVal, tmpAlloc);
+				argVal = tmpAlloc;
 				messageSystem::endBlock();
-				return nullptr;
 			}
+			else {
+				// Passing a value that requires an implicit cast to a ref parameter is not allowed:
+				// the cast would produce a temporary, and a reference to a temporary is meaningless.
+				{
+					Value* actualVal = cachedArgVals[i];
+					bool wasDef = true;
+					Type* formalType = getLLVMTypeFromString(fa.typeString, 0, token, wasDef, pass);
+					if (formalType && actualVal && !actualVal->getType()->isPointerTy() && !formalType->isPointerTy() && actualVal->getType() != formalType) {
+						return messageSystem::error("Cannot pass '" + getStringTypeFromLLVMType(actualVal->getType()) + "' as 'ref " + fa.typeString + "': implicit cast to reference is not allowed");
+					}
+				}
+				args[i]->childNodes[0]->isRef = true;
+				argVal = (Value*)(args[i]->*(args[i]->codegen))(pass);
+				if (wasError) {
+					messageSystem::endBlock();
+					return nullptr;
+				}
 
-			messageSystem::endBlock();
+				messageSystem::endBlock();
+			}
 		}
 		else {
 			// Reuse the Value already generated in the first pass to avoid double side-effects
@@ -5051,13 +5134,24 @@ void* ASTNode::generateFor(int pass)
 		return nullptr;
 	}
 
-	// Determine iterator type: widest integer type among start and end, minimum i32.
-	unsigned iterBits = 32;
-	if (StartVal->getType()->isIntegerTy())
-		iterBits = std::max(iterBits, StartVal->getType()->getIntegerBitWidth());
-	if (EndVal->getType()->isIntegerTy())
-		iterBits = std::max(iterBits, EndVal->getType()->getIntegerBitWidth());
-	Type* iterType = Type::getIntNTy(*TheContext, iterBits);
+	// Determine iterator type: use explicit annotation if provided, otherwise widen from range.
+	Type* iterType = nullptr;
+	if (childNodes[0]->nodeType == Iterator && childNodes[0]->childNodes.size() >= 2) {
+		// Explicit type annotation: for(i : uint16 in ...)
+		ASTNode* typeNode = childNodes[0]->childNodes[1];
+		bool wasDefined = false;
+		int resolvePass = pass;
+		iterType = getLLVMTypeFromString(typeNode->token->first, 0, typeNode->token, wasDefined, resolvePass);
+	}
+	if (!iterType) {
+		// Auto-determine: widest integer type among start and end, minimum i32.
+		unsigned iterBits = 32;
+		if (StartVal->getType()->isIntegerTy())
+			iterBits = std::max(iterBits, StartVal->getType()->getIntegerBitWidth());
+		if (EndVal->getType()->isIntegerTy())
+			iterBits = std::max(iterBits, EndVal->getType()->getIntegerBitWidth());
+		iterType = Type::getIntNTy(*TheContext, iterBits);
+	}
 
 	// Cast start and end to the iterator type if needed.
 	if (StartVal->getType() != iterType) {
@@ -5127,7 +5221,7 @@ void* ASTNode::generateFor(int pass)
 
 	// Step block: increment iterator then jump back to condition
 	Builder->SetInsertPoint(StepBB);
-	Value* StepVal = ConstantInt::get(*TheContext, APInt(iterBits, 1));
+	Value* StepVal = ConstantInt::get(*TheContext, APInt(iterType->getIntegerBitWidth(), 1));
 	Value* CurVar2 = Builder->CreateLoad(Alloca->getAllocatedType(), Alloca, varName.c_str());
 	Value* NextVar = Builder->CreateAdd(CurVar2, StepVal, "nextvar");
 	Builder->CreateStore(NextVar, Alloca);
@@ -5273,7 +5367,10 @@ void* ASTNode::generatePrototype(int pass)
 	if (typeNode->childNodes.size() > 0) {
 	recurseAddPointer:
 		typeNode = typeNode->childNodes[0];
-		if (typeNode->token->first == "*")
+		if (fnName == "main") {
+			// main is the C entry point and must not be name-mangled
+		}
+		else if (typeNode->token->first == "*")
 			mangledName += ".ptr";
 		else
 			mangledName += "." + typeNode->token->first;

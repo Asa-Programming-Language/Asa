@@ -4,7 +4,6 @@
 @public:
 Print :: module {
 
-	#import Builtin.Operators;
 	#import Builtin.String;
 
 	//#library "libc";

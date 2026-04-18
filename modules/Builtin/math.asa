@@ -5,6 +5,7 @@
 @public:
 Math :: module {
 
+	#import Builtin.String;
 	#import Builtin.Casts;
 	#library "m";
 

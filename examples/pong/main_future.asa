@@ -56,7 +56,7 @@ drawPaddle :: (g : gameObject){
 }
 
 drawNet ::(){
-	for(i : 0..SCREEN_H){
+	for(i in 0..SCREEN_H){
 		DrawPixel(SCREEN_W/2, i, WHITE);
 	}
 }

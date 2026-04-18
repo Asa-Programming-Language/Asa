@@ -79,5 +79,82 @@ StringTests :: module {
 		j : string = "" + 42;
 		test(j.length == 2,         "empty + 42 has length 2");
 		test(j == "42",             "empty + 42 equals \"42\"");
+
+		//////////////////////
+		// isEmpty()        //
+		//////////////////////
+
+		empty2 : string = string("");
+		test(empty2.isEmpty(),                  "isEmpty(): empty string returns true");
+		test(!s.isEmpty(),                      "isEmpty(): non-empty string returns false");
+
+		//////////////////////
+		// substr()         //
+		//////////////////////
+
+		str : string = string("hello world");
+
+		test(str.substr(0, 5) == "hello",       "substr(0,5) == \"hello\"");
+		test(str.substr(6, 5) == "world",       "substr(6,5) == \"world\"");
+		test(str.substr(0, 11) == "hello world","substr(0,11) == full string");
+		test(str.substr(0, 0) == "",            "substr(0,0) == empty");
+		// clamping: len too long
+		test(str.substr(6, 999) == "world",     "substr clamps len to remaining length");
+		// clamping: start < 0
+		test(str.substr(-3, 5) == "hello",      "substr clamps negative start to 0");
+		// start out of bounds
+		test(str.substr(99, 3) == "",           "substr out-of-bounds start == empty");
+
+		//////////////////////
+		// contains()       //
+		//////////////////////
+
+		test(str.contains("hello"),             "contains(\"hello\") true");
+		test(str.contains("world"),             "contains(\"world\") true");
+		test(str.contains("lo wo"),             "contains(\"lo wo\") true (spans boundary)");
+		test(!str.contains("xyz"),              "contains(\"xyz\") false");
+		test(!str.contains("HELLO"),            "contains case-sensitive: false");
+		test(str.contains(""),                  "contains(\"\") always true");
+
+		//////////////////////
+		// indexOf()        //
+		//////////////////////
+
+		test(str.indexOf("hello") == 0,         "indexOf(\"hello\") == 0");
+		test(str.indexOf("world") == 6,         "indexOf(\"world\") == 6");
+		test(str.indexOf("o") == 4,             "indexOf(\"o\") == first occurrence");
+		test(str.indexOf("xyz") == -1,          "indexOf(\"xyz\") == -1 not found");
+
+		//////////////////////
+		// startsWith()     //
+		//////////////////////
+
+		test(str.startsWith("hello"),           "startsWith(\"hello\") true");
+		test(str.startsWith("hello world"),     "startsWith(full string) true");
+		test(!str.startsWith("world"),          "startsWith(\"world\") false");
+		test(!str.startsWith("Hello"),          "startsWith case-sensitive: false");
+		test(str.startsWith(""),                "startsWith(\"\") always true");
+
+		//////////////////////
+		// endsWith()       //
+		//////////////////////
+
+		test(str.endsWith("world"),             "endsWith(\"world\") true");
+		test(str.endsWith("hello world"),       "endsWith(full string) true");
+		test(!str.endsWith("hello"),            "endsWith(\"hello\") false");
+		test(!str.endsWith("World"),            "endsWith case-sensitive: false");
+		test(str.endsWith(""),                  "endsWith(\"\") always true");
+
+		//////////////////////
+		// repeat()         //
+		//////////////////////
+
+		ab : string = string("ab");
+		test(ab.repeat(3) == "ababab",          "repeat(3) == \"ababab\"");
+		test(ab.repeat(1) == "ab",              "repeat(1) == self");
+		test(ab.repeat(0) == "",                "repeat(0) == empty");
+		test(ab.repeat(-1) == "",               "repeat(-1) == empty");
+		x_str : string = string("x");
+		test(x_str.repeat(5) == "xxxxx",        "repeat single char x5");
 	}
 }

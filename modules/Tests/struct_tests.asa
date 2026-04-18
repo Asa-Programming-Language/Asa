@@ -106,6 +106,59 @@ StructTests :: module {
 		}
 	}
 
+	// Struct whose member functions return or use the same struct type.
+	// Tests forward/self-referential member function declarations.
+	Range :: struct {
+		lo : int;
+		hi : int;
+
+		// Returns a new Range shifted by delta
+		shift :: Range(delta : int) {
+			r : Range = Range();
+			r.lo = this.lo + delta;
+			r.hi = this.hi + delta;
+			return r;
+		}
+
+		// Returns a new Range clamped so hi does not exceed cap
+		clampHi :: Range(cap : int) {
+			r : Range = Range();
+			r.lo = this.lo;
+			if (this.hi > cap) {
+				r.hi = cap;
+			} else {
+				r.hi = this.hi;
+			}
+			return r;
+		}
+
+		// Returns a Range that is the intersection of this and other.
+		// If they don't overlap, returns a zero Range (lo==hi==0).
+		intersect :: Range(other : Range) {
+			r : Range = Range();
+			newLo : int = this.lo;
+			newHi : int = this.hi;
+			if (other.lo > newLo) { newLo = other.lo; }
+			if (other.hi < newHi) { newHi = other.hi; }
+			if (newLo >= newHi) {
+				r.lo = 0;
+				r.hi = 0;
+			} else {
+				r.lo = newLo;
+				r.hi = newHi;
+			}
+			return r;
+		}
+
+		length :: int() {
+			return this.hi - this.lo;
+		}
+
+		contains :: bool(v : int) {
+			return v >= this.lo && v < this.hi;
+		}
+	}
+
 	// Struct with a nested struct field, for chained array[i].field.subfield tests
 	Nested :: struct {
 		pos : IntPair;
@@ -305,7 +358,7 @@ StructTests :: module {
 
 		// Loop-variable index
 		sum : int = 0;
-		for (k : 0..3) {
+		for (k in 0..3) {
 			sum += arr[k].a;
 		}
 		test(sum == 90,                       "arr[i].field in loop: sum of .a");
@@ -320,13 +373,13 @@ StructTests :: module {
 
 		// Global array with a struct-type field, accessed in a loop
 		g_narr = malloc(3 * #sizeof(Nested));
-		for (m : 0..3) {
+		for (m in 0..3) {
 			g_narr[m] = Nested();
 			g_narr[m].pos = makeIntPair(m*10, m*10+1);
 			g_narr[m].id = m * 100;
 		}
 		sumIds : int = 0;
-		for (m : 0..3) {
+		for (m in 0..3) {
 			sumIds += g_narr[m].id;
 		}
 		test(sumIds == 300,                   "global arr[i].structField in loop: sum ids");
@@ -365,5 +418,77 @@ StructTests :: module {
 
 		test(sumIntPair(pnarr[0].pos) == 7,   "single-arg fn(arr[i].structField): pnarr[0].pos");
 		test(sumIntPair(pnarr[1].pos) == 11,  "single-arg fn(arr[i].structField): pnarr[1].pos");
+
+		//////////////////////////////////////////////////
+		// Member fn returning same struct type (Range) //
+		//////////////////////////////////////////////////
+
+		rng : Range = Range();
+		rng.lo = 5;
+		rng.hi = 15;
+
+		test(rng.length() == 10,              "self-return member fn: length()");
+		test(rng.contains(5),                 "self-return member fn: contains() at lo");
+		test(rng.contains(14),                "self-return member fn: contains() at hi-1");
+		test(!rng.contains(15),               "self-return member fn: contains() at hi (exclusive)");
+		test(!rng.contains(4),                "self-return member fn: contains() below lo");
+
+		// shift() returns a new Range of the same type
+		shifted : Range = rng.shift(3);
+		test(shifted.lo == 8,                 "self-return member fn: shift().lo");
+		test(shifted.hi == 18,                "self-return member fn: shift().hi");
+		test(shifted.length() == 10,          "self-return member fn: shift() preserves length");
+		// original must be unchanged
+		test(rng.lo == 5,                     "self-return member fn: shift() does not mutate original lo");
+		test(rng.hi == 15,                    "self-return member fn: shift() does not mutate original hi");
+
+		// shift by negative
+		shiftedNeg : Range = rng.shift(-2);
+		test(shiftedNeg.lo == 3,              "self-return member fn: shift(-2).lo");
+		test(shiftedNeg.hi == 13,             "self-return member fn: shift(-2).hi");
+
+		// clampHi() returns new Range with hi capped
+		clamped : Range = rng.clampHi(12);
+		test(clamped.lo == 5,                 "self-return member fn: clampHi().lo unchanged");
+		test(clamped.hi == 12,                "self-return member fn: clampHi() caps hi");
+		test(clamped.length() == 7,           "self-return member fn: clampHi() length after cap");
+
+		// clampHi with cap above hi: no change
+		notClamped : Range = rng.clampHi(20);
+		test(notClamped.hi == 15,             "self-return member fn: clampHi() no-op when cap > hi");
+
+		// intersect() takes a same-type parameter
+		other : Range = Range();
+		other.lo = 10;
+		other.hi = 20;
+
+		inter : Range = rng.intersect(other);
+		test(inter.lo == 10,                  "self-type param member fn: intersect().lo");
+		test(inter.hi == 15,                  "self-type param member fn: intersect().hi");
+		test(inter.length() == 5,             "self-type param member fn: intersect().length");
+
+		// non-overlapping intersection
+		noOverlap : Range = Range();
+		noOverlap.lo = 20;
+		noOverlap.hi = 30;
+		empty : Range = rng.intersect(noOverlap);
+		test(empty.lo == 0,                   "self-type param member fn: non-overlapping intersect().lo == 0");
+		test(empty.hi == 0,                   "self-type param member fn: non-overlapping intersect().hi == 0");
+
+		// chaining: shift then intersect
+		rngA : Range = Range();
+		rngA.lo = 0;
+		rngA.hi = 10;
+		rngB : Range = Range();
+		rngB.lo = 5;
+		rngB.hi = 15;
+		chain : Range = rngA.shift(3).intersect(rngB);
+		test(chain.lo == 5,                   "self-return chaining: shift().intersect().lo");
+		test(chain.hi == 13,                  "self-return chaining: shift().intersect().hi");
+
+		// chaining three deep
+		triple : Range = rngA.shift(2).clampHi(8).shift(1);
+		test(triple.lo == 3,                  "self-return chaining x3: lo");
+		test(triple.hi == 9,                  "self-return chaining x3: hi");
 	}
 }

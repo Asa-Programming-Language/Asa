@@ -1,9 +1,5 @@
 
-#import Builtin.Print;
-#import Builtin.Math;
 #import Rendering.Raylib;
-#import Builtin.String;
-
 
 @version(1):
 gameObject :: struct{
@@ -26,9 +22,9 @@ drawBall ::(){
 
 @inline:
 drawNet :: (){
-	for(i : 0..SCREEN_H){
+	for(i in 0..SCREEN_H){
 		if(i/10 % 2 == 0){
-			for(w : -1..2){
+			for(w in -1..2){
 				DrawPixel(SCREEN_W/2+w, i, WHITE);
 			}
 		}

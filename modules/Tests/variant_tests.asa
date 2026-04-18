@@ -1,0 +1,113 @@
+
+// VariantTests
+// Tests for variant (template-like) syntax on function definitions and calls.
+// Note: variant codegen (specialization and param substitution into the body) is not yet
+// implemented, so this file is not included in the main test runner. Use:
+//   asa -a variant_tests.asa
+// to verify that the parser produces the correct AST structure.
+
+@public:
+VariantTests :: module {
+
+	#import Tests.Testing;
+	#import Builtin.String;
+
+	////////////////////
+	// Helper functions
+	////////////////////
+
+	// Single int variant param
+	clamp<Min : int, Max : int> :: int(x : int) {
+		if (x < Min) { return Min; }
+		if (x > Max) { return Max; }
+		return x;
+	}
+
+	// Single float variant param
+	scale<Factor : float> :: float(x : float) {
+		return x * Factor;
+	}
+
+	// Single string variant param
+	greet<Lang : string> :: string() {
+		return Lang;
+	}
+
+	// Bool variant param
+	select<Flag : bool> :: int(a : int, b : int) {
+		if (Flag) { return a; }
+		return b;
+	}
+
+	// Multiple mixed params
+	repeat<N : int, Sep : string> :: string(s : string) {
+		output : string = "";
+		for (i in 0..N) {
+			output = output + s;
+			if (i < N - 1) {
+				output = output + Sep;
+			}
+		}
+		return output;
+	}
+
+	@public:
+	runVariantTests :: () {
+		beginSection("Variants");
+
+		//////////////////////////////////////////////////////////
+		// Int variant params
+		//////////////////////////////////////////////////////////
+
+		test(clamp<0, 10>(5)  == 5,  "clamp<0,10>(5) == 5");
+		test(clamp<0, 10>(0)  == 0,  "clamp<0,10>(0) == 0");
+		test(clamp<0, 10>(10) == 10, "clamp<0,10>(10) == 10");
+		test(clamp<0, 10>(-3) == 0,  "clamp<0,10>(-3) == 0");
+		test(clamp<0, 10>(99) == 10, "clamp<0,10>(99) == 10");
+
+		test(clamp<5, 20>(3)  == 5,  "clamp<5,20>(3) == 5");
+		test(clamp<5, 20>(12) == 12, "clamp<5,20>(12) == 12");
+		test(clamp<5, 20>(25) == 20, "clamp<5,20>(25) == 20");
+
+		//////////////////////////////////////////////////////////
+		// Float variant params
+		//////////////////////////////////////////////////////////
+
+		test(scale<2.0>(3.0)  == 6.0,  "scale<2.0>(3.0) == 6.0");
+		test(scale<0.5>(8.0)  == 4.0,  "scale<0.5>(8.0) == 4.0");
+		test(scale<1.0>(7.25) == 7.25, "scale<1.0>(7.25) == 7.25");
+
+		//////////////////////////////////////////////////////////
+		// String variant params
+		//////////////////////////////////////////////////////////
+
+		hello : string = greet<"hello">();
+		test(hello == "hello", "greet<\"hello\">() == \"hello\"");
+
+		world : string = greet<"world">();
+		test(world == "world", "greet<\"world\">() == \"world\"");
+
+		//////////////////////////////////////////////////////////
+		// Bool variant params
+		//////////////////////////////////////////////////////////
+
+		test(select<true>(10, 20)  == 10, "select<true>(10, 20) == 10");
+		test(select<false>(10, 20) == 20, "select<false>(10, 20) == 20");
+
+		//////////////////////////////////////////////////////////
+		// Multiple mixed params
+		//////////////////////////////////////////////////////////
+
+		r1 : string = repeat<3, "-">("ab");
+		test(r1 == "ab-ab-ab", "repeat<3,\"-\">(\"ab\") == \"ab-ab-ab\"");
+
+		r2 : string = repeat<1, ", ">("x");
+		test(r2 == "x", "repeat<1,\", \">(\"x\") == \"x\"");
+
+		r2 = repeat<2, ", ">("x");
+		test(r2 == "x, x", "repeat<2,\", \">(\"x\") == \"x, x\"");
+
+		return;
+	}
+
+}

@@ -157,6 +157,7 @@ int main(int argc, char** argv)
 	// Load file if provided
 	if (fileName != "") {
 		int e = loadFile(fileName, initialFileString);
+		initialFileString = "#import Builtin.*;\n" + initialFileString;
 		if (e != 0) {
 			console::WriteLine("Invalid file path provided");
 			if (verbosity >= 3)

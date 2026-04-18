@@ -77,7 +77,7 @@ tokenPair* getNextNonNothingToken(const std::vector<tokenPair*>& tokens, int& i)
 		}
 		tokenPair* t = NEXT_TOKEN(tokens, i);
 
-		if (t->second != Nothing && t->second != EndOfLine) {
+		if (t->second != Nothing && t->second != EndOfLine && t->second != Comment) {
 			return t;
 		}
 	}
@@ -191,7 +191,7 @@ void GATHER_PAREN_EXPRESSION(const std::vector<tokenPair*>& tokens, std::vector<
 		}
 		tokenPair* t = NEXT_TOKEN(tokens, i);
 
-		if (t->second == Nothing)
+		if (t->second == Nothing || t->second == EndOfLine || t->second == Comment)
 			continue;
 
 		if (t->second == Left_Paren) {
@@ -417,6 +417,67 @@ bool GATHER_TO_TOKEN(const std::vector<tokenPair*>& tokens, std::vector<tokenPai
 		}
 
 		subTokens.push_back(t);
+	}
+	return false;
+}
+
+// Checks whether tokens[i] is '<' and begins a valid variant list '<...>' followed by '(' or '::'.
+// If so, advances i to point at '>' and fills groups with the comma-separated token groups inside.
+// Returns false and leaves i unchanged if this does not look like a variant.
+static bool tryConsumeVariantParams(const std::vector<tokenPair*>& tokens, int& i, std::vector<std::vector<tokenPair*>>& groups)
+{
+	// tokens[i] must be '<'
+	int depth = 1;
+	int lookahead = i + 1;
+	while (lookahead < (int)tokens.size()) {
+		TokenType tt = tokens[lookahead]->second;
+		if (tt == Nothing) {
+			lookahead++;
+			continue;
+		}
+		if (depth == 1 && tt == EndOfLine)
+			return false;
+		if (tt == EndOfLine) {
+			lookahead++;
+			continue;
+		}
+		if (tt == Less) {
+			depth++;
+			lookahead++;
+			continue;
+		}
+		if (tt == Greater) {
+			if (--depth == 0) {
+				// Check what follows '>'
+				int next = lookahead + 1;
+				while (next < (int)tokens.size() && (tokens[next]->second == Nothing || tokens[next]->second == EndOfLine))
+					next++;
+				TokenType following = (next < (int)tokens.size()) ? tokens[next]->second : Nothing;
+				if (following != Left_Paren && following != Colon_Colon)
+					return false;
+				// Collect comma-separated token groups between '<' and '>'
+				std::vector<tokenPair*> current;
+				for (int j = i + 1; j < lookahead; j++) {
+					TokenType jtt = tokens[j]->second;
+					if (jtt == Nothing || jtt == EndOfLine)
+						continue;
+					if (jtt == Comma) {
+						groups.push_back(current);
+						current.clear();
+					}
+					else
+						current.push_back(tokens[j]);
+				}
+				groups.push_back(current);
+				i = lookahead;	// advance i to '>'
+				return true;
+			}
+			lookahead++;
+			continue;
+		}
+		if (depth == 1 && tt == Semi_Colon)
+			return false;
+		lookahead++;
 	}
 	return false;
 }
@@ -944,16 +1005,22 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 				ASTNode* rangeNode = new ASTNode();
 				ASTNode* bodyNode = new ASTNode();
 
-				i++;
+				i++;  // skip past '('
 
-				// Step through all tokens until parens are closed
+				// Collect all tokens inside the parens, splitting on the 'in' keyword:
+				//   for(i in 0..100)           -> iterTokens=[i],          rangeTokens=[0..100]
+				//   for(i : uint16 in 0..65534) -> iterTokens=[i,:,uint16], rangeTokens=[0..65534]
 				int parenLevel = 1;
+				std::vector<tokenPair*> iterTokens;
 				std::vector<tokenPair*> subTokens = std::vector<tokenPair*>();
+				bool foundIn = false;
 				for (;;) {
-					if (i >= tokens.size() - 1)
+					if (i >= (int)tokens.size() - 1)
 						break;
 					tokenPair* t = NEXT_TOKEN(tokens, i);
 
+					if (t->second == Nothing || t->second == EndOfLine || t->second == Comment)
+						continue;
 					if (t->second == Left_Paren)
 						parenLevel++;
 					if (t->second == Right_Paren) {
@@ -961,26 +1028,46 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 						if (parenLevel == 0)
 							break;
 					}
+					if (t->second == Semi_Colon)
+						break;
 
-					// If colon like =>  for(i : 0..10)
-					// generate AST for i, and set iteratorNode as the output
-					if (t->second == Colon && iteratorNode->nodeType == Nothing_Node) {
-						iteratorNode = generateAST(subTokens, depth + 1);
-						iteratorNode->nodeType = Iterator;
-						iteratorNode->codegen = &ASTNode::generateIterator;
-						subTokens = std::vector<tokenPair*>();	// Clear subtokens
-						//ASTNode* exprStatement = new ASTNode();
-						//exprStatement->nodeType = Expression_Statement;
-						//exprStatement->childNodes.push_back(iteratorNode);
-						//iteratorNode = exprStatement;
+					if (t->second == In_Keyword && parenLevel == 1 && !foundIn) {
+						foundIn = true;
+						iterTokens = subTokens;
+						subTokens = std::vector<tokenPair*>();
 						continue;
 					}
 
 					subTokens.push_back(t);
-
-					if (parenLevel == 0 || t->second == EndOfLine || t->second == Semi_Colon)
-						break;
 				}
+
+			// Build iterator node only when 'in' was present;
+				// otherwise leave it as Nothing_Node (range-only loop like for(0..100))
+				if (foundIn) {
+					iteratorNode->nodeType = Iterator;
+					iteratorNode->codegen = &ASTNode::generateIterator;
+
+					// Find colon to separate name from optional type annotation
+					int colonIdx = -1;
+					for (int j = 0; j < (int)iterTokens.size(); j++) {
+						if (iterTokens[j]->second == Colon) { colonIdx = j; break; }
+					}
+					std::vector<tokenPair*> nameToks(iterTokens.begin(),
+					                                 colonIdx >= 0 ? iterTokens.begin() + colonIdx
+					                                               : iterTokens.end());
+					ASTNode* nameAST = generateAST(nameToks, depth + 1);
+					ASTNode* nameNode = nameAST->childNodes.empty() ? nameAST : nameAST->childNodes[0];
+					iteratorNode->childNodes.push_back(nameNode);
+
+					if (colonIdx >= 0) {
+						std::vector<tokenPair*> typeToks(iterTokens.begin() + colonIdx + 1, iterTokens.end());
+						ASTNode* typeAST = generateAST(typeToks, depth + 1);
+						ASTNode* typeNode = typeAST->childNodes.empty() ? typeAST : typeAST->childNodes[0];
+						iteratorNode->childNodes.push_back(typeNode);
+					}
+				}
+
+				// Build range node from subTokens (collected after 'in')
 				rangeNode = generateAST(subTokens, depth + 1)->childNodes[0];
 				rangeNode->nodeType = Range_Node;
 
@@ -1136,6 +1223,7 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 			case Caret_Caret:
 			case Percent:
 			case Percent_Percent:
+			case Dollar:
 			case At: {
 				// Attribute syntax: @name: or @name(args):  - only at statement start
 				if (tokenType == At && parentNode->leafNodes.size() == 0 &&
@@ -1320,8 +1408,8 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 						node->nodeType = Pointer_Node;
 						isUnaryL = true;
 					}
-					// No expression operator @ when used in conjunction with pipe operator
-					else if (isUnaryR && tokenType == At) {
+					// No expression operator $ when used in conjunction with pipe operator
+					else if (isUnaryR && tokenType == Dollar) {
 						node->nodeType = Pipe_Placeholder;
 						node->codegen = &ASTNode::generatePipePlaceholder;
 						noOp = true;
@@ -1567,6 +1655,17 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 				// Step through all following tokens until end of line via semicolon
 				isLeafNode = GATHER_TO_SEMICOLON(tokens, subTokens, i, true, true);
 				//GATHER_TO_SEMICOLON_OR_OTHER(tokens, subTokens, i, Left_Brace, true);
+
+				// For #import: convert .* into .(identifier "*") so wildcards parse correctly
+				if (identifier->token->first == "import") {
+					for (int j = 1; j < (int)subTokens.size(); j++) {
+						if (subTokens[j]->second == Star && subTokens[j - 1]->second == Dot)
+							subTokens[j] = new tokenPair("*", Identifier, subTokens[j]->lineNumber,
+							                             subTokens[j]->indexInLine,
+							                             subTokens[j]->lineValue,
+							                             subTokens[j]->filePath);
+					}
+				}
 
 				// For #extern, detect alias syntax: `CSymbol as AsaName :: (...)`
 				// Strip the C symbol and `as` keyword so the AST sees only the ASA name.
@@ -1930,6 +2029,16 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 					node->childNodes.push_back(secondPart);
 					node->childNodes.push_back(argumentsNode);
 					node->childNodes.push_back(modifiersNode);
+					// Variant params node [4] - always present, empty if no <...> were specified
+					{
+						ASTNode* variantsNode = new ASTNode();
+						variantsNode->nodeType = Variants_Node;
+						if (!identifier->childNodes.empty() && identifier->childNodes[0]->nodeType == Variants_Node) {
+							variantsNode = identifier->childNodes[0];
+							identifier->childNodes.clear();	 // remove from identifier; lives on the function node
+						}
+						node->childNodes.push_back(variantsNode);
+					}
 					if (!endedEarly)
 						node->childNodes.push_back(bodyNode);
 
@@ -1995,6 +2104,9 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 				// Step through all following tokens until last paren
 				int parenLevel = 1;
 				int braceDepth = 0;	 // track { } so semicolons inside blocks don't terminate
+				// variantCloseIdx: when >= 0, commas up to this token index are variant params (not arg splits)
+				int variantCloseIdx = -1;
+				TokenType prevMeaningfulToken = Nothing;  // to detect identifier-preceded <
 				std::vector<tokenPair*> subTokens = std::vector<tokenPair*>();
 				for (;;) {
 					if (i >= tokens.size() - 1)
@@ -2009,6 +2121,23 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 						braceDepth++;
 					if (t->second == Right_Brace)
 						braceDepth--;
+					// When < follows an identifier, use lookahead to see if it's really a variant
+					// opener (matching > followed by ( or ::). Only then suppress comma splitting.
+					if (t->second == Less && prevMeaningfulToken == Identifier && variantCloseIdx < 0) {
+						std::vector<std::vector<tokenPair*>> _dummyGroups;
+						int jj = i;	 // i currently points past the < token (NEXT_TOKEN advanced it)
+						// Temporarily back up so tryConsumeVariantParams sees < as its start
+						int savedI = i;
+						jj = i - 1;	 // jj at < position
+						if (tryConsumeVariantParams(tokens, jj, _dummyGroups)) {
+							// jj now points at > -- record its absolute index so we know when to stop
+							variantCloseIdx = jj;
+						}
+					}
+					if (i > variantCloseIdx)
+						variantCloseIdx = -1;  // past the closing >, re-enable comma splitting
+					if (t->second != Nothing && t->second != EndOfLine)
+						prevMeaningfulToken = t->second;
 
 					if (parenLevel == 0)
 						break;
@@ -2031,8 +2160,8 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 						isLeaf = false;
 						break;
 					}
-					// If comma and parenLevel is in same scope (not inside a nested brace block)
-					if (t->second == Comma && parenLevel == 1 && braceDepth == 0) {
+					// If comma and parenLevel is in same scope (not inside a nested brace block or variant params)
+					if (t->second == Comma && parenLevel == 1 && braceDepth == 0 && variantCloseIdx < 0) {
 						ASTNode* newNode = new ASTNode();
 						generateAST(subTokens, depth + 1, newNode);
 						newNode->nodeType = Expression_Term;
@@ -2057,6 +2186,15 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 						argumentsNode->childNodes.push_back(insideNodes[a]);
 					}
 					node->childNodes.push_back(argumentsNode);
+					// Variant params node [1] - always present, empty if no <...> were specified
+					{
+						ASTNode* variantsNode = new ASTNode();
+						variantsNode->nodeType = Variants_Node;
+						if (previousTerm && !previousTerm->childNodes.empty() &&
+							previousTerm->childNodes[0]->nodeType == Variants_Node)
+							variantsNode = previousTerm->childNodes[0];
+						node->childNodes.push_back(variantsNode);
+					}
 				}
 				else {
 					insideNodes[0]->nodeType = Expression_Paren_Term;
@@ -2170,6 +2308,28 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 				//		node->childNodes.push_back(typeNode);
 				//	}
 				//}
+
+				// Check for variant params <...> following this identifier (e.g. foo<int, 42>(...) or foo<T : int> :: ...)
+				if (i + 1 < (int)tokens.size() && tokens[i + 1]->second == Less) {
+					std::vector<std::vector<tokenPair*>> variantGroups;
+					int j = i + 1;	// j points to '<'
+					if (tryConsumeVariantParams(tokens, j, variantGroups)) {
+						i = j;	// advance past '>'
+						ASTNode* variantsNode = new ASTNode();
+						variantsNode->nodeType = Variants_Node;
+						for (auto& grp : variantGroups) {
+							if (grp.empty())
+								continue;
+							ASTNode* paramNode = new ASTNode();
+							generateAST(grp, depth + 1, paramNode);
+							paramNode->nodeType = Variant_Param_Node;
+							paramNode->codegen = &ASTNode::generateExpression;
+							variantsNode->childNodes.push_back(paramNode);
+						}
+						node->childNodes.push_back(variantsNode);
+					}
+				}
+
 				parentNode->leafNodes.push_back(node);
 				goto dontAddNode;
 			}
@@ -2197,6 +2357,20 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 			case Goto_Statement: {
 				node->nodeType = Goto_Node;
 			getStatementArgument:
+
+				// Check if the next token is ':', which means someone wrote `keyword : type`
+				// (using a reserved keyword as a variable name).
+				{
+					int next = i + 1;
+					while (next < (int)tokens.size() &&
+						(tokens[next]->second == Nothing || tokens[next]->second == EndOfLine))
+						next++;
+					if (next < (int)tokens.size() && tokens[next]->second == Colon) {
+						printTokenError(tokenRange {token, token},
+							"'" + token->first + "' is a reserved keyword and cannot be used as a variable name");
+						exit(1);
+					}
+				}
 
 				ASTNode* argumentTerm = new ASTNode();
 				std::vector<tokenPair*> subTokens = std::vector<tokenPair*>();
@@ -2300,7 +2474,8 @@ ASTNode* generateAST(const std::vector<tokenPair*>& tokens, int depth, ASTNode* 
 					child->attributes.push_back(a);
 			}
 			pendingAttributes.clear();
-		} else {
+		}
+		else {
 			for (auto& a : pendingAttributes)
 				node->attributes.push_back(a);
 			pendingAttributes.clear();
@@ -2989,6 +3164,61 @@ void addFileIncludes(ASTNode*& node)
 		}
 }
 
+// Load every module found in modulePath directory (wildcard import)
+void loadAllModulesInDir(const std::string& modulePath)
+{
+	for (const auto& p : std::filesystem::directory_iterator(modulePath)) {
+		std::string outStr = "";
+		std::string pathStr = p.path();
+		loadFile(pathStr, outStr);
+
+		std::vector<tokenPair*> localTokens = std::vector<tokenPair*>();
+
+		int e = tokenize(outStr, localTokens, pathStr);
+		if (e != 0) {
+			std::cerr << "Invalid tokens met\n";
+			exit(1);
+		}
+		e = labelSubTokens(localTokens);
+		if (e != 0) {
+			std::cerr << "Invalid tokens met\n";
+			exit(1);
+		}
+		e = joinCommentTokens(localTokens);
+		if (e != 0) {
+			std::cerr << "Invalid tokens met\n";
+			exit(1);
+		}
+		joinDotAtTokens(localTokens);
+
+		ASTNode* localRoot = generateAST(localTokens);
+
+		for (int j = 0; j < (int)localRoot->childNodes.size(); j++) {
+			if (localRoot->childNodes[j]->nodeType == Compiler_Define &&
+				localRoot->childNodes[j]->childNodes.size() >= 1 &&
+				localRoot->childNodes[j]->childNodes[0]->childNodes.size() >= 1 &&
+				localRoot->childNodes[j]->childNodes[0]->childNodes[0]->nodeType == Module_Define_Node) {
+
+				ASTNode* moduleNode = localRoot->childNodes[j]->childNodes[0]->childNodes[0];
+				std::string thisModuleName = localRoot->childNodes[j]->token->first;
+
+				if (importedModuleNames.find(thisModuleName) != importedModuleNames.end())
+					continue;
+
+				for (int i = 0; i < (int)moduleNode->childNodes[0]->childNodes.size(); i++) {
+					ASTNode* importedNode = moduleNode->childNodes[0]->childNodes[i];
+					if (importedNode->enclosingModule.empty())
+						importedNode->enclosingModule = thisModuleName;
+					importedNodes.push_back(importedNode);
+				}
+				importedModuleNames.insert(thisModuleName);
+				if (verbosity >= 3)
+					printModuleLoaded(thisModuleName, pathStr);
+			}
+		}
+	}
+}
+
 bool loadModule(std::string& modulePath, std::string& moduleName)
 {
 	for (const auto& p : std::filesystem::directory_iterator(modulePath)) {
@@ -3105,6 +3335,25 @@ void addModuleImports(ASTNode*& node)
 						}
 
 						std::string searchPath[2] = {projectDirectory + modulePath, executableDirectory + "modules/" + modulePath};
+
+						// Wildcard import: #import Some.Dir.*; loads all modules in that directory
+						if (moduleName == "*") {
+							for (int i = 0; i < (int)(sizeof(searchPath) / sizeof(searchPath[0])); i++) {
+								if (directoryExists(searchPath[i])) {
+									loadAllModulesInDir(searchPath[i]);
+									moduleFound = true;
+									break;
+								}
+							}
+							if (!moduleFound) {
+								printTokenError(getASTTokenRange(moduleNameNode), "Wildcard import: directory not found: \"" + modulePath + "\"", __LINE__);
+								exit(1);
+							}
+							node->nodeType = Nothing_Node;
+							node->showInASTOutput = false;
+							return;
+						}
+
 						for (int i = 0; i < sizeof(searchPath) / sizeof(searchPath[0]); i++) {
 							if (directoryExists(searchPath[i])) {
 								moduleFound = loadModule(searchPath[i], moduleName);

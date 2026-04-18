@@ -23,11 +23,13 @@ ColorPrint :: module {
 			return false;
 		}
 		term : string = string(termPtr);
-		if (find(term, "xterm")  >= 0) { return true; }
-		if (find(term, "color")  >= 0) { return true; }
-		if (find(term, "ansi")   >= 0) { return true; }
-		if (find(term, "cygwin") >= 0) { return true; }
-		if (find(term, "linux")  >= 0) { return true; }
+
+		if (find(term, "xterm")  >= 0)  return true;
+		if (find(term, "color")  >= 0)  return true;
+		if (find(term, "ansi")   >= 0)  return true;
+		if (find(term, "cygwin") >= 0)  return true;
+		if (find(term, "linux")  >= 0)  return true;
+
 		return false;
 	}
 
@@ -56,11 +58,11 @@ ColorPrint :: module {
 	//     col: The color code to use, see <Fore> and <Back>
 	@public:
 	colorPrint:: (s : const string, col : const string) {
-		if (getColorSupported()) {
+		if (getColorSupported())
 			print(col + s + resetColor);
-		} else {
+		else
 			print(s);
-		}
+
 		return;
 	}
 
@@ -72,11 +74,11 @@ ColorPrint :: module {
 	//     col: The color code to use, see <Fore> and <Back>
 	@public:
 	colorPrintl:: (s : const string, col : const string) {
-		if (getColorSupported()) {
+		if (getColorSupported())
 			print(col + s + resetColor + "\n");
-		} else {
+		else
 			printl(s);
-		}
+
 		return;
 	}
 
@@ -89,11 +91,11 @@ ColorPrint :: module {
 	//     bg: The color code to use for the background see <Back>
 	@public:
 	colorPrint:: (s : const string, fg : const string, bg : const string) {
-		if (getColorSupported()) {
+		if (getColorSupported())
 			print(fg + bg + s + resetColor);
-		} else {
+		else
 			print(s);
-		}
+
 		return;
 	}
 
@@ -106,11 +108,11 @@ ColorPrint :: module {
 	//     bg: The color code to use for the background see <Back>
 	@public:
 	colorPrintl:: (s : const string, fg : const string, bg : const string) {
-		if (getColorSupported()) {
+		if (getColorSupported())
 			print(fg + bg + s + resetColor + "\n");
-		} else {
+		else
 			printl(s);
-		}
+		
 		return;
 	}
 
@@ -145,22 +147,22 @@ ColorPrint :: module {
 			//     brightMagenta: brightMagenta color
 			//     brightCyan: brightCyan color
 			//     brightWhite: brightWhite color
-			black : const string = "\x1B[30m";
-			red : const string = "\x1B[31m";
-			green : const string = "\x1B[32m";
-			yellow : const string = "\x1B[33m";
-			blue : const string = "\x1B[34m";
+			black   : const string = "\x1B[30m";
+			red     : const string = "\x1B[31m";
+			green   : const string = "\x1B[32m";
+			yellow  : const string = "\x1B[33m";
+			blue    : const string = "\x1B[34m";
 			magenta : const string = "\x1B[35m";
-			cyan : const string = "\x1B[36m";
-			white : const string = "\x1B[37m";
-			brightBlack : const string = "\x1B[90m";
-			brightRed : const string = "\x1B[91m";
-			brightGreen : const string = "\x1B[92m";
-			brightYellow : const string = "\x1B[93m";
-			brightBlue : const string = "\x1B[94m";
+			cyan    : const string = "\x1B[36m";
+			white   : const string = "\x1B[37m";
+			brightBlack   : const string = "\x1B[90m";
+			brightRed     : const string = "\x1B[91m";
+			brightGreen   : const string = "\x1B[92m";
+			brightYellow  : const string = "\x1B[93m";
+			brightBlue    : const string = "\x1B[94m";
 			brightMagenta : const string = "\x1B[95m";
-			brightCyan : const string = "\x1B[96m";
-			brightWhite : const string = "\x1B[97m";
+			brightCyan    : const string = "\x1B[96m";
+			brightWhite   : const string = "\x1B[97m";
 
 			// Constant: resetColor
 			// Description: ANSI escape code to reset all color formatting back to terminal defaults
@@ -199,22 +201,22 @@ ColorPrint :: module {
 			//     brightMagenta: brightMagenta color
 			//     brightCyan: brightCyan color
 			//     brightWhite: brightWhite color
-			black : const string = "\x1B[40m";
-			red : const string = "\x1B[41m";
-			green : const string = "\x1B[42m";
-			yellow : const string = "\x1B[43m";
-			blue : const string = "\x1B[44m";
+			black   : const string = "\x1B[40m";
+			red     : const string = "\x1B[41m";
+			green   : const string = "\x1B[42m";
+			yellow  : const string = "\x1B[43m";
+			blue    : const string = "\x1B[44m";
 			magenta : const string = "\x1B[45m";
-			cyan : const string = "\x1B[46m";
-			white : const string = "\x1B[47m";
-			brightBlack : const string = "\x1B[100m";
-			brightRed : const string = "\x1B[101m";
-			brightGreen : const string = "\x1B[102m";
-			brightYellow : const string = "\x1B[103m";
-			brightBlue : const string = "\x1B[104m";
+			cyan    : const string = "\x1B[46m";
+			white   : const string = "\x1B[47m";
+			brightBlack   : const string = "\x1B[100m";
+			brightRed     : const string = "\x1B[101m";
+			brightGreen   : const string = "\x1B[102m";
+			brightYellow  : const string = "\x1B[103m";
+			brightBlue    : const string = "\x1B[104m";
 			brightMagenta : const string = "\x1B[105m";
-			brightCyan : const string = "\x1B[106m";
-			brightWhite : const string = "\x1B[107m";
+			brightCyan    : const string = "\x1B[106m";
+			brightWhite   : const string = "\x1B[107m";
 
 			// Constant: resetColor
 			// Description: ANSI escape code to reset all color formatting back to terminal defaults

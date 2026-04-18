@@ -70,13 +70,13 @@ IncrementTests :: module {
 		///////////////////////
 
 		count : int = 0;
-		for (k : 0..5) {
+		for (k in 0..5) {
 			count++;
 		}
 		test(count == 5, "++ in loop body counts iterations");
 
 		down : int = 10;
-		for (k : 0..5) {
+		for (k in 0..5) {
 			down--;
 		}
 		test(down == 5, "-- in loop body counts down");

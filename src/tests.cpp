@@ -44,6 +44,7 @@ std::vector<Test> tests = {
 						{A(Expression_Term, {})}
 					),
 					A(Compiler_Modifiers,{A(Scope_Body)}),
+					A(Variants_Node, {}),
 					A(Scope_Body,
 						{
 						}
@@ -70,6 +71,7 @@ std::vector<Test> tests = {
 						{A(Expression_Term, {})}
 					),
 					A(Compiler_Modifiers,{A(Scope_Body)}),
+					A(Variants_Node, {}),
 					A(Scope_Body,
 						{
 							A(Expression_Statement,
@@ -108,6 +110,7 @@ std::vector<Test> tests = {
 						{A(Expression_Term, {})}
 					),
 					A(Compiler_Modifiers,{A(Scope_Body)}),
+					A(Variants_Node, {}),
 					A(Scope_Body, // Contents of main(){
 						{
 							A(For_Statement_Node,
@@ -134,7 +137,7 @@ std::vector<Test> tests = {
 	Test(
 		R"(
 		main :: (){
-			for(i : 0..100){
+			for(i in 0..100){
 
 			}
 		}
@@ -148,6 +151,7 @@ std::vector<Test> tests = {
 						{A(Expression_Term, {})}
 					),
 					A(Compiler_Modifiers,{A(Scope_Body)}),
+					A(Variants_Node, {}),
 					A(Scope_Body, // Contents of main(){
 						{
 							A(For_Statement_Node,
@@ -222,6 +226,7 @@ std::vector<Test> tests = {
 							{A(Expression_Term, {})}
 						),
 						A(Compiler_Modifiers,{A(Scope_Body)}),
+						A(Variants_Node, {}),
 						A(Scope_Body, // Contents of x(){
 							{
 								A(Return_Node, 

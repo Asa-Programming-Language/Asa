@@ -134,7 +134,7 @@ ScopingTests :: module {
 
 		c : int = 0;
 		{
-			for (i : 0..5) { c += 1; }
+			for (i in 0..5) { c += 1; }
 		}
 		test(c == 5,                         "for loop inside redundant outer block");
 
@@ -150,7 +150,7 @@ ScopingTests :: module {
 
 		// for loop with inner block that shadows loop variable
 		shadow_sum : int = 0;
-		for (i : 0..3) {
+		for (i in 0..3) {
 			{
 				i2 : int = i * 2;
 				shadow_sum += i2;
@@ -215,7 +215,7 @@ ScopingTests :: module {
 		/////////////////////////////////////
 
 		bc_sum : int = 0;
-		for (i : 0..10) {
+		for (i in 0..10) {
 			{
 				if (i == 5) { break; }
 			}
@@ -224,7 +224,7 @@ ScopingTests :: module {
 		test(bc_sum == 10,                   "break inside nested block exits loop (0+1+2+3+4)");
 
 		cont_sum : int = 0;
-		for (i : 0..6) {
+		for (i in 0..6) {
 			{
 				if (i % 2 == 0) { continue; }
 			}

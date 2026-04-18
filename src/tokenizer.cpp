@@ -122,6 +122,7 @@ std::map<const std::string, const TokenType> subTokenTypes = {
 	{"%%", Percent_Percent},
 	{"@", At},
 	{"@@", At_At},
+	{"$", Dollar},
 	{"->", Arrow_Right},
 	{"<-", Arrow_Left},
 
@@ -130,6 +131,7 @@ std::map<const std::string, const TokenType> subTokenTypes = {
 	{"else", Else_Statement},
 	{"for", For_Statement},
 	{"while", While_Statement},
+	{"in", In_Keyword},
 	{"return", Return_Statement},
 	{"result", Result_Statement},
 	{"break", Break_Statement},
