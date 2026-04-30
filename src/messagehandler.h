@@ -103,6 +103,11 @@ namespace messageSystem {
         // (must be in the same file as the focusedNode, at least for the current system)
         std::vector<ASTNode*> contextNodes = {};
 
+        // Extra fine-tuning values which can be set to show a number of lines above or below the focused Node.
+        // Does not apply to the contextNodes
+        uint8_t aboveContextLines = 0;
+        uint8_t belowContextLines = 0;
+
 
         UnderlinedSegment() {}
         UnderlinedSegment(ASTNode*& focusedNode, std::string underlineMessage = "", std::string underlineColor = console::cyanFGColor, std::string underlineChar = "^", std::vector<ASTNode*> contextNodes = {})
@@ -127,7 +132,6 @@ namespace messageSystem {
             this->messageString = messageString;
             this->underlinedSegments = underlinedSegments;
         }
-
 
         void addUnderline(UnderlinedSegment u)
         {
