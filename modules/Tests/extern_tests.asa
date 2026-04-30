@@ -5,7 +5,7 @@
 @public:
 ExternTests :: module {
 
-	#import Tests.Testing;
+	#use Tests.Testing;
 
 	// Basic extern: abs() from libc
 	#extern abs :: int(x : int32);

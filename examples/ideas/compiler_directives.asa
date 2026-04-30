@@ -16,5 +16,5 @@ main :: int(){
 // Would have to handle arguments differently though, right? since you should be able to
 // have any AST node as an argument or return value
 #return1 :: ast (x : ast){
-	
+    
 }

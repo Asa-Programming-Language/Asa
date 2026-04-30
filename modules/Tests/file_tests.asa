@@ -5,9 +5,9 @@
 @public:
 FileTests :: module {
 
-	#import Tests.Testing;
-	#import Builtin.File;
-	#import Builtin.String;
+	#use Tests.Testing;
+	#use Builtin.File;
+	#use Builtin.String;
 
 	@public:
 	runFileTests :: () {

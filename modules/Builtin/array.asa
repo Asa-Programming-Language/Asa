@@ -1,0 +1,47 @@
+
+// Module: Array
+// Description: Contains the <array> and <static_array> data type
+@hideast:
+@public:
+Array :: module{
+
+    #use Builtin.Memory;
+
+    // Struct: array
+    // Description: A generic array type
+    array<T : type, N : uint32> :: struct{
+        address : *T;
+        length : int;
+    }
+
+    // Function: array<T, N>()
+    // Description: Creates an instance of an array of the specified type `T` and given length `N`
+    create<T : type, N : uint32> :: array<T, N>(){
+        o : array<T, N> = void;
+        o.address = malloc(#sizeof(T) * N);
+        o.length = N;
+        return o;
+    }
+
+    //array.operator[] :: ref T(a : array<T>, i : int){
+
+    //}
+
+
+    // Struct: static_array
+    // Description: A generic constant array type
+    static_array<T : type, N : uint32> :: struct{
+        address : *T;
+        length : int;
+    }
+
+    // Function: static_array<T, N>()
+    // Description: Creates an instance of a static array of the specified type `T` and given length `N`
+    create<T : type, N : uint32> :: static_array<T, N>(){
+        o : static_array<T, N> = void;
+        o.address = malloc(#sizeof(T) * N);
+        o.length = N;
+        return o;
+    }
+
+}

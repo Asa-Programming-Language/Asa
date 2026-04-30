@@ -3,7 +3,7 @@
 @inline:
 @replaceable:
 create :: string() {
-	return *(#new string);
+    return *(#new string);
 }
 
 printint:: (n : int64){
@@ -29,7 +29,7 @@ printint:: (n : int64){
 @hideast:
 @inline:
 newline::() {
-	putchar(10);
+    putchar(10);
 }
 
 #extern printf::(...);
@@ -38,16 +38,16 @@ newline::() {
 #extern free::(p : *int);
 
 main :: (){
-	s2 : string = string();
-	s2.address = malloc(10*2);
-	s2.length = 291;
-	printint(s2.length);
-	puts("after malloc");
-	for(j in 0..5){
-		puts("before set");
-		s2.address[j] = 'A';
-	}
-	puts("before puts s2.address");
-	puts(s2.address);
-	return;
+    s2 : string = string();
+    s2.address = malloc(10*2);
+    s2.length = 291;
+    printint(s2.length);
+    puts("after malloc");
+    for(j in 0..5){
+        puts("before set");
+        s2.address[j] = 'A';
+    }
+    puts("before puts s2.address");
+    puts(s2.address);
+    return;
 }

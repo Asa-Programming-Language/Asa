@@ -5,7 +5,7 @@
 @public:
 BooleanTests :: module {
 
-	#import Tests.Testing;
+	#use Tests.Testing;
 
 	andEvalCount : int = 0;
 	orEvalCount  : int = 0;

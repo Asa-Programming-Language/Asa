@@ -1,138 +1,91 @@
 
-#import Tests.Testing;
+#use Builtin.*;
 
-#import Rendering.Window;
-
-//#import GameLogic;
-
-//#file "./function_redefine.asa";
-
-//#file "./multi_return_test.asa";
-
-/*
-You can import the full library like:
-#import Rendering;
-
-Or individual components:
-#import Rendering.Window;
-*/
-
-//string :: struct {
-//	c : int;
-//}
-
-TestMod :: module {
-	testVal : int = 42;
+local :: module{
+    DEF :: 182;
 }
 
-@hideast:
-@inline:
-operator|| :: bool(a : bool, b : bool) {
-	if(a)
-		return true;
-	else if(b)
-		return true;
-	return false;
-}
+i32 :: int32;
+someAlias :: "aliased string";
 
-@deprecated:
-someFunc :: (){
-	printl("someFunc Works");
-}
+ABC :: 40;
 
+TEST_MACRO_1 :: {printl("Macro works!");};
 
-TEST_MACRO :: {printl("Macro works!")};
+TEST_MACRO_2 :: (){ printl("Macro 2 works!") };
 
-@inline: TEST_MACRO :: (){ printl("Macro works!") };
+// Completely rename TEST_MACRO_1 to RENAMED_MACRO, undefining its previous name
+RENAMED_MACRO ::> TEST_MACRO_1; 
 
-@public:
-{
-	exampleVar0 : int;
-	exampleVar1 : int;
-	exampleVar2 : int;
-	exampleVar3 : int;
-}
+#use Rendering.Raylib;
 
 
-@public:
 main :: (){
-	//printf("Hello World!");
-	//x = 70+2;
-	//y : uint16 = 4;
-	//f = float(1);
 
-	//var : bool;
-	//greenFG : *char = "\x1B[32m";
+    GHI :: 12;
 
-	colorPrintl("This text should be green", Fore.green);
+    TEST_MACRO_1; // This is equivalent to:
+    // {
+    //     printl("Macro works!");
+    // }
 
-	printl("string size in bytes is: " + Fore.blue + #sizeof(string) + Fore.reset);
-	printl("int64 size in bytes is: " + Fore.blue + #sizeof(int64) + Fore.reset);
-	printl("int32 size in bytes is: " + Fore.blue + #sizeof(int32) + Fore.reset);
-	printl("int16 size in bytes is: " + Fore.blue + #sizeof(int16) + Fore.reset);
-	printl("int8 size in bytes is: " + Fore.blue + #sizeof(int8) + Fore.reset);
+    TEST_MACRO_2(); // This is literally just a function
 
-	TEST_MACRO();
+    // i32 is an alias for int32
+    i : int32 = 6;
+    j : i32 = 8;
 
-	someFunc();
+    variantVar<T : type> : T;
 
-	test(4 == 3, "This should be an error, seeing this means success");
+    printl(j);
 
-	brValue : int = { 
-		y : int = 9;
-		x : int = 1283;
-		result y-x;
-	};
+    printl(ABC);
 
-	printl(brValue);
+    printl(GHI);
 
-	printl("Printing some unicode: Ω");
+    printl(local.DEF);
 
-	//newline();
-	//for (i in 0..100){  // for(<range>){} automatically iterates through range type
-	//	printl("%\n", i);
-	//}
-	//for (i in 0..(100+i)){  // for(<range>){} automatically iterates through range type
-	//	printl("%\n", i);
-	//	i += 1;
-	//}
-	//i = ((1.1+5.2)*1+2)-9;
-	//A :: while(i < 4){
-	//	for(j in 0..6){
-	//		if(j == 3){
-	//			break A;
-	//		}
-	//	}
-	//	i++;
-	//}
+    printl(someAlias);
 
-	//TEST_MACRO;
+    PRINTALIAS :: printl;
 
-	//if(true){
-	//	printl("Hello, again!");
-	//}
+    PRINTALIAS("print alias works!");
 
-	////w = window_create("New window", 512, 512);
+    someArray : array<int, 5> = array<int, 5>();
 
-	//// Test the functionality of redefining a function at runtime.
-	//testRedefineFunction();
-	return;
+    //for(i in 0..5)
+    //someArray[i] = i;
+
+    //printl(someArray[0]);
+
+    //printl(#nameof(someArray) + " : " + #typeof(someArray));
+
+    someList : list<int> = list<int>();
+
+    someList.append(5);
+    someList.append(3);
+    someList.append(0);
+    someList.append(0);
+    someList.append(10);
+
+    //if 2 printl("This should absolutely not print"); 
+
+    if(2){
+        printl("This should print");
+    }
+
+    printl("listvals:");
+    for(i in 0..5)
+        printl(someList[i]);
+
+    //r : range = 0..5;
+
+    //for(i in r){
+    //  printl(i);
+    //}
+
+    return;
 }
-
-//multiply :: float (int x, float y){
-//	return float(x) * y;
-//}
-//
-//multiply :: int (int x, int y){
-//	return x * y;
-//}
-
-
-//#run build();
-
-
-
-
 
 
 

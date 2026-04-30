@@ -1,113 +1,476 @@
 
 // VariantTests
-// Tests for variant (template-like) syntax on function definitions and calls.
-// Note: variant codegen (specialization and param substitution into the body) is not yet
-// implemented, so this file is not included in the main test runner. Use:
-//   asa -a variant_tests.asa
-// to verify that the parser produces the correct AST structure.
+// Tests for variant (template-like) syntax on function definitions and calls,
+// and for generic struct definitions and instantiation.
 
 @public:
 VariantTests :: module {
 
-	#import Tests.Testing;
-	#import Builtin.String;
+    #use Tests.Testing;
+    #use Builtin.String;
 
-	////////////////////
-	// Helper functions
-	////////////////////
+    ////////////////////
+    // Function variants
+    ////////////////////
 
-	// Single int variant param
-	clamp<Min : int, Max : int> :: int(x : int) {
-		if (x < Min) { return Min; }
-		if (x > Max) { return Max; }
-		return x;
-	}
+    // Single int variant param
+    clamp<Min : int, Max : int> :: int(x : int) {
+        if (x < Min) { return Min; }
+        if (x > Max) { return Max; }
+        return x;
+    }
 
-	// Single float variant param
-	scale<Factor : float> :: float(x : float) {
-		return x * Factor;
-	}
+    // Single float variant param
+    scale<Factor : float> :: float(x : float) {
+        return x * Factor;
+    }
 
-	// Single string variant param
-	greet<Lang : string> :: string() {
-		return Lang;
-	}
+    // Single string variant param
+    greet<Lang : string> :: string() {
+        return Lang;
+    }
 
-	// Bool variant param
-	select<Flag : bool> :: int(a : int, b : int) {
-		if (Flag) { return a; }
-		return b;
-	}
+    // Bool variant param
+    select<Flag : bool> :: int(a : int, b : int) {
+        if (Flag) { return a; }
+        return b;
+    }
 
-	// Multiple mixed params
-	repeat<N : int, Sep : string> :: string(s : string) {
-		output : string = "";
-		for (i in 0..N) {
-			output = output + s;
-			if (i < N - 1) {
-				output = output + Sep;
-			}
-		}
-		return output;
-	}
+    // Multiple mixed params
+    repeat<N : int, Sep : string> :: string(s : string) {
+        output : string = "";
+        for (i in 0..N) {
+            output = output + s;
+            if (i < N - 1) {
+                output = output + Sep;
+            }
+        }
+        return output;
+    }
 
-	@public:
-	runVariantTests :: () {
-		beginSection("Variants");
+    ////////////////////
+    // Struct variants
+    ////////////////////
 
-		//////////////////////////////////////////////////////////
-		// Int variant params
-		//////////////////////////////////////////////////////////
+    // Two fields of the same type
+    pair<T : type> :: struct {
+        first  : T;
+        second : T;
+    }
 
-		test(clamp<0, 10>(5)  == 5,  "clamp<0,10>(5) == 5");
-		test(clamp<0, 10>(0)  == 0,  "clamp<0,10>(0) == 0");
-		test(clamp<0, 10>(10) == 10, "clamp<0,10>(10) == 10");
-		test(clamp<0, 10>(-3) == 0,  "clamp<0,10>(-3) == 0");
-		test(clamp<0, 10>(99) == 10, "clamp<0,10>(99) == 10");
+    // Two fields of independent types
+    duo<A : type, B : type> :: struct {
+        left  : A;
+        right : B;
+    }
 
-		test(clamp<5, 20>(3)  == 5,  "clamp<5,20>(3) == 5");
-		test(clamp<5, 20>(12) == 12, "clamp<5,20>(12) == 12");
-		test(clamp<5, 20>(25) == 20, "clamp<5,20>(25) == 20");
+    // Three fields of independent types
+    triple<A : type, B : type, C : type> :: struct {
+        x : A;
+        y : B;
+        z : C;
+    }
 
-		//////////////////////////////////////////////////////////
-		// Float variant params
-		//////////////////////////////////////////////////////////
+    // Single-field wrapper
+    wrapper<T : type> :: struct {
+        value : T;
+    }
 
-		test(scale<2.0>(3.0)  == 6.0,  "scale<2.0>(3.0) == 6.0");
-		test(scale<0.5>(8.0)  == 4.0,  "scale<0.5>(8.0) == 4.0");
-		test(scale<1.0>(7.25) == 7.25, "scale<1.0>(7.25) == 7.25");
+    // Type param + int value param
+    tagged<T : type, Id : int> :: struct {
+        value : T;
+        tag   : int;
+    }
 
-		//////////////////////////////////////////////////////////
-		// String variant params
-		//////////////////////////////////////////////////////////
+    // Two type params + int capacity param
+    bounded<A : type, B : type, Cap : int> :: struct {
+        first    : A;
+        second   : B;
+        capacity : int;
+    }
 
-		hello : string = greet<"hello">();
-		test(hello == "hello", "greet<\"hello\">() == \"hello\"");
+    // Type param + string label param
+    labeled<T : type, Label : string> :: struct {
+        value : T;
+        name  : string;
+    }
 
-		world : string = greet<"world">();
-		test(world == "world", "greet<\"world\">() == \"world\"");
+    @public:
+    runVariantTests :: () {
+        beginSection("Variants");
 
-		//////////////////////////////////////////////////////////
-		// Bool variant params
-		//////////////////////////////////////////////////////////
+        //////////////////////////////////////////////////////////
+        // Int variant params
+        //////////////////////////////////////////////////////////
 
-		test(select<true>(10, 20)  == 10, "select<true>(10, 20) == 10");
-		test(select<false>(10, 20) == 20, "select<false>(10, 20) == 20");
+        test(clamp<0, 10>(5)  == 5,  "clamp<0,10>(5) == 5");
+        test(clamp<0, 10>(0)  == 0,  "clamp<0,10>(0) == 0");
+        test(clamp<0, 10>(10) == 10, "clamp<0,10>(10) == 10");
+        test(clamp<0, 10>(-3) == 0,  "clamp<0,10>(-3) == 0");
+        test(clamp<0, 10>(99) == 10, "clamp<0,10>(99) == 10");
 
-		//////////////////////////////////////////////////////////
-		// Multiple mixed params
-		//////////////////////////////////////////////////////////
+        test(clamp<5, 20>(3)  == 5,  "clamp<5,20>(3) == 5");
+        test(clamp<5, 20>(12) == 12, "clamp<5,20>(12) == 12");
+        test(clamp<5, 20>(25) == 20, "clamp<5,20>(25) == 20");
 
-		r1 : string = repeat<3, "-">("ab");
-		test(r1 == "ab-ab-ab", "repeat<3,\"-\">(\"ab\") == \"ab-ab-ab\"");
+        //////////////////////////////////////////////////////////
+        // Float variant params
+        //////////////////////////////////////////////////////////
 
-		r2 : string = repeat<1, ", ">("x");
-		test(r2 == "x", "repeat<1,\", \">(\"x\") == \"x\"");
+        test(scale<2.0>(3.0)  == 6.0,  "scale<2.0>(3.0) == 6.0");
+        test(scale<0.5>(8.0)  == 4.0,  "scale<0.5>(8.0) == 4.0");
+        test(scale<1.0>(7.25) == 7.25, "scale<1.0>(7.25) == 7.25");
 
-		r2 = repeat<2, ", ">("x");
-		test(r2 == "x, x", "repeat<2,\", \">(\"x\") == \"x, x\"");
+        //////////////////////////////////////////////////////////
+        // String variant params
+        //////////////////////////////////////////////////////////
 
-		return;
-	}
+        hello : string = greet<"hello">();
+        test(hello == "hello", "greet<\"hello\">() == \"hello\"");
+
+        world : string = greet<"world">();
+        test(world == "world", "greet<\"world\">() == \"world\"");
+
+        //////////////////////////////////////////////////////////
+        // Bool variant params
+        //////////////////////////////////////////////////////////
+
+        test(select<true>(10, 20)  == 10, "select<true>(10, 20) == 10");
+        test(select<false>(10, 20) == 20, "select<false>(10, 20) == 20");
+
+        //////////////////////////////////////////////////////////
+        // Multiple mixed params
+        //////////////////////////////////////////////////////////
+
+        r1 : string = repeat<3, "-">("ab");
+        test(r1 == "ab-ab-ab", "repeat<3,\"-\">(\"ab\") == \"ab-ab-ab\"");
+
+        r2 : string = repeat<1, ", ">("x");
+        test(r2 == "x", "repeat<1,\", \">(\"x\") == \"x\"");
+
+        r2 = repeat<2, ", ">("x");
+        test(r2 == "x, x", "repeat<2,\", \">(\"x\") == \"x, x\"");
+
+        //////////////////////////////////////////////////////////
+        // Generic struct: pair<int>
+        //////////////////////////////////////////////////////////
+
+        pi : pair<int> = pair<int>();
+        pi.first  = 3;
+        pi.second = 7;
+        test(pi.first  == 3, "pair<int>: first == 3");
+        test(pi.second == 7, "pair<int>: second == 7");
+        test(pi.first + pi.second == 10, "pair<int>: first + second == 10");
+
+        // Mutate and re-check
+        pi.first = 100;
+        test(pi.first  == 100, "pair<int>: mutate first to 100");
+        test(pi.second == 7,   "pair<int>: second unchanged after first mutated");
+
+        //////////////////////////////////////////////////////////
+        // Generic struct: pair<float>
+        //////////////////////////////////////////////////////////
+
+        pf : pair<float> = pair<float>();
+        pf.first  = 1.5;
+        pf.second = 2.5;
+        test(pf.first  == 1.5, "pair<float>: first == 1.5");
+        test(pf.second == 2.5, "pair<float>: second == 2.5");
+        test(pf.first + pf.second == 4.0, "pair<float>: first + second == 4.0");
+
+        //////////////////////////////////////////////////////////
+        // Generic struct: pair<bool>
+        //////////////////////////////////////////////////////////
+
+        pb : pair<bool> = pair<bool>();
+        pb.first  = true;
+        pb.second = false;
+        test(pb.first  == true,  "pair<bool>: first == true");
+        test(pb.second == false, "pair<bool>: second == false");
+        test(pb.first != pb.second, "pair<bool>: first != second");
+
+        //////////////////////////////////////////////////////////
+        // Independence: pair<int> and pair<float> don't interfere
+        //////////////////////////////////////////////////////////
+
+        a : pair<int>   = pair<int>();
+        b : pair<float> = pair<float>();
+        a.first  = 42;
+        b.first  = 3.5;
+        test(a.first == 42,  "independence: pair<int>.first == 42");
+        test(b.first == 3.5, "independence: pair<float>.first == 3.5");
+
+        // Mutating one does not affect the other
+        a.first = 99;
+        test(a.first == 99,  "independence: pair<int>.first mutated to 99");
+        test(b.first == 3.5, "independence: pair<float>.first unchanged");
+
+        //////////////////////////////////////////////////////////
+        // Independence: two pair<int> instances
+        //////////////////////////////////////////////////////////
+
+        p1 : pair<int> = pair<int>();
+        p2 : pair<int> = pair<int>();
+        p1.first = 1;
+        p2.first = 2;
+        test(p1.first == 1, "two pair<int>: p1.first == 1");
+        test(p2.first == 2, "two pair<int>: p2.first == 2");
+        p1.first = 10;
+        test(p1.first == 10, "two pair<int>: p1.first mutated to 10");
+        test(p2.first == 2,  "two pair<int>: p2.first unchanged");
+
+        //////////////////////////////////////////////////////////
+        // Generic struct: wrapper<int>
+        //////////////////////////////////////////////////////////
+
+        wi : wrapper<int> = wrapper<int>();
+        wi.value = 55;
+        test(wi.value == 55, "wrapper<int>: value == 55");
+
+        wi.value = wi.value * 2;
+        test(wi.value == 110, "wrapper<int>: value doubled to 110");
+
+        //////////////////////////////////////////////////////////
+        // Generic struct: wrapper<float>
+        //////////////////////////////////////////////////////////
+
+        wf : wrapper<float> = wrapper<float>();
+        wf.value = 0.5;
+        test(wf.value == 0.5, "wrapper<float>: value == 0.5");
+
+        //////////////////////////////////////////////////////////
+        // Generic struct: wrapper<bool>
+        //////////////////////////////////////////////////////////
+
+        wb : wrapper<bool> = wrapper<bool>();
+        wb.value = true;
+        test(wb.value == true, "wrapper<bool>: value == true");
+        wb.value = false;
+        test(wb.value == false, "wrapper<bool>: value toggled to false");
+
+        //////////////////////////////////////////////////////////
+        // Generic struct: duo<int, float> — mixed types
+        //////////////////////////////////////////////////////////
+
+        dif : duo<int, float> = duo<int, float>();
+        dif.left  = 10;
+        dif.right = 3.5;
+        test(dif.left  == 10,  "duo<int,float>: left == 10");
+        test(dif.right == 3.5, "duo<int,float>: right == 3.5");
+
+        // Mutate one side, verify the other is unchanged
+        dif.left = 99;
+        test(dif.left  == 99,  "duo<int,float>: left mutated to 99");
+        test(dif.right == 3.5, "duo<int,float>: right unchanged");
+
+        //////////////////////////////////////////////////////////
+        // Generic struct: duo<float, int> — swapped types
+        //////////////////////////////////////////////////////////
+
+        dfi : duo<float, int> = duo<float, int>();
+        dfi.left  = 2.5;
+        dfi.right = 42;
+        test(dfi.left  == 2.5, "duo<float,int>: left == 2.5");
+        test(dfi.right == 42,  "duo<float,int>: right == 42");
+
+        //////////////////////////////////////////////////////////
+        // Generic struct: duo<bool, int>
+        //////////////////////////////////////////////////////////
+
+        dbi : duo<bool, int> = duo<bool, int>();
+        dbi.left  = true;
+        dbi.right = 7;
+        test(dbi.left  == true, "duo<bool,int>: left == true");
+        test(dbi.right == 7,    "duo<bool,int>: right == 7");
+        dbi.left = false;
+        test(dbi.left  == false, "duo<bool,int>: left toggled to false");
+        test(dbi.right == 7,     "duo<bool,int>: right unchanged after left toggled");
+
+        //////////////////////////////////////////////////////////
+        // Independence: duo<int,float> vs duo<float,int>
+        //////////////////////////////////////////////////////////
+
+        da : duo<int, float> = duo<int, float>();
+        db : duo<float, int> = duo<float, int>();
+        da.left  = 1;
+        da.right = 1.5;
+        db.left  = 2.5;
+        db.right = 2;
+        test(da.left  == 1,   "cross-instance: da.left == 1");
+        test(da.right == 1.5, "cross-instance: da.right == 1.5");
+        test(db.left  == 2.5, "cross-instance: db.left == 2.5");
+        test(db.right == 2,   "cross-instance: db.right == 2");
+        da.left = 100;
+        test(da.left  == 100, "cross-instance: da.left mutated to 100");
+        test(db.right == 2,   "cross-instance: db.right unchanged");
+
+        //////////////////////////////////////////////////////////
+        // Generic struct: triple<int, float, bool> — all three different
+        //////////////////////////////////////////////////////////
+
+        tifb : triple<int, float, bool> = triple<int, float, bool>();
+        tifb.x = 5;
+        tifb.y = 9.5;
+        tifb.z = true;
+        test(tifb.x == 5,    "triple<int,float,bool>: x == 5");
+        test(tifb.y == 9.5,  "triple<int,float,bool>: y == 9.5");
+        test(tifb.z == true, "triple<int,float,bool>: z == true");
+
+        // Mutate z, verify x and y untouched
+        tifb.z = false;
+        test(tifb.x == 5,     "triple<int,float,bool>: x unchanged after z mutated");
+        test(tifb.y == 9.5,   "triple<int,float,bool>: y unchanged after z mutated");
+        test(tifb.z == false, "triple<int,float,bool>: z mutated to false");
+
+        //////////////////////////////////////////////////////////
+        // Generic struct: triple<float, int, float>
+        //////////////////////////////////////////////////////////
+
+        tfif : triple<float, int, float> = triple<float, int, float>();
+        tfif.x = 1.5;
+        tfif.y = 3;
+        tfif.z = 4.5;
+        test(tfif.x == 1.5, "triple<float,int,float>: x == 1.5");
+        test(tfif.y == 3,   "triple<float,int,float>: y == 3");
+        test(tfif.z == 4.5, "triple<float,int,float>: z == 4.5");
+        test(tfif.x + tfif.z == 6.0, "triple<float,int,float>: x+z == 6.0");
+
+        //////////////////////////////////////////////////////////
+        // Generic struct: triple<bool, bool, int>
+        //////////////////////////////////////////////////////////
+
+        tbbi : triple<bool, bool, int> = triple<bool, bool, int>();
+        tbbi.x = true;
+        tbbi.y = false;
+        tbbi.z = 42;
+        test(tbbi.x == true,  "triple<bool,bool,int>: x == true");
+        test(tbbi.y == false, "triple<bool,bool,int>: y == false");
+        test(tbbi.z == 42,    "triple<bool,bool,int>: z == 42");
+        test(tbbi.x != tbbi.y, "triple<bool,bool,int>: x != y");
+
+        //////////////////////////////////////////////////////////
+        // Two triple instances of the same type, verify independence
+        //////////////////////////////////////////////////////////
+
+        t1 : triple<int, float, bool> = triple<int, float, bool>();
+        t2 : triple<int, float, bool> = triple<int, float, bool>();
+        t1.x = 1;  t1.y = 1.0;  t1.z = true;
+        t2.x = 2;  t2.y = 2.0;  t2.z = false;
+        test(t1.x == 1 && t2.x == 2, "two triple instances: x values independent");
+        test(t1.z == true && t2.z == false, "two triple instances: z values independent");
+        t1.x = 99;
+        test(t1.x == 99, "two triple instances: t1.x mutated to 99");
+        test(t2.x == 2,  "two triple instances: t2.x unchanged");
+
+        //////////////////////////////////////////////////////////
+        // Generic struct: tagged<T, Id : int> — type + int param
+        //////////////////////////////////////////////////////////
+
+        ti1 : tagged<int, 1> = tagged<int, 1>();
+        ti1.value = 100;
+        ti1.tag   = 1;
+        test(ti1.value == 100, "tagged<int,1>: value == 100");
+        test(ti1.tag   == 1,   "tagged<int,1>: tag == 1");
+
+        ti2 : tagged<int, 99> = tagged<int, 99>();
+        ti2.value = 200;
+        ti2.tag   = 99;
+        test(ti2.value == 200, "tagged<int,99>: value == 200");
+        test(ti2.tag   == 99,  "tagged<int,99>: tag == 99");
+
+        // Different Id params produce independent types
+        ti1.value = 999;
+        test(ti1.value == 999, "tagged independence: ti1.value mutated to 999");
+        test(ti2.value == 200, "tagged independence: ti2.value unchanged");
+
+        tf1 : tagged<float, 5> = tagged<float, 5>();
+        tf1.value = 3.5;
+        tf1.tag   = 5;
+        test(tf1.value == 3.5, "tagged<float,5>: value == 3.5");
+        test(tf1.tag   == 5,   "tagged<float,5>: tag == 5");
+
+        tb1 : tagged<bool, 0> = tagged<bool, 0>();
+        tb1.value = true;
+        tb1.tag   = 0;
+        test(tb1.value == true, "tagged<bool,0>: value == true");
+        test(tb1.tag   == 0,    "tagged<bool,0>: tag == 0");
+
+        //////////////////////////////////////////////////////////
+        // Generic struct: bounded<A, B, Cap : int> — two types + int param
+        //////////////////////////////////////////////////////////
+
+        bif4 : bounded<int, float, 4> = bounded<int, float, 4>();
+        bif4.first    = 10;
+        bif4.second   = 2.5;
+        bif4.capacity = 4;
+        test(bif4.first    == 10,  "bounded<int,float,4>: first == 10");
+        test(bif4.second   == 2.5, "bounded<int,float,4>: second == 2.5");
+        test(bif4.capacity == 4,   "bounded<int,float,4>: capacity == 4");
+
+        bfi8 : bounded<float, int, 8> = bounded<float, int, 8>();
+        bfi8.first    = 1.5;
+        bfi8.second   = 77;
+        bfi8.capacity = 8;
+        test(bfi8.first    == 1.5, "bounded<float,int,8>: first == 1.5");
+        test(bfi8.second   == 77,  "bounded<float,int,8>: second == 77");
+        test(bfi8.capacity == 8,   "bounded<float,int,8>: capacity == 8");
+
+        // Verify the two instances are independent
+        bif4.first = 99;
+        test(bif4.first  == 99,  "bounded independence: bif4.first mutated to 99");
+        test(bfi8.second == 77,  "bounded independence: bfi8.second unchanged");
+
+        //////////////////////////////////////////////////////////
+        // Generic struct: labeled<T, Label : string> — type + string param
+        //////////////////////////////////////////////////////////
+
+        ls : labeled<int, "score"> = labeled<int, "score">();
+        ls.value = 42;
+        ls.name  = "score";
+        test(ls.value == 42,      "labeled<int,\"score\">: value == 42");
+        test(ls.name  == "score", "labeled<int,\"score\">: name == \"score\"");
+
+        lh : labeled<float, "health"> = labeled<float, "health">();
+        lh.value = 99.5;
+        lh.name  = "health";
+        test(lh.value == 99.5,    "labeled<float,\"health\">: value == 99.5");
+        test(lh.name  == "health","labeled<float,\"health\">: name == \"health\"");
+
+        // Different label params, independent instances
+        ls.value = 0;
+        test(ls.value == 0,    "labeled independence: ls.value mutated to 0");
+        test(lh.value == 99.5, "labeled independence: lh.value unchanged");
+
+        //////////////////////////////////////////////////////////
+        // #compiles checks for struct variant usage
+        //////////////////////////////////////////////////////////
+
+        test(#compiles(pair<int>()),   "#compiles: pair<int>() is valid");
+        test(#compiles(pair<float>()), "#compiles: pair<float>() is valid");
+        test(#compiles(pair<bool>()),  "#compiles: pair<bool>() is valid");
+
+        test(#compiles(wrapper<int>()),   "#compiles: wrapper<int>() is valid");
+        test(#compiles(wrapper<float>()), "#compiles: wrapper<float>() is valid");
+
+        test(#compiles(duo<int, float>()),   "#compiles: duo<int,float>() is valid");
+        test(#compiles(duo<float, int>()),   "#compiles: duo<float,int>() is valid");
+        test(#compiles(duo<bool, int>()),    "#compiles: duo<bool,int>() is valid");
+
+        test(#compiles(triple<int, float, bool>()),   "#compiles: triple<int,float,bool>() is valid");
+        test(#compiles(triple<float, int, float>()),  "#compiles: triple<float,int,float>() is valid");
+        test(#compiles(triple<bool, bool, int>()),    "#compiles: triple<bool,bool,int>() is valid");
+
+        test(#compiles(tagged<int, 1>()),     "#compiles: tagged<int,1>() is valid");
+        test(#compiles(tagged<float, 5>()),   "#compiles: tagged<float,5>() is valid");
+        test(#compiles(tagged<bool, 0>()),    "#compiles: tagged<bool,0>() is valid");
+
+        test(#compiles(bounded<int, float, 4>()),  "#compiles: bounded<int,float,4>() is valid");
+        test(#compiles(bounded<float, int, 8>()),  "#compiles: bounded<float,int,8>() is valid");
+
+        test(#compiles(labeled<int, "score">()),    "#compiles: labeled<int,\"score\">() is valid");
+        test(#compiles(labeled<float, "health">()), "#compiles: labeled<float,\"health\">() is valid");
+
+        return;
+    }
 
 }

@@ -4,11 +4,11 @@
 @todo:
 Window :: module{
 
-	// Struct: window
-	// Description: An object that holds information related to a graphical window
-	@public:
-	@todo:
-	Window :: struct{
-		
-	}
+    // Struct: window
+    // Description: An object that holds information related to a graphical window
+    @public:
+    @todo:
+    Window :: struct{
+        
+    }
 }

@@ -5,15 +5,15 @@
 @public:
 AccessTests :: module {
 
-	#import Tests.Testing;
-	#import Builtin.Memory;
-	#import Builtin.Casts;
-	#import Builtin.String;
+	#use Tests.Testing;
+	#use Builtin.Memory;
+	#use Builtin.Casts;
+	#use Builtin.String;
 
 	// Module level pointer variables
-	g_intbuf  : *int;
+	g_intbuf  : *int = void;
 	g_sentinel : int = 0xABCD;   // adjacent global; must survive writes through g_intbuf
-	g_charbuf : *char;
+	g_charbuf : *char = void;
 
 	@public:
 	runAccessTests :: () {

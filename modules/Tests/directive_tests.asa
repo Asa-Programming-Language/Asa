@@ -5,100 +5,100 @@
 @public:
 DirectiveTests :: module {
 
-	#import Tests.Testing;
-	#import Builtin.String;
-	#import Builtin.Print;
+    #use Tests.Testing;
+    #use Builtin.String;
+    #use Builtin.Print;
 
-	// runDirectiveTests()
-	// Runs all compile-time directive tests.
+    // runDirectiveTests()
+    // Runs all compile-time directive tests.
 
-	@public:
-	runDirectiveTests :: () {
-		beginSection("Compile-time Directives");
+    @public:
+    runDirectiveTests :: () {
+        beginSection("Compile-time Directives");
 
-		// #linenum should expand to the integer line number of that token
-		ln : int = #linenum;
-		test(ln > 0, "#linenum should be a positive integer");
+        // #linenum should expand to the integer line number of that token
+        ln : int = #linenum;
+        test(ln > 0, "#linenum should be a positive integer");
 
-		// Two consecutive #linenum captures should differ by 1
-		a : int = #linenum;
-		b : int = #linenum;
-		test(b == a + 1, "#linenum should increment by 1 on consecutive lines");
+        // Two consecutive #linenum captures should differ by 1
+        a : int = #linenum;
+        b : int = #linenum;
+        test(b == a + 1, "#linenum should increment by 1 on consecutive lines");
 
-		// #linenum used inline in an expression
-		test(#linenum > 0, "#linenum inline should be positive");
+        // #linenum used inline in an expression
+        test(#linenum > 0, "#linenum inline should be positive");
 
-		// #line should expand to the source text of that line as a string
-		lineStr : string = #line;
-		test(lineStr.length > 0, "#line should produce a non-empty string");
+        // #line should expand to the source text of that line as a string
+        lineStr : string = #line;
+        test(lineStr.length > 0, "#line should produce a non-empty string");
 
-		// #line captured inline then tested via string variable
-		lineStr2 : string = #line;
-		test(lineStr2.length > 0, "#line inline should have non-zero length");
+        // #line captured inline then tested via string variable
+        lineStr2 : string = #line;
+        test(lineStr2.length > 0, "#line inline should have non-zero length");
 
-		// #filepath should expand to the source file path as a string
-		fname : string = #filepath;
-		test(fname.length > 0, "#filepath should be a non-empty string");
+        // #filepath should expand to the source file path as a string
+        fname : string = #filepath;
+        test(fname.length > 0, "#filepath should be a non-empty string");
 
-		// #linecol should expand to the column number as a positive integer
-		col : int = #linecol;
-		test(col > 0, "#linecol should be a positive integer");
+        // #linecol should expand to the column number as a positive integer
+        col : int = #linecol;
+        test(col > 0, "#linecol should be a positive integer");
 
-		// #funcname should expand to the enclosing function name
-		fn : string = #funcname;
-		test(fn.length > 0, "#funcname should be a non-empty string");
+        // #funcname should expand to the enclosing function name
+        fn : string = #funcname;
+        test(fn.length > 0, "#funcname should be a non-empty string");
 
-		// #modulename should expand to the enclosing module name
-		mn : string = #modulename;
-		test(mn.length > 0, "#modulename should be a non-empty string");
+        // #modulename should expand to the enclosing module name
+        mn : string = #modulename;
+        test(mn.length > 0, "#modulename should be a non-empty string");
 
-		// #asaversion should expand to the compiler version string
-		comp : string = #asaversion;
-		test(comp.length > 0, "#asaversion should be a non-empty string");
+        // #asaversion should expand to the compiler version string
+        comp : string = #asaversion;
+        test(comp.length > 0, "#asaversion should be a non-empty string");
 
-		// #counter should produce unique incrementing integers
-		c0 : int = #counter;
-		c1 : int = #counter;
-		c2 : int = #counter;
-		test(c1 == c0 + 1, "#counter should increment by 1");
-		test(c2 == c1 + 1, "#counter should keep incrementing");
+        // #counter should produce unique incrementing integers
+        c0 : int = #counter;
+        c1 : int = #counter;
+        c2 : int = #counter;
+        test(c1 == c0 + 1, "#counter should increment by 1");
+        test(c2 == c1 + 1, "#counter should keep incrementing");
 
-		// #nameof should return the simple name of a variable as a string
-		someVar : int = 42;
-		test(#nameof(someVar) == "someVar", "#nameof should return variable name");
+        // #nameof should return the simple name of a variable as a string
+        someVar : int = 42;
+        test(#nameof(someVar) == "someVar", "#nameof should return variable name");
 
-		// #nameof on a dotted path should return just the last identifier
-		test(#nameof(someVar) == #nameof(someVar), "#nameof result is consistent");
+        // #nameof on a dotted path should return just the last identifier
+        test(#nameof(someVar) == #nameof(someVar), "#nameof result is consistent");
 
-		// #typeof should return the type name of a variable as a string
-		intVar : int = 0;
-		test(#typeof(intVar) == "int", "#typeof(int var) should return \"int\"");
-		floatVar : float = 0.0;
-		test(#typeof(floatVar) == "float", "#typeof(float var) should return \"float\"");
-		strVar : string = "hello";
-		test(#typeof(strVar) == "string", "#typeof(string var) should return \"string\"");
+        // #typeof should return the type name of a variable as a string
+        intVar : int = 0;
+        test(#typeof(intVar) == "int", "#typeof(int var) should return \"int\"");
+        floatVar : float = 0.0;
+        test(#typeof(floatVar) == "float", "#typeof(float var) should return \"float\"");
+        strVar : string = "hello";
+        test(#typeof(strVar) == "string", "#typeof(string var) should return \"string\"");
 
-		// #sizeof should return the byte size of a type
-		test(#sizeof(int) == 4, "#sizeof(int) should be 4");
-		test(#sizeof(uint) == 4, "#sizeof(uint) should be 4");
-		test(#sizeof(int64) > 4, "#sizeof(int64) should be > 4");
-		test(#sizeof(int32) == 4, "#sizeof(int32) should be 4");
-		test(#sizeof(int16) == 2, "#sizeof(int16) should be 2");
-		test(#sizeof(int8) == 1, "#sizeof(int8) should be 1");
-		test(#sizeof(bool) == 1, "#sizeof(bool) should be 1");
-		test(#sizeof(char) == 1, "#sizeof(char) should be 1");
+        // #sizeof should return the byte size of a type
+        test(#sizeof(int) == 4, "#sizeof(int) should be 4");
+        test(#sizeof(uint) == 4, "#sizeof(uint) should be 4");
+        test(#sizeof(int64) > 4, "#sizeof(int64) should be > 4");
+        test(#sizeof(int32) == 4, "#sizeof(int32) should be 4");
+        test(#sizeof(int16) == 2, "#sizeof(int16) should be 2");
+        test(#sizeof(int8) == 1, "#sizeof(int8) should be 1");
+        test(#sizeof(bool) == 1, "#sizeof(bool) should be 1");
+        test(#sizeof(char) == 1, "#sizeof(char) should be 1");
 
-		// #sizeof of a variable should use the variable's type
-		sizeVar : int = 0;
-		test(#sizeof(sizeVar) == 4, "#sizeof(int variable) should be 4");
+        // #sizeof of a variable should use the variable's type
+        sizeVar : int = 0;
+        test(#sizeof(sizeVar) == 4, "#sizeof(int variable) should be 4");
 
-		// #compiles should return true when the expression is valid
-		test(#compiles(1 + 1), "#compiles(1 + 1) should be true");
-		test(#compiles(intVar + 1), "#compiles(intVar + 1) should be true");
-		test(#compiles("hello"), "#compiles(string literal) should be true");
+        // #compiles should return true when the expression is valid
+        test(#compiles(1 + 1), "#compiles(1 + 1) should be true");
+        test(#compiles(intVar + 1), "#compiles(intVar + 1) should be true");
+        test(#compiles("hello"), "#compiles(string literal) should be true");
 
-		// #compiles should return false when the expression is invalid
-		// (e.g. using an undeclared identifier)
-		test(#compiles(undeclaredIdentifier) == false, "#compiles(undeclared) should be false");
-	}
+        // #compiles should return false when the expression is invalid
+        // (e.g. using an undeclared identifier)
+        test(#compiles(undeclaredIdentifier) == false, "#compiles(undeclared) should be false");
+    }
 }

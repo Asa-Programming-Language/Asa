@@ -1,0 +1,81 @@
+
+// CompilerDefineTests
+// Tests for compile-time value defines: integer, float, bool, string, and
+// expression defines. Each define is used in arithmetic, comparisons, and
+// as function arguments.
+
+@public:
+CompilerDefineTests :: module {
+
+    #use Tests.Testing;
+
+    ////////////////////////////
+    // Defines under test     //
+    ////////////////////////////
+
+    // Integer constant
+    ANSWER    :: 42;
+    MAX_VAL   :: 100;
+
+    // Arithmetic expression define
+    DOUBLE_MAX :: 100 + 100;
+
+    // Float constant
+    HALF :: 0.5;
+
+    // Bool constant
+    ALWAYS_TRUE  :: true;
+    ALWAYS_FALSE :: false;
+
+    // String constant
+    GREETING :: "hello";
+
+    ////////////////////////////
+    // Helper functions       //
+    ////////////////////////////
+
+    cdAddOne    :: int(x : int)    { return x + 1; }
+    cdAddFloat  :: float(x : float){ return x + 1.0; }
+    cdNegateBool :: bool(x : bool) { return !x; }
+    cdStrLen    :: int(s : string) { return s.length; }
+
+    @public:
+    runCompilerDefineTests :: () {
+        beginSection("Compiler Defines");
+
+        /////////////////////////////
+        // Integer defines         //
+        /////////////////////////////
+        test(ANSWER == 42,                   "int define: ANSWER == 42");
+        test(ANSWER + 1 == 43,               "int define: ANSWER + 1 == 43");
+        test(MAX_VAL == 100,                 "int define: MAX_VAL == 100");
+        test(MAX_VAL - ANSWER == 58,         "int define: MAX_VAL - ANSWER == 58");
+        test(cdAddOne(ANSWER) == 43,           "int define: pass ANSWER to function");
+
+        /////////////////////////////
+        // Expression define       //
+        /////////////////////////////
+        test(DOUBLE_MAX == 200,              "expr define: DOUBLE_MAX == 200");
+        test(DOUBLE_MAX + ANSWER == 242,     "expr define: DOUBLE_MAX + ANSWER == 242");
+
+        /////////////////////////////
+        // Float define            //
+        /////////////////////////////
+        test(HALF == 0.5,                    "float define: HALF == 0.5");
+        test(cdAddFloat(HALF) == 1.5,          "float define: pass HALF to function");
+
+        /////////////////////////////
+        // Bool defines            //
+        /////////////////////////////
+        test(ALWAYS_TRUE == true,            "bool define: ALWAYS_TRUE == true");
+        test(ALWAYS_FALSE == false,          "bool define: ALWAYS_FALSE == false");
+        test(cdNegateBool(ALWAYS_TRUE) == false,  "bool define: negate ALWAYS_TRUE");
+        test(cdNegateBool(ALWAYS_FALSE) == true,  "bool define: negate ALWAYS_FALSE");
+
+        /////////////////////////////
+        // String define           //
+        /////////////////////////////
+        test(GREETING == "hello",            "string define: GREETING == \"hello\"");
+        test(cdStrLen(GREETING) == 5,          "string define: length of GREETING == 5");
+    }
+}

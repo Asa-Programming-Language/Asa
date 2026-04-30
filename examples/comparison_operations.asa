@@ -1,0 +1,72 @@
+
+// Sometimes it is necessary to compare one value with many other values. For many cases,
+// this can be achieved with a switch-case. But in some instances, it is cleaner or just
+// better for the implementation to use if statements, or the comparison may even be evaluated
+// for its value rather than for control flow
+
+// For example:
+if (someVar == CONSTANT_A || someVar == CONSTANT_B || someVar == CONSTANT_C || someVar == CONSTANT_D){
+    // ...
+}
+
+// And if mixing in other boolean values, it makes switch-case impossible unless different organization is used
+if ((someVar == CONSTANT_A || someVar == CONSTANT_B || someVar == CONSTANT_C || someVar == CONSTANT_D) && someVar.length > 5 && otherVar % 2 == 0){
+    // ...
+}
+
+// You should format it like this:
+if ((someVar == CONSTANT_A || 
+     someVar == CONSTANT_B || 
+     someVar == CONSTANT_C || 
+     someVar == CONSTANT_D) && 
+     someVar.length > 5 && 
+     otherVar % 2 == 0){
+    // ...
+}
+
+// But there should be a shorter way to write it regardless. 
+// If we look at python as an example, we can maybe borrow `in`, like:
+if (someVar in {CONSTANT_A, CONSTANT_B, CONSTANT_C, CONSTANT_D} && 
+    someVar.length > 5 && 
+    otherVar % 2 == 0){
+    // ...
+}
+
+// Although, given this syntax, we are contructing an array using {}, and using `in` to check its contents.
+// It might be better to do this explicitly, like:
+if ({CONSTANT_A, CONSTANT_B, CONSTANT_C, CONSTANT_D}.contains(someVar) && 
+    someVar.length > 5 && 
+    otherVar % 2 == 0){
+    // ...
+}
+
+// That makes it a bit unclear what the first item is doing though, since someVar is so late
+// Instead, maybe a compiler directive would work? I am trying to make the comparison 
+// basically "expand" for all of the elements, which is definitely something that the 
+// metaprogramming part of the language could handle. Like:
+if (#compare_many(someVar, {CONSTANT_A, CONSTANT_B, CONSTANT_C, CONSTANT_D}) && 
+    someVar.length > 5 && 
+    otherVar % 2 == 0){
+    // ...
+}
+// To make it less ambiguous that {} is not an array here, could add `#` prefix like:
+if (#compare_many(someVar, #{CONSTANT_A, CONSTANT_B, CONSTANT_C, CONSTANT_D}) && 
+    someVar.length > 5 && 
+    otherVar % 2 == 0){
+    // ...
+}
+// But that still seems a bit weird. Might be better to just simplify. Also, allow specifying comparison operator
+// And `#compare_many` is unclear if it is && or || between each comparison. So use compare_any and compare_all.
+if (#compare_any(someVar, ==, CONSTANT_A, CONSTANT_B, CONSTANT_C, CONSTANT_D) && 
+    someVar.length > 5 && 
+    otherVar % 2 == 0){
+    // ...
+}
+// Or even `#any` and `#all`
+if (#any(someVar, ==, CONSTANT_A, CONSTANT_B, CONSTANT_C, CONSTANT_D) && 
+    someVar.length > 5 && 
+    otherVar % 2 == 0){
+    // ...
+}
+
+

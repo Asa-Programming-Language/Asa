@@ -5,8 +5,8 @@
 @public:
 StringTests :: module {
 
-	#import Tests.Testing;
-	#import Builtin.String;
+	#use Tests.Testing;
+	#use Builtin.String;
 
 	// runStringTests()
 	// Runs all string tests.

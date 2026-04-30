@@ -5,9 +5,9 @@
 @public:
 Color32Tests :: module {
 
-	#import Tests.Testing;
-	#import Builtin.Casts;
-	#import Rendering.Raylib;
+	#use Tests.Testing;
+	#use Builtin.Casts;
+	#use Rendering.Raylib;
 
 	@public:
 	runColor32Tests :: () {

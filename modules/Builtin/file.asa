@@ -6,7 +6,7 @@
 //
 //     Example:
 //     ```asa
-//     #import Builtin.File;
+//     #use Builtin.File;
 //
 //     f : File = open("hello.txt", "w");
 //     writeLine(f, "Hello, world!");
@@ -16,12 +16,13 @@
 //     contents : string = readAll(g);
 //     close(g);
 //     ```
+@hideast:
 @public:
 File :: module {
 
-	#import Builtin.String;
-	#import Builtin.Memory;
-	#import Builtin.Casts;
+	#use Builtin.String;
+	#use Builtin.Memory;
+	#use Builtin.Casts;
 
 	// C standard file I/O - FILE* is represented as *char (opaque pointer)
 	#extern fopen  as _fopen_c_extern   :: *char(path : *char, mode : *char);

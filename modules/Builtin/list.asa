@@ -1,95 +1,112 @@
 // Module: List
 // Description: Contains the <list> data type
+@hideast:
 @public:
 List :: module{
-	#import Builtin.Print;
-	#import Builtin.Memory;
+    #use Builtin.Print;
+    #use Builtin.Memory;
 
-	// Struct: list
-	// Description: A dynamically allocated list structure
-	@public:
-	list :: struct
-	{
-		TYPE : type = int;
-		address : *TYPE;
-		//address : *any;
-		length : uint32;
-		allocatedMemory : uint32 = 1;
-		
-		// Function: size()
-		// Description: Returns the number of elements in the list
-		// Returns: An integer representing the number of elements in the list
-		size::uint32() {
-			return this.length;
-		}
+    // Struct: list
+    // Description: A dynamically allocated list structure
+    @public:
+    list<T : type> :: struct{
 
-		// Function: add(any)
-		// Description: |
-		//     Add an element to the list like:
-		//     ```asa
-		//     list.add(element)
-		//     ```
-		//     Returns: The element that was just added
-		add :: ref ELEMENT_TYPE(val : ELEMENT_TYPE){
-			this.length += 1;
-			requiredBytes = this.length * ELEMENT_TYPE.size();
-			// Reallocate memory, doubling amount each time so it isn't copied and re-allocated
-			// every time an operation occurs. This is like vector in C++
-			//if (requiredBytes >= this.allocatedMemory){
-			//	this.allocatedMemory *= 2;
-			//	newAddress = malloc(requiredBytes);
-			//	for(i in 0..this.length-1){
-			//		newAddress[i] = ELEMENT_TYPE(this.address[i]);
-			//	}
-			//	this.address = newAddress;
-			//}
-			//this.address[this.length-1] = val;
-			return val;
-		}
+        address : *T;
+        length : uint32;
+        allocatedMemory : uint32 = 1;
+        
+        // Function: size()
+        // Description: Returns the number of elements in the list
+        // Returns: An integer representing the number of elements in the list
+        size :: uint32() {
+            return this.length;
+        }
 
-		//operator[] :: ref ELEMENT_TYPE(i : int) #inline {
-		//	return ELEMENT_TYPE(this.address[i]);
-		//}
-	}
+        // Function: append(x)
+        // Description: |
+        //     Append an element to the end of the list like:
+        //     ```asa
+        //     list.append(element)
+        //     ```
+        //     Returns: The element that was just added
+        append :: T(val : T){ // TODO: Make this return ref
+            this.length += 1;
+            requiredBytes = this.length * #sizeof(T);
+            // Reallocate memory, doubling amount each time so it isn't copied and re-allocated
+            // every time an operation occurs. This is like vector in C++
+            if (requiredBytes >= this.allocatedMemory){
+                this.allocatedMemory *= 2;
+                newAddress = malloc(requiredBytes);
+                for(i in 0..this.length-1){
+                    newAddress[i] = this.address[i];
+                    //newAddress[i] = T(this.address[i]);
+                }
+                this.address = newAddress;
+            }
+            this.address[this.length-1] = val;
+            return val;
+        }
 
-	//// Function: list<type>()
-	//// Description: |
-	////     Creates a new list of the specified type.
-	////     Example:
-	////     ```asa
-	////     x : list = list<type=int32>();
-	////     ```
-	//// Returns: A list object
-	//@public:
-	//create<T : type> :: list(){
-	//	l : list = list();
-	//	l.TYPE = T;
-	//	return l;
-	//}
+        //operator[] :: ref ELEMENT_TYPE(i : int) #inline {
+        //  return ELEMENT_TYPE(this.address[i]);
+        //}
+    }
 
-	//// Function: range(list)
-	//// Description: |
-	////     Gets the <range> object representing the list at the time of calling
-	////     Example:
-	////     ```asa
-	////     x : list = list<int>(1, 2, 3, 4);
-	////     range(x);
-	////     ```
-	//// Returns: A range object
-	//@public:
-	//create :: range(l : list){
-	//	newRange = range<l.TYPE>();
-	//	//newRange = range<itemType = l.TYPE>();
-	//	iter : iterator = iterator();
-	//	newRange.min = {return startVal;};
-	//	newRange.max = {return endVal;};
-	//	newRange.next = iter.next;
-	//}
+    
+    list<T : type>.operator[] :: ref T(l : list<T>, i : int) {
+        return l.address[i];
+    }
 
-	//operator: :: iterator(item ref : ELEMENT_TYPE, l : list)
-	//	#mod ELEMENT_TYPE = #run(typeof(l));
-	//{
-	//	newIter : iterator = iterator<ELEMENT_TYPE = ELEMENT_TYPE>(0, l.length);
-	//	return newIter;
-	//}
+    //// Function: list<type>()
+    //// Description: |
+    ////     Creates a new list of the specified type.
+    ////     Example:
+    ////     ```asa
+    ////     x : list = list<type=int32>();
+    ////     ```
+    //// Returns: A list object
+    //@public:
+    //create<T : type> :: list(){
+    //  l : list = list();
+    //  l.TYPE = T;
+    //  return l;
+    //}
+
+    //// Function: range(list)
+    //// Description: |
+    ////     Gets the <range> object representing the list at the time of calling
+    ////     Example:
+    ////     ```asa
+    ////     x : list = list<int>(1, 2, 3, 4);
+    ////     range(x);
+    ////     ```
+    //// Returns: A range object
+    //@public:
+    //create :: range(l : list){
+    //  newRange = range<l.TYPE>();
+    //  //newRange = range<itemType = l.TYPE>();
+    //  iter : iterator = iterator();
+    //  newRange.min = {return startVal;};
+    //  newRange.max = {return endVal;};
+    //  newRange.next = iter.next;
+    //}
+
+    //operator: :: iterator(item ref : ELEMENT_TYPE, l : list)
+    //  #mod ELEMENT_TYPE = #run(typeof(l));
+    //{
+    //  newIter : iterator = iterator<ELEMENT_TYPE = ELEMENT_TYPE>(0, l.length);
+    //  return newIter;
+    //}
+
+    range :: struct{
+        start : int = 0;
+        end   : int = 0;
+    }
+
+    operator.. :: range(l : int, r : int){
+        o : range = range();
+        o.start = l;
+        o.end = r;
+        return o;
+    }
 }

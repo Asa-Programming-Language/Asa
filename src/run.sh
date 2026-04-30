@@ -8,7 +8,7 @@ echo -e "\nCleaning up build files...";
 find ../modules -name "*.ll.s" -type f -delete;
 find ../modules -name "*.ll" -type f -delete;
 echo -e "\nRunning cmake...";
-cmake -G Ninja ../src || { echo -e "\ncmake failed."; exit 1; }
+cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=1 -G Ninja ../src || { echo -e "\ncmake failed."; exit 1; }
 echo -e "\nRunning Ninja...";
 ninja_log=$(mktemp);
 ninja -j2 2>&1 | tee "$ninja_log";

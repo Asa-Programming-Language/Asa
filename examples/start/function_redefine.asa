@@ -1,19 +1,19 @@
 #import Builtin.Print;
 
 testRedefineFunction :: (){
-	printl("* Function testFunction():");
-	testFunction();
+    printl("* Function testFunction():");
+    testFunction();
 
-	printl("* redefining...");
-	testFunction = otherFunction;
-	
-	printl("* Function testFunction():");
+    printl("* redefining...");
+    testFunction = otherFunction;
+    
+    printl("* Function testFunction():");
 }
 
 testFunction :: (){
-	printl("First test function");
+    printl("First test function");
 }
 
 otherFunction :: (){
-	printl("This is another function's output!");
+    printl("This is another function's output!");
 }

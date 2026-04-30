@@ -5,7 +5,7 @@
 @todo:
 Mesh :: module{
 
-	#import Builtin.String;
+	#use Builtin.String;
 
 	// Struct: mesh
 	// Description: A data type that holds information related to a 3D mesh

@@ -3,502 +3,503 @@
 // Description: |
 //     A builtin module defining the string type
 //     See Also: <string>
+@hideast:
 @public:
 String :: module{
-	#import Builtin.Print;
-	#import Builtin.Memory;
-	#import Builtin.Casts;
+    #use Builtin.Print;
+    #use Builtin.Memory;
+    #use Builtin.Casts;
 
-	#extern snprintf as _snprintf_c_extern :: int32(buf : *char, size : uint64, fmt : *char, ...);
+    #extern snprintf as _snprintf_c_extern :: int32(buf : *char, size : uint64, fmt : *char, ...);
 
-	#define IN_STRING_MODULE true;
+    #define IN_STRING_MODULE true;
 
-	// Struct: string
-	// Description: |
-	//     The string data type
-	//
-	//     You can declare a string using double quotes:
-	//     ```asa
-	//     s : string = "Hello, World!";
-	//     ```
-	@public:
-	@version(1):
-	string :: struct {
+    // Struct: string
+    // Description: |
+    //     The string data type
+    //
+    //     You can declare a string using double quotes:
+    //     ```asa
+    //     s : string = "Hello, World!";
+    //     ```
+    @public:
+    @version(1):
+    string :: struct {
 
-		@unsafe: address : *char;
+        @unsafe: address : *char;
 
-		length : uint32 = 0;
+        length : uint32 = 0;
 
-		// Function: size()
-		// Returns: The length in characters of the string
-		@public:
-		@inline:
-		size :: uint32() {
-			return this.length;
-		}
+        // Function: size()
+        // Returns: The length in characters of the string
+        @public:
+        @inline:
+        size :: uint32() {
+            return this.length;
+        }
 
-		// Function: substr(start, len)
-		// Description: Returns a new string of `len` characters starting at `start`.
-		//              Clamps start and len to valid bounds.
-		//
-		// Arguments:
-		//     start: Starting offset (clamped to [0, length))
-		//     len:   Number of characters (clamped so start+len <= length)
-		//
-		// Returns: A new string
-		@public:
-		substr :: string(start : int, len : int) {
-			res : string = string();
-			strLen : int = int(this.length);
-			if (start < 0) { start = 0; }
-			if (start > strLen) { start = strLen; }
-			if (len < 0) { len = 0; }
-			if (start + len > strLen) { len = strLen - start; }
-			res.address = malloc(len * 2 + 1);
-			res.length = uint32(len);
-			for (i in 0..len) {
-				res.address[i] = this.address[start + i];
-			}
-			res.address[len] = char(0);
-			return res;
-		}
+        // Function: substr(start, len)
+        // Description: Returns a new string of `len` characters starting at `start`.
+        //              Clamps start and len to valid bounds.
+        //
+        // Arguments:
+        //     start: Starting offset (clamped to [0, length))
+        //     len:   Number of characters (clamped so start+len <= length)
+        //
+        // Returns: A new string
+        @public:
+        substr :: string(start : int, len : int) {
+            res : string = string();
+            strLen : int = int(this.length);
+            if (start < 0) { start = 0; }
+            if (start > strLen) { start = strLen; }
+            if (len < 0) { len = 0; }
+            if (start + len > strLen) { len = strLen - start; }
+            res.address = malloc(len * 2 + 1);
+            res.length = uint32(len);
+            for (i in 0..len) {
+                res.address[i] = this.address[start + i];
+            }
+            res.address[len] = char(0);
+            return res;
+        }
 
-		// Function: isEmpty()
-		// Returns: true if the string has zero characters
-		@public:
-		@inline:
-		isEmpty :: bool() {
-			return this.length == 0;
-		}
+        // Function: isEmpty()
+        // Returns: true if the string has zero characters
+        @public:
+        @inline:
+        isEmpty :: bool() {
+            return this.length == 0;
+        }
 
-		// Function: contains(sub)
-		// Returns: true if sub appears anywhere in this string
-		@public:
-		@inline:
-		contains :: bool(sub : string) {
-			res : *char = strstr(this.address, sub.address);
-			return int64(res) != 0;
-		}
+        // Function: contains(sub)
+        // Returns: true if sub appears anywhere in this string
+        @public:
+        @inline:
+        contains :: bool(sub : string) {
+            res : *char = strstr(this.address, sub.address);
+            return int64(res) != 0;
+        }
 
-		// Function: indexOf(sub)
-		// Returns: Index of the first occurrence of sub, or -1 if not found
-		@public:
-		indexOf :: int(sub : string) {
-			res : *char = strstr(this.address, sub.address);
-			resAddr : int64 = int64(res);
-			if (resAddr == 0) { return -1; }
-			startAddr : int64 = int64(this.address);
-			return int(resAddr - startAddr);
-		}
+        // Function: indexOf(sub)
+        // Returns: Index of the first occurrence of sub, or -1 if not found
+        @public:
+        indexOf :: int(sub : string) {
+            res : *char = strstr(this.address, sub.address);
+            resAddr : int64 = int64(res);
+            if (resAddr == 0) { return -1; }
+            startAddr : int64 = int64(this.address);
+            return int(resAddr - startAddr);
+        }
 
-		// Function: startsWith(prefix)
-		// Returns: true if this string begins with prefix
-		@public:
-		startsWith :: bool(prefix : string) {
-			prefLen : int = int(prefix.length);
-			if (prefLen > int(this.length)) { return false; }
-			for (i in 0..prefLen) {
-				if (this.address[i] != prefix.address[i]) { return false; }
-			}
-			return true;
-		}
+        // Function: startsWith(prefix)
+        // Returns: true if this string begins with prefix
+        @public:
+        startsWith :: bool(prefix : string) {
+            prefLen : int = int(prefix.length);
+            if (prefLen > int(this.length)) { return false; }
+            for (i in 0..prefLen) {
+                if (this.address[i] != prefix.address[i]) { return false; }
+            }
+            return true;
+        }
 
-		// Function: endsWith(suffix)
-		// Returns: true if this string ends with suffix
-		@public:
-		endsWith :: bool(suffix : string) {
-			sufLen : int = int(suffix.length);
-			strLen : int = int(this.length);
-			if (sufLen > strLen) { return false; }
-			offset : int = strLen - sufLen;
-			for (i in 0..sufLen) {
-				if (this.address[offset + i] != suffix.address[i]) { return false; }
-			}
-			return true;
-		}
+        // Function: endsWith(suffix)
+        // Returns: true if this string ends with suffix
+        @public:
+        endsWith :: bool(suffix : string) {
+            sufLen : int = int(suffix.length);
+            strLen : int = int(this.length);
+            if (sufLen > strLen) { return false; }
+            offset : int = strLen - sufLen;
+            for (i in 0..sufLen) {
+                if (this.address[offset + i] != suffix.address[i]) { return false; }
+            }
+            return true;
+        }
 
-		// Function: repeat(n)
-		// Returns: This string concatenated with itself n times. Empty string if n <= 0.
-		@public:
-		repeat :: string(n : int) {
-			res : string = string();
-			thisLen : int = int(this.length);
-			if (n <= 0 || thisLen == 0) {
-				res.address = malloc(1);
-				res.address[0] = char(0);
-				res.length = uint32(0);
-				return res;
-			}
-			totalLen : int = thisLen * n;
-			res.address = malloc(totalLen * 2 + 1);
-			res.length = uint32(totalLen);
-			for (i in 0..n) {
-				offset : int = i * thisLen;
-				for (j in 0..thisLen) {
-					res.address[offset + j] = this.address[j];
-				}
-			}
-			res.address[totalLen] = char(0);
-			return res;
-		}
-	}
+        // Function: repeat(n)
+        // Returns: This string concatenated with itself n times. Empty string if n <= 0.
+        @public:
+        repeat :: string(n : int) {
+            res : string = string();
+            thisLen : int = int(this.length);
+            if (n <= 0 || thisLen == 0) {
+                res.address = malloc(1);
+                res.address[0] = char(0);
+                res.length = uint32(0);
+                return res;
+            }
+            totalLen : int = thisLen * n;
+            res.address = malloc(totalLen * 2 + 1);
+            res.length = uint32(totalLen);
+            for (i in 0..n) {
+                offset : int = i * thisLen;
+                for (j in 0..thisLen) {
+                    res.address[offset + j] = this.address[j];
+                }
+            }
+            res.address[totalLen] = char(0);
+            return res;
+        }
+    }
 
-	// Constructor: string(*char)
-	// Description: Creates a string from a null-terminated character array
-	//
-	// Arguments:
-	//     c: Pointer to a null-terminated character array
-	//
-	// Returns: A new string containing the characters from the array
-	@public:
-	create :: string(c : exact const *char) {
-		s : string = string();
+    // Constructor: string(*char)
+    // Description: Creates a string from a null-terminated character array
+    //
+    // Arguments:
+    //     c: Pointer to a null-terminated character array
+    //
+    // Returns: A new string containing the characters from the array
+    @public:
+    create :: string(c : exact const *char) {
+        s : string = string();
 
-		len : uint32 = 0;
-		for(i in 0..65535){
-			if(c[i] == 0){
-				len = i;
-				break;
-			}
-		}
-		s.address = malloc(len*2 + 1);
-		s.length = len;
-		for(i in 0..(len)){
-			s.address[i] = c[i];
-		}
-		s.address[len] = char(0);
-		return s;
-	}
+        len : uint32 = 0;
+        for(i in 0..65535){
+            if(c[i] == 0){
+                len = i;
+                break;
+            }
+        }
+        s.address = malloc(len*2 + 1);
+        s.length = len;
+        for(i in 0..(len)){
+            s.address[i] = c[i];
+        }
+        s.address[len] = char(0);
+        return s;
+    }
 
-	// Operator: +(string, string)
-	// Description: Concatenates two strings together
-	//
-	// Arguments:
-	//     thisStr: The first string
-	//     otherStr: The second string
-	//
-	// Returns: A new string containing the concatenation of both strings
-	@public:
-	operator+ :: string(thisStr : const exact string, otherStr : const exact string){
-		newStr : string = string();
+    // Operator: +(string, string)
+    // Description: Concatenates two strings together
+    //
+    // Arguments:
+    //     thisStr: The first string
+    //     otherStr: The second string
+    //
+    // Returns: A new string containing the concatenation of both strings
+    @public:
+    operator+ :: string(thisStr : const exact string, otherStr : const exact string){
+        newStr : string = string();
 
-		len : const uint32 = thisStr.length + otherStr.length;
-		newStr.address = malloc(len*2 + 1);
-		newStr.length = len;
-		for(i in 0..thisStr.length){
-			newStr.address[i] = thisStr[i];
-		}
-		for(i in 0..otherStr.length){
-			newStr.address[i + thisStr.length] = otherStr[i];
-		}
-		newStr.address[len] = 0;
-		return newStr;
-	}
+        len : const uint32 = thisStr.length + otherStr.length;
+        newStr.address = malloc(len*2 + 1);
+        newStr.length = len;
+        for(i in 0..thisStr.length){
+            newStr.address[i] = thisStr[i];
+        }
+        for(i in 0..otherStr.length){
+            newStr.address[i + thisStr.length] = otherStr[i];
+        }
+        newStr.address[len] = 0;
+        return newStr;
+    }
 
-	// Operator: +(string, char)
-	// Description: Concatenates a string with a character
-	//
-	// Arguments:
-	//     thisStr: The string
-	//     ch: The character to be added
-	//
-	// Returns: A new string containing the concatenation of the string and character
-	@public:
-	operator+ :: string(thisStr : const exact string, ch : const exact char){
-		newStr : string = string();
+    // Operator: +(string, char)
+    // Description: Concatenates a string with a character
+    //
+    // Arguments:
+    //     thisStr: The string
+    //     ch: The character to be added
+    //
+    // Returns: A new string containing the concatenation of the string and character
+    @public:
+    operator+ :: string(thisStr : const exact string, ch : const exact char){
+        newStr : string = string();
 
-		len : const uint32 = thisStr.length + 1;
-		newStr.address = malloc(len*2 + 1);
-		newStr.length = len;
-		for(i in 0..thisStr.length){
-			newStr.address[i] = thisStr[i];
-		}
-		newStr.address[thisStr.length] = ch;
-		newStr.address[len] = 0;
-		return newStr;
-	}
+        len : const uint32 = thisStr.length + 1;
+        newStr.address = malloc(len*2 + 1);
+        newStr.length = len;
+        for(i in 0..thisStr.length){
+            newStr.address[i] = thisStr[i];
+        }
+        newStr.address[thisStr.length] = ch;
+        newStr.address[len] = 0;
+        return newStr;
+    }
 
-	// Operator: +(string, uint8)
-	// Description: Concatenates a string with a uint8
-	//
-	// Arguments:
-	//     thisStr: The string
-	//     n: The uint8 to be added
-	//
-	// Returns: A new string containing the concatenation of the string and uint8
-	@public:
-	@inline:
-	operator+ :: string(thisStr : const exact string, n : const exact uint8){
-		return thisStr + string(int64(n));
-	}
+    // Operator: +(string, uint8)
+    // Description: Concatenates a string with a uint8
+    //
+    // Arguments:
+    //     thisStr: The string
+    //     n: The uint8 to be added
+    //
+    // Returns: A new string containing the concatenation of the string and uint8
+    @public:
+    @inline:
+    operator+ :: string(thisStr : const exact string, n : const exact uint8){
+        return thisStr + string(int64(n));
+    }
 
-	// Operator: +(string, int64)
-	// Description: Concatenates a string with the decimal representation of an integer
-	//
-	// Arguments:
-	//     thisStr: The string
-	//     n: The integer to append
-	//
-	// Returns: A new string containing the concatenation
-	@public:
-	@inline:
-	operator+ :: string(thisStr : const exact string, n : const int64){
-		return thisStr + string(n);
-	}
+    // Operator: +(string, int64)
+    // Description: Concatenates a string with the decimal representation of an integer
+    //
+    // Arguments:
+    //     thisStr: The string
+    //     n: The integer to append
+    //
+    // Returns: A new string containing the concatenation
+    @public:
+    @inline:
+    operator+ :: string(thisStr : const exact string, n : const int64){
+        return thisStr + string(n);
+    }
 
-	// Operator: +(int64, string)
-	// Description: Concatenates the decimal representation of an integer with a string
-	//
-	// Arguments:
-	//     n: The integer to prepend
-	//     otherStr: The string to append
-	//
-	// Returns: A new string containing the concatenation
-	@public:
-	@inline:
-	operator+ :: string(n : const int64, otherStr : const exact string){
-		return string(n) + otherStr;
-	}
+    // Operator: +(int64, string)
+    // Description: Concatenates the decimal representation of an integer with a string
+    //
+    // Arguments:
+    //     n: The integer to prepend
+    //     otherStr: The string to append
+    //
+    // Returns: A new string containing the concatenation
+    @public:
+    @inline:
+    operator+ :: string(n : const int64, otherStr : const exact string){
+        return string(n) + otherStr;
+    }
 
-	// Operator: +(string, float)
-	// Description: Concatenates a string with the decimal representation of a float
-	//
-	// Arguments:
-	//     thisStr: The string
-	//     f: The float to append
-	//
-	// Returns: A new string containing the concatenation
-	@public:
-	@inline:
-	operator+ :: string(thisStr : const exact string, f : const float){
-		return thisStr + string(f);
-	}
+    // Operator: +(string, float)
+    // Description: Concatenates a string with the decimal representation of a float
+    //
+    // Arguments:
+    //     thisStr: The string
+    //     f: The float to append
+    //
+    // Returns: A new string containing the concatenation
+    @public:
+    @inline:
+    operator+ :: string(thisStr : const exact string, f : const float){
+        return thisStr + string(f);
+    }
 
-	// Operator: +(float, string)
-	// Description: Concatenates a decimal representation of a float with a string
-	//
-	// Arguments:
-	//     f: The float to append
-	//     thisStr: The string
-	//
-	// Returns: A new string containing the concatenation
-	@public:
-	@inline:
-	operator+ :: string(f : const float, thisStr : exact const string){
-		return string(f) + thisStr;
-	}
+    // Operator: +(float, string)
+    // Description: Concatenates a decimal representation of a float with a string
+    //
+    // Arguments:
+    //     f: The float to append
+    //     thisStr: The string
+    //
+    // Returns: A new string containing the concatenation
+    @public:
+    @inline:
+    operator+ :: string(f : const float, thisStr : exact const string){
+        return string(f) + thisStr;
+    }
 
-	// Operator: +(*char, *char)
-	// Description: Concatenates two null-terminated character arrays
-	//
-	// Arguments:
-	//     thisStr: The first character array
-	//     otherStr: The second character array
-	//
-	// Returns: A pointer to a new character array containing the concatenation
-	@public:
-	operator+ :: *char(thisStr : const exact *char, otherStr : const exact *char){
-		newStr : *char = void;
+    // Operator: +(*char, *char)
+    // Description: Concatenates two null-terminated character arrays
+    //
+    // Arguments:
+    //     thisStr: The first character array
+    //     otherStr: The second character array
+    //
+    // Returns: A pointer to a new character array containing the concatenation
+    @public:
+    operator+ :: *char(thisStr : const exact *char, otherStr : const exact *char){
+        newStr : *char = void;
 
-		lenA : uint32 = 0;
-		lenB : uint32 = 0;
-		len : uint32 = 0;
-		for(i in 0..65535){
-			if(thisStr[i] == 0){
-				lenA = i-1;
-				break;
-			}
-		}
-		for(i in 0..65535){
-			if(otherStr[i] == 0){
-				lenB = i;
-				break;
-			}
-		}
-		len : uint32 = lenA + lenB;
+        lenA : uint32 = 0;
+        lenB : uint32 = 0;
+        len : uint32 = 0;
+        for(i in 0..65535){
+            if(thisStr[i] == 0){
+                lenA = i-1;
+                break;
+            }
+        }
+        for(i in 0..65535){
+            if(otherStr[i] == 0){
+                lenB = i;
+                break;
+            }
+        }
+        len : uint32 = lenA + lenB;
 
-		newStr = malloc(len*2);
-		for(i in 0..lenA){
-			newStr[i] = thisStr[i];
-		}
-		for(i in 0..lenB){
-			newStr[i] = otherStr[i];
-		}
-		return newStr;
-	}
+        newStr = malloc(len*2);
+        for(i in 0..lenA){
+            newStr[i] = thisStr[i];
+        }
+        for(i in 0..lenB){
+            newStr[i] = otherStr[i];
+        }
+        return newStr;
+    }
 
-	// Constructor: string(int64)
-	// Description: Converts an integer to its decimal string representation
-	//
-	// Arguments:
-	//     n: The integer to convert
-	//
-	// Returns: A new string containing the decimal representation of n
-	@public:
-	cast :: string(n : int64) {
-		s : string = string();
-		if (n < 0) {
-			s = s + '-';
-			if (n == -2147483648) {
-				return s + string("2147483648");
-			}
-			n = 0 - n;
-		}
-		if (n >= 10) {
-			s = s + string(n / 10);
-		}
-		digitVal : int64 = (n % 10) + 48;
-		s = s + char(digitVal);
-		return s;
-	}
+    // Constructor: string(int64)
+    // Description: Converts an integer to its decimal string representation
+    //
+    // Arguments:
+    //     n: The integer to convert
+    //
+    // Returns: A new string containing the decimal representation of n
+    @public:
+    cast :: string(n : int64) {
+        s : string = string();
+        if (n < 0) {
+            s = s + '-';
+            if (n == -2147483648) {
+                return s + string("2147483648");
+            }
+            n = 0 - n;
+        }
+        if (n >= 10) {
+            s = s + string(n / 10);
+        }
+        digitVal : int64 = (n % 10) + 48;
+        s = s + char(digitVal);
+        return s;
+    }
 
-	// Constructor: string(char)
-	// Description: Converts a char to a single-character string
-	@public:
-	cast :: string(c : const exact char) {
-		s : string = string();
-		s.address = malloc(2);
-		s.length = 1;
-		s.address[0] = c;
-		s.address[1] = char(0);
-		return s;
-	}
+    // Constructor: string(char)
+    // Description: Converts a char to a single-character string
+    @public:
+    cast :: string(c : const exact char) {
+        s : string = string();
+        s.address = malloc(2);
+        s.length = 1;
+        s.address[0] = c;
+        s.address[1] = char(0);
+        return s;
+    }
 
-	// Constructor: string(uint8)
-	// Description: Converts an uint8 to its decimal string representation
-	//
-	// Arguments:
-	//     n: The integer to convert
-	//
-	// Returns: A new string containing the decimal representation of n
-	@public:
-	@inline:
-	cast :: string(n : const exact uint8) {
-		return string(int64(n));
-	}
+    // Constructor: string(uint8)
+    // Description: Converts an uint8 to its decimal string representation
+    //
+    // Arguments:
+    //     n: The integer to convert
+    //
+    // Returns: A new string containing the decimal representation of n
+    @public:
+    @inline:
+    cast :: string(n : const exact uint8) {
+        return string(int64(n));
+    }
 
-	// Constructor: string(double)
-	// Description: Converts a double to its string representation using %g format
-	@public:
-	@inline:
-	cast :: string(x : const double) {
-		buf : *char = malloc(32);
-		_snprintf_c_extern(buf, 32, "%g", x);
-		return string(buf);
-	}
+    // Constructor: string(double)
+    // Description: Converts a double to its string representation using %g format
+    @public:
+    @inline:
+    cast :: string(x : const double) {
+        buf : *char = malloc(32);
+        _snprintf_c_extern(buf, 32, "%g", x);
+        return string(buf);
+    }
 
-	// Constructor: string(float)
-	// Description: Converts a float to its string representation
-	@public:
-	@inline:
-	cast :: string(x : const float) {
-		return string(double(x));
-	}
+    // Constructor: string(float)
+    // Description: Converts a float to its string representation
+    @public:
+    @inline:
+    cast :: string(x : const float) {
+        return string(double(x));
+    }
 
-	// Operator: ==(*char, *char)
-	// Description: Compares two null-terminated character arrays for equality
-	//
-	// Returns: true if the contents are identical, false otherwise
-	@public:
-	@inline:
-	operator== :: bool(a : const exact *char, b : const exact *char) {
-		return strcmp(a, b) == 0;
-	}
+    // Operator: ==(*char, *char)
+    // Description: Compares two null-terminated character arrays for equality
+    //
+    // Returns: true if the contents are identical, false otherwise
+    @public:
+    @inline:
+    operator== :: bool(a : const exact *char, b : const exact *char) {
+        return strcmp(a, b) == 0;
+    }
 
-	// Operator: ==(string, string)
-	// Description: Compares two strings for equality by content
-	//
-	// Returns: true if both strings have equal length and identical characters
-	@public:
-	@inline:
-	operator== :: bool(a : const exact string, b : const exact string) {
-		if (a.length != b.length)
-			return false;
-		return strcmp(a.address, b.address) == 0;
-	}
+    // Operator: ==(string, string)
+    // Description: Compares two strings for equality by content
+    //
+    // Returns: true if both strings have equal length and identical characters
+    @public:
+    @inline:
+    operator== :: bool(a : const exact string, b : const exact string) {
+        if (a.length != b.length)
+            return false;
+        return strcmp(a.address, b.address) == 0;
+    }
 
-	@public:
-	@inline:
-	operator!= :: bool(a : const exact string, b : const exact string) {
-		return !(a == b);
-	}
+    @public:
+    @inline:
+    operator!= :: bool(a : const exact string, b : const exact string) {
+        return !(a == b);
+    }
 
-	// Function: print(string)
-	// Description: A function to overload <print(*char)> for strings
-	@public:
-	@inline:
-	print :: (s : const exact string) {
-		print(s.address);
-		return;
-	}
+    // Function: print(string)
+    // Description: A function to overload <print(*char)> for strings
+    @public:
+    @inline:
+    print :: (s : const exact string) {
+        print(s.address);
+        return;
+    }
 
-	// Function: printl(string)
-	// Description: A function to overload <printl(*char)> for strings
-	@public:
-	@inline:
-	printl :: (s : const exact string) {
-		printl(s.address);
-		return;
-	}
+    // Function: printl(string)
+    // Description: A function to overload <printl(*char)> for strings
+    @public:
+    @inline:
+    printl :: (s : const exact string) {
+        printl(s.address);
+        return;
+    }
 
-	// Function: padRight(s, ch, targetLen)
-	// Description: Returns s with ch appended on the right until length reaches targetLen.
-	//              If s is already at or beyond targetLen, returns s unchanged.
-	@public:
-	padRight :: string(s : const exact string, ch : const exact char, targetLen : const int) {
-		res : string = s;
-		len : int = int(s.length);
-		for (i in len..targetLen) {
-			res = res + ch;
-		}
-		return res;
-	}
+    // Function: padRight(s, ch, targetLen)
+    // Description: Returns s with ch appended on the right until length reaches targetLen.
+    //              If s is already at or beyond targetLen, returns s unchanged.
+    @public:
+    padRight :: string(s : const exact string, ch : const exact char, targetLen : const int) {
+        res : string = s;
+        len : int = int(s.length);
+        for (i in len..targetLen) {
+            res = res + ch;
+        }
+        return res;
+    }
 
-	// Function: padLeft(s, ch, targetLen)
-	// Description: Returns s with ch prepended on the left until length reaches targetLen.
-	//              If s is already at or beyond targetLen, returns s unchanged.
-	@public:
-	padLeft :: string(s : const exact string, ch : const exact char, targetLen : const int) {
-		prefix : string = string();
-		len : int = int(s.length);
-		for (i in len..targetLen) {
-			prefix = prefix + ch;
-		}
-		return prefix + s;
-	}
+    // Function: padLeft(s, ch, targetLen)
+    // Description: Returns s with ch prepended on the left until length reaches targetLen.
+    //              If s is already at or beyond targetLen, returns s unchanged.
+    @public:
+    padLeft :: string(s : const exact string, ch : const exact char, targetLen : const int) {
+        prefix : string = string();
+        len : int = int(s.length);
+        for (i in len..targetLen) {
+            prefix = prefix + ch;
+        }
+        return prefix + s;
+    }
 
-	// Function: basename(s)
-	// Description: Returns the filename portion of a path (everything after the last '/').
-	//              If no '/' is found, returns s unchanged.
-	@public:
-	basename :: string(s : const exact string) {
-		lastSlash : int = -1;
-		for (i in 0..int(s.length)) {
-			if (s[i] == '/') {
-				lastSlash = i;
-			}
-		}
-		if (lastSlash == -1) {
-			return s;
-		}
-		res : string = string();
-		start : int = lastSlash + 1;
-		for (i in start..int(s.length)) {
-			res = res + s[i];
-		}
-		return res;
-	}
+    // Function: basename(s)
+    // Description: Returns the filename portion of a path (everything after the last '/').
+    //              If no '/' is found, returns s unchanged.
+    @public:
+    basename :: string(s : const exact string) {
+        lastSlash : int = -1;
+        for (i in 0..int(s.length)) {
+            if (s[i] == '/') {
+                lastSlash = i;
+            }
+        }
+        if (lastSlash == -1) {
+            return s;
+        }
+        res : string = string();
+        start : int = lastSlash + 1;
+        for (i in start..int(s.length)) {
+            res = res + s[i];
+        }
+        return res;
+    }
 
-	// Function: find(s, sub)
-	// Description: Returns the index of the first occurrence of sub in s, or -1 if not found
-	@public:
-	find :: int64(s : const exact string, sub : const exact string) {
-		res : *char = strstr(s.address, sub.address);
-		resAddr : int64 = int64(res);
-		if (resAddr == 0) { return -1; }
-		startAddr : int64 = int64(s.address);
-		return resAddr - startAddr;
-	}
+    // Function: find(s, sub)
+    // Description: Returns the index of the first occurrence of sub in s, or -1 if not found
+    @public:
+    find :: int64(s : const exact string, sub : const exact string) {
+        res : *char = strstr(s.address, sub.address);
+        resAddr : int64 = int64(res);
+        if (resAddr == 0) { return -1; }
+        startAddr : int64 = int64(s.address);
+        return resAddr - startAddr;
+    }
 
-	#define IN_STRING_MODULE false;
+    #define IN_STRING_MODULE false;
 }

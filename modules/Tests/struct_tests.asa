@@ -5,8 +5,8 @@
 @public:
 StructTests :: module {
 
-	#import Tests.Testing;
-	#import Builtin.Memory;
+	#use Tests.Testing;
+	#use Builtin.Memory;
 
 	///////////////////////
 	// Struct definitions //

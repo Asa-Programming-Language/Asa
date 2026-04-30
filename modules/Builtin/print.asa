@@ -1,120 +1,121 @@
 
 // Module: Print
 // Description: A builtin module for printing things to the terminal
+@hideast:
 @public:
 Print :: module {
 
-	#import Builtin.String;
+    #use Builtin.String;
 
-	//#library "libc";
-	//print :: {#foreign "printf"};
-	#extern printf :: int32 (s : const *char, ...);
-	#extern puts :: int32 (str : const *char);
-	#extern putchar::(c : char);
+    //#library "libc";
+    //print :: {#foreign "printf"};
+    #extern printf :: int32 (s : const *char, ...);
+    #extern puts :: int32 (str : const *char);
+    #extern putchar::(c : char);
 
-	// Function: print(*char)
-	// Description: A function for printing a character array to the terminal
-	//
-	// Arguments:
-	//     s: The `:::asa *char` to print.
-	@public:
-	@inline:
-	print :: (s : exact *char, ...) {
-		printf(s);
-		return;
-	}
+    // Function: print(*char)
+    // Description: A function for printing a character array to the terminal
+    //
+    // Arguments:
+    //     s: The `:::asa *char` to print.
+    @public:
+    @inline:
+    print :: (s : exact *char, ...) {
+        printf(s);
+        return;
+    }
 
-	// Function: printl(*char)
-	// Description: A function for printing a character array to the terminal with a newline
-	//
-	// Arguments:
-	//     s: The character array to print.
-	@public:
-	@inline:
-	printl :: (s : exact *char, ...) {
-		printf(s);
-		puts("");
-		return;
-	}
+    // Function: printl(*char)
+    // Description: A function for printing a character array to the terminal with a newline
+    //
+    // Arguments:
+    //     s: The character array to print.
+    @public:
+    @inline:
+    printl :: (s : exact *char, ...) {
+        printf(s);
+        puts("");
+        return;
+    }
 
-	@public:
-	@inline:
-	print :: () {
-		return;
-	}
+    @public:
+    @inline:
+    print :: () {
+        return;
+    }
 
-	@public:
-	@inline:
-	printl :: () {
-		puts("");
-		return;
-	}
+    @public:
+    @inline:
+    printl :: () {
+        puts("");
+        return;
+    }
 
-	// Function: newline()
-	// Description: A function for printing a newline to the terminal
-	@public:
-	@inline:
-	newline :: () {
-		putchar(10);
-	}
+    // Function: newline()
+    // Description: A function for printing a newline to the terminal
+    @public:
+    @inline:
+    newline :: () {
+        putchar(10);
+    }
 
-	// Function: print(int)
-	// Description: A function for printing an `:::asa int` to the terminal, converted to a string
-	//
-	// Arguments:
-	//     n: The integer to print.
-	@public:
-	@inline:
-	print :: (n : int64) {
-		print(string(n));
-		return;
-	}
+    // Function: print(int)
+    // Description: A function for printing an `:::asa int` to the terminal, converted to a string
+    //
+    // Arguments:
+    //     n: The integer to print.
+    @public:
+    @inline:
+    print :: (n : int64) {
+        print(string(n));
+        return;
+    }
 
-	// Function: printl(int)
-	// Description: A function for printing an `:::asa int` to the terminal, converted to a string, with a newline
-	//
-	// Arguments:
-	//     n: The integer to print.
-	@public:
-	@inline:
-	printl :: (n : int64) {
-		printl(string(n));
-		return;
-	}
+    // Function: printl(int)
+    // Description: A function for printing an `:::asa int` to the terminal, converted to a string, with a newline
+    //
+    // Arguments:
+    //     n: The integer to print.
+    @public:
+    @inline:
+    printl :: (n : int64) {
+        printl(string(n));
+        return;
+    }
 
-	// Function: print(float)
-	// Description: Prints a float to the terminal
-	@public:
-	@inline:
-	print :: (x : float) {
-		print(string(x));
-		return;
-	}
+    // Function: print(float)
+    // Description: Prints a float to the terminal
+    @public:
+    @inline:
+    print :: (x : float) {
+        print(string(x));
+        return;
+    }
 
-	// Function: printl(float)
-	// Description: Prints a float to the terminal with a newline
-	@public:
-	@inline:
-	printl :: (x : float) {
-		printl(string(x));
-		return;
-	}
+    // Function: printl(float)
+    // Description: Prints a float to the terminal with a newline
+    @public:
+    @inline:
+    printl :: (x : float) {
+        printl(string(x));
+        return;
+    }
 
-	// Function: print(double)
-	// Description: Prints a double to the terminal
-	@public:
-	@inline:
-	print :: (x : double) {
-		print(string(x));
-		return;
-	}
+    // Function: print(double)
+    // Description: Prints a double to the terminal
+    @public:
+    @inline:
+    print :: (x : double) {
+        print(string(x));
+        return;
+    }
 
-	// Function: printl(double)
-	// Description: Prints a double to the terminal with a newline
-	@public:
-	@inline:
-	printl :: (x : double) {
-		printl(string(x));
-		return;
-	}
+    // Function: printl(double)
+    // Description: Prints a double to the terminal with a newline
+    @public:
+    @inline:
+    printl :: (x : double) {
+        printl(string(x));
+        return;
+    }
 }

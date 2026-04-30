@@ -1,6 +1,7 @@
 
 // Module: Casts
 // Description: A builtin module defining casts between all of the builtin types
+@hideast:
 @public:
 Casts :: module {
 

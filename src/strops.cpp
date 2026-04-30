@@ -548,17 +548,28 @@ std::string toCStringLiteral(const std::string& s)
 	std::string out = "\"";
 	for (char c : s) {
 		switch (c) {
-			case '"':  out += "\\\""; break;
-			case '\\': out += "\\\\"; break;
-			case '\n': out += "\\n";  break;
-			case '\r': out += "\\r";  break;
-			case '\t': out += "\\t";  break;
+			case '"':
+				out += "\\\"";
+				break;
+			case '\\':
+				out += "\\\\";
+				break;
+			case '\n':
+				out += "\\n";
+				break;
+			case '\r':
+				out += "\\r";
+				break;
+			case '\t':
+				out += "\\t";
+				break;
 			default:
 				if ((unsigned char)c < 32 || (unsigned char)c == 127) {
 					char buf[5];
 					snprintf(buf, sizeof(buf), "\\x%02x", (unsigned char)c);
 					out += buf;
-				} else {
+				}
+				else {
 					out += c;
 				}
 				break;

@@ -1,6 +1,7 @@
 
 // Module: Memory
 // Description: A builtin module adding useful memory management tools
+@hideast:
 @public:
 Memory :: module{
 	// Function: malloc(int)

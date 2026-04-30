@@ -6,9 +6,9 @@
 @public:
 VariadicTests :: module {
 
-	#import Tests.Testing;
-	#import Builtin.String;
-	#import Builtin.Memory;
+	#use Tests.Testing;
+	#use Builtin.String;
+	#use Builtin.Memory;
 
 	#extern snprintf as _snprintf_c_extern :: int32(buf : *char, size : uint64, fmt : *char, ...);
 

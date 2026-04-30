@@ -5,126 +5,126 @@
 @public:
 AttributeTests :: module {
 
-	#import Tests.Testing;
+    #use Tests.Testing;
 
-	// Subjects used by the tests below
+    // Subjects used by the tests below
 
-	@public:
-	@inline:
-	@noast:
-	publicInlineNoast :: () {}
+    @public:
+    @inline:
+    @noast:
+    publicInlineNoast :: () {}
 
-	@public:
-	publicOnly :: () {}
+    @public:
+    publicOnly :: () {}
 
-	@private:
-	privateOnly :: () {}
+    @private:
+    privateOnly :: () {}
 
-	@inline:
-	inlineOnly :: () {}
+    @inline:
+    inlineOnly :: () {}
 
-	@deprecated("old api"):
-	deprecatedOnly :: () {}
+    @deprecated("old api"):
+    deprecatedOnly :: () {}
 
-	@removed("gone"):
-	removedOnly :: () {}
+    @removed("gone"):
+    removedOnly :: () {}
 
-	@noast:
-	noastOnly :: () {}
+    @noast:
+    noastOnly :: () {}
 
-	// Custom attributes (any name not already defined creates a new attribute)
+    // Custom attributes (any name not already defined creates a new attribute)
 
-	@color("red"):
-	@priority(3):
-	@enabled:
-	customTagged :: () {}
+    @color("red"):
+    @priority(3):
+    @enabled:
+    customTagged :: () {}
 
-	@color("blue"):
-	@priority(1):
-	otherCustom :: () {}
+    @color("blue"):
+    @priority(1):
+    otherCustom :: () {}
 
-	@deprecated("old var"):
-	deprecatedVar : int = 99;
+    @deprecated("old var"):
+    deprecatedVar : int = 99;
 
-	@removed("gone var"):
-	removedVar : int = 0;
+    @removed("gone var"):
+    removedVar : int = 0;
 
-	// runAttributeTests()
-	// Runs all attribute tests.
+    // runAttributeTests()
+    // Runs all attribute tests.
 
-	@public:
-	runAttributeTests :: () {
-		beginSection("Attributes");
+    @public:
+    runAttributeTests :: () {
+        beginSection("Attributes");
 
-		// @public
-		test(publicOnly.@public == true,             "@public present -> true");
-		test(publicInlineNoast.@public == true,      "@public present alongside others -> true");
-		test(inlineOnly.@public == false,            "@public absent -> false");
+        // @public
+        test(publicOnly.@public == true,             "@public present -> true");
+        test(publicInlineNoast.@public == true,      "@public present alongside others -> true");
+        test(inlineOnly.@public == false,            "@public absent -> false");
 
-		// @private
-		test(privateOnly.@private == true,           "@private present -> true");
-		test(publicOnly.@private == false,           "@private absent -> false");
+        // @private
+        test(privateOnly.@private == true,           "@private present -> true");
+        test(publicOnly.@private == false,           "@private absent -> false");
 
-		// @inline
-		test(inlineOnly.@inline == true,             "@inline present -> true");
-		test(publicInlineNoast.@inline == true,      "@inline present alongside others -> true");
-		test(publicOnly.@inline == false,            "@inline absent -> false");
+        // @inline
+        test(inlineOnly.@inline == true,             "@inline present -> true");
+        test(publicInlineNoast.@inline == true,      "@inline present alongside others -> true");
+        test(publicOnly.@inline == false,            "@inline absent -> false");
 
-		// @noast
-		test(noastOnly.@noast == true,               "@noast present -> true");
-		test(publicInlineNoast.@noast == true,       "@noast present alongside others -> true");
-		test(publicOnly.@noast == false,             "@noast absent -> false");
+        // @noast
+        test(noastOnly.@noast == true,               "@noast present -> true");
+        test(publicInlineNoast.@noast == true,       "@noast present alongside others -> true");
+        test(publicOnly.@noast == false,             "@noast absent -> false");
 
-		// @deprecated - string argument
-		test(deprecatedOnly.@deprecated == "old api", "@deprecated -> message string");
-		test(publicOnly.@deprecated == false,         "@deprecated absent -> false");
+        // @deprecated - string argument
+        test(deprecatedOnly.@deprecated == "old api", "@deprecated -> message string");
+        test(publicOnly.@deprecated == false,         "@deprecated absent -> false");
 
-		// @removed - string argument
-		test(removedOnly.@removed == "gone",          "@removed -> message string");
-		test(publicOnly.@removed == false,            "@removed absent -> false");
+        // @removed - string argument
+        test(removedOnly.@removed == "gone",          "@removed -> message string");
+        test(publicOnly.@removed == false,            "@removed absent -> false");
 
-		// Custom attribute - no args -> true/false
-		test(customTagged.@enabled == true,           "@enabled (custom, no args) present -> true");
-		test(otherCustom.@enabled == false,           "@enabled absent -> false");
+        // Custom attribute - no args -> true/false
+        test(customTagged.@enabled == true,           "@enabled (custom, no args) present -> true");
+        test(otherCustom.@enabled == false,           "@enabled absent -> false");
 
-		// Custom attribute - string arg
-		test(customTagged.@color == "red",            "@color on customTagged -> \"red\"");
-		test(otherCustom.@color == "blue",            "@color on otherCustom -> \"blue\"");
-		test(publicOnly.@color == false,              "@color absent -> false");
+        // Custom attribute - string arg
+        test(customTagged.@color == "red",            "@color on customTagged -> \"red\"");
+        test(otherCustom.@color == "blue",            "@color on otherCustom -> \"blue\"");
+        test(publicOnly.@color == false,              "@color absent -> false");
 
-		// Custom attribute - integer arg
-		p : int = customTagged.@priority;
-		test(p == 3,                                  "@priority on customTagged -> 3");
-		test(otherCustom.@priority == 1,              "@priority on otherCustom -> 1");
-		test(publicOnly.@priority == false,           "@priority absent -> false");
+        // Custom attribute - integer arg
+        p : int = customTagged.@priority;
+        test(p == 3,                                  "@priority on customTagged -> 3");
+        test(otherCustom.@priority == 1,              "@priority on otherCustom -> 1");
+        test(publicOnly.@priority == false,           "@priority absent -> false");
 
-		// .@ result used in control flow
-		x : int = 0;
-		if (customTagged.@enabled) {
-			x = 1;
-		}
-		test(x == 1, "custom .@enabled truthy in if condition");
+        // .@ result used in control flow
+        x : int = 0;
+        if (customTagged.@enabled) {
+            x = 1;
+        }
+        test(x == 1, "custom .@enabled truthy in if condition");
 
-		if (otherCustom.@enabled == false) {
-			x = 2;
-		}
-		test(x == 2, "custom .@enabled absent - false branch taken");
+        if (otherCustom.@enabled == false) {
+            x = 2;
+        }
+        test(x == 2, "custom .@enabled absent - false branch taken");
 
-		if (publicInlineNoast.@inline) {
-			x = 3;
-		}
-		test(x == 3, ".@inline truthy in if condition");
+        if (publicInlineNoast.@inline) {
+            x = 3;
+        }
+        test(x == 3, ".@inline truthy in if condition");
 
-		// @deprecated - calling a deprecated function should still compile (warning only)
-		test(#compiles(deprecatedOnly()),              "@deprecated function call still compiles");
+        // @deprecated - calling a deprecated function should still compile (warning only)
+        test(#compiles(deprecatedOnly()),              "@deprecated function call still compiles");
 
-		// @removed - calling a removed function should not compile (error)
-		test(#compiles(removedOnly()) == false,        "@removed function call does not compile");
+        // @removed - calling a removed function should not compile (error)
+        test(#compiles(removedOnly()) == false,        "@removed function call does not compile");
 
-		// @deprecated - reading a deprecated variable should still compile (warning only)
-		test(#compiles(deprecatedVar + 0),             "@deprecated variable read still compiles");
+        // @deprecated - reading a deprecated variable should still compile (warning only)
+        test(#compiles(deprecatedVar + 0),             "@deprecated variable read still compiles");
 
-		// @removed - reading a removed variable should not compile (error)
-		test(#compiles(removedVar + 0) == false,       "@removed variable read does not compile");
-	}
+        // @removed - reading a removed variable should not compile (error)
+        test(#compiles(removedVar + 0) == false,       "@removed variable read does not compile");
+    }
 }

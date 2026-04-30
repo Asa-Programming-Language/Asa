@@ -1,227 +1,228 @@
 // Module: ColorPrint
 // Description: A builtin module for printing colored text to the terminal using ANSI escape codes
+@hideast:
 @public:
 ColorPrint :: module {
 
-	#import Builtin.Print;
-	#import Builtin.String;
-	#import Builtin.Casts;
+    #use Builtin.Print;
+    #use Builtin.String;
+    #use Builtin.Casts;
 
-	#extern isatty :: int(fd : int);
-	#extern getenv :: *char(name : *char);
+    #extern isatty :: int(fd : int);
+    #extern getenv :: *char(name : *char);
 
-	// Function: consoleSupportsColor()
-	// Description: Returns true if stdout is a TTY and the TERM environment variable indicates color support
-	@public:
-	consoleSupportsColor :: bool() {
-		if (isatty(1) == 0) {
-			return false;
-		}
-		termPtr : *char = getenv("TERM");
-		termAddr : int64 = int64(termPtr);
-		if (termAddr == 0) {
-			return false;
-		}
-		term : string = string(termPtr);
+    // Function: consoleSupportsColor()
+    // Description: Returns true if stdout is a TTY and the TERM environment variable indicates color support
+    @public:
+    consoleSupportsColor :: bool() {
+        if (isatty(1) == 0) {
+            return false;
+        }
+        termPtr : *char = getenv("TERM");
+        termAddr : int64 = int64(termPtr);
+        if (termAddr == 0) {
+            return false;
+        }
+        term : string = string(termPtr);
 
-		if (find(term, "xterm")  >= 0)  return true;
-		if (find(term, "color")  >= 0)  return true;
-		if (find(term, "ansi")   >= 0)  return true;
-		if (find(term, "cygwin") >= 0)  return true;
-		if (find(term, "linux")  >= 0)  return true;
+        if (find(term, "xterm")  >= 0)  return true;
+        if (find(term, "color")  >= 0)  return true;
+        if (find(term, "ansi")   >= 0)  return true;
+        if (find(term, "cygwin") >= 0)  return true;
+        if (find(term, "linux")  >= 0)  return true;
 
-		return false;
-	}
+        return false;
+    }
 
-	colorChecked : bool = false;
-	colorSupported : bool = false;
+    colorChecked : bool = false;
+    colorSupported : bool = false;
 
-	@inline:
-	@public:
-	getColorSupported :: bool() {
-		if (colorChecked == false) {
-			colorSupported = consoleSupportsColor();
-			colorChecked = true;
-		}
-		return colorSupported;
-	}
+    @inline:
+    @public:
+    getColorSupported :: bool() {
+        if (colorChecked == false) {
+            colorSupported = consoleSupportsColor();
+            colorChecked = true;
+        }
+        return colorSupported;
+    }
 
-	// Constant: resetColor
-	// Description: ANSI escape code to reset all color formatting back to terminal defaults
-	@public: resetColor : const string = "\033[0m";
+    // Constant: resetColor
+    // Description: ANSI escape code to reset all color formatting back to terminal defaults
+    @public: resetColor : const string = "\033[0m";
 
-	// Function: colorPrint(string, color)
-	// Description: Prints a string to the terminal with the specified color, then resets color formatting
-	//
-	// Arguments:
-	//     s: The string to print
-	//     col: The color code to use, see <Fore> and <Back>
-	@public:
-	colorPrint:: (s : const string, col : const string) {
-		if (getColorSupported())
-			print(col + s + resetColor);
-		else
-			print(s);
+    // Function: colorPrint(string, color)
+    // Description: Prints a string to the terminal with the specified color, then resets color formatting
+    //
+    // Arguments:
+    //     s: The string to print
+    //     col: The color code to use, see <Fore> and <Back>
+    @public:
+    colorPrint :: (s : const string, col : const string) {
+        if (getColorSupported())
+            print(col + s + resetColor);
+        else
+            print(s);
 
-		return;
-	}
+        return;
+    }
 
-	// Function: colorPrint(string, color)
-	// Description: Prints a string to the terminal with a newline with the specified color, then resets color formatting
-	//
-	// Arguments:
-	//     s: The string to print
-	//     col: The color code to use, see <Fore> and <Back>
-	@public:
-	colorPrintl:: (s : const string, col : const string) {
-		if (getColorSupported())
-			print(col + s + resetColor + "\n");
-		else
-			printl(s);
+    // Function: colorPrint(string, color)
+    // Description: Prints a string to the terminal with a newline with the specified color, then resets color formatting
+    //
+    // Arguments:
+    //     s: The string to print
+    //     col: The color code to use, see <Fore> and <Back>
+    @public:
+    colorPrintl :: (s : const string, col : const string) {
+        if (getColorSupported())
+            print(col + s + resetColor + "\n");
+        else
+            printl(s);
 
-		return;
-	}
+        return;
+    }
 
-	// Function: colorPrint(string, fg color, bg color)
-	// Description: Prints a string to the terminal with the specified foreground and background colors, then resets color formatting
-	//
-	// Arguments:
-	//     s: The string to print
-	//     fg: The color code to use for the foreground see <Fore>
-	//     bg: The color code to use for the background see <Back>
-	@public:
-	colorPrint:: (s : const string, fg : const string, bg : const string) {
-		if (getColorSupported())
-			print(fg + bg + s + resetColor);
-		else
-			print(s);
+    // Function: colorPrint(string, fg color, bg color)
+    // Description: Prints a string to the terminal with the specified foreground and background colors, then resets color formatting
+    //
+    // Arguments:
+    //     s: The string to print
+    //     fg: The color code to use for the foreground see <Fore>
+    //     bg: The color code to use for the background see <Back>
+    @public:
+    colorPrint :: (s : const string, fg : const string, bg : const string) {
+        if (getColorSupported())
+            print(fg + bg + s + resetColor);
+        else
+            print(s);
 
-		return;
-	}
+        return;
+    }
 
-	// Function: colorPrintl(string, fg color, bg color)
-	// Description: Prints a string to the terminal with a newline with the specified foreground and background colors, then resets color formatting
-	//
-	// Arguments:
-	//     s: The string to print
-	//     fg: The color code to use for the foreground see <Fore>
-	//     bg: The color code to use for the background see <Back>
-	@public:
-	colorPrintl:: (s : const string, fg : const string, bg : const string) {
-		if (getColorSupported())
-			print(fg + bg + s + resetColor + "\n");
-		else
-			printl(s);
-		
-		return;
-	}
+    // Function: colorPrintl(string, fg color, bg color)
+    // Description: Prints a string to the terminal with a newline with the specified foreground and background colors, then resets color formatting
+    //
+    // Arguments:
+    //     s: The string to print
+    //     fg: The color code to use for the foreground see <Fore>
+    //     bg: The color code to use for the background see <Back>
+    @public:
+    colorPrintl :: (s : const string, fg : const string, bg : const string) {
+        if (getColorSupported())
+            print(fg + bg + s + resetColor + "\n");
+        else
+            printl(s);
+        
+        return;
+    }
 
-	// Module: Fore
-	// Description: |
-	//     Module containing the foreground color codes used for printing colors.
-	//
-	//     The proper way to use these is like `:::asa Fore.red`, for example:
-	//     ```asa
-	//     colorPrint("Red text", Fore.red);
-	//     ```
-	@scoped:
-	@public:
-	Fore :: module{
-		@public:
-		{
-			// Constants: Color names
-			// Values:
-			//     black: black color
-			//     red: red color
-			//     green: green color
-			//     yellow: yellow color
-			//     blue: blue color
-			//     magenta: magenta color
-			//     cyan: cyan color
-			//     white: white color
-			//     brightBlack: brightBlack color
-			//     brightRed: brightRed color
-			//     brightGreen: brightGreen color
-			//     brightYellow: brightYellow color
-			//     brightBlue: brightBlue color
-			//     brightMagenta: brightMagenta color
-			//     brightCyan: brightCyan color
-			//     brightWhite: brightWhite color
-			black   : const string = "\x1B[30m";
-			red     : const string = "\x1B[31m";
-			green   : const string = "\x1B[32m";
-			yellow  : const string = "\x1B[33m";
-			blue    : const string = "\x1B[34m";
-			magenta : const string = "\x1B[35m";
-			cyan    : const string = "\x1B[36m";
-			white   : const string = "\x1B[37m";
-			brightBlack   : const string = "\x1B[90m";
-			brightRed     : const string = "\x1B[91m";
-			brightGreen   : const string = "\x1B[92m";
-			brightYellow  : const string = "\x1B[93m";
-			brightBlue    : const string = "\x1B[94m";
-			brightMagenta : const string = "\x1B[95m";
-			brightCyan    : const string = "\x1B[96m";
-			brightWhite   : const string = "\x1B[97m";
+    // Module: Fore
+    // Description: |
+    //     Module containing the foreground color codes used for printing colors.
+    //
+    //     The proper way to use these is like `:::asa Fore.red`, for example:
+    //     ```asa
+    //     colorPrint("Red text", Fore.red);
+    //     ```
+    @scoped:
+    @public:
+    Fore :: module{
+        @public:
+        {
+            // Constants: Color names
+            // Values:
+            //     black: black color
+            //     red: red color
+            //     green: green color
+            //     yellow: yellow color
+            //     blue: blue color
+            //     magenta: magenta color
+            //     cyan: cyan color
+            //     white: white color
+            //     brightBlack: brightBlack color
+            //     brightRed: brightRed color
+            //     brightGreen: brightGreen color
+            //     brightYellow: brightYellow color
+            //     brightBlue: brightBlue color
+            //     brightMagenta: brightMagenta color
+            //     brightCyan: brightCyan color
+            //     brightWhite: brightWhite color
+            black   : const string = "\x1B[30m";
+            red     : const string = "\x1B[31m";
+            green   : const string = "\x1B[32m";
+            yellow  : const string = "\x1B[33m";
+            blue    : const string = "\x1B[34m";
+            magenta : const string = "\x1B[35m";
+            cyan    : const string = "\x1B[36m";
+            white   : const string = "\x1B[37m";
+            brightBlack   : const string = "\x1B[90m";
+            brightRed     : const string = "\x1B[91m";
+            brightGreen   : const string = "\x1B[92m";
+            brightYellow  : const string = "\x1B[93m";
+            brightBlue    : const string = "\x1B[94m";
+            brightMagenta : const string = "\x1B[95m";
+            brightCyan    : const string = "\x1B[96m";
+            brightWhite   : const string = "\x1B[97m";
 
-			// Constant: resetColor
-			// Description: ANSI escape code to reset all color formatting back to terminal defaults
-			reset : const string = "\033[0m";
-		}
-	}
+            // Constant: resetColor
+            // Description: ANSI escape code to reset all color formatting back to terminal defaults
+            reset : const string = "\033[0m";
+        }
+    }
 
-	// Module: Back
-	// Description: |
-	//     Module containing the background color codes used for printing colors.
-	//
-	//     The proper way to use these is like `:::asa Back.red`, for example:
-	//     ```asa
-	//     colorPrint("Red background text", Back.red);
-	//     ```
-	@scoped:
-	@public:
-	Back :: module{
-		@public:
-		{
-			// Constants: Color names
-			// Values:
-			//     black: black color
-			//     red: red color
-			//     green: green color
-			//     yellow: yellow color
-			//     blue: blue color
-			//     magenta: magenta color
-			//     cyan: cyan color
-			//     white: white color
-			//     brightBlack: brightBlack color
-			//     brightRed: brightRed color
-			//     brightGreen: brightGreen color
-			//     brightYellow: brightYellow color
-			//     brightBlue: brightBlue color
-			//     brightMagenta: brightMagenta color
-			//     brightCyan: brightCyan color
-			//     brightWhite: brightWhite color
-			black   : const string = "\x1B[40m";
-			red     : const string = "\x1B[41m";
-			green   : const string = "\x1B[42m";
-			yellow  : const string = "\x1B[43m";
-			blue    : const string = "\x1B[44m";
-			magenta : const string = "\x1B[45m";
-			cyan    : const string = "\x1B[46m";
-			white   : const string = "\x1B[47m";
-			brightBlack   : const string = "\x1B[100m";
-			brightRed     : const string = "\x1B[101m";
-			brightGreen   : const string = "\x1B[102m";
-			brightYellow  : const string = "\x1B[103m";
-			brightBlue    : const string = "\x1B[104m";
-			brightMagenta : const string = "\x1B[105m";
-			brightCyan    : const string = "\x1B[106m";
-			brightWhite   : const string = "\x1B[107m";
+    // Module: Back
+    // Description: |
+    //     Module containing the background color codes used for printing colors.
+    //
+    //     The proper way to use these is like `:::asa Back.red`, for example:
+    //     ```asa
+    //     colorPrint("Red background text", Back.red);
+    //     ```
+    @scoped:
+    @public:
+    Back :: module{
+        @public:
+        {
+            // Constants: Color names
+            // Values:
+            //     black: black color
+            //     red: red color
+            //     green: green color
+            //     yellow: yellow color
+            //     blue: blue color
+            //     magenta: magenta color
+            //     cyan: cyan color
+            //     white: white color
+            //     brightBlack: brightBlack color
+            //     brightRed: brightRed color
+            //     brightGreen: brightGreen color
+            //     brightYellow: brightYellow color
+            //     brightBlue: brightBlue color
+            //     brightMagenta: brightMagenta color
+            //     brightCyan: brightCyan color
+            //     brightWhite: brightWhite color
+            black   : const string = "\x1B[40m";
+            red     : const string = "\x1B[41m";
+            green   : const string = "\x1B[42m";
+            yellow  : const string = "\x1B[43m";
+            blue    : const string = "\x1B[44m";
+            magenta : const string = "\x1B[45m";
+            cyan    : const string = "\x1B[46m";
+            white   : const string = "\x1B[47m";
+            brightBlack   : const string = "\x1B[100m";
+            brightRed     : const string = "\x1B[101m";
+            brightGreen   : const string = "\x1B[102m";
+            brightYellow  : const string = "\x1B[103m";
+            brightBlue    : const string = "\x1B[104m";
+            brightMagenta : const string = "\x1B[105m";
+            brightCyan    : const string = "\x1B[106m";
+            brightWhite   : const string = "\x1B[107m";
 
-			// Constant: resetColor
-			// Description: ANSI escape code to reset all color formatting back to terminal defaults
-			reset : const string = "\033[0m";
-		}
-	}
+            // Constant: resetColor
+            // Description: ANSI escape code to reset all color formatting back to terminal defaults
+            reset : const string = "\033[0m";
+        }
+    }
 }
 

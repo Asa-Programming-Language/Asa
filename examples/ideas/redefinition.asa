@@ -1,0 +1,19 @@
+
+// This one I am probably not going to implement, due to the plethora of issues it could cause.
+// But I will write it out anyway in case it gives me any other ideas. There are a few cases
+// where you may want to fully rename a symbol. Giving an old symbol a new name, and making the
+// old name undefined, not pointing to anything.
+
+// For example, say you have a module called Some.Really.Super.Long.Name
+// First off, this is a terrible situation, so hopefully something like this never exists.
+// But if you don't want to fully import all of its symbols, and instead leave it qualified,
+// whether that is because it is a very large module, or just for organization etc, then
+// you need to write its name everywhere you use it. Let's just say you need to access a function
+// called foo() from it, and very often. For example:
+
+#import Some.Really.Super.Long.Name;
+Some.Really.Super.Long.Name.foo();
+
+printl(Some.Really.Super.Long.Name.foo());
+
+RENAMED_MACRO ::> TEST_MACRO_1; 

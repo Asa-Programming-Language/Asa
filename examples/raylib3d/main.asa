@@ -1,13 +1,16 @@
 
-#import Rendering.Raylib;
+#use Rendering.Raylib;
+
+SCREEN_WIDTH  :: 800;
+SCREEN_HEIGHT :: 450;
+TARGET_FPS    :: 60;
+FOV           :: 45.0;
 
 main :: (){
-	// Initialization
+    // Initialization
     //--------------------------------------------------------------------------------------
-    screenWidth  : const int = 800;
-    screenHeight : const int = 450;
 
-    InitWindow(screenWidth, screenHeight, "raylib [models] example - loading");
+    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "raylib [models] example - loading");
 
     // Define the camera to look into our 3d world
     camera : Camera3D = Camera3D();
@@ -15,7 +18,7 @@ main :: (){
     camera.position = Vector3(50.0, 50.0, 50.0); // Camera position
     camera.target = Vector3(0.0, 12.0, 0.0);     // Camera looking at point
     camera.up = Vector3(0.0, 1.0, 0.0);          // Camera up vector (rotation towards target)
-    camera.fovy = 45.0;                                // Camera field-of-view Y
+    camera.fovy = FOV;                                // Camera field-of-view Y
     camera.projection = CAMERA_PERSPECTIVE;             // Camera mode type
 
     model = LoadModel("models/castle.obj");                 // Load model
@@ -31,7 +34,7 @@ main :: (){
 
     selected : bool = false;          // Selected object flag
 
-    SetTargetFPS(60);               // Set our game to run at 60 frames-per-second
+    SetTargetFPS(TARGET_FPS);               // Set our game to run at 60 frames-per-second
     //--------------------------------------------------------------------------------------
 
     // Main game loop
@@ -83,8 +86,8 @@ main :: (){
         //{
         //    // Check collision between ray and box
         //    if ((GetMousePosition() -> GetScreenToWorldRay($, camera) -> GetRayCollisionBox($, bounds)).hit){
-		//		selected = !selected;
-		//	}
+        //      selected = !selected;
+        //  }
         //    else selected = false;
         //}
         //----------------------------------------------------------------------------------
@@ -108,7 +111,7 @@ main :: (){
             DrawText("Drag & drop model to load mesh/texture.", 10, GetScreenHeight() - 20, 10, DARKGRAY);
             if (selected) DrawText("MODEL SELECTED", GetScreenWidth() - 110, 10, 10, GREEN);
 
-            DrawText("(c) Castle 3D model by Alberto Cano", screenWidth - 200, screenHeight - 20, 10, GRAY);
+            DrawText("(c) Castle 3D model by Alberto Cano", SCREEN_WIDTH - 200, SCREEN_HEIGHT - 20, 10, GRAY);
 
             DrawFPS(10, 10);
 

@@ -1,0 +1,162 @@
+
+// TypeAliasTests
+// Tests for compile-time type aliases: all builtin type synonyms, struct aliases,
+// and alias chains. Each alias is exercised by declaring variables, doing arithmetic,
+// and passing values to functions that expect the canonical type.
+
+@public:
+TypeAliasTests :: module {
+
+    #use Tests.Testing;
+
+    ////////////////////////////
+    // Structs used in tests  //
+    ////////////////////////////
+
+    AliasPair :: struct {
+        x : int;
+        y : int;
+    }
+
+    ////////////////////////////
+    // Aliases under test     //
+    ////////////////////////////
+
+    // --- Integer type aliases ---
+    i32   :: int32;
+    u32   :: uint32;
+    i8    :: int8;
+    u8    :: uint8;
+    i16   :: int16;
+    u16   :: uint16;
+    i64   :: int64;
+    u64   :: uint64;
+
+    // --- Floating-point aliases ---
+    f32   :: float;
+    f64   :: double;
+
+    // --- Bool alias ---
+    flag  :: bool;
+
+    // --- Struct alias ---
+    APoint :: AliasPair;
+
+    // --- Alias-of-alias chain ---
+    myInt :: i32;      // myInt -> i32 -> int32
+    myU8  :: u8;       // myU8  -> u8  -> uint8
+
+    ////////////////////////////
+    // Helper acceptor fns    //
+    ////////////////////////////
+
+    acceptInt32     :: int(x : int32)     { return x + 1; }
+    acceptUInt32    :: int(x : uint32)    { return int(x + 1); }
+    acceptInt8      :: int(x : int8)      { return int(x) + 1; }
+    acceptUInt8     :: int(x : uint8)     { return int(x) + 1; }
+    acceptInt16     :: int(x : int16)     { return int(x) + 1; }
+    acceptUInt16    :: int(x : uint16)    { return int(x) + 1; }
+    acceptInt64     :: int(x : int64)     { return int(x) + 1; }
+    acceptFloat     :: float(x : float)   { return x + 1.0; }
+    acceptDouble    :: double(x : double) { return x + 1.0; }
+    acceptBool      :: bool(x : bool)     { return !x; }
+    acceptAliasPair :: int(v : AliasPair) { return v.x + v.y; }
+
+    @public:
+    runTypeAliasTests :: () {
+        beginSection("Type Aliases");
+
+        /////////////////////////////
+        // i32 :: int32            //
+        /////////////////////////////
+        a : i32 = 10;
+        b : i32 = 20;
+        test(a + b == 30,               "i32 alias: arithmetic a+b==30");
+        test(acceptInt32(a) == 11,      "i32 alias: pass to int32 param");
+
+        /////////////////////////////
+        // u32 :: uint32           //
+        /////////////////////////////
+        ua : u32 = 5;
+        ub : u32 = 3;
+        test(ua - ub == 2,              "u32 alias: arithmetic ua-ub==2");
+        test(acceptUInt32(ua) == 6,     "u32 alias: pass to uint32 param");
+
+        /////////////////////////////
+        // i8 :: int8              //
+        /////////////////////////////
+        c : i8 = 100;
+        test(int(c) == 100,             "i8 alias: value round-trips via int");
+        test(acceptInt8(c) == 101,      "i8 alias: pass to int8 param");
+
+        /////////////////////////////
+        // u8 :: uint8             //
+        /////////////////////////////
+        d : u8 = 200;
+        test(int(d) == 200,             "u8 alias: value round-trips via int");
+        test(acceptUInt8(d) == 201,     "u8 alias: pass to uint8 param");
+
+        /////////////////////////////
+        // i16 :: int16            //
+        /////////////////////////////
+        e : i16 = 1000;
+        test(int(e) == 1000,            "i16 alias: value round-trips via int");
+        test(acceptInt16(e) == 1001,    "i16 alias: pass to int16 param");
+
+        /////////////////////////////
+        // u16 :: uint16           //
+        /////////////////////////////
+        f : u16 = 2000;
+        test(int(f) == 2000,            "u16 alias: value round-trips via int");
+        test(acceptUInt16(f) == 2001,   "u16 alias: pass to uint16 param");
+
+        /////////////////////////////
+        // i64 :: int64            //
+        /////////////////////////////
+        g : i64 = 1000000;
+        test(int(g) == 1000000,         "i64 alias: value round-trips via int");
+        test(acceptInt64(g) == 1000001, "i64 alias: pass to int64 param");
+
+        /////////////////////////////
+        // f32 :: float            //
+        /////////////////////////////
+        h : f32 = 1.5;
+        test(acceptFloat(h) == 2.5,     "f32 alias: pass to float param");
+
+        /////////////////////////////
+        // f64 :: double           //
+        /////////////////////////////
+        di : f64 = 2.5;
+        test(acceptDouble(di) == 3.5,   "f64 alias: pass to double param");
+
+        /////////////////////////////
+        // flag :: bool            //
+        /////////////////////////////
+        fl : flag = true;
+        test(fl == true,                "flag alias: bool literal assignment");
+        test(acceptBool(fl) == false,   "flag alias: pass to bool param");
+
+        /////////////////////////////
+        // APoint :: AliasPair     //
+        /////////////////////////////
+        p : APoint = APoint();
+        p.x = 3;
+        p.y = 7;
+        test(p.x + p.y == 10,           "struct alias: field read/write");
+        test(acceptAliasPair(p) == 10,  "struct alias: pass to AliasPair param");
+
+        /////////////////////////////
+        // myInt :: i32 (chain)    //
+        /////////////////////////////
+        mi : myInt = 42;
+        test(mi == 42,                  "alias-of-alias: myInt chain stores value");
+        test(acceptInt32(mi) == 43,     "alias-of-alias: myInt passes to int32 param");
+
+        /////////////////////////////
+        // myU8 :: u8 (chain)      //
+        /////////////////////////////
+        mu : myU8 = 7;
+        test(int(mu) == 7,              "alias-of-alias: myU8 chain stores value");
+        test(acceptUInt8(mu) == 8,      "alias-of-alias: myU8 passes to uint8 param");
+    }
+}

@@ -5,8 +5,8 @@
 @public:
 MathTests :: module {
 
-	#import Tests.Testing;
-	#import Builtin.Math;
+	#use Tests.Testing;
+	#use Builtin.Math;
 
 	@public:
 	runMathTests :: () {

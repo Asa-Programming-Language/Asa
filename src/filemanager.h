@@ -12,3 +12,4 @@ int saveStringToFile(const std::string& fileName, std::string& s);
 int saveVectorToFile(const std::string& fileName, std::vector<std::string>& v);
 //int loadModule(const std::string& fileName, std::string& outStr);
 bool directoryExists(std::string& path);
+std::string truncatePath(const std::string& path);

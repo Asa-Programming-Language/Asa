@@ -1,0 +1,50 @@
+
+// ArrayTests
+// Tests for Builtin.Array: creation, indexing, and length.
+
+@public:
+ArrayTests :: module {
+
+	#use Tests.Testing;
+	#use Builtin.Array;
+	#use Builtin.Memory;
+
+	@public:
+	runArrayTests :: () {
+		beginSection("Array");
+
+		// Create an array and verify length
+		a : array<int, 5> = array<int, 5>();
+		test(a.length == 5, "array<int,5>: length == 5");
+
+		// Write and read back elements
+		a.address[0] = 10;
+		a.address[1] = 20;
+		a.address[2] = 30;
+		test(a.address[0] == 10, "array<int,5>: element 0 == 10");
+		test(a.address[1] == 20, "array<int,5>: element 1 == 20");
+		test(a.address[2] == 30, "array<int,5>: element 2 == 30");
+
+		// float array
+		f : array<float, 3> = array<float, 3>();
+		test(f.length == 3, "array<float,3>: length == 3");
+		f.address[0] = 1.5;
+		f.address[1] = 2.5;
+		test(f.address[0] == 1.5, "array<float,3>: element 0 == 1.5");
+		test(f.address[1] == 2.5, "array<float,3>: element 1 == 2.5");
+
+		// Two independent arrays do not share storage
+		x : array<int, 4> = array<int, 4>();
+		y : array<int, 4> = array<int, 4>();
+		x.address[0] = 1;
+		y.address[0] = 99;
+		test(x.address[0] == 1,  "two arrays independent: x[0] == 1");
+		test(y.address[0] == 99, "two arrays independent: y[0] == 99");
+
+		free(a.address);
+		free(f.address);
+		free(x.address);
+		free(y.address);
+	}
+
+}

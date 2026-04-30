@@ -5,7 +5,7 @@
 @public:
 DefaultParamTests :: module {
 
-	#import Tests.Testing;
+	#use Tests.Testing;
 
 	// Basic default: second param has a default
 	add :: int(a : int, b : int = 10) {

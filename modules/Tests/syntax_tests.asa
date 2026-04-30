@@ -6,10 +6,10 @@
 @public:
 SyntaxTests :: module {
 
-	#import Tests.Testing;
-	#import Builtin.Math;
-	#import Builtin.String;
-	#import Builtin.Casts;
+	#use Tests.Testing;
+	#use Builtin.Math;
+	#use Builtin.String;
+	#use Builtin.Casts;
 
 	Vec3 :: struct { x : float; y : float; z : float; }
 	Node :: struct { val : int; depth : int; }
@@ -692,6 +692,35 @@ SyntaxTests :: module {
 			cmt_block += 1;
 		}
 		test(cmt_block == 2,                  "while: trailing block comment before brace");
+
+		/////////////////////////////////////
+		// void zero-initializer           //
+		/////////////////////////////////////
+
+		// Primitives
+		zi : int = void;
+		test(zi == 0,                         "void-init int is zero");
+
+		zf : float = void;
+		test(zf == 0.0,                       "void-init float is zero");
+
+		zb : bool = void;
+		test(zb == false,                     "void-init bool is false");
+
+		// Pointer
+		zp : *int = void;
+		test(zp == void,                      "void-init pointer is null");
+
+		// Struct: all fields zero
+		zn : Node = void;
+		test(zn.val == 0,                     "void-init struct field val is zero");
+		test(zn.depth == 0,                   "void-init struct field depth is zero");
+
+		// Assign after void-init
+		za : int = void;
+		za = 99;
+		test(za == 99,                        "assign after void-init");
+
 	}
 
 	double_val :: int(x : int) {

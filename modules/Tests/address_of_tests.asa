@@ -6,8 +6,8 @@
 @public:
 AddressOfTests :: module {
 
-	#import Tests.Testing;
-	#import Builtin.Memory;
+	#use Tests.Testing;
+	#use Builtin.Memory;
 
 	AddrPair :: struct { x : int; y : int; }
 	AddrTriple :: struct { a : int; b : int; c : int; }

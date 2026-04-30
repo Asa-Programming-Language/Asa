@@ -58,6 +58,16 @@ Tells the compiler to not show this object in the printed AST.
 
 -----
 
+## `@internal`
+Tells the compiler that this object will not be referenced from outside this binary. Allows for better optimization. Most symbols are marked `@internal` by default.
+
+-----
+
+## `@external`
+Tells the compiler that this object may be referenced from outside this binary.
+
+-----
+
 ## `@scoped`
 Makes a module's items only accessible if they are accessed from the module's name.
 For example:

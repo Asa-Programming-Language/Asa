@@ -1,0 +1,47 @@
+
+// Ideas for zero-initialization and leaving things uninitialized
+
+// Ideas:
+x : int = void;
+x : int = null;
+x : int = default;
+x : int = ?;
+
+// For "zeroing" a variable, you would set it equal to `default` like:
+x : int = default;
+// The word "default" is used so that it can apply to symbols of many types, like structs etc.
+// For instance:
+bar :: struct {
+    a : int = 6;
+    s : string = "Hello world";
+}
+b : bar = default;
+// In this case, after setting `b` to `default`, b.a would be equal to 6, and b.s would be "Hello world".
+// Since in most cases, you don't want to have two default states for a struct (one with everything literally
+// zeroed out, the other with the default values specified in the definition)
+
+
+// And I am thinking if this `default` value should be assumed implicitly in declaration.
+// For example, if you declare a variable like:
+x : float;
+// Then the compiler needs to decide if this should be zeroed or left uninitialized
+// While forcing it to be zeroed would be safer, it also loses a lot of performance.
+// So it might be better to instead make it uninitialized when declared without a value,
+// and have the error checker ensure it is never used before being set.
+
+// Also, I want to allow users to explicitly state that a variable is uninitialized.
+// With the syntax above, it may not be clear there is a difference, like:
+i : int = default; // This one is initialized to 0
+j : int;           // This one is uninitialized
+
+printl(i); // prints `0`
+printl(j); // throws an error, `j` is uninitialized
+
+// So while I don't think it should necessarily be required, there should be a value which
+// represents uninitialized memory, that allows users to be explicit. Like:
+i : int = default; // This one is initialized to 0
+j : int = ?;       // This one is uninitialized
+
+// Using `?` as the symbol may not be the best choice, maybe just changing it to `??` or `???`
+// could be better. But the point is moreso just the fact that it explicitly shows in the code
+// that the declaration does not initialize with any value

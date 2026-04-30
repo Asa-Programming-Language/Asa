@@ -1,0 +1,52 @@
+
+// Variants are like templates:
+
+foo<I : int> :: int(){
+    return I;
+}
+
+foo<4>(); // returns 4
+
+
+// I think they should be able to be applied to most definitions, done so by attaching to its identifier:
+
+// Definition:
+someVar<T : type> : T;
+
+// Usage:
+someVar<int> = 5; // Set expression generally makes sense
+printl(someVar<int>); // Not sure about usage though
+
+
+// If not applicable to variables, I think they should still be used for things defined with the compiler define operator ::
+
+// Struct:
+someStruct<T : type> :: struct{
+    val : T;
+}
+
+// Macro:
+BAR<T : type> :: { x : T; printl(#typeof(x)); };
+
+
+// Even modules, which I think could make them even more useful by sharing variant params across many definitions:
+SomeModule<T : type> :: module{
+    str :: struct{
+        val : T;
+    }
+
+    create :: str(v : T){
+        o = str();
+        o.val = v;
+        return o;
+    }
+
+    strInst : str;
+
+    init :: (){
+        strInst = str(6);
+    }
+}
+
+// Then you can import this module like:
+#import SomeModule<string>;

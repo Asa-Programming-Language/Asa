@@ -10,6 +10,7 @@
 	#include "tokenizer.h"
 
 void runTests();
+void runErrorTests();
 
 
 #endif

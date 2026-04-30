@@ -1,0 +1,260 @@
+
+// EnumTests
+// Tests for enum definitions: auto-increment, explicit values, different step
+// patterns, binary/power-of-2 flags, different definition scopes, and
+// #compiles() checks for access correctness.
+
+@public:
+EnumTests :: module {
+
+    #use Tests.Testing;
+
+    ////////////////////////////////////////////////////
+    // Module-scope enum definitions                  //
+    ////////////////////////////////////////////////////
+
+    // Basic auto-increment from 0 (C++ default behavior)
+    Direction :: enum {
+        North,
+        East,
+        South,
+        West,
+    }
+
+    // Explicit starting value with auto-increment continuing from it
+    Priority :: enum {
+        Low    = 10,
+        Medium,
+        High,
+    }
+
+    // Mixed explicit and auto-increment: reset mid-enum
+    HttpStatus :: enum {
+        Ok        = 200,
+        Created,
+        Accepted,
+        NotFound  = 404,
+        ServerError = 500,
+        NotImplemented,
+    }
+
+    // Step by 2: two explicit seeds, rest inferred
+    Even :: enum {
+        E0 = 0,
+        E2 = 2,
+        E4,
+        E6,
+        E8,
+    }
+
+    // Step by 3: two explicit seeds, rest inferred
+    Thirds :: enum {
+        T0 = 0,
+        T3 = 3,
+        T6,
+        T9,
+        T12,
+    }
+
+    // Binary/power-of-2 flags: explicit seeds trigger doubling inference
+    FileMode :: enum {
+        None    = 0,
+        Read    = 1,
+        Write   = 2,
+        Execute = 4,
+        All,
+    }
+
+    // Negative starting value with auto-increment
+    Temperature :: enum {
+        AbsoluteZero = -273,
+        FreezingC    = 0,
+        BodyTempC    = 37,
+        BoilingC     = 100,
+    }
+
+    @public:
+    runEnumTests :: () {
+        beginSection("Enums");
+
+        //////////////////////////////////////////////
+        // Basic auto-increment from 0              //
+        //////////////////////////////////////////////
+
+        test(Direction.North == 0,               "enum auto: North == 0");
+        test(Direction.East  == 1,               "enum auto: East == 1");
+        test(Direction.South == 2,               "enum auto: South == 2");
+        test(Direction.West  == 3,               "enum auto: West == 3");
+
+        // Verify sequential ordering
+        test(Direction.East  == Direction.North + 1, "enum auto: East is North+1");
+        test(Direction.South == Direction.North + 2, "enum auto: South is North+2");
+        test(Direction.West  == Direction.North + 3, "enum auto: West is North+3");
+
+        //////////////////////////////////////////////
+        // Explicit start, auto-increment continues //
+        //////////////////////////////////////////////
+
+        test(Priority.Low    == 10,              "enum offset: Low == 10");
+        test(Priority.Medium == 11,              "enum offset: Medium == 11");
+        test(Priority.High   == 12,              "enum offset: High == 12");
+
+        test(Priority.Medium == Priority.Low + 1, "enum offset: Medium is Low+1");
+        test(Priority.High   == Priority.Low + 2, "enum offset: High is Low+2");
+
+        //////////////////////////////////////////////
+        // Mixed explicit resets + auto-increment   //
+        //////////////////////////////////////////////
+
+        test(HttpStatus.Ok             == 200,   "enum mixed: Ok == 200");
+        test(HttpStatus.Created        == 201,   "enum mixed: Created == 201 (auto after 200)");
+        test(HttpStatus.Accepted       == 202,   "enum mixed: Accepted == 202 (auto after 201)");
+        test(HttpStatus.NotFound       == 404,   "enum mixed: NotFound == 404 (explicit reset)");
+        test(HttpStatus.ServerError    == 500,   "enum mixed: ServerError == 500 (explicit reset)");
+        test(HttpStatus.NotImplemented == 501,   "enum mixed: NotImplemented == 501 (auto after 500)");
+
+        //////////////////////////////////////////////
+        // Step by 2                                //
+        //////////////////////////////////////////////
+
+        // E0 and E2 are explicit seeds; E4/E6/E8 are inferred with step=2
+        test(Even.E0 == 0,   "enum step2 inferred: E0 == 0");
+        test(Even.E2 == 2,   "enum step2 inferred: E2 == 2");
+        test(Even.E4 == 4,   "enum step2 inferred: E4 == 4 (inferred)");
+        test(Even.E6 == 6,   "enum step2 inferred: E6 == 6 (inferred)");
+        test(Even.E8 == 8,   "enum step2 inferred: E8 == 8 (inferred)");
+
+        test(Even.E2 - Even.E0 == 2, "enum step2 inferred: gap E0->E2 is 2");
+        test(Even.E4 - Even.E2 == 2, "enum step2 inferred: gap E2->E4 is 2");
+        test(Even.E8 - Even.E6 == 2, "enum step2 inferred: gap E6->E8 is 2");
+
+        //////////////////////////////////////////////
+        // Step by 3                                //
+        //////////////////////////////////////////////
+
+        // T0 and T3 are explicit seeds; T6/T9/T12 are inferred with step=3
+        test(Thirds.T0  == 0,  "enum step3 inferred: T0 == 0");
+        test(Thirds.T3  == 3,  "enum step3 inferred: T3 == 3");
+        test(Thirds.T6  == 6,  "enum step3 inferred: T6 == 6 (inferred)");
+        test(Thirds.T9  == 9,  "enum step3 inferred: T9 == 9 (inferred)");
+        test(Thirds.T12 == 12, "enum step3 inferred: T12 == 12 (inferred)");
+
+        test(Thirds.T3  - Thirds.T0  == 3, "enum step3 inferred: gap T0->T3 is 3");
+        test(Thirds.T12 - Thirds.T9  == 3, "enum step3 inferred: gap T9->T12 is 3");
+
+        //////////////////////////////////////////////
+        // Binary / power-of-2 flags               //
+        //////////////////////////////////////////////
+
+        // None=0, Read=1, Write=2, Execute=4 seed binary doubling; All is inferred as 8
+        test(FileMode.None    == 0,   "enum flags inferred: None == 0");
+        test(FileMode.Read    == 1,   "enum flags inferred: Read == 1");
+        test(FileMode.Write   == 2,   "enum flags inferred: Write == 2");
+        test(FileMode.Execute == 4,   "enum flags inferred: Execute == 4");
+        test(FileMode.All     == 8,   "enum flags inferred: All == 8 (inferred doubling)");
+
+        // Verify each flag is a distinct power of 2
+        test(FileMode.Read    == FileMode.Write   / 2, "enum flags inferred: Read == Write/2");
+        test(FileMode.Write   == FileMode.Execute / 2, "enum flags inferred: Write == Execute/2");
+        test(FileMode.Execute == FileMode.All     / 2, "enum flags inferred: Execute == All/2");
+        test((FileMode.None & FileMode.Read)   == 0, "enum flags inferred: Read bit clear in None");
+
+        //////////////////////////////////////////////
+        // Negative starting value                  //
+        //////////////////////////////////////////////
+
+        test(Temperature.AbsoluteZero == -273, "enum negative: AbsoluteZero == -273");
+        test(Temperature.FreezingC    == 0,    "enum negative: FreezingC == 0");
+        test(Temperature.BodyTempC    == 37,   "enum negative: BodyTempC == 37");
+        test(Temperature.BoilingC     == 100,  "enum negative: BoilingC == 100");
+
+        //////////////////////////////////////////////
+        // Use enum value as int variable           //
+        //////////////////////////////////////////////
+
+        d : int = Direction.South;
+        test(d == 2,              "enum as int: store Direction.South in int var");
+        test(d == Direction.South,"enum as int: compare stored value to enum");
+
+        p : int = Priority.High;
+        test(p == 12,             "enum as int: store Priority.High in int var");
+        test(p > Priority.Medium, "enum as int: High > Medium via int var");
+
+        //////////////////////////////////////////////
+        // Enum value in switch-like if/else chain  //
+        //////////////////////////////////////////////
+
+        dir : int = Direction.East;
+        matched : bool = false;
+        if (dir == Direction.North) { matched = false; }
+        else if (dir == Direction.East) { matched = true; }
+        else if (dir == Direction.South) { matched = false; }
+        else { matched = false; }
+        test(matched, "enum in if/else: East matched correctly");
+
+        //////////////////////////////////////////////
+        // Enum defined inside function body        //
+        //////////////////////////////////////////////
+
+        LocalSeason :: enum {
+            Spring = 1,
+            Summer,
+            Autumn,
+            Winter,
+        }
+
+        test(LocalSeason.Spring == 1, "enum local: Spring == 1");
+        test(LocalSeason.Summer == 2, "enum local: Summer == 2");
+        test(LocalSeason.Autumn == 3, "enum local: Autumn == 3");
+        test(LocalSeason.Winter == 4, "enum local: Winter == 4");
+
+        // Local enum with explicit values
+        LocalBits :: enum {
+            B1 = 1,
+            B2 = 2,
+            B4 = 4,
+            B8 = 8,
+            B16 = 16,
+        }
+
+        test(LocalBits.B1  == 1,  "enum local flags: B1 == 1");
+        test(LocalBits.B2  == 2,  "enum local flags: B2 == 2");
+        test(LocalBits.B4  == 4,  "enum local flags: B4 == 4");
+        test(LocalBits.B8  == 8,  "enum local flags: B8 == 8");
+        test(LocalBits.B16 == 16, "enum local flags: B16 == 16");
+
+        test(LocalBits.B2 == LocalBits.B1 * 2, "enum local flags: each bit doubles");
+        test(LocalBits.B4 == LocalBits.B2 * 2, "enum local flags: B4 == B2*2");
+        test((LocalBits.B1 | LocalBits.B4) == 5, "enum local flags: B1|B4 == 5");
+
+        //////////////////////////////////////////////
+        // #compiles checks for valid access        //
+        //////////////////////////////////////////////
+
+        // Valid variants compile
+        test(#compiles(Direction.North),          "#compiles: Direction.North");
+        test(#compiles(Direction.West),           "#compiles: Direction.West");
+        test(#compiles(Priority.Low),             "#compiles: Priority.Low");
+        test(#compiles(HttpStatus.NotFound),      "#compiles: HttpStatus.NotFound");
+        test(#compiles(FileMode.Execute),         "#compiles: FileMode.Execute");
+
+        // Non-existent variants do not compile
+        test(#compiles(Direction.Middle)  == false, "#compiles: Direction.Middle does not compile");
+        test(#compiles(Direction.Up)      == false, "#compiles: Direction.Up does not compile");
+        test(#compiles(Priority.Urgent)   == false, "#compiles: Priority.Urgent does not compile");
+        test(#compiles(FileMode.SuperUser)== false, "#compiles: FileMode.SuperUser does not compile");
+
+        // Variants from one enum are not visible on another
+        test(#compiles(Direction.Low)     == false, "#compiles: Direction.Low does not compile (Priority variant)");
+        test(#compiles(Priority.North)    == false, "#compiles: Priority.North does not compile (Direction variant)");
+        test(#compiles(FileMode.Spring)   == false, "#compiles: FileMode.Spring does not compile (LocalSeason variant)");
+
+        // Local enum variants accessible with qualifier
+        test(#compiles(LocalSeason.Spring),       "#compiles: LocalSeason.Spring");
+        test(#compiles(LocalBits.B8),             "#compiles: LocalBits.B8");
+
+        // Non-existent local enum variants do not compile
+        test(#compiles(LocalSeason.Monsoon) == false, "#compiles: LocalSeason.Monsoon does not compile");
+        test(#compiles(LocalBits.B3)        == false, "#compiles: LocalBits.B3 does not compile");
+    }
+}

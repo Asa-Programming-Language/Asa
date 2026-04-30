@@ -51,10 +51,10 @@ std::string toCStringLiteral(const std::string& s);
 template<class T>
 std::string FormatWithCommas(T value)
 {
-	std::stringstream ss;
-	ss.imbue(std::locale(""));
-	ss << std::fixed << value;
-	return ss.str();
+    std::stringstream ss;
+    ss.imbue(std::locale(""));
+    ss << std::fixed << value;
+    return ss.str();
 }
 
 #endif

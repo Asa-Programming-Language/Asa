@@ -1,0 +1,93 @@
+
+// It could be useful for functions to be able to return different types, or multi-return
+
+
+// Functions currently are like this:
+foo :: int(){
+    return 4;
+}
+
+// But we could allow you to define one function that returns more than one type:
+
+// The `any` type might work, but would require storing an attached type with
+// every value, and quickly leads to complexity
+foo :: any(x : bool){
+    if(x)
+        return "Hello!";
+    else
+        return 2;
+}
+
+// Also requires that the type it is placed in is also of type `any`:
+res : any = foo(true);
+
+
+
+// Another way would be by explicitly giving a set of types the return value can be.
+// This reduces the sources of possible errors significantly, but does still have some issues
+foo :: [int, string](x : bool){
+    if(x)
+        return "Hello!";
+    else
+        return 2;
+}
+
+// Then what is this? And how would you access the values of it?
+res : int, string = foo(true);
+
+
+
+// I think for now, it could be best to use multiple-return values. This basically introduces
+// no issues but the syntax will need work.
+
+// You could define it using the syntax above:
+foo :: [int, string](x : bool){
+    if(x)
+        return 0, "Hello!";
+    else
+        return 2, "";
+}
+
+// Then you need to group the definitions
+resA : int, resB : string = foo(true);
+
+
+
+// But, depending on how arrays are introduced, the above function definition might not work.
+// If array types are added as a builtin language feature, it could make [int, string] too ambiguous
+
+// For example, assuming you can define an array by using the [] symbol like:
+someArr : int[];
+
+// Then a function that returns an array would be:
+bar :: int[](){
+    return {};
+}
+
+// So maybe multi-return should be defined like:
+foo :: int, string(x : bool){
+    // ...
+}
+// Which removes the brackets. The main issue with this is that it then makes lambdas pretty messy.
+// For example, if you call a multi-return lambda and want to use its return as an argument, it breaks:
+someFunc(int, string(x : bool){ return 4, ""; }(true));
+// So multi-return could also be defined like:
+foo :: (int, string)(x : bool){
+    // ...
+}
+// Then the lambda case would be:
+someFunc((int, string)(x : bool){ return 4, ""; }(true));
+// Which uses a lot of paren groups honestly.
+// So maybe I'll stick to []:
+foo :: [int, string](x : bool){
+    // ...
+}
+// Then the lambda case would be:
+someFunc([int, string](x : bool){ return 4, ""; }(true));
+
+// Which gets more complicated if arrays are in the types, but shouldnt break:
+foo :: [int[], string[]](x : bool){
+    // ...
+}
+
+

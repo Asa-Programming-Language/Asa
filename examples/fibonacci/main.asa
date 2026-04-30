@@ -1,21 +1,21 @@
 
 
 fib::uint64(number : uint64){
-	a : uint64 = 1;
-	b : uint64 = 1;
-	next : uint64 = 0;
+    a : uint64 = 1;
+    b : uint64 = 1;
+    next : uint64 = 0;
 
 
-	while(number > 0){
-		next = a + b;
-		a = b;
-		b = next;
-		number-=1;
-	}
-	return a;
+    while(number > 0){
+        next = a + b;
+        a = b;
+        b = next;
+        number-=1;
+    }
+    return a;
 }
 
 main::(){
-	x = fib(100);
-	printl(x);
+    x = fib(100);
+    printl(x);
 }
