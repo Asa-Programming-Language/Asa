@@ -872,7 +872,7 @@ static ASTNode* parseType(const std::vector<asaToken*>& tokens, int depth)
     else {
         node->nodeType = Identifier_Node;
         node->codegen = &ASTNode::generateVariableExpression;
-        // Handle variant type application: e.g. array<int> → token "array.int"
+        // Handle variant type application: e.g. array<int> -> token "array.int"
         if (tokens.size() > 1 && tokens[1]->tokenType == Less) {
             std::string mangled = tok->tokenStr;
             int angleDepth = 0;
@@ -1049,7 +1049,7 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
                 conditionNode = generateAST(subTokens, depth + 1);
                 messageSystem::startBlock(conditionNode, "Parsing if condition", __func__, __LINE__, __FILE__, messageSystem::Parser_Block);
                 if (conditionNode->childNodes[0]->nodeType != Expression_Paren_Term)
-                    messageSystem::error("Expected condition surrounded by parens. (Got " + ASTNodeTypeAsString(conditionNode->childNodes[0]->nodeType) + ")");
+                    messageSystem::error("Expected condition surrounded by parens. (Got " + ASTNodeTypeAsString(conditionNode->childNodes[0]->nodeType) + ")", messageSystem::Syntax_Error);
 
                 conditionNode->nodeType = Condition;
                 messageSystem::endBlock();
@@ -1126,7 +1126,7 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
                 messageSystem::startBlock(node, "Parsing else/else-if", __func__, __LINE__, __FILE__, messageSystem::Parser_Block);
                 defer(messageSystem::endBlock());
 
-                messageSystem::error("'else' statement must be preceded by at least one 'if' statement");
+                messageSystem::error("'else' statement must be preceded by at least one 'if' statement", messageSystem::Syntax_Error);
 
                 exit(1);
                 goto dontAddNodeForce;
@@ -1149,7 +1149,7 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
                 conditionNode = generateAST(subTokens, depth + 1);
                 messageSystem::startBlock(conditionNode, "Parsing while condition", __func__, __LINE__, __FILE__, messageSystem::Parser_Block);
                 if (conditionNode->childNodes[0]->nodeType != Expression_Paren_Term)
-                    messageSystem::error("Expected condition surrounded by parens. (Got " + ASTNodeTypeAsString(conditionNode->childNodes[0]->nodeType) + ")");
+                    messageSystem::error("Expected condition surrounded by parens. (Got " + ASTNodeTypeAsString(conditionNode->childNodes[0]->nodeType) + ")", messageSystem::Syntax_Error);
                 conditionNode->nodeType = Condition;
                 messageSystem::endBlock();
 
@@ -1435,7 +1435,7 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
                         goto addNode;
                     }
                     else {
-                        messageSystem::error("Expected ':' or ';' after attribute name");
+                        messageSystem::error("Expected ':' or ';' after attribute name", messageSystem::Syntax_Error);
                         wasError = true;
                         return nullptr;
                     }
@@ -2638,8 +2638,10 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
         // to each child rather than keeping them on the scope body itself.
         if (node->nodeType == Scope_Body && !pendingAttributes.empty()) {
             for (auto* child : node->childNodes) {
-                for (auto* a : pendingAttributes)
+                for (auto* a : pendingAttributes) {
+                    a->isInherited = true;
                     child->attributes.push_back(a);
+                }
             }
             pendingAttributes.clear();
         }
@@ -3009,53 +3011,86 @@ static const std::unordered_set<ASTNodeType> literalNodeTypes = {
     String_Constant_Node,
 };
 
-static void checkAttributeCompatibilityImpl(ASTNode* node)
+void checkAttributeCompatibility(ASTNode* node)
 {
-    for (auto* child : node->childNodes)
-        checkAttributeCompatibilityImpl(child);
+    messageSystem::startBlock(node, "Checking attribute compatability", __func__, __LINE__, __FILE__, messageSystem::Parser_Block);
 
-    if (node->attributes.empty())
+    for (auto* child : node->childNodes) {
+        checkAttributeCompatibility(child);
+    }
+
+    if (node->attributes.empty()) {
+        messageSystem::endBlock();
         return;
+    }
 
-    // Validate attribute arguments and collect names
-    std::vector<std::string> present;
+    // Validate attribute arguments
     for (auto* attr : node->attributes) {
         if (!attr->token || attr->token->tokenStr.empty())
             continue;
-        present.push_back(attr->token->tokenStr);
 
-        // Check argument is a literal constant if one is present
+        // Ensure argument is a literal constant if one is present
         if (!attr->childNodes.empty()) {
             ASTNode* scopeBody = attr->childNodes[0];
-            if (scopeBody->childNodes.empty() ||
-                literalNodeTypes.find(scopeBody->childNodes[0]->nodeType) == literalNodeTypes.end()) {
-                printTokenError(getASTTokenRange(attr),
-                    "Argument to attribute '@" + attr->token->tokenStr + "' must be a compile-time constant (int, float, bool, or string)");
-                exit(1);
+
+            messageSystem::startBlock(scopeBody, "Checking attribute arguments", __func__, __LINE__, __FILE__, messageSystem::Parser_Block);
+
+            if (scopeBody->childNodes.empty() || literalNodeTypes.find(scopeBody->childNodes[0]->nodeType) == literalNodeTypes.end()) {
+                messageSystem::error("Argument to attribute '@" + attr->token->tokenStr + "' must be a compile-time constant (int, float, bool, or string)", messageSystem::Invalid_Attribute_Arguments_Error);
+                return;
             }
+
+            messageSystem::endBlock();
         }
     }
 
+    // Then make sure the node doesnt have attributes that are incompatible with each other:
     for (const auto& group : incompatibleAttributeSets) {
-        std::vector<std::string> conflicts;
+        std::vector<ASTNode*> conflicts;
         for (const auto& name : group)
-            for (const auto& p : present)
-                if (p == name)
-                    conflicts.push_back(name);
+            for (const auto& a : node->attributes) {
+                if (a->isInherited)
+                    continue;
+                if (a->token->tokenStr == name)
+                    conflicts.push_back(a);
+            }
 
         if (conflicts.size() >= 2) {
-            std::string msg = "Incompatible attributes on '" + node->token->tokenStr + "': @" + conflicts[0];
+            std::string msg = "Incompatible attributes on '" + node->token->tokenStr + "': @" + conflicts[0]->token->tokenStr;
             for (int i = 1; i < (int)conflicts.size(); i++)
-                msg += " and @" + conflicts[i];
-            printTokenError(getASTTokenRange(node), msg);
-            exit(1);
+                msg += " and @" + conflicts[i]->token->tokenStr;
+
+            messageSystem::addAttributes(conflicts);
+            messageSystem::error(msg, messageSystem::Incompatible_Attribute_Error);
+            return;
         }
     }
-}
 
-void checkAttributeCompatibility(ASTNode* node)
-{
-    checkAttributeCompatibilityImpl(node);
+    // Finally, error if the node uses an attribute more than once
+    {
+        std::vector<std::string> conflicts;
+        for (const auto& a : node->attributes)
+            for (const auto& b : node->attributes) {
+                if (a->isInherited || b->isInherited)
+                    continue;
+                if (a == b)
+                    continue;
+                if (a->token->tokenStr == b->token->tokenStr)
+                    conflicts.push_back(a->token->tokenStr);
+            }
+
+        if (conflicts.size() > 0) {
+            std::string msg = "Duplicate attributes on '" + node->token->tokenStr + "': @" + conflicts[0];
+            for (int i = 1; i < (int)conflicts.size(); i++)
+                msg += ", and @" + conflicts[i];
+
+            messageSystem::error(msg, messageSystem::Duplicate_Attribute_Error);
+            return;
+        }
+    }
+
+    messageSystem::endBlock();
+    return;
 }
 
 void optimizeASTNode(ASTNode*& node)
@@ -3301,9 +3336,11 @@ void addFileIncludes(ASTNode*& node)
                 }
 
                 std::vector<asaToken*> localTokens = std::vector<asaToken*>();
+                std::vector<std::string*> localLines;
+                std::vector<std::string*> localFileNames;
 
                 // Begin tokenizing file
-                int e = tokenize(fileString, localTokens, fileName);
+                int e = tokenize(fileString, localTokens, fileName, localLines, localFileNames);
                 if (e != 0) {
                     std::cerr << "Invalid tokens met\n";
                     exit(1);
@@ -3319,7 +3356,9 @@ void addFileIncludes(ASTNode*& node)
                     std::cerr << "Invalid tokens met\n";
                     exit(1);
                 }
-                e = joinDotAtTokens(localTokens);
+                allTokens.insert(allTokens.end(), localTokens.begin(), localTokens.end());
+                lines.insert(lines.end(), localLines.begin(), localLines.end());
+                fileNames.insert(fileNames.end(), localFileNames.begin(), localFileNames.end());
 
                 // Generate AST
                 ASTNode* localRoot = generateAST(localTokens);
@@ -3343,8 +3382,10 @@ void loadAllModulesInDir(const std::string& modulePath)
         loadFile(pathStr, outStr);
 
         std::vector<asaToken*> localTokens = std::vector<asaToken*>();
+        std::vector<std::string*> localLines;
+        std::vector<std::string*> localFileNames;
 
-        int e = tokenize(outStr, localTokens, pathStr);
+        int e = tokenize(outStr, localTokens, pathStr, localLines, localFileNames);
         if (e != 0) {
             std::cerr << "Invalid tokens met\n";
             exit(1);
@@ -3359,7 +3400,9 @@ void loadAllModulesInDir(const std::string& modulePath)
             std::cerr << "Invalid tokens met\n";
             exit(1);
         }
-        joinDotAtTokens(localTokens);
+        allTokens.insert(allTokens.end(), localTokens.begin(), localTokens.end());
+        lines.insert(lines.end(), localLines.begin(), localLines.end());
+        fileNames.insert(fileNames.end(), localFileNames.begin(), localFileNames.end());
 
         ASTNode* localRoot = generateAST(localTokens);
 
@@ -3400,9 +3443,11 @@ bool loadModule(std::string& modulePath, std::string& moduleName)
         loadFile(pathStr, outStr);
 
         std::vector<asaToken*> localTokens = std::vector<asaToken*>();
+        std::vector<std::string*> localLines;
+        std::vector<std::string*> localFileNames;
 
         // Begin tokenizing file
-        int e = tokenize(outStr, localTokens, pathStr);
+        int e = tokenize(outStr, localTokens, pathStr, localLines, localFileNames);
         if (e != 0) {
             std::cerr << "Invalid tokens met\n";
             exit(1);
@@ -3418,8 +3463,6 @@ bool loadModule(std::string& modulePath, std::string& moduleName)
             std::cerr << "Invalid tokens met\n";
             exit(1);
         }
-        e = joinDotAtTokens(localTokens);
-
         // Generate AST
         ASTNode* localRoot = generateAST(localTokens);
 
@@ -3432,6 +3475,9 @@ bool loadModule(std::string& modulePath, std::string& moduleName)
 
                     ASTNode* moduleNode = localRoot->childNodes[j]->childNodes[0]->childNodes[0];
                     if (localRoot->childNodes[j]->token->tokenStr == moduleName) {
+                        allTokens.insert(allTokens.end(), localTokens.begin(), localTokens.end());
+                        lines.insert(lines.end(), localLines.begin(), localLines.end());
+                        fileNames.insert(fileNames.end(), localFileNames.begin(), localFileNames.end());
                         auto& moduleDefs = moduleNode->childNodes[0]->compilerDefinitions;
                         for (int i = 0; i < moduleNode->childNodes[0]->childNodes.size(); i++) {
                             ASTNode* importedNode = moduleNode->childNodes[0]->childNodes[i];
@@ -3492,7 +3538,10 @@ bool loadModuleQualified(std::string& modulePath, std::string& moduleName)
         loadFile(pathStr, outStr);
 
         std::vector<asaToken*> localTokens;
-        int e = tokenize(outStr, localTokens, pathStr);
+        std::vector<std::string*> localLines;
+        std::vector<std::string*> localFileNames;
+
+        int e = tokenize(outStr, localTokens, pathStr, localLines, localFileNames);
         if (e != 0) {
             std::cerr << "Invalid tokens met\n";
             exit(1);
@@ -3507,8 +3556,6 @@ bool loadModuleQualified(std::string& modulePath, std::string& moduleName)
             std::cerr << "Invalid tokens met\n";
             exit(1);
         }
-        joinDotAtTokens(localTokens);
-
         ASTNode* localRoot = generateAST(localTokens);
 
         for (int j = 0; j < (int)localRoot->childNodes.size(); j++) {
@@ -3517,6 +3564,9 @@ bool loadModuleQualified(std::string& modulePath, std::string& moduleName)
                     localRoot->childNodes[j]->childNodes[0]->childNodes.size() >= 1 &&
                     localRoot->childNodes[j]->childNodes[0]->childNodes[0]->nodeType == Module_Define_Node) {
                     if (localRoot->childNodes[j]->token->tokenStr == moduleName) {
+                        allTokens.insert(allTokens.end(), localTokens.begin(), localTokens.end());
+                        lines.insert(lines.end(), localLines.begin(), localLines.end());
+                        fileNames.insert(fileNames.end(), localFileNames.begin(), localFileNames.end());
                         importedNodes.push_back(localRoot->childNodes[j]);
                         if (verbosity >= 3)
                             printModuleLoaded(moduleName, pathStr);

@@ -16,6 +16,7 @@
 int verbosity = 2;
 std::string optimizationLevel = "0";
 int maxErrorTraceDepth = 1;
+bool compact = false;
 
 
 CompilerFlags compilerFlags = Flags_None;

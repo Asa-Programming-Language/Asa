@@ -18,3 +18,214 @@ main :: int(){
 #return1 :: ast (x : ast){
     
 }
+
+// Or maybe make definition different. All arguments and return values are obviously
+// going to be AST nodes, so why even specify that as the "type"?
+#someDirective(A, B, C){
+    
+}
+
+// Then we use the compiler directive alternatives to the builtin keywords. For example:
+#someDirective(A, B, C){
+    #if (A == B){
+        return C;
+    }
+    #else{
+        return #empty;
+    }
+}
+// Once defined, you can use it like:
+x : int = #someDirective(string(), "", 5);
+
+// The main issue with the above definition is the fact that it might be difficult to 
+// read what the directive is actually "returning". Even using `return` is bad I realize,
+// so let me fix it:
+#someDirective(A, B, C){
+    #if (A == B){
+        #return C;
+    }
+    #else{
+        #return;
+    }
+}
+// Now this is more clear. It returns the AST of C, or returns nothing. But there is
+// another big problem with this. In what world do any compiler directives look like this?
+// Sure, I could add extra syntax rules for directives, so that they can have 
+// trailing scope body {} groups, like:
+#something(){};
+// And since () is optional with <= 1 arguments, it can become:
+#something{};
+// Also, scope braces are self-ending, so with them added the semicolon is no longer necessary:
+#something{}
+// But this adds more complexity for codegen and parsing. I'll have to think about it more
+// One way it could be implemented right away is as regular directive arguments. Like:
+#something(condtion, {scope});
+// So I just pass the brace-enclosed scope body to the directive as an argument. Applied to
+// the above example definition, it would become:
+#someDirective(A, B, C){
+    #if (A == B, {
+        #return C;
+    });
+    #else({
+        #return;
+    });
+}
+// That is pretty good for now I would say. but definition is still weird. It is too close to 
+// usage. Maybe I could just borrow the compile time define symbol? Like:
+#someDirective(A, B, C) :: {
+    // ...
+}
+// Or like:
+#someDirective :: (A, B, C){
+    // ...
+}
+// The main issue with defining like is is that the right hand side in both of these
+// is not clearly a compiler directive. It would be parsed as a scope body in the first one,
+// and as a broken function/lambda definition in the second one.
+// Maybe you could use syntax like how `struct` and `module` are defined? Like:
+#someDirective :: directive(A, B, C){
+    // ...
+}
+// Although of course that is uausally used for return type in functions, and doesnt fix anything.
+// So maybe keep arguments attached to the identifier:
+#someDirective(A, B, C) :: directive{
+    // ...
+}
+// But this still makes it seem like a normal expression, so I am not sure.
+// Another option is to use another compiler directive to define a new one. Something like:
+#directive(#someDirective, (A, B, C),
+    {
+        #if (A == B, {
+            #return C;
+        });
+        #else({
+            #return;
+        });
+    }
+);
+// The definition name could also be an issue. In the case above, how does the compiler 
+// know if #someDirective is the name itself, or if it is a usage of another compiler directive which returns a name?
+// Maybe the following would be a better way to do it. So the first argument must be a string, like:
+#make_directive("someDirective", (A, B, C),
+    {
+        // ...
+    }
+);
+// Since compiler directives with <= 1 argument can drop parens, you could do:
+#make_directive #someDirective :: (A, B, C){
+    // ...
+};
+
+// Although these are possibly needlessly complicated. For now, I will just write definitions
+// by following the <name>(<args>) with curly braces, like:
+#someDirective(A, B, C){}
+
+
+// Now, continuing with the body of this directive, #if and #else are their own compiler
+// directives, with no codegen context of each other.
+// In other words, #else doesnt make any sense like this without some context.
+// I could think about adding some context though. In fact, I could even define the
+// #else and #else_if directives inside of ASA itself, as long as `#if` exists. Like:
+
+// Define #else_if directive
+#else_if(COND_EXPR, SCOPE_BODY){
+    // Store the AST of the last used compiler directive into a variable called `prev`
+    #var(prev, #stack_last("directives"));  // "directives" is a global stack, which is automatically kept up to date with the last used compiler directive. It is modified only after the directive fully runs
+    // If the last used directive was a #if or #else_if
+    #if(#nameof(prev) == "#if" || #nameof(prev) == "#else_if",
+        // If it was, make sure it evaluated to false. If it didnt, then control
+        // should not flow to this #else_if, and it should return nothing
+        #if(#stack_pop("control_flow_result") == true, { #return; });
+
+        // Then evaluate the condition. If true, return the scope passed as an argument
+        #if(COND_EXPR, { #return SCOPE_BODY; })
+
+        // Otherwise, it is false, or at least doesnt evaluate to something that could be called "true"
+        // Push this result to the "control_flow_result" stack and return nothing
+        #stack_push("control_flow_result", false);
+        #return;
+    );
+
+    // If it wasnt a #if or #else_if, then this #else_if block is placed badly or there is a syntax
+    // error somewhere.
+    #usage_error("`#else_if` compiler directive must be placed after a `#if` or `#else_if` compiler directive");
+}
+
+// Define #else directive
+#else(SCOPE_BODY){
+    // Store the AST of the last used compiler directive into a variable called `prev`
+    #var(prev, #stack_last("directives"));
+    // If the last used directive was a #if or #else_if
+    #if(#nameof(prev) == "#if" || #nameof(prev) == "#else_if",
+        // If it was, make sure it evaluated to false. If it didnt, then control
+        // should not flow to this #else, and it should return nothing
+        #if(#stack_pop("control_flow_result") == true, { #return; });
+
+        // Otherwise, it is false push true to the "control_flow_result" stack and return the scope body
+        #stack_push("control_flow_result", true);
+        #return SCOPE_BODY;
+    );
+
+    // If it wasnt a #if or #else_if, then this #else block is placed badly or there is a syntax
+    // error somewhere.
+    #usage_error("`#else` compiler directive must be placed after a `#if` or `#else_if` compiler directive");
+}
+
+// Using #make_directive() syntax:
+
+// Define #else_if directive
+#make_directive("else_if", (COND_EXPR, SCOPE_BODY), {
+    // Store the AST of the last used compiler directive into a variable called `prev`
+    #var(prev, #stack_last("directives"));  // "directives" is a global stack, which is automatically kept up to date with the last used compiler directive. It is modified only after the directive fully runs
+    // If the last used directive was a #if or #else_if
+    #if(#nameof(prev) == "#if" || #nameof(prev) == "#else_if",
+        // If it was, make sure it evaluated to false. If it didnt, then control
+        // should not flow to this #else_if, and it should return nothing
+        #if(#stack_pop("control_flow_result") == true, { #return; });
+
+        // Then evaluate the condition. If true, return the scope passed as an argument
+        #if(COND_EXPR, { #return SCOPE_BODY; })
+
+        // Otherwise, it is false, or at least doesnt evaluate to something that could be called "true"
+        // Push this result to the "control_flow_result" stack and return nothing
+        #stack_push("control_flow_result", false);
+        #return;
+    );
+
+    // If it wasnt a #if or #else_if, then this #else_if block is placed badly or there is a syntax
+    // error somewhere.
+    #usage_error("`#else_if` compiler directive must be placed after a `#if` or `#else_if` compiler directive");
+});
+
+
+// Also, #usage_error might not be the best way to do the error. We want the error message
+// to be where the `#else` and `#else_if` directives are actually used, rather than inside
+// of its definition. Maybe another global stack? Like:
+#make_directive("else_if", (COND_EXPR, SCOPE_BODY), {
+    // ...
+    #error("`#else_if` compiler directive must be placed after a `#if` or `#else_if` compiler directive", #current_directive);
+});
+// I am not sure if I would go with the naming of `#current_directive` since it is a bit
+// unclear what that may mean. (is #current_directive the `#current_directive` node itself? 
+// is it the `#error` node? is it the `#make_directive` node?)
+
+// But I can make it so that the `#error` and `#warning` directives take an optional AST 
+// argument that is the node the message should focus on. Otherwise, the message should 
+// just be itself, showing the surrounding context.
+
+// I could also make `#make_directive` pass another, implicit, argument. Like:
+#make_directive("else_if", CONTEXT, (COND_EXPR, SCOPE_BODY), {
+    // ...
+    #error("`#else_if` compiler directive must be placed after a `#if` or `#else_if` compiler directive", CONTEXT);
+});
+
+// Or hide this under something like `#context`
+#make_directive("else_if", (COND_EXPR, SCOPE_BODY), {
+    // ...
+    #error("`#else_if` compiler directive must be placed after a `#if` or `#else_if` compiler directive", #context);
+});
+// Ok that's probably the way to do it. #context, at least inside of the scope of a `#make_directive`,
+// should refer to the AST node of where the directive is used. Or I could call it `#self` or `#this`, not sure.
+
+// For now, I can implement the `#make_directive` compiler directive, even if a different
+// way to define them is made in the future, the explicit syntax is useful to have

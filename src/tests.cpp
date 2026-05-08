@@ -309,6 +309,11 @@ std::vector<Test> errorTests = {
         }
     )"),
 
+    Test("Redefined function, all same line",
+        R"(
+        someFunc :: (){} someFunc :: (){}
+    )"),
+
     Test("Redefined variable",
         R"(
         someVar : int = 5;
@@ -341,6 +346,32 @@ std::vector<Test> errorTests = {
             x : int = 9;
             someVar = void;
             x += someVar;
+        }
+    )"),
+
+    Test("Incompatible attributes used together",
+        R"(
+        @external:
+        @internal:
+        main :: (){
+            // ...
+        }
+    )"),
+
+    Test("Incompatible attributes used together, same line",
+        R"(
+        @external: @internal:
+        main :: (){
+            // ...
+        }
+    )"),
+
+    Test("Duplicate attributes",
+        R"(
+        @public:
+        @public:
+        main :: (){
+            // ...
         }
     )"),
 
@@ -414,6 +445,33 @@ std::vector<Test> errorTests = {
         }
     )"),
 
+    Test("Removed function usage with message, very long distance between",
+        R"(
+        @removed("Use `bar()` instead"):
+        foo :: (){
+
+        }
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        main :: (){
+            foo();
+        }
+    )"),
+
     Test("Member variable used without `this` qualifier",
         R"(
         bar :: struct{
@@ -443,6 +501,7 @@ std::vector<Test> errorTests = {
         foo :: (){
 
         }
+
         main :: (){
             foo();
         }
@@ -454,6 +513,7 @@ std::vector<Test> errorTests = {
         foo :: (){
 
         }
+
         main :: (){
             foo();
         }
@@ -501,10 +561,12 @@ void runTests()
 
             Test& t = tests[i];
             std::vector<asaToken*> localTokens = std::vector<asaToken*>();
+            std::vector<std::string*> localLines;
+            std::vector<std::string*> localFileNames;
 
             // Begin tokenizing file
             std::string fileName = "";
-            int e = tokenize(t.code, localTokens, fileName);
+            int e = tokenize(t.code, localTokens, fileName, localLines, localFileNames);
             if (e != 0) {
                 console::printError("Invalid tokens met", __LINE__, __FILE__);
                 goto testFailed;
@@ -520,7 +582,6 @@ void runTests()
                 console::printError("Invalid tokens met", __LINE__, __FILE__);
                 goto testFailed;
             }
-            e = joinDotAtTokens(localTokens);
 
             // Make allTokens reflect the current test's tokens so collectSourceLines works
             allTokens = localTokens;
@@ -568,6 +629,9 @@ void runTests()
             resolveAttributeAccess(localRoot);
             // Check for incompatible attribute combinations
             checkAttributeCompatibility(localRoot);
+
+            if (wasError)
+                goto fail;
 
             // Do the check this test is for:
             switch (t.testType) {
@@ -624,13 +688,15 @@ void runErrorTests()
         try {
             Test& t = errorTests[i];
             std::vector<asaToken*> localTokens = std::vector<asaToken*>();
+            std::vector<std::string*> localLines;
+            std::vector<std::string*> localFileNames;
 
             console::writeLine("\n\n======================== [" + t.name + "] ======================\n\n");
 
             // Begin tokenizing file
             std::string fileName = "/example/fake/directory/main.asa";
             projectDirectory = "/example/fake/directory/";
-            int e = tokenize(t.code, localTokens, fileName);
+            int e = tokenize(t.code, localTokens, fileName, localLines, localFileNames);
             if (e != 0) {
                 console::printError("Invalid tokens met", __LINE__, __FILE__);
             }
@@ -643,7 +709,6 @@ void runErrorTests()
             if (e != 0) {
                 console::printError("Invalid tokens met", __LINE__, __FILE__);
             }
-            e = joinDotAtTokens(localTokens);
 
             // Make allTokens reflect the current test's tokens so collectSourceLines works
             allTokens = localTokens;
@@ -704,6 +769,9 @@ void runErrorTests()
             resolveAttributeAccess(localRoot);
             // Check for incompatible attribute combinations
             checkAttributeCompatibility(localRoot);
+
+            if (wasError)
+                goto wasError;
 
             // Find any unused leaf nodes, and throw error if there are any
             findUnusedLeafNodes(localRoot);

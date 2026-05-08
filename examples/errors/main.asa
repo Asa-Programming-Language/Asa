@@ -1,0 +1,7 @@
+
+//#embed "./incl.asa"; 
+#use Module.LocalModule;
+
+main :: (){
+    foo();
+}

@@ -1583,7 +1583,7 @@ void declareModuleScopeVariable(ASTNode* exprStmtNode, ASTNode* ownerNode, bool 
                 voidCheck = voidCheck->childNodes[0];
             if (voidCheck->nodeType == Void_Node) {
                 messageSystem::startBlock(exprStmtNode, "Processing declaration", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
-                messageSystem::error("Cannot infer type from 'void'. Use an explicit type annotation: 'name : type = void'.");
+                messageSystem::error("Cannot infer type from 'void'. Use an explicit type annotation: 'name : type = void'.", messageSystem::Type_Inference_From_Void_Error);
                 return;
             }
         }
@@ -2640,7 +2640,7 @@ void* ASTNode::generateExpressionStatement(int pass)
         if (!val) {
             // New inferred declaration: `someVar = void;` - void has no type to infer from.
             if (rhsIsVoid && !typeNode)
-                return messageSystem::error("Cannot infer type from 'void'. Use an explicit type annotation: 'name : type = void'.");
+                return messageSystem::error("Cannot infer type from 'void'. Use an explicit type annotation: 'name : type = void'.", messageSystem::Type_Inference_From_Void_Error);
             targetPtr = CreateEntryBlockAlloca(theFunction, type, leftNode->token->tokenStr);
             std::string actualType = "*int";
             if (!typeNode) {

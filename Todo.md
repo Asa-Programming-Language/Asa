@@ -4,7 +4,15 @@
 
 - [ ] Make modules based completely in AST nodes
 
+- [ ] Add compiler directives: `#if(COND, BODY)`, `#stack_last(NAME)`, `#stack_push(NAME, AST)`, `#stack_pop(NAME)`, `#error(MESSAGE, AST)`, `#warning(MESSAGE, AST)`, `#context`
+
 - [ ] Improve error printing system, make it allow multiple underlined segments with attached messages and connection lines
+
+- [ ] Ensure `result` statement works in loops and most other scope bodies
+
+- [ ] Make error checking ensure all code paths have a return value if necessary
+
+- [ ] Think about disallowing certain function/operator overloads, adding checking for patterns. For example, disallowing anything other than integer in operator[], and erroring. And error when you try to overload important operators like operator=
 
 - [ ] Add compiler multi-error handling. Continues codegen/parsing unless it relies on a previously errored node
     - [ ] Add AST node poisoning  

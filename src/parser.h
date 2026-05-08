@@ -320,14 +320,15 @@ struct ASTNode {
     bool lvalue = false;
     bool isPostfix = false;
     std::string label = "";
-    std::string externSymbolName = "";   // when non-empty, the actual C symbol to link (overrides fnName for LLVM)
-    bool showInASTOutput = true;         // TODO: @hideast is attribute, make it so instead of its own bool
-    bool replaceableDefinition = false;  // TODO: @replaceable is attribute, make it so instead of its own bool
-    bool isModuleScope = false;          // true for Compiler_Define nodes representing named modules
-    std::string enclosingModule = "";    // set on imported nodes to record source module name
-    bool currentNodeDoneGenerating = false;
-    bool isValueBlock = false;         // true for Scope_Body nodes that are value-returning { result ...; } expressions
-    asaToken* closingToken = nullptr;  // closing delimiter token (e.g. }) stored for token range tracking
+    std::string externSymbolName = "";       // when non-empty, the actual C symbol to link (overrides fnName for LLVM)
+    bool showInASTOutput = true;             // TODO: @hideast is attribute, make it so instead of its own bool
+    bool replaceableDefinition = false;      // TODO: @replaceable is attribute, make it so instead of its own bool
+    bool isModuleScope = false;              // true for Compiler_Define nodes representing named modules
+    std::string enclosingModule = "";        // set on imported nodes to record source module name
+    bool currentNodeDoneGenerating = false;  // TODO: Make codegen mark each node that completely finishes generating as done
+    bool isValueBlock = false;               // true for Scope_Body nodes that are value-returning { result ...; } expressions
+    bool isInherited = false;                // true if this is an attribute which was inherited from a parent scope
+    asaToken* closingToken = nullptr;        // closing delimiter token (e.g. }) stored for token range tracking
     //Type* llvmType;
     //Type* baseType = nullptr;
     ASAType* asaType = nullptr;

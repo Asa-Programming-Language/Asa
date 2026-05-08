@@ -104,6 +104,31 @@ std::string CommaLargeNumberF(double num)
 	return s;
 }
 
+std::string OrdinalSuffixString(int num)
+{
+	int absNum = std::abs(num);
+	int lastTwo = absNum % 100;
+	std::string suffix = "th";
+
+	if (lastTwo < 11 || lastTwo > 13) {
+		switch (absNum % 10) {
+			case 1:
+				suffix = "st";
+				break;
+			case 2:
+				suffix = "nd";
+				break;
+			case 3:
+				suffix = "rd";
+				break;
+			default:
+				break;
+		}
+	}
+
+	return std::to_string(num) + suffix;
+}
+
 // Function to pad the front of a string with a character to make it a certain length
 std::string PadString(const std::string& input, char padChar, size_t desiredLength)
 {

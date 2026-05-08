@@ -105,6 +105,21 @@ enum TokenType {
     True_Literal,
     False_Literal,
 
+    // Print formatting tokens (used by message renderer only)
+    _Print_Gutter,
+    _Print_Gutter_Marker,
+    _Print_Gutter_Ellipsis,
+    _Print_Ellipsis,
+    _Print_Truncation_Ellipsis,
+    _Print_Underline,
+    _Print_Connector_V,
+    _Print_Connector_H,
+    _Print_Connector_Corner,
+    _Print_Connector_Over,
+    _Print_Connector_Under,
+    _Print_Space,
+    _Print_Message,
+
     // Nothing below this
     LastTokenType,
 };
@@ -207,12 +222,28 @@ const std::string tokenTypeStrings[] = {
 
     "True_Literal",
     "False_Literal",
+
+    // Print formatting
+    "print_gutter",
+    "print_gutter_marker",
+    "print_gutter_ellipsis",
+    "print_ellipsis",
+    "print_truncation_ellipsis",
+    "print_underline",
+    "print_connector_v",
+    "print_connector_h",
+    "print_connector_corner",
+    "print_connector_over",
+    "print_connector_under",
+    "print_space",
+    "print_message",
 };
 
 extern std::string nullStr;
 struct asaToken {
     std::string tokenStr = "";
     TokenType tokenType = Nothing;
+    const std::string* color = nullptr;
     int lineNumber = 0;
     std::string* lineValue = nullptr;
     std::string* filePath = nullptr;
@@ -253,13 +284,13 @@ typedef std::pair<asaToken*, asaToken*> tokenRange;
 
 extern std::vector<asaToken*> allTokens;
 extern std::vector<std::string*> lines;
+extern std::vector<std::string*> fileNames;
 
 // Increments i, then returns the next token in `tokens`
 #define NEXT_TOKEN(tokens, i) tokens[++i];
 
-int tokenize(std::string& rawFile, std::vector<asaToken*>& tokens, std::string& fileName);
+int tokenize(std::string& rawFile, std::vector<asaToken*>& tokens, std::string& fileName, std::vector<std::string*>& outLines, std::vector<std::string*>& outFileNames);
 int labelSubTokens(std::vector<asaToken*>& tokens);
 int joinCommentTokens(std::vector<asaToken*>& tokens);
-int joinDotAtTokens(std::vector<asaToken*>& tokens);
 int removeCommentTokens(std::vector<asaToken*>& tokens);
 const std::string tokenAsString(TokenType t);

@@ -73,6 +73,8 @@ int main(int argc, char** argv)
             case 'f':
                 if (std::string(optarg) == "errortest")
                     compilerFlags |= Flags_RunErrorTests;
+                else if (std::string(optarg) == "compact")
+                    compact = true;
                 else if (std::string(optarg) == "color")
                     compilerFlags |= Flags_Force_Enable_Color;
                 break;
@@ -206,7 +208,7 @@ int main(int argc, char** argv)
 
 
     // Begin tokenizing file
-    int e = tokenize(initialFileString, allTokens, fullFileName);
+    int e = tokenize(initialFileString, allTokens, fullFileName, lines, fileNames);
     if (e != 0) {
         console::write("Invalid tokens met\n");
         exit(1);
@@ -222,7 +224,6 @@ int main(int argc, char** argv)
         console::write("Invalid tokens met\n");
         exit(1);
     }
-    e = joinDotAtTokens(allTokens);
     if (verbosity >= 5) {
         printf("\nTokens:\n");
         for (int i = 0; i < allTokens.size(); i++) {

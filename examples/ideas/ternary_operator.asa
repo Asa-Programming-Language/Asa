@@ -1,0 +1,47 @@
+// Many languages have compact conditional value branching in the form of ternary operators.
+// In C/C++ and many others, it is like:   `cond ? x : y`
+// Where <cond> is evaluated as a boolean, and returns <x> if true, and <y> if false.
+
+// I do like the compactness of this, but I haven't really been a fan of it otherwise.
+// And for Asa, it really wouldn't fit in. Some languages also re-use the `if` keyword, like:
+//      `x if cond else y`
+// But with the condition in the middle, I personally think it reads poorly
+
+// Using the already builtin language features, you could just write it as an if-else with results:
+if(cond) result x; else result y;
+// But this is rather wordy compared to:
+cond ? x : y
+
+// This one saves space, but I honestly hate it:
+x if(cond) else y
+
+
+// TODO: Figure out ternary operator
+// For now, I am going to not do anything. You can just use the existing if syntax:
+printl(if(cond) result x; else result y;);
+
+
+// I could add a new keyword, `when`. Then it wouldnt be stuck using `result`
+// Like:
+when(cond) x else y
+
+// Basically, it is very similar to an if statement, but it implicitly `result`s 
+// the entire scope body.
+// For example, you could write the following with `if`:
+if(cond){
+    result x;
+}
+else{
+    result y;
+}
+
+// Or the alternative using when:
+when(cond){
+    x
+}
+else{
+    y
+}
+
+// Although `when` and `if` are practically synonyms, and `when` doesnt imply this functionality
+// of implicitly resulting at all.

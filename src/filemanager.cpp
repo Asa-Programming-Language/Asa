@@ -103,6 +103,6 @@ std::string truncatePath(const std::string& path)
             return "./" + path.substr(projDir.size());
     }
 
-    // Case 3: fallback — return full path unchanged
+    // Case 3: fallback - return full path unchanged
     return path;
 }
