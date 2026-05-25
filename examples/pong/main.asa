@@ -22,12 +22,9 @@ drawBall ::(){
 
 @inline:
 drawNet :: (){
-    for(i in 0..SCREEN_H){
-        if(i/10 % 2 == 0){
-            for(w in -1..2){
-                DrawPixel(SCREEN_W/2+w, i, WHITE);
-            }
-        }
+    SEG_LEN :: 8;
+    for(i in 0..(SCREEN_H/SEG_LEN/2)){
+        DrawRectangle(SCREEN_W/2-1, i*SEG_LEN*2, 1, SEG_LEN, WHITE);
     }
 }
 

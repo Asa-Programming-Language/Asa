@@ -1,5 +1,8 @@
 
 # Todo:
+
+- [ ] Fix operator overload token string being overwritten by token name
+
 - [ ] Add `defer` keyword to push a statement to the end of a scope. This involves pusing each deferred expression onto a stack, and executing in reverse order at the end of the current scope. And if the current scope is a function or a `result` returning scope, then the return value should be evaluated first, and then the deferred expressions executed. And they should be executed after any instances of the return/result keyword.
 
 - [ ] Make modules based completely in AST nodes

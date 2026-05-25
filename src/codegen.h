@@ -13,6 +13,9 @@ using namespace llvm;
 using namespace llvm::sys;
 
 struct ASTNode;
+struct argType;
+typedef std::vector<argType> argumentList;
+struct functionID;
 
 
 extern std::unique_ptr<LLVMContext> TheContext;
@@ -29,6 +32,7 @@ int outputObjectFile(std::string& objectFilePath);
 int generateExecutable(const std::string& irFilePath, const std::string& exeFilePath, const std::string& clangOptions);
 void optimizeFunctions();
 void printFunctionPrototypes();
+void printFunctionDifferences(argumentList* arguments, functionID* other);
 
 extern std::map<std::string, std::string> compilerDefines;
 extern std::unordered_map<std::string, std::string> typeAliasMap;

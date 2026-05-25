@@ -250,8 +250,6 @@ struct argType {
     }
 };
 
-typedef std::vector<argType> argumentList;
-
 struct functionID {
     std::string name = "";
     std::string mangledName = "";
@@ -644,11 +642,11 @@ std::string formatCallSignature(const std::string& name, const argumentList& arg
     return s;
 }
 
-void printFunctionDifferences(argumentList& arguments, functionID*& other)
+void printFunctionDifferences(argumentList* arguments, functionID* other)
 {
     console::write(other->name + " :: (");
-    for (int i = 0; i < arguments.size(); i++) {
-        argType a = arguments[i];
+    for (int i = 0; i < arguments->size(); i++) {
+        argType a = (*arguments)[i];
         argType b = other->userArguments[i];
         std::string aStr = std::string(a.pointerLevel, '*') + a.typeString;
         std::string bStr = std::string(b.pointerLevel, '*') + b.typeString;
@@ -658,13 +656,13 @@ void printFunctionDifferences(argumentList& arguments, functionID*& other)
             console::write(aStr + " ~= " + bStr, console::yellowFGColor);
         else
             console::write(aStr + " != " + bStr, console::redFGColor);
-        if (i < arguments.size() - 1)
+        if (i < arguments->size() - 1)
             console::write(", ");
     }
     console::write(")\n");
 }
 
-functionID* getFunctionFromID(std::vector<functionID*>& fnIDs, std::string& name, argumentList& arguments, asaToken*& t, bool wereTypesInferred = false, bool isMemberFunction = false)
+functionID* getFunctionFromID(std::vector<functionID*>& fnIDs, std::string& name, argumentList& arguments, bool wereTypesInferred = false, bool isMemberFunction = false, bool throwIfNotFound = false)
 {
     functionID* best;
     int bestScore = 1000;
@@ -683,23 +681,28 @@ functionID* getFunctionFromID(std::vector<functionID*>& fnIDs, std::string& name
         }
     }
     if (bestScore > 500)
-        return nullptr;
+        goto undefinedFunction;
+
     // If the best function match requires exact typing (and different types are passed) throw error
     if (requiresExact) {
-        console::indentation = errorDepth;
-        if (errorDepth < maxErrorTraceDepth)
-            printTokenError(tokenRange {t, t}, "Function match not found, closest prototype requires exact types. Did you try casting?");
-        if (errorDepth < maxErrorTraceDepth)
-            printFunctionDifferences(arguments, best);
-        wasError = true;
-        errorDepth++;
-        return nullptr;
+        messageSystem::addAttribute(&arguments);
+        messageSystem::addAttribute(best);
+        return (functionID*)messageSystem::error("Function match not found, closest prototype requires exact types. Did you try casting?", messageSystem::Undefined_Function_Exact_Error);
     }
     if (bestScore < 1000)
         return best;
+
+undefinedFunction:
+    if (throwIfNotFound) {
+        for (auto& f : functionIDs) {
+            if (f->name == name)
+                messageSystem::addAttribute(f->declNode);
+        }
+        return (functionID*)messageSystem::error("Undefined function '" + name + "'", messageSystem::Undefined_Function_Error);
+    }
     return nullptr;
 }
-functionID* getExactFunctionFromID(std::vector<functionID*>& fnIDs, std::string& name, argumentList& arguments, asaToken*& t, bool wereTypesInferred = false)
+functionID* getExactFunctionFromID(std::vector<functionID*>& fnIDs, std::string& name, argumentList& arguments, bool wereTypesInferred = false, bool throwIfNotFound = false)
 {
     functionID* best;
     int bestScore = 1000;
@@ -730,9 +733,14 @@ functionID* getExactFunctionFromID(std::vector<functionID*>& fnIDs, std::string&
 exactFnNotFound:
     if (verbosity >= 6)
         console::writeLine("Exact function match not found");
+    if (throwIfNotFound) {
+        messageSystem::addAttribute(&arguments);
+        messageSystem::addAttribute(best);
+        return (functionID*)messageSystem::error("Function match not found, closest prototype requires exact types. Did you try casting?", messageSystem::Undefined_Function_Exact_Error);
+    }
     return nullptr;
 }
-functionID* getFunctionFromID(std::vector<functionID*>& fnIDs, std::string& name, std::vector<ASTNode*>& argValues, asaToken*& t)
+functionID* getFunctionFromID(std::vector<functionID*>& fnIDs, std::string& name, std::vector<ASTNode*>& argValues, bool throwIfNotFound = false)
 {
     functionID* best;
     int bestScore = 1000;
@@ -750,19 +758,23 @@ functionID* getFunctionFromID(std::vector<functionID*>& fnIDs, std::string& name
     }
     // If the best function match requires exact typing (and different types are passed) throw error
     if (requiresExact) {
-        console::indentation = errorDepth;
-        if (errorDepth < maxErrorTraceDepth)
-            printTokenError(tokenRange {t, t}, "Function match not found, closest prototype requires exact types. Did you try casting?");
-        //printFunctionDifferences(arguments, best);
-        wasError = true;
-        errorDepth++;
-        return nullptr;
+        messageSystem::addAttribute(best);
+        //return (functionID*)messageSystem::error("Function match not found, closest prototype requires exact types. Did you try casting?", messageSystem::Undefined_Function_Exact_Error);
+        return nullptr;  // TODO: This function doesnt have handling for exact requirement
     }
     if (bestScore < 1000)
         return best;
+undefinedFunction:
+    if (throwIfNotFound) {
+        for (auto& f : functionIDs) {
+            if (f->name == name)
+                messageSystem::addAttribute(f->declNode);
+        }
+        return (functionID*)messageSystem::error("Undefined function '" + name + "'", messageSystem::Undefined_Function_Error);
+    }
     return nullptr;
 }
-functionID* getFunctionFromID(std::vector<functionID*>& fnIDs, std::string& name, asaToken*& t)
+functionID* getFunctionFromID(std::vector<functionID*>& fnIDs, std::string& name, bool throwIfNotFound = false)
 {
     functionID* best;
     int bestScore = 1000;
@@ -780,16 +792,20 @@ functionID* getFunctionFromID(std::vector<functionID*>& fnIDs, std::string& name
     }
     // If the best function match requires exact typing (and different types are passed) throw error
     if (requiresExact) {
-        console::indentation = errorDepth;
-        if (errorDepth < maxErrorTraceDepth)
-            printTokenError(tokenRange {t, t}, "Function match not found, closest prototype requires exact types. Did you try casting?");
-        //printFunctionDifferences(arguments, best);
-        wasError = true;
-        errorDepth++;
-        return nullptr;
+        messageSystem::addAttribute(best);
+        //return (functionID*)messageSystem::error("Function match not found, closest prototype requires exact types. Did you try casting?", messageSystem::Undefined_Function_Exact_Error);
+        return nullptr;  // TODO: Does this case ever occur?
     }
     if (bestScore < 1000)
         return best;
+undefinedFunction:
+    if (throwIfNotFound) {
+        for (auto& f : functionIDs) {
+            if (f->name == name)
+                messageSystem::addAttribute(f->declNode);
+        }
+        return (functionID*)messageSystem::error("Undefined function '" + name + "'", messageSystem::Undefined_Function_Error);
+    }
     return nullptr;
 }
 functionID* getFunctionIDFromFunctionPointer(std::vector<functionID*>& fnIDs, Function*& fnPtr)
@@ -2231,7 +2247,7 @@ void* ASTNode::generateThrow(int pass)
     argumentList prefixArgList;
     prefixArgList.push_back(argType("char", Char_Type, 1));
     std::string printFnName = "print";
-    functionID* prefixPrintFnID = getFunctionFromID(functionIDs, printFnName, prefixArgList, token, true, false);
+    functionID* prefixPrintFnID = getFunctionFromID(functionIDs, printFnName, prefixArgList, true, false);
 
     if (prefixPrintFnID) {
         std::vector<Value*> prefixArgs;
@@ -2266,7 +2282,7 @@ void* ASTNode::generateThrow(int pass)
 
         // Look up the print function
         std::string printFnName = "printl";
-        functionID* printFnID = getFunctionFromID(functionIDs, printFnName, argList, token, true, false);
+        functionID* printFnID = getFunctionFromID(functionIDs, printFnName, argList, true, false);
 
         if (printFnID) {
             // Call the print function
@@ -2768,7 +2784,7 @@ void* ASTNode::generateExpressionStatement(int pass)
             argList.push_back(argType(lTypeStr, getASTNodeTypeFromString(lTypeStr), 0));
             std::string rTypeStr = getStringTypeFromLLVMType(exprVal->getType());
             argList.push_back(argType(rTypeStr, getASTNodeTypeFromString(rTypeStr), 0));
-            functionID* calleeID = getFunctionFromID(functionIDs, operatorName, argList, token, true);
+            functionID* calleeID = getFunctionFromID(functionIDs, operatorName, argList, true);
             if (!calleeID || !calleeID->fnValue) {
                 return messageSystem::error("No operator overload '" + operatorName + "' found for compound assignment");
             }
@@ -3320,7 +3336,7 @@ bool ASTNode::checkForOperatorOverload(Value* L, Value* R)
 
     //printFunctionPrototypes();
 
-    functionID* calleeID = getFunctionFromID(functionIDs, operatorName, argList, token, true);
+    functionID* calleeID = getFunctionFromID(functionIDs, operatorName, argList, true);
     if (calleeID != nullptr && calleeID->fnValue != nullptr)
         return true;
     else {
@@ -3360,7 +3376,7 @@ Value* ASTNode::generateOperatorOverloadCall(Value* L, Value* R)
     }
     argList.push_back(argType(rBaseTypeStr, getASTNodeTypeFromString(rBaseTypeStr), rPointerLevel));
 
-    functionID* calleeID = getFunctionFromID(functionIDs, operatorName, argList, token, true);
+    functionID* calleeID = getFunctionFromID(functionIDs, operatorName, argList, true);
 
     if (!calleeID || !calleeID->fnValue) {
         return (Value*)messageSystem::error("Expected operator overload for undefined operator `" + tokenAsString(token->tokenType) + "`, but none were not found");
@@ -3510,7 +3526,7 @@ void* ASTNode::generateAccessOperation(int pass)
         }
         opArgList.push_back(argType(rBaseTypeStr, getASTNodeTypeFromString(rBaseTypeStr), rPointerLevel));
 
-        functionID* opCalleeID = getFunctionFromID(functionIDs, opName, opArgList, token, true);
+        functionID* opCalleeID = getFunctionFromID(functionIDs, opName, opArgList, true);
         if (opCalleeID && opCalleeID->fnValue) {
             opCalleeID->uses++;
             // Pass struct by value or by pointer depending on the formal parameter type
@@ -3851,7 +3867,7 @@ void* ASTNode::generateMemberAccess(int pass)
             }
 
             // Look up the id in the struct function (against userArguments, which excludes 'this').
-            functionID* CalleeFID = getFunctionFromID(structDefinition->memberFunctions, memberName, argList, token, true, true);
+            functionID* CalleeFID = getFunctionFromID(structDefinition->memberFunctions, memberName, argList, true, true);
             if (!CalleeFID) {
                 for (auto& f : structDefinition->memberFunctions) {
                     if (f->name != memberName)
@@ -4125,7 +4141,7 @@ void* ASTNode::generateMemberAccess(int pass)
             }
 
             // Look up the id in the struct function (against userArguments, which excludes 'this').
-            functionID* CalleeFID = getFunctionFromID(structDefinition->memberFunctions, memberName, argList, token, true, true);
+            functionID* CalleeFID = getFunctionFromID(structDefinition->memberFunctions, memberName, argList, true, true);
             if (!CalleeFID) {
                 messageSystem::startBlock(childNodes[1], "Generating struct function call", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
                 return messageSystem::error("Struct definition does not contain member function");
@@ -4941,25 +4957,9 @@ void* ASTNode::generateCallExpression(int pass)
         }
     }
 
-    functionID* CalleeFID = getFunctionFromID(functionIDs, resolvedFnName, argList, token, true, shouldBeMemberFunction);
+    functionID* CalleeFID = getFunctionFromID(functionIDs, resolvedFnName, argList, true, shouldBeMemberFunction, true);
     if (!CalleeFID) {
-
-        for (auto& f : functionIDs) {
-            if (f->name == token->tokenStr)
-                messageSystem::addAttribute(f->declNode);
-        }
-        return messageSystem::error("Undefined function '" + token->tokenStr + "'", messageSystem::Undefined_Function_Error);
-
-
-        //console::indentation = errorDepth;
-        //if (errorDepth < maxErrorTraceDepth)
-        //  if (shouldBeMemberFunction)
-        //      printf("Should be member function\n");
-        //if (!wasError)
-        //  printUndefinedFunctionError(token, token->tokenStr, argList, functionIDs);
-        //wasError = true;
-        //errorDepth++;
-        //return nullptr;
+        return nullptr;
     }
 
     // Check @deprecated / @removed on the declaration
@@ -5584,7 +5584,7 @@ void* ASTNode::generateStruct(int pass)
         // Auto-generate a default constructor if no constructor for this struct exists yet
         auto addDefaultCtorProto = [&](StructType* ty) {
             argumentList emptyUserArgs;
-            if (!getExactFunctionFromID(functionIDs, const_cast<std::string&>(structName), emptyUserArgs, token)) {
+            if (!getExactFunctionFromID(functionIDs, const_cast<std::string&>(structName), emptyUserArgs)) {
                 std::vector<Type*> ctorArgTypes = {PointerType::get(*TheContext, 0)};
                 FunctionType* FT = FunctionType::get(Type::getVoidTy(*TheContext), ctorArgTypes, false);
                 Function* fn = Function::Create(FT, Function::InternalLinkage, structName, TheModule.get());
@@ -5619,7 +5619,7 @@ void* ASTNode::generateStruct(int pass)
     // Auto-generate a default constructor if no constructor for this struct exists yet
     auto addDefaultCtorProto = [&](StructType* ty) {
         argumentList emptyUserArgs;
-        if (!getExactFunctionFromID(functionIDs, const_cast<std::string&>(structName), emptyUserArgs, token)) {
+        if (!getExactFunctionFromID(functionIDs, const_cast<std::string&>(structName), emptyUserArgs)) {
             std::vector<Type*> ctorArgTypes = {PointerType::get(*TheContext, 0)};
             FunctionType* FT = FunctionType::get(Type::getVoidTy(*TheContext), ctorArgTypes, false);
             Function* fn = Function::Create(FT, Function::InternalLinkage, structName, TheModule.get());
@@ -6517,7 +6517,7 @@ void* ASTNode::generatePrototype(int pass)
 
     // Don't add another prototype if the exact same one is already defined
     //Function* theFunction = TheModule->getFunction(token->tokenStr);
-    functionID* theFunctionID = getExactFunctionFromID(functionIDs, fnName, userArgList, token);
+    functionID* theFunctionID = getExactFunctionFromID(functionIDs, fnName, userArgList);
     if (theFunctionID) {
         if (verbosity >= 5) {
             console::printIndent(2);

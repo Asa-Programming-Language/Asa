@@ -14,7 +14,7 @@ set(CMAKE_INSTALL_PREFIX ".")
 
 
 # Handle including LLVM
-find_package(LLVM REQUIRED CONFIG)
+find_package(LLVM 21.1.0 EXACT REQUIRED CONFIG)
 
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
 message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
@@ -51,7 +51,7 @@ endif()
 # Find the libraries that correspond to the LLVM components
 # that we wish to use
 #llvm_map_components_to_libnames(llvm_libs support core target irreader nativecodegen)
-llvm_map_components_to_libnames(llvm_libs ${LLVM_TARGETS_TO_BUILD} support core target irreader passes analysis)
+llvm_map_components_to_libnames(llvm_libs ${LLVM_TARGETS_TO_BUILD} support core target irreader passes analysis MC)
 
 # Link against LLVM libraries
 target_link_libraries(asa ${llvm_libs})

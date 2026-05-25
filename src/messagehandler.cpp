@@ -103,7 +103,16 @@ namespace messageSystem {
             exit(1);
         }
         for (const auto& n : nodes)
-            currentNode->attributeNodes.emplace_back(n, messageString);
+            currentNode->attributeNodes.emplace_back((void*)n, messageString);
+    }
+
+    void addAttribute(void* item, std::string messageString)
+    {
+        if (!currentNode) {
+            printMessageSystemError("Unexpected end of error tree.");
+            exit(1);
+        }
+        currentNode->attributeNodes.emplace_back((void*)item, messageString);
     }
 
     void addAttribute(ASTNode*& node, std::string messageString)
@@ -112,17 +121,7 @@ namespace messageSystem {
             printMessageSystemError("Unexpected end of error tree.");
             exit(1);
         }
-        currentNode->attributeNodes.emplace_back(node, messageString);
-    }
-
-    // TODO: This function is probably too unsafe:
-    void addAttribute(std::string strVal, std::string messageString)
-    {
-        if (!currentNode) {
-            printMessageSystemError("Unexpected end of error tree.");
-            exit(1);
-        }
-        currentNode->attributeNodes.emplace_back(new ASTNode(Identifier_Node, {}, new asaToken(strVal, Identifier)), messageString);
+        currentNode->attributeNodes.emplace_back((void*)node, messageString);
     }
 
     void* error(std::string messageString, ErrorMessageType messageType)
@@ -180,9 +179,29 @@ namespace messageSystem {
                     console::write("Candidates:\n", NEUTRAL_HIGHLIGHT_COLOR);
                     console::indentation = 1;
                     for (int i = 0; i < (int)currentNode->attributeNodes.size(); i++)
-                        printNode(currentNode->attributeNodes[i].first);
+                        printNode((ASTNode*)currentNode->attributeNodes[i].first);
                     console::indentation = 0;
                 }
+                break;
+            }
+
+            case Undefined_Function_Exact_Error: {
+                SourceCodeSegment src(UnderlinedSegment(currentNode->astNode, "used here", ERROR_COLOR, "^"));
+                src.addContextNode(currentNode->astNode->parentNode);
+                msg.addSegment(src);
+                msg.print();
+                console::write("\nCould you have possibly meant this?:\n");
+                console::write("Candidate:\n", NEUTRAL_HIGHLIGHT_COLOR);
+                if (currentNode->attributeNodes.size() == 2) {
+                    console::indentation = 1;
+                    argumentList* argList = (argumentList*)currentNode->attributeNodes[0].first;
+                    printFunctionDifferences(argList, (functionID*)currentNode->attributeNodes[1].first);
+                    //printNode((ASTNode*)currentNode->attributeNodes[0].first);
+                    console::indentation = 0;
+                }
+                else
+                    printMessageSystemError("Missing required error message attributes");
+
                 break;
             }
 
@@ -190,7 +209,7 @@ namespace messageSystem {
                 SourceCodeSegment src(UnderlinedSegment(currentNode->astNode, "belongs to this", ERROR_COLOR, "^"));
                 src.addContextNode(currentNode->astNode->parentNode);
                 for (int i = 0; i < currentNode->attributeNodes.size(); i++) {
-                    ArrowSegment a = ArrowSegment(currentNode->attributeNodes[i].first, OrdinalSuffixString(i + 1) + " here", NEUTRAL_HIGHLIGHT_COLOR, Hide_Scope_Body_Contents);
+                    ArrowSegment a = ArrowSegment((ASTNode*)currentNode->attributeNodes[i].first, OrdinalSuffixString(i + 1) + " here", NEUTRAL_HIGHLIGHT_COLOR, Hide_Scope_Body_Contents);
                     a.verticallyUnlocked = true;
                     src.addArrow(a);
                 }
@@ -203,7 +222,7 @@ namespace messageSystem {
                 SourceCodeSegment src(UnderlinedSegment(currentNode->astNode, "used here", ERROR_COLOR, "^"));
                 src.addContextNode(currentNode->astNode->parentNode);
                 if (currentNode->attributeNodes.size() > 0)
-                    src.addUnderline(UnderlinedSegment(currentNode->attributeNodes[0].first, "defined here", NEUTRAL_HIGHLIGHT_COLOR, "~", Hide_Scope_Body_Contents));
+                    src.addUnderline(UnderlinedSegment((ASTNode*)currentNode->attributeNodes[0].first, "defined here", NEUTRAL_HIGHLIGHT_COLOR, "~", Hide_Scope_Body_Contents));
                 msg.addSegment(src);
                 msg.print();
                 break;
@@ -220,7 +239,7 @@ namespace messageSystem {
                 }
                 SourceCodeSegment src;
                 src.addUnderline(UnderlinedSegment(currentNode->astNode, "redefined here", ERROR_COLOR, "^"));
-                src.addUnderline(UnderlinedSegment(currentNode->attributeNodes[0].first, currentNode->attributeNodes[0].second, NEUTRAL_HIGHLIGHT_COLOR, "~", Hide_Scope_Body_Contents));
+                src.addUnderline(UnderlinedSegment((ASTNode*)currentNode->attributeNodes[0].first, currentNode->attributeNodes[0].second, NEUTRAL_HIGHLIGHT_COLOR, "~", Hide_Scope_Body_Contents));
                 msg.addSegment(src);
                 msg.print();
                 break;
@@ -316,7 +335,7 @@ namespace messageSystem {
                 SourceCodeSegment src(UnderlinedSegment(currentNode->astNode, "used here", WARNING_COLOR, "~"));
                 src.addContextNode(currentNode->astNode->parentNode);
                 if (currentNode->attributeNodes.size() > 0)
-                    src.addUnderline(UnderlinedSegment(currentNode->attributeNodes[0].first, "defined here", NEUTRAL_HIGHLIGHT_COLOR, "~", Hide_Scope_Body_Contents));
+                    src.addUnderline(UnderlinedSegment((ASTNode*)currentNode->attributeNodes[0].first, "defined here", NEUTRAL_HIGHLIGHT_COLOR, "~", Hide_Scope_Body_Contents));
                 msg.addSegment(src);
                 msg.print();
                 break;
@@ -505,7 +524,7 @@ namespace messageSystem {
         return result;
     }
 
-    void printNode(ASTNode*& node)
+    void printNode(ASTNode* node)
     {
         tokenRange tokRange = getASTTokenRange(node);
         asaToken* startToken = tokRange.first;

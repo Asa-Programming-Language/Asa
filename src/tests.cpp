@@ -285,6 +285,17 @@ std::vector<Test> errorTests = {
         }
     )"),
 
+    Test("Undefined function with exact candidates",
+        R"(
+        foo :: (x : exact float){
+
+        }
+
+        main :: (){
+            foo(4);
+        }
+    )"),
+
     Test("Undefined variable",
         R"(
         main :: (){
@@ -731,6 +742,32 @@ void runErrorTests()
             if (wasError || !localRoot)
                 goto wasError;
 
+            // Insert `#use Builtin.Casts;` at beginning of AST
+            rootNode->childNodes.insert(rootNode->childNodes.begin(),
+                A(Compile_Time_Directive,
+                    {
+                        A(Identifier_Node, {}, new asaToken("#use", Identifier)),
+                        A(Scope_Body,
+                            {A(Member_Access,
+                                {
+                                    A(Identifier_Node, {}, new asaToken("Builtin", Identifier)),
+                                    A(Identifier_Node, {}, new asaToken("Casts", Identifier)),
+                                },
+                                new asaToken(".", Dot))}),
+                    }));
+            // Insert `#use Builtin.String;` at beginning of AST
+            rootNode->childNodes.insert(rootNode->childNodes.begin(),
+                A(Compile_Time_Directive,
+                    {
+                        A(Identifier_Node, {}, new asaToken("#use", Identifier)),
+                        A(Scope_Body,
+                            {A(Member_Access,
+                                {
+                                    A(Identifier_Node, {}, new asaToken("Builtin", Identifier)),
+                                    A(Identifier_Node, {}, new asaToken("String", Identifier)),
+                                },
+                                new asaToken(".", Dot))}),
+                    }));
             // Handle importing nodes from other sources
             for (;;) {
                 bool noImports = true;

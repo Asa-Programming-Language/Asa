@@ -7,12 +7,16 @@
 #include <utility>
 #include <vector>
 
+#include "codegen.h"
 #include "console.h"
 #include "parser.h"
 #include "settings.h"
 #include "tokenizer.h"
 
 struct ASTNode;
+struct argType;
+//typedef std::vector<argType> argumentList;
+struct functionID;
 
 // defer macro definition
 
@@ -53,6 +57,7 @@ namespace messageSystem {
         // Undefined errors:
         Undefined_Symbol_Error,
         Undefined_Function_Error,
+        Undefined_Function_Exact_Error,
         Undefined_Variable_Error,
         Undefined_Member_Error,
         // Redefined errors:
@@ -84,7 +89,7 @@ namespace messageSystem {
         std::vector<MessageBlockNode*> childNodes = std::vector<MessageBlockNode*>();
 
         ASTNode* astNode = nullptr;
-        std::vector<std::pair<ASTNode*, std::string>> attributeNodes;
+        std::vector<std::pair<void*, std::string>> attributeNodes;
         std::string messageString = "";
         std::string sourceFunction = "";
         std::string sourcePath = "";
@@ -99,7 +104,7 @@ namespace messageSystem {
             this->sourceLine = sourceLine;
             this->blockType = blockType;
             astNode = node;
-            attributeNodes = std::vector<std::pair<ASTNode*, std::string>>();
+            attributeNodes = std::vector<std::pair<void*, std::string>>();
             childNodes = std::vector<MessageBlockNode*>();
         }
     };
@@ -253,11 +258,11 @@ namespace messageSystem {
     void clearNodes(MessageBlockNode* node = nullptr);
     void startBlock(ASTNode* node, std::string messageString, const char* sourceFunction, uint32_t sourceLine, const char* sourcePath, BlockType blocktype);
     void endBlock();
+    void addAttribute(void* item, std::string messageString = "");
     void addAttribute(ASTNode*& node, std::string messageString = "");
     void addAttributes(std::vector<ASTNode*>& nodes, std::string messageString = "");
-    void addAttribute(std::string strVal, std::string messageString = "");
     void* error(std::string messageString, ErrorMessageType messageType = Default_Error);
     void* warning(std::string messageString, WarningMessageType messageType = Default_Warning);
-    void printNode(ASTNode*& node);
+    void printNode(ASTNode* node);
 
 }  // namespace messageSystem
