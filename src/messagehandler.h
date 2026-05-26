@@ -73,6 +73,8 @@ namespace messageSystem {
         Incompatible_Attribute_Error,
         Invalid_Attribute_Arguments_Error,
         Duplicate_Attribute_Error,
+        // Type errors:
+        Unsupported_Cast_Error,
         // User defined errors:
         Removed_Attribute_Error,
     };

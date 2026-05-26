@@ -296,6 +296,16 @@ std::vector<Test> errorTests = {
         }
     )"),
 
+    Test("Unsupported cast",
+        R"(
+        s :: struct {}
+
+        main :: (){
+            x : s = s();
+            x = 4.5;
+        }
+    )"),
+
     Test("Undefined variable",
         R"(
         main :: (){

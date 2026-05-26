@@ -1,6 +1,8 @@
 
 #use Rendering.Raylib;
 
+#recommend_options("-Ofast");
+
 @version(1):
 gameObject :: struct{
     position : Vector3;
@@ -64,9 +66,10 @@ main:: (){
     while (WindowShouldClose() == false) {
         BeginDrawing();
             ClearBackground(BLACK);
-            DrawFPS(0,0);
 
             update(GetFrameTime());
+
+            DrawFPS(0,0);
         EndDrawing();
     }
 
@@ -74,6 +77,7 @@ main:: (){
 }
 
 
+@inline:
 update :: (dT : const float){
 
     // Left paddle input
