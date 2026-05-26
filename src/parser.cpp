@@ -2805,6 +2805,7 @@ void unifyNodes(ASTNode*& node)
 }
 
 
+// Function to convert value-returning compiler directives into their value  TODO: This should not be its own pass in the future
 void resolveCompileTimeDirectives(ASTNode*& node, std::string moduleCtx, std::string funcCtx)
 {
     // Propagate context downward: update for children before recursing
@@ -2817,10 +2818,15 @@ void resolveCompileTimeDirectives(ASTNode*& node, std::string moduleCtx, std::st
     if (node->nodeType == Compiler_Define_Function)
         childFuncCtx = node->token->tokenStr;
 
-    for (int i = 0; i < node->childNodes.size(); i++)
+    for (int i = 0; i < node->childNodes.size(); i++) {
         resolveCompileTimeDirectives(node->childNodes[i], childModuleCtx, childFuncCtx);
+    }
 
     if (node->nodeType == Compile_Time_Directive && node->childNodes.size() > 0) {
+
+        messageSystem::startBlock(node, "Resolving compile time directive", __func__, __LINE__, __FILE__, messageSystem::Parser_Block);
+        defer(messageSystem::endBlock());
+
         const std::string& name = node->childNodes[0]->token->tokenStr;
         if (name == "linenum") {
             node->nodeType = Integer_Node;
@@ -2850,8 +2856,8 @@ void resolveCompileTimeDirectives(ASTNode*& node, std::string moduleCtx, std::st
         }
         else if (name == "funcname") {
             if (funcCtx.empty()) {
-                printTokenError(getASTTokenRange(node), "#funcname used outside of a function");
-                exit(1);
+                messageSystem::error("#funcname used outside of a function", messageSystem::Context_Info_Invalid_Location);
+                return;
             }
             node->nodeType = String_Constant_Node;
             node->token->tokenStr = "\"" + funcCtx + "\"";
@@ -2860,8 +2866,8 @@ void resolveCompileTimeDirectives(ASTNode*& node, std::string moduleCtx, std::st
         }
         else if (name == "modulename") {
             if (moduleCtx.empty()) {
-                printTokenError(getASTTokenRange(node), "#modulename used outside of a module");
-                exit(1);
+                messageSystem::error("#modulename used outside of a module", messageSystem::Context_Info_Invalid_Location);
+                return;
             }
             node->nodeType = String_Constant_Node;
             node->token->tokenStr = "\"" + moduleCtx + "\"";
@@ -2892,8 +2898,8 @@ void resolveCompileTimeDirectives(ASTNode*& node, std::string moduleCtx, std::st
         }
         else if (name == "nameof") {
             if (node->childNodes.size() < 2 || node->childNodes[1]->childNodes.empty()) {
-                printTokenError(getASTTokenRange(node), "#nameof requires an expression argument");
-                exit(1);
+                messageSystem::error("#nameof requires an expression argument", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
+                return;
             }
             // Walk to the rightmost leaf to get the simple name (e.g. A.B.C -> "C")
             ASTNode* cur = node->childNodes[1]->childNodes[0];

@@ -491,6 +491,11 @@ std::vector<Test> errorTests = {
         }
     )"),
 
+    Test("Context info invalid location",
+        R"(
+        #funcname;
+    )"),
+
     ///////////////
     // Warnings: //
     ///////////////

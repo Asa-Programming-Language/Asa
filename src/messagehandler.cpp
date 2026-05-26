@@ -69,12 +69,12 @@ namespace messageSystem {
             currentNode = new MessageBlockNode(node, messageString, sourceFunction, sourceLine, sourcePath, blockType);
         }
         else {
-            if (currentNode->blockType != blockType) {
-                printMessageSystemError("New message block type started before old type completed.");
-                console::writeLine("Current added node:  Line: " + std::to_string(sourceLine) + " | " + sourcePath, ERROR_COLOR);
-                console::writeLine("Block type:  " + std::to_string(blockType) + " != " + std::to_string(currentNode->blockType), ERROR_COLOR);
-                exit(1);
-            }
+            //if (currentNode->blockType != blockType) {
+            //    printMessageSystemError("New message block type started before old type completed.");
+            //    console::writeLine("Current added node:  Line: " + std::to_string(sourceLine) + " | " + sourcePath, ERROR_COLOR);
+            //    console::writeLine("Block type:  " + std::to_string(blockType) + " != " + std::to_string(currentNode->blockType), ERROR_COLOR);
+            //    exit(1);
+            //}
 
             MessageBlockNode* messageBlock = new MessageBlockNode(node, messageString, sourceFunction, sourceLine, sourcePath, blockType);
             messageBlock->parentNode = currentNode;
@@ -1341,7 +1341,7 @@ namespace messageSystem {
             return false;
         int connectorStartCol = lockedPlacement.path[prefixEndIndex].point.col;
         int connectorEndCol = labelCol - 1;
-        if (connectorEndCol < connectorStartCol + 3)
+        if (connectorEndCol < connectorStartCol)
             return false;
 
         for (int col = connectorStartCol + 1; col <= connectorEndCol; col++) {
@@ -1354,6 +1354,8 @@ namespace messageSystem {
         projectedPath.assign(lockedPlacement.path.begin(), lockedPlacement.path.begin() + prefixEndIndex + 1);
         for (int col = connectorStartCol + 1; col <= connectorEndCol; col++)
             projectedPath.push_back(PathStep(CellPoint(projectedRow, col)));
+        if ((int)projectedPath.size() < 4)
+            return false;
         return true;
     }
 
@@ -1395,7 +1397,7 @@ namespace messageSystem {
                 return false;
             int connectorStartCol = lockedPlacement.path[prefixEndIndex].point.col;
 
-            for (int labelCol = connectorStartCol + std::max(routing.connectorPadding + 1, 4); labelCol + messageLen - 1 <= routing.connectorMaxCol; labelCol++) {
+            for (int labelCol = connectorStartCol + 3; labelCol + messageLen - 1 <= routing.connectorMaxCol; labelCol++) {
                 if (!labelFitsAt(routing.canvas, labelRow, labelCol, messageLen, projectedRowPadding))
                     continue;
 

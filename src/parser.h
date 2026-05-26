@@ -328,7 +328,8 @@ struct ASTNode {
     bool currentNodeDoneGenerating = false;  // TODO: Make codegen mark each node that completely finishes generating as done
     bool isValueBlock = false;               // true for Scope_Body nodes that are value-returning { result ...; } expressions
     bool isInherited = false;                // true if this is an attribute which was inherited from a parent scope
-    asaToken* closingToken = nullptr;        // closing delimiter token (e.g. }) stored for token range tracking
+    bool isPoisoned = false;
+    asaToken* closingToken = nullptr;  // closing delimiter token (e.g. }) stored for token range tracking
     //Type* llvmType;
     //Type* baseType = nullptr;
     ASAType* asaType = nullptr;

@@ -58,7 +58,9 @@ namespace messageSystem {
         // Redefined errors:
         Redefined_Error,
         // Compiler directive errors:
+        Undefined_Compiler_Directive_Error,
         Invalid_Compiler_Directive_Arguments_Error,
+        Context_Info_Invalid_Location,
         // Declaration errors:
         Variable_Declaration_Error,
         Type_Inference_From_Void_Error,
