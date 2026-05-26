@@ -1,6 +1,8 @@
 
 #use Rendering.Raylib;
 
+#recommend_options("-Ofast");
+
 @version(1):
 gameObject :: struct{
     position : Vector3;
@@ -22,12 +24,9 @@ drawBall ::(){
 
 @inline:
 drawNet :: (){
-    for(i in 0..SCREEN_H){
-        if(i/10 % 2 == 0){
-            for(w in -1..2){
-                DrawPixel(SCREEN_W/2+w, i, WHITE);
-            }
-        }
+    SEG_LEN :: 8;
+    for(i in 0..(SCREEN_H/SEG_LEN/2)){
+        DrawRectangle(SCREEN_W/2-1, i*SEG_LEN*2, 1, SEG_LEN, WHITE);
     }
 }
 
@@ -67,9 +66,10 @@ main:: (){
     while (WindowShouldClose() == false) {
         BeginDrawing();
             ClearBackground(BLACK);
-            DrawFPS(0,0);
 
             update(GetFrameTime());
+
+            DrawFPS(0,0);
         EndDrawing();
     }
 
@@ -77,6 +77,7 @@ main:: (){
 }
 
 
+@inline:
 update :: (dT : const float){
 
     // Left paddle input
