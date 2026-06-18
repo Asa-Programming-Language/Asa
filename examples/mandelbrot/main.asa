@@ -1,0 +1,168 @@
+#use Rendering.Raylib;
+
+#recommend_options("-O3");
+
+WINDOW_W :: 960;
+WINDOW_H :: 640;
+RENDER_W :: WINDOW_W;
+RENDER_H :: WINDOW_H;
+
+DEFAULT_ITERATIONS :: 160;
+
+@inline:
+mandelbrotIterations :: int(cx : const double, cy : const double, maxIterations : const int) {
+    cardioidX : double = cx - 0.25;
+    cardioidQ : double = cardioidX*cardioidX + cy*cy;
+    if (cardioidQ*(cardioidQ + cardioidX) <= 0.25*cy*cy)
+        return maxIterations;
+
+    bulbX : double = cx + 1.0;
+    if (bulbX*bulbX + cy*cy <= 0.0625)
+        return maxIterations;
+
+    zx : double = 0.0;
+    zy : double = 0.0;
+    zxSquared : double = 0.0;
+    zySquared : double = 0.0;
+    iteration : int = 0;
+
+    while (zxSquared + zySquared <= 4.0 && iteration < maxIterations) {
+        nextX : double = zxSquared - zySquared + cx;
+        zy = 2.0*zx*zy + cy;
+        zx = nextX;
+        zxSquared = zx*zx;
+        zySquared = zy*zy;
+        iteration++;
+    }
+
+    return iteration;
+}
+
+@inline:
+iterationColor :: Color32(iteration : const int, maxIterations : const int) {
+    if (iteration == maxIterations)
+        return Color32(3, 5, 12);
+
+    return ColorFromHSV(float(iteration*7), 0.85, 1.0);
+}
+
+renderMandelbrot :: (target : const RenderTexture2D, centerX : const double, centerY : const double, viewWidth : const double, maxIterations : const int) {
+    viewHeight : double = viewWidth * double(RENDER_H) / double(RENDER_W);
+    pixelWidth : double = viewWidth / double(RENDER_W);
+    pixelHeight : double = viewHeight / double(RENDER_H);
+    firstX : double = centerX - viewWidth*0.5;
+    cy : double = centerY - viewHeight*0.5;
+
+    BeginTextureMode(target);
+        ClearBackground(BLACK);
+
+        for (y in 0..RENDER_H) {
+            cx : double = firstX;
+
+            for (x in 0..RENDER_W) {
+                iteration : int = mandelbrotIterations(cx, cy, maxIterations);
+                DrawPixel(x, y, iterationColor(iteration, maxIterations));
+                cx += pixelWidth;
+            }
+            cy += pixelHeight;
+        }
+    EndTextureMode();
+}
+
+main :: () {
+    InitWindow(WINDOW_W, WINDOW_H, "Asa Mandelbrot");
+    SetTargetFPS(60);
+
+    target : RenderTexture2D = LoadRenderTexture(RENDER_W, RENDER_H);
+
+    centerX : double = -0.5;
+    centerY : double = 0.0;
+    viewWidth : double = 3.6;
+    maxIterations : int = DEFAULT_ITERATIONS;
+
+    renderMandelbrot(target, centerX, centerY, viewWidth, maxIterations);
+
+    while (WindowShouldClose() == false) {
+        changed : bool = false;
+        panStep : double = viewWidth * 0.08;
+
+        if (IsKeyPressed(KEY_LEFT) || IsKeyPressed(KEY_A)) {
+            centerX -= panStep;
+            changed = true;
+        }
+        if (IsKeyPressed(KEY_RIGHT) || IsKeyPressed(KEY_D)) {
+            centerX += panStep;
+            changed = true;
+        }
+        if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_W)) {
+            centerY -= panStep;
+            changed = true;
+        }
+        if (IsKeyPressed(KEY_DOWN) || IsKeyPressed(KEY_S)) {
+            centerY += panStep;
+            changed = true;
+        }
+
+        wheel : float = GetMouseWheelMove();
+        if (wheel != 0.0) {
+            mouseX : double = double(GetMouseX()) / double(WINDOW_W) - 0.5;
+            mouseY : double = double(GetMouseY()) / double(WINDOW_H) - 0.5;
+            oldHeight : double = viewWidth * double(RENDER_H) / double(RENDER_W);
+
+            focusX : double = centerX + mouseX * viewWidth;
+            focusY : double = centerY + mouseY * oldHeight;
+
+            if (wheel > 0.0)
+                viewWidth *= 0.75;
+            else
+                viewWidth *= 1.333333;
+
+            newHeight : double = viewWidth * double(RENDER_H) / double(RENDER_W);
+            centerX = focusX - mouseX * viewWidth;
+            centerY = focusY - mouseY * newHeight;
+            changed = true;
+        }
+
+        if (IsKeyPressed(KEY_RIGHT_BRACKET)) {
+            maxIterations += 40;
+            changed = true;
+        }
+        if (IsKeyPressed(KEY_LEFT_BRACKET) && maxIterations > 40) {
+            maxIterations -= 40;
+            changed = true;
+        }
+
+        if (IsKeyPressed(KEY_R)) {
+            centerX = -0.5;
+            centerY = 0.0;
+            viewWidth = 3.6;
+            maxIterations = DEFAULT_ITERATIONS;
+            changed = true;
+        }
+
+        if (changed)
+            renderMandelbrot(target, centerX, centerY, viewWidth, maxIterations);
+
+        BeginDrawing();
+            ClearBackground(BLACK);
+            DrawTexturePro(
+                target.texture,
+                Rect(0.0, 0.0, RENDER_W, -RENDER_H),
+                Rect(0.0, 0.0, WINDOW_W, WINDOW_H),
+                Vector2(0.0, 0.0),
+                0.0,
+                WHITE
+            );
+            DrawRectangle(0, 0, WINDOW_W, 34, Color32(0, 0, 0, 190));
+            DrawText(
+                "Mouse wheel: zoom  |  WASD/arrows: pan  |  [ ]: iterations  |  R: reset",
+                12, 9, 16, RAYWHITE
+            );
+            DrawFPS(WINDOW_W - 90, 8);
+            DrawText("Iterations: " + maxIterations, WINDOW_W - 160, WINDOW_H - 26, 16, RAYWHITE);
+        EndDrawing();
+    }
+
+    UnloadRenderTexture(target);
+    CloseWindow();
+}

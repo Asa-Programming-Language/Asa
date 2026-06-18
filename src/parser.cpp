@@ -18,6 +18,11 @@ static bool isLineContinuation(TokenType lastTok, TokenType nextTok)
         case Minus_Equal:
         case Times_Equal:
         case Slash_Equal:
+        case Ampersand_Equal:
+        case Bar_Equal:
+        case Caret_Equal:
+        case Shift_Left_Equal:
+        case Shift_Right_Equal:
         case Less:
         case Greater:
         case Less_Equal:
@@ -29,6 +34,8 @@ static bool isLineContinuation(TokenType lastTok, TokenType nextTok)
         case Ampersand:
         case Bar:
         case Caret:
+        case Shift_Left:
+        case Shift_Right:
         case Comma:
         case Colon:
         case Colon_Colon:
@@ -57,6 +64,8 @@ static bool isLineContinuation(TokenType lastTok, TokenType nextTok)
         case Ampersand:
         case Bar:
         case Caret:
+        case Shift_Left:
+        case Shift_Right:
         case Dot:
         case Dot_Dot:
             return true;
@@ -724,6 +733,9 @@ std::map<TokenType, ASTNodeType> operatorDefaultNodeType = {
     {Ampersand, Bitwise_And},
     {Bar, Bitwise_Or},
     {Caret, Bitwise_Xor},
+    {Tilde, Bitwise_Not},
+    {Shift_Left, Bitwise_Shift_Left},
+    {Shift_Right, Bitwise_Shift_Right},
     {Ref, Reference_Operation},
     {Const, Const_Keyword},
     {Exact, Exact_Type_Node},
@@ -753,15 +765,17 @@ std::map<ASTNodeType, int> operatorPrecedence = {
     {Expression_Modulo, 40},        // %
     {Expression_Plus, 30},          // +
     {Expression_Minus, 30},         // -
+    {Bitwise_Shift_Left, 25},       // <<
+    {Bitwise_Shift_Right, 25},      // >>
+    {Bitwise_And, 24},              // &
+    {Bitwise_Xor, 23},              // ^
+    {Bitwise_Or, 22},               // |
     {Compare_Equal, 20},            // ==
     {Compare_Not, 20},              // !=
     {Compare_Less, 20},             // <
     {Compare_LessEqual, 20},        // <=
     {Compare_Greater, 20},          // >
     {Compare_GreaterEqual, 20},     // >=
-    {Bitwise_And, 19},              // &
-    {Bitwise_Or, 19},               // |
-    {Bitwise_Xor, 19},              // ^
     {Logical_And, 18},              // &&
     {Logical_Or, 16},               // ||
     {Range_Node, 15},               // ..
@@ -1082,18 +1096,9 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
                             subTokens.push_back(nextToken2);  // add `if`
                             GATHER_PAREN_EXPRESSION(tokens, subTokens, 0, i, true);
 
-                            // Check if the next token is a left curly brace, and if not handle single line
-                            asaToken* firstNextToken = getNextNonNothingToken(tokens, i);
-                            i--;
-                            if (firstNextToken->tokenType == Left_Brace)
-                                // Step through all tokens to gather body until braces are closed
-                                GATHER_SCOPE_BODY(tokens, subTokens, 0, i, true, true);
-                            else {
-                                // Otherwise just get the next line until semicolon
-                                GATHER_TO_SEMICOLON_MULTI_LINE(tokens, subTokens, i, true, false);
-                                subTokens.insert(subTokens.begin(), new asaToken("{", Left_Brace));
-                                subTokens.push_back(new asaToken("}", Right_Brace));
-                            }
+                            std::vector<asaToken*> bodyTokens;
+                            gatherOptionalBraceBody(tokens, bodyTokens, i);
+                            subTokens.insert(subTokens.end(), bodyTokens.begin(), bodyTokens.end());
 
                             ASTNode* elseNode = generateAST(subTokens, depth + 1)->childNodes[0];
                             prevNode->childNodes[2] = elseNode;
@@ -1396,6 +1401,8 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
             case Tilde:
             case Tilde_Tilde:
             case Caret:
+            case Shift_Left:
+            case Shift_Right:
             case Caret_Caret:
             case Percent:
             case Percent_Percent:
@@ -1509,7 +1516,10 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
                             break;
                         if (parenLevel == 1 && braceLevel == 1 && bracketLevel == 1 &&
                             (t->tokenType == Equal || t->tokenType == Plus_Equal || t->tokenType == Minus_Equal ||
-                                t->tokenType == Times_Equal || t->tokenType == Slash_Equal)) {
+                                t->tokenType == Times_Equal || t->tokenType == Slash_Equal ||
+                                t->tokenType == Ampersand_Equal || t->tokenType == Bar_Equal ||
+                                t->tokenType == Caret_Equal || t->tokenType == Shift_Left_Equal ||
+                                t->tokenType == Shift_Right_Equal)) {
                             i--;
                             break;
                         }
@@ -1527,6 +1537,7 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
                                 t->tokenType == Less_Equal || t->tokenType == Greater_Equal ||
                                 t->tokenType == Ampersand_Ampersand || t->tokenType == Bar_Bar ||
                                 t->tokenType == Ampersand || t->tokenType == Bar || t->tokenType == Caret ||
+                                t->tokenType == Shift_Left || t->tokenType == Shift_Right ||
                                 t->tokenType == Comma || t->tokenType == Dot_Dot || t->tokenType == Arrow_Right)) {
                             i--;
                             break;
@@ -1691,6 +1702,7 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
                                 t->tokenType == Less_Equal || t->tokenType == Greater_Equal ||
                                 t->tokenType == Ampersand_Ampersand || t->tokenType == Bar_Bar ||
                                 t->tokenType == Ampersand || t->tokenType == Bar || t->tokenType == Caret ||
+                                t->tokenType == Shift_Left || t->tokenType == Shift_Right ||
                                 t->tokenType == Comma || t->tokenType == Dot_Dot || t->tokenType == Arrow_Right)) {
                             i--;
                             break;
@@ -1721,7 +1733,12 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
             case Plus_Equal:
             case Minus_Equal:
             case Times_Equal:
-            case Slash_Equal: {
+            case Slash_Equal:
+            case Ampersand_Equal:
+            case Bar_Equal:
+            case Caret_Equal:
+            case Shift_Left_Equal:
+            case Shift_Right_Equal: {
                 node->nodeType = Expression_Statement;
                 node->codegen = &ASTNode::generateExpressionStatement;
 
@@ -1939,11 +1956,44 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
                 // (if function, or if/for/while etc. or any line of code)
                 bool nonFunction = false;
                 bool lParenReached = false;
+                bool lParenClosed = false;
+                bool parenHasContent = false;
+                bool parenHasParamSyntax = false;
+                bool tokensAfterParen = false;
                 bool hasBrace = false;
+                int signatureParenDepth = 0;
                 for (int j = 0; j < tokens.size() - i; j++) {
-                    if (tokens[i + j]->tokenType == Left_Paren)
-                        lParenReached = true;
-                    else if (tokens[i + j]->tokenType == Left_Brace) {
+                    TokenType lookaheadType = tokens[i + j]->tokenType;
+
+                    if (lookaheadType == Left_Paren) {
+                        if (!lParenReached) {
+                            lParenReached = true;
+                            signatureParenDepth = 1;
+                        }
+                        else if (!lParenClosed) {
+                            signatureParenDepth++;
+                            parenHasContent = true;
+                        }
+                    }
+                    else if (lookaheadType == Right_Paren && lParenReached && !lParenClosed) {
+                        signatureParenDepth--;
+                        if (signatureParenDepth == 0)
+                            lParenClosed = true;
+                    }
+                    else if (lParenReached && !lParenClosed &&
+                             lookaheadType != Nothing && lookaheadType != EndOfLine && lookaheadType != Comment) {
+                        parenHasContent = true;
+                        if (signatureParenDepth == 1 &&
+                            (lookaheadType == Colon || lookaheadType == Dot_Dot_Dot))
+                            parenHasParamSyntax = true;
+                    }
+                    else if (lParenClosed &&
+                             lookaheadType != Nothing && lookaheadType != EndOfLine && lookaheadType != Comment &&
+                             lookaheadType != Semi_Colon && lookaheadType != Left_Brace) {
+                        tokensAfterParen = true;
+                    }
+
+                    if (lookaheadType == Left_Brace) {
                         hasBrace = true;
                         if (lParenReached) {  // If first ( then {, this is a function
                             nonFunction = false;
@@ -1955,8 +2005,9 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
                         }
                     }
                     // If semicolon without any brace: alias/define (no paren seen) or prototype (paren seen)
-                    else if (tokens[i + j]->tokenType == Semi_Colon) {
-                        nonFunction = !lParenReached;
+                    else if (lookaheadType == Semi_Colon) {
+                        bool looksLikeParameterList = !parenHasContent || parenHasParamSyntax;
+                        nonFunction = !lParenReached || !lParenClosed || tokensAfterParen || !looksLikeParameterList;
                         break;
                     }
                 }
@@ -2115,8 +2166,10 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
                         if (t->tokenType == Right_Paren)
                             parenLevel--;
 
-                        if (parenLevel == 0 || t->tokenType == EndOfLine || t->tokenType == Semi_Colon)
+                        if (parenLevel == 0 || t->tokenType == Semi_Colon)
                             break;
+                        if (t->tokenType == EndOfLine)
+                            continue;
                         // If comma and parenLevel is in same scope
                         if ((t->tokenType == Comma && parenLevel == 1)) {
                             parseParamWithDefault(subTokens, depth, arguments, argumentDefaults);

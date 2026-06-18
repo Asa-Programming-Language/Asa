@@ -38,6 +38,10 @@ String :: module{
             return this.length;
         }
 
+        mySize::uint32(){
+            return 100;
+        }
+
         // Function: substr(start, len)
         // Description: Returns a new string of `len` characters starting at `start`.
         //              Clamps start and len to valid bounds.

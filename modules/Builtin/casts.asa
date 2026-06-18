@@ -5,190 +5,190 @@
 @public:
 Casts :: module {
 
-	@public:
-	@inline:
-	{
-		// Group: Bool Casts
-		cast:: bool(x : const bool)   { return #cast(x, bool); }
-		cast:: bool(x : const char)   { return #cast(x, bool); }
-		cast:: bool(x : const int16)  { return #cast(x, bool); }
-		cast:: bool(x : const int)    { return #cast(x, bool); }
-		cast:: bool(x : const int64)  { return #cast(x, bool); }
-		cast:: bool(x : const uint8)  { return #cast(x, bool); }
-		cast:: bool(x : const uint16) { return #cast(x, bool); }
-		cast:: bool(x : const uint)   { return #cast(x, bool); }
-		cast:: bool(x : const uint64) { return #cast(x, bool); }
-		cast:: bool(x : const float)  { return #cast(x, bool); }
-		cast:: bool(x : const double) { return #cast(x, bool); }
+    @public:
+    @inline:
+    {
+        // Group: Bool Casts
+        cast:: bool(x : const bool)   { return #cast(x, bool); }
+        cast:: bool(x : const char)   { return #cast(x, bool); }
+        cast:: bool(x : const int16)  { return #cast(x, bool); }
+        cast:: bool(x : const int)    { return #cast(x, bool); }
+        cast:: bool(x : const int64)  { return #cast(x, bool); }
+        cast:: bool(x : const uint8)  { return #cast(x, bool); }
+        cast:: bool(x : const uint16) { return #cast(x, bool); }
+        cast:: bool(x : const uint)   { return #cast(x, bool); }
+        cast:: bool(x : const uint64) { return #cast(x, bool); }
+        cast:: bool(x : const float)  { return #cast(x, bool); }
+        cast:: bool(x : const double) { return #cast(x, bool); }
 
-		// Group: Char Casts
-		cast:: char(x : const bool)   { return #cast(x, char); }
-		cast:: char(x : const char)   { return #cast(x, char); }
-		cast:: char(x : const int16)  { return #cast(x, char); }
-		cast:: char(x : const int)    { return #cast(x, char); }
-		cast:: char(x : const int64)  { return #cast(x, char); }
-		cast:: char(x : const uint8)  { return #cast(x, char); }
-		cast:: char(x : const uint16) { return #cast(x, char); }
-		cast:: char(x : const uint)   { return #cast(x, char); }
-		cast:: char(x : const uint64) { return #cast(x, char); }
-		cast:: char(x : const float)  { return #cast(x, char); }
-		cast:: char(x : const double) { return #cast(x, char); }
+        // Group: Char Casts
+        cast:: char(x : const bool)   { return #cast(x, char); }
+        cast:: char(x : const char)   { return #cast(x, char); }
+        cast:: char(x : const int16)  { return #cast(x, char); }
+        cast:: char(x : const int)    { return #cast(x, char); }
+        cast:: char(x : const int64)  { return #cast(x, char); }
+        cast:: char(x : const uint8)  { return #cast(x, char); }
+        cast:: char(x : const uint16) { return #cast(x, char); }
+        cast:: char(x : const uint)   { return #cast(x, char); }
+        cast:: char(x : const uint64) { return #cast(x, char); }
+        cast:: char(x : const float)  { return #cast(x, char); }
+        cast:: char(x : const double) { return #cast(x, char); }
 
-		// Group: Int8 Casts
-		cast:: int8(x : const bool)   { return #cast(x, int8); }
-		cast:: int8(x : const char)   { return #cast(x, int8); }
-		cast:: int8(x : const int16)  { return #cast(x, int8); }
-		cast:: int8(x : const int)    { return #cast(x, int8); }
-		cast:: int8(x : const int64)  { return #cast(x, int8); }
-		cast:: int8(x : const uint8)  { return #cast(x, int8); }
-		cast:: int8(x : const uint16) { return #cast(x, int8); }
-		cast:: int8(x : const uint)   { return #cast(x, int8); }
-		cast:: int8(x : const uint64) { return #cast(x, int8); }
-		cast:: int8(x : const float)  { return #cast(x, int8); }
-		cast:: int8(x : const double) { return #cast(x, int8); }
+        // Group: Int8 Casts
+        cast:: int8(x : const bool)   { return #cast(x, int8); }
+        cast:: int8(x : const char)   { return #cast(x, int8); }
+        cast:: int8(x : const int16)  { return #cast(x, int8); }
+        cast:: int8(x : const int)    { return #cast(x, int8); }
+        cast:: int8(x : const int64)  { return #cast(x, int8); }
+        cast:: int8(x : const uint8)  { return #cast(x, int8); }
+        cast:: int8(x : const uint16) { return #cast(x, int8); }
+        cast:: int8(x : const uint)   { return #cast(x, int8); }
+        cast:: int8(x : const uint64) { return #cast(x, int8); }
+        cast:: int8(x : const float)  { return #cast(x, int8); }
+        cast:: int8(x : const double) { return #cast(x, int8); }
 
-		// Group: Uint8 Casts
-		cast:: uint8(x : const bool)   { return #cast(x, uint8); }
-		cast:: uint8(x : const char)   { return #cast(x, uint8); }
-		cast:: uint8(x : const int16)  { return #cast(x, uint8); }
-		cast:: uint8(x : const int)    { return #cast(x, uint8); }
-		cast:: uint8(x : const int64)  { return #cast(x, uint8); }
-		cast:: uint8(x : const uint8)  { return #cast(x, uint8); }
-		cast:: uint8(x : const uint16) { return #cast(x, uint8); }
-		cast:: uint8(x : const uint)   { return #cast(x, uint8); }
-		cast:: uint8(x : const uint64) { return #cast(x, uint8); }
-		cast:: uint8(x : const float)  { return #cast(x, uint8); }
-		cast:: uint8(x : const double) { return #cast(x, uint8); }
+        // Group: Uint8 Casts
+        cast:: uint8(x : const bool)   { return #cast(x, uint8); }
+        cast:: uint8(x : const char)   { return #cast(x, uint8); }
+        cast:: uint8(x : const int16)  { return #cast(x, uint8); }
+        cast:: uint8(x : const int)    { return #cast(x, uint8); }
+        cast:: uint8(x : const int64)  { return #cast(x, uint8); }
+        cast:: uint8(x : const uint8)  { return #cast(x, uint8); }
+        cast:: uint8(x : const uint16) { return #cast(x, uint8); }
+        cast:: uint8(x : const uint)   { return #cast(x, uint8); }
+        cast:: uint8(x : const uint64) { return #cast(x, uint8); }
+        cast:: uint8(x : const float)  { return #cast(x, uint8); }
+        cast:: uint8(x : const double) { return #cast(x, uint8); }
 
-		// Group: Int16 Casts
-		cast:: int16(x : const bool)   { return #cast(x, int16); }
-		cast:: int16(x : const char)   { return #cast(x, int16); }
-		cast:: int16(x : const int16)  { return #cast(x, int16); }
-		cast:: int16(x : const int)    { return #cast(x, int16); }
-		cast:: int16(x : const int64)  { return #cast(x, int16); }
-		cast:: int16(x : const uint8)  { return #cast(x, int16); }
-		cast:: int16(x : const uint16) { return #cast(x, int16); }
-		cast:: int16(x : const uint)   { return #cast(x, int16); }
-		cast:: int16(x : const uint64) { return #cast(x, int16); }
-		cast:: int16(x : const float)  { return #cast(x, int16); }
-		cast:: int16(x : const double) { return #cast(x, int16); }
+        // Group: Int16 Casts
+        cast:: int16(x : const bool)   { return #cast(x, int16); }
+        cast:: int16(x : const char)   { return #cast(x, int16); }
+        cast:: int16(x : const int16)  { return #cast(x, int16); }
+        cast:: int16(x : const int)    { return #cast(x, int16); }
+        cast:: int16(x : const int64)  { return #cast(x, int16); }
+        cast:: int16(x : const uint8)  { return #cast(x, int16); }
+        cast:: int16(x : const uint16) { return #cast(x, int16); }
+        cast:: int16(x : const uint)   { return #cast(x, int16); }
+        cast:: int16(x : const uint64) { return #cast(x, int16); }
+        cast:: int16(x : const float)  { return #cast(x, int16); }
+        cast:: int16(x : const double) { return #cast(x, int16); }
 
-		// Group: Uint16 Casts
-		cast:: uint16(x : const bool)   { return #cast(x, uint16); }
-		cast:: uint16(x : const char)   { return #cast(x, uint16); }
-		cast:: uint16(x : const int16)  { return #cast(x, uint16); }
-		cast:: uint16(x : const int)    { return #cast(x, uint16); }
-		cast:: uint16(x : const int64)  { return #cast(x, uint16); }
-		cast:: uint16(x : const uint8)  { return #cast(x, uint16); }
-		cast:: uint16(x : const uint16) { return #cast(x, uint16); }
-		cast:: uint16(x : const uint)   { return #cast(x, uint16); }
-		cast:: uint16(x : const uint64) { return #cast(x, uint16); }
-		cast:: uint16(x : const float)  { return #cast(x, uint16); }
-		cast:: uint16(x : const double) { return #cast(x, uint16); }
+        // Group: Uint16 Casts
+        cast:: uint16(x : const bool)   { return #cast(x, uint16); }
+        cast:: uint16(x : const char)   { return #cast(x, uint16); }
+        cast:: uint16(x : const int16)  { return #cast(x, uint16); }
+        cast:: uint16(x : const int)    { return #cast(x, uint16); }
+        cast:: uint16(x : const int64)  { return #cast(x, uint16); }
+        cast:: uint16(x : const uint8)  { return #cast(x, uint16); }
+        cast:: uint16(x : const uint16) { return #cast(x, uint16); }
+        cast:: uint16(x : const uint)   { return #cast(x, uint16); }
+        cast:: uint16(x : const uint64) { return #cast(x, uint16); }
+        cast:: uint16(x : const float)  { return #cast(x, uint16); }
+        cast:: uint16(x : const double) { return #cast(x, uint16); }
 
-		// Group: Int Casts
-		cast:: int(x : const bool)   { return #cast(x, int); }
-		cast:: int(x : const char)   { return #cast(x, int); }
-		cast:: int(x : const int16)  { return #cast(x, int); }
-		cast:: int(x : const int)    { return #cast(x, int); }
-		cast:: int(x : const int64)  { return #cast(x, int); }
-		cast:: int(x : const uint8)  { return #cast(x, int); }
-		cast:: int(x : const uint16) { return #cast(x, int); }
-		cast:: int(x : const uint)   { return #cast(x, int); }
-		cast:: int(x : const uint64) { return #cast(x, int); }
-		cast:: int(x : const float)  { return #cast(x, int); }
-		cast:: int(x : const double) { return #cast(x, int); }
+        // Group: Int Casts
+        cast:: int(x : const bool)   { return #cast(x, int); }
+        cast:: int(x : const char)   { return #cast(x, int); }
+        cast:: int(x : const int16)  { return #cast(x, int); }
+        cast:: int(x : const int)    { return #cast(x, int); }
+        cast:: int(x : const int64)  { return #cast(x, int); }
+        cast:: int(x : const uint8)  { return #cast(x, int); }
+        cast:: int(x : const uint16) { return #cast(x, int); }
+        cast:: int(x : const uint)   { return #cast(x, int); }
+        cast:: int(x : const uint64) { return #cast(x, int); }
+        cast:: int(x : const float)  { return #cast(x, int); }
+        cast:: int(x : const double) { return #cast(x, int); }
 
-		// Group: Int32 Casts
-		cast:: int32(x : const bool)   { return #cast(x, int32); }
-		cast:: int32(x : const char)   { return #cast(x, int32); }
-		cast:: int32(x : const int16)  { return #cast(x, int32); }
-		cast:: int32(x : const int)    { return #cast(x, int32); }
-		cast:: int32(x : const int64)  { return #cast(x, int32); }
-		cast:: int32(x : const uint8)  { return #cast(x, int32); }
-		cast:: int32(x : const uint16) { return #cast(x, int32); }
-		cast:: int32(x : const uint)   { return #cast(x, int32); }
-		cast:: int32(x : const uint64) { return #cast(x, int32); }
-		cast:: int32(x : const float)  { return #cast(x, int32); }
-		cast:: int32(x : const double) { return #cast(x, int32); }
+        // Group: Int32 Casts
+        cast:: int32(x : const bool)   { return #cast(x, int32); }
+        cast:: int32(x : const char)   { return #cast(x, int32); }
+        cast:: int32(x : const int16)  { return #cast(x, int32); }
+        cast:: int32(x : const int)    { return #cast(x, int32); }
+        cast:: int32(x : const int64)  { return #cast(x, int32); }
+        cast:: int32(x : const uint8)  { return #cast(x, int32); }
+        cast:: int32(x : const uint16) { return #cast(x, int32); }
+        cast:: int32(x : const uint)   { return #cast(x, int32); }
+        cast:: int32(x : const uint64) { return #cast(x, int32); }
+        cast:: int32(x : const float)  { return #cast(x, int32); }
+        cast:: int32(x : const double) { return #cast(x, int32); }
 
-		// Group: Uint Casts
-		cast:: uint(x : const bool)   { return #cast(x, uint); }
-		cast:: uint(x : const char)   { return #cast(x, uint); }
-		cast:: uint(x : const int16)  { return #cast(x, uint); }
-		cast:: uint(x : const int)    { return #cast(x, uint); }
-		cast:: uint(x : const int64)  { return #cast(x, uint); }
-		cast:: uint(x : const uint8)  { return #cast(x, uint); }
-		cast:: uint(x : const uint16) { return #cast(x, uint); }
-		cast:: uint(x : const uint)   { return #cast(x, uint); }
-		cast:: uint(x : const uint64) { return #cast(x, uint); }
-		cast:: uint(x : const float)  { return #cast(x, uint); }
-		cast:: uint(x : const double) { return #cast(x, uint); }
+        // Group: Uint Casts
+        cast:: uint(x : const bool)   { return #cast(x, uint); }
+        cast:: uint(x : const char)   { return #cast(x, uint); }
+        cast:: uint(x : const int16)  { return #cast(x, uint); }
+        cast:: uint(x : const int)    { return #cast(x, uint); }
+        cast:: uint(x : const int64)  { return #cast(x, uint); }
+        cast:: uint(x : const uint8)  { return #cast(x, uint); }
+        cast:: uint(x : const uint16) { return #cast(x, uint); }
+        cast:: uint(x : const uint)   { return #cast(x, uint); }
+        cast:: uint(x : const uint64) { return #cast(x, uint); }
+        cast:: uint(x : const float)  { return #cast(x, uint); }
+        cast:: uint(x : const double) { return #cast(x, uint); }
 
-		// Group: Uint32 Casts
-		cast:: uint32(x : const bool)   { return #cast(x, uint32); }
-		cast:: uint32(x : const char)   { return #cast(x, uint32); }
-		cast:: uint32(x : const int16)  { return #cast(x, uint32); }
-		cast:: uint32(x : const int)    { return #cast(x, uint32); }
-		cast:: uint32(x : const int64)  { return #cast(x, uint32); }
-		cast:: uint32(x : const uint8)  { return #cast(x, uint32); }
-		cast:: uint32(x : const uint16) { return #cast(x, uint32); }
-		cast:: uint32(x : const uint)   { return #cast(x, uint32); }
-		cast:: uint32(x : const uint64) { return #cast(x, uint32); }
-		cast:: uint32(x : const float)  { return #cast(x, uint32); }
-		cast:: uint32(x : const double) { return #cast(x, uint32); }
+        // Group: Uint32 Casts
+        cast:: uint32(x : const bool)   { return #cast(x, uint32); }
+        cast:: uint32(x : const char)   { return #cast(x, uint32); }
+        cast:: uint32(x : const int16)  { return #cast(x, uint32); }
+        cast:: uint32(x : const int)    { return #cast(x, uint32); }
+        cast:: uint32(x : const int64)  { return #cast(x, uint32); }
+        cast:: uint32(x : const uint8)  { return #cast(x, uint32); }
+        cast:: uint32(x : const uint16) { return #cast(x, uint32); }
+        cast:: uint32(x : const uint)   { return #cast(x, uint32); }
+        cast:: uint32(x : const uint64) { return #cast(x, uint32); }
+        cast:: uint32(x : const float)  { return #cast(x, uint32); }
+        cast:: uint32(x : const double) { return #cast(x, uint32); }
 
-		// Group: Int64 Casts
-		cast:: int64(x : const bool)   { return #cast(x, int64); }
-		cast:: int64(x : const char)   { return #cast(x, int64); }
-		cast:: int64(x : const int16)  { return #cast(x, int64); }
-		cast:: int64(x : const int)    { return #cast(x, int64); }
-		cast:: int64(x : const int64)  { return #cast(x, int64); }
-		cast:: int64(x : const uint8)  { return #cast(x, int64); }
-		cast:: int64(x : const uint16) { return #cast(x, int64); }
-		cast:: int64(x : const uint)   { return #cast(x, int64); }
-		cast:: int64(x : const uint64) { return #cast(x, int64); }
-		cast:: int64(x : const float)  { return #cast(x, int64); }
-		cast:: int64(x : const double) { return #cast(x, int64); }
-		cast:: int64(x : const *char)  { return #cast(x, int64); }
+        // Group: Int64 Casts
+        cast:: int64(x : const bool)   { return #cast(x, int64); }
+        cast:: int64(x : const char)   { return #cast(x, int64); }
+        cast:: int64(x : const int16)  { return #cast(x, int64); }
+        cast:: int64(x : const int)    { return #cast(x, int64); }
+        cast:: int64(x : const int64)  { return #cast(x, int64); }
+        cast:: int64(x : const uint8)  { return #cast(x, int64); }
+        cast:: int64(x : const uint16) { return #cast(x, int64); }
+        cast:: int64(x : const uint)   { return #cast(x, int64); }
+        cast:: int64(x : const uint64) { return #cast(x, int64); }
+        cast:: int64(x : const float)  { return #cast(x, int64); }
+        cast:: int64(x : const double) { return #cast(x, int64); }
+        cast:: int64(x : const *char)  { return #cast(x, int64); }
 
-		// Group: Uint64 Casts
-		cast:: uint64(x : const bool)   { return #cast(x, uint64); }
-		cast:: uint64(x : const char)   { return #cast(x, uint64); }
-		cast:: uint64(x : const int16)  { return #cast(x, uint64); }
-		cast:: uint64(x : const int)    { return #cast(x, uint64); }
-		cast:: uint64(x : const int64)  { return #cast(x, uint64); }
-		cast:: uint64(x : const uint8)  { return #cast(x, uint64); }
-		cast:: uint64(x : const uint16) { return #cast(x, uint64); }
-		cast:: uint64(x : const uint)   { return #cast(x, uint64); }
-		cast:: uint64(x : const uint64) { return #cast(x, uint64); }
-		cast:: uint64(x : const float)  { return #cast(x, uint64); }
-		cast:: uint64(x : const double) { return #cast(x, uint64); }
+        // Group: Uint64 Casts
+        cast:: uint64(x : const bool)   { return #cast(x, uint64); }
+        cast:: uint64(x : const char)   { return #cast(x, uint64); }
+        cast:: uint64(x : const int16)  { return #cast(x, uint64); }
+        cast:: uint64(x : const int)    { return #cast(x, uint64); }
+        cast:: uint64(x : const int64)  { return #cast(x, uint64); }
+        cast:: uint64(x : const uint8)  { return #cast(x, uint64); }
+        cast:: uint64(x : const uint16) { return #cast(x, uint64); }
+        cast:: uint64(x : const uint)   { return #cast(x, uint64); }
+        cast:: uint64(x : const uint64) { return #cast(x, uint64); }
+        cast:: uint64(x : const float)  { return #cast(x, uint64); }
+        cast:: uint64(x : const double) { return #cast(x, uint64); }
 
-		// Group: Float Casts
-		cast:: float(x : const bool)   { return #cast(x, float); }
-		cast:: float(x : const char)   { return #cast(x, float); }
-		cast:: float(x : const int16)  { return #cast(x, float); }
-		cast:: float(x : const int)    { return #cast(x, float); }
-		cast:: float(x : const int64)  { return #cast(x, float); }
-		cast:: float(x : const uint8)  { return #cast(x, float); }
-		cast:: float(x : const uint16) { return #cast(x, float); }
-		cast:: float(x : const uint)   { return #cast(x, float); }
-		cast:: float(x : const uint64) { return #cast(x, float); }
-		cast:: float(x : const float)  { return #cast(x, float); }
-		cast:: float(x : const double) { return #cast(x, float); }
+        // Group: Float Casts
+        cast:: float(x : const bool)   { return #cast(x, float); }
+        cast:: float(x : const char)   { return #cast(x, float); }
+        cast:: float(x : const int16)  { return #cast(x, float); }
+        cast:: float(x : const int)    { return #cast(x, float); }
+        cast:: float(x : const int64)  { return #cast(x, float); }
+        cast:: float(x : const uint8)  { return #cast(x, float); }
+        cast:: float(x : const uint16) { return #cast(x, float); }
+        cast:: float(x : const uint)   { return #cast(x, float); }
+        cast:: float(x : const uint64) { return #cast(x, float); }
+        cast:: float(x : const float)  { return #cast(x, float); }
+        cast:: float(x : const double) { return #cast(x, float); }
 
-		// Group: Double Casts
-		cast:: double(x : const bool)   { return #cast(x, double); }
-		cast:: double(x : const char)   { return #cast(x, double); }
-		cast:: double(x : const int16)  { return #cast(x, double); }
-		cast:: double(x : const int)    { return #cast(x, double); }
-		cast:: double(x : const int64)  { return #cast(x, double); }
-		cast:: double(x : const uint8)  { return #cast(x, double); }
-		cast:: double(x : const uint16) { return #cast(x, double); }
-		cast:: double(x : const uint)   { return #cast(x, double); }
-		cast:: double(x : const uint64) { return #cast(x, double); }
-		cast:: double(x : const float)  { return #cast(x, double); }
-		cast:: double(x : const double) { return #cast(x, double); }
-	}
+        // Group: Double Casts
+        cast:: double(x : const bool)   { return #cast(x, double); }
+        cast:: double(x : const char)   { return #cast(x, double); }
+        cast:: double(x : const int16)  { return #cast(x, double); }
+        cast:: double(x : const int)    { return #cast(x, double); }
+        cast:: double(x : const int64)  { return #cast(x, double); }
+        cast:: double(x : const uint8)  { return #cast(x, double); }
+        cast:: double(x : const uint16) { return #cast(x, double); }
+        cast:: double(x : const uint)   { return #cast(x, double); }
+        cast:: double(x : const uint64) { return #cast(x, double); }
+        cast:: double(x : const float)  { return #cast(x, double); }
+        cast:: double(x : const double) { return #cast(x, double); }
+    }
 }

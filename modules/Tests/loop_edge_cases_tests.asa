@@ -1,0 +1,226 @@
+// LoopEdgeCaseTests
+// Tests for loop edge cases: empty ranges, single iterations, nested labeled loops.
+
+@public:
+LoopEdgeCaseTests :: module {
+
+	#use Tests.Testing;
+
+	@public:
+	runLoopEdgeCaseTests :: () {
+		beginSection("Loop Edge Cases");
+
+		///////////////////////
+		// Empty range       //
+		///////////////////////
+
+		// for with 0..0 (empty)
+		count : int = 0;
+		for (i in 0..0) {
+			count += 1;
+		}
+		test(count == 0, "for 0..0 iterates 0 times (empty range)");
+
+		// while that never runs
+		wcount : int = 0;
+		w : int = 10;
+		while (w < 5) {
+			wcount += 1;
+			w += 1;
+		}
+		test(wcount == 0, "while with false condition iterates 0 times");
+
+		// for with lo >= hi
+		sum : int = 0;
+		for (i in 5..3) {
+			sum += i;
+		}
+		test(sum == 0, "for 5..3 iterates 0 times (lo >= hi)");
+
+		///////////////////////
+		// Single iteration  //
+		///////////////////////
+
+		// for with 0..1
+		count1 : int = 0;
+		for (i in 0..1) {
+			count1 += 1;
+		}
+		test(count1 == 1, "for 0..1 iterates 1 time");
+
+		// while that runs once
+		wcount1 : int = 0;
+		w1 : int = 0;
+		while (w1 < 1) {
+			wcount1 += 1;
+			w1 += 1;
+		}
+		test(wcount1 == 1, "while runs exactly once");
+
+		// Single iteration with break immediately
+		count2 : int = 0;
+		for (i in 0..5) {
+			count2 += 1;
+			break;
+		}
+		test(count2 == 1, "break on first iteration");
+
+		///////////////////////
+		// Nested labeled: break outer //
+		///////////////////////
+
+		hit : int = 0;
+		outer1 :: for (i in 0..3) {
+			for (j in 0..3) {
+				if (i == 1 && j == 2) {
+					hit = i * 100 + j;
+					break outer1;
+				}
+			}
+		}
+		test(hit == 102, "nested labeled: break outer at i=1,j=2");
+
+		///////////////////////
+		// Nested labeled: continue outer //
+		///////////////////////
+
+		ocount : int = 0;
+		outer2 :: for (i in 0..5) {
+			for (j in 0..5) {
+				if (j == 0) {
+					continue outer2;
+				}
+				ocount += 1;
+			}
+		}
+		test(ocount == 0, "nested labeled: continue outer skips all outer body");
+
+		///////////////////////
+		// Mixed: for outer, while inner //
+		///////////////////////
+
+		mval : int = 0;
+		outer3 :: for (i in 0..10) {
+			mi : int = 0;
+			while (mi < 5) {
+				if (i == 2 && mi == 3) {
+					mval = i * 100 + mi;
+					break outer3;
+				}
+				mi += 1;
+			}
+		}
+		test(mval == 203, "mixed nested: break for from while at i=2,mi=3");
+
+		///////////////////////
+		// Mixed: while outer, for inner //
+		///////////////////////
+
+		msum : int = 0;
+		outer4 :: while (msum < 10) {
+			for (j in 0..5) {
+				if (j == 2) {
+					msum += 1;
+					continue outer4;
+				}
+			}
+			msum += 100; // should never execute
+		}
+		test(msum == 10, "mixed nested: continue from for skips outer increment");
+
+		///////////////////////
+		// Break/continue in same loop //
+		///////////////////////
+
+		// Skip first 2, break at 5
+		combined : int = 0;
+		for (i in 0..10) {
+			if (i < 2) { continue; }
+			if (i == 5) { break; }
+			combined += i;
+		}
+		test(combined == 9, "break/continue: skip 0,1, add 2,3,4 (sum=9)");
+
+		// Break on even, continue on odd
+		combined2 : int = 0;
+		for (i in 0..8) {
+			if (i % 2 == 0) {
+				combined2 += i;
+				break;
+			}
+			continue;
+		}
+		test(combined2 == 0, "break on first even (0), sum=0");
+
+		///////////////////////
+		// Multiple continues before break //
+		///////////////////////
+
+		mc : int = 0;
+		for (i in 0..10) {
+			if (i < 3) { continue; }
+			if (i >= 7) { break; }
+			mc += i;
+		}
+		test(mc == 18, "continue 0,1,2; break at 7; sum 3+4+5+6 = 18");
+
+		///////////////////////
+		// Continue at end of loop body //
+		///////////////////////
+
+		ce : int = 0;
+		for (i in 0..5) {
+			ce += i;
+			continue;
+		}
+		test(ce == 10, "continue at end: sum 0+1+2+3+4 = 10");
+
+		///////////////////////
+		// Break with condition always true //
+		///////////////////////
+
+		bat : int = 0;
+		for (i in 0..10) {
+			if (true) { break; }
+			bat += i;
+		}
+		test(bat == 0, "break with always-true condition");
+
+		///////////////////////
+		// Continue with condition always true //
+		///////////////////////
+
+		cat : int = 0;
+		for (i in 0..5) {
+			if (true) { continue; }
+			cat += i;
+		}
+		test(cat == 0, "continue with always-true condition (never adds)");
+
+		///////////////////////
+		// Empty continue block //
+		///////////////////////
+
+		ec : int = 0;
+		for (i in 0..5) {
+			if (i % 2 == 0) {
+				continue;
+			}
+			ec += i;
+		}
+		test(ec == 4, "continue even in 0..5: sum odd 1+3 = 4");
+
+		///////////////////////
+		// Empty break block  //
+		///////////////////////
+
+		eb : int = 0;
+		for (i in 0..10) {
+			if (i == 5) {
+				break;
+			}
+			eb += i;
+		}
+		test(eb == 10, "break at 5: sum 0+1+2+3+4 = 10");
+	}
+}

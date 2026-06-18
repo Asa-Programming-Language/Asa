@@ -78,8 +78,11 @@ printl(foo); // Implicitly calls `foo.get()`, returning x+5, which is 7, and cal
 
 // I could also do something like this temporarily, but it is definitely messier:
 foo : nontrivial<int> = default;
-foo.get :: ref foo.T(){ return x + 5; }
-foo.set :: foo.T(value : any){ return (x = value); }
+foo.get :: ref foo.T(){ return val + 5; }
+foo.set :: foo.T(value : any){ return (val = value); }
+
+foo = 10;
+printl(foo); // Prints 15
 
 
 // Or, I might make `get` and `set` be lambdas. But those arent implemented yet so I don't
@@ -88,9 +91,11 @@ foo.set :: foo.T(value : any){ return (x = value); }
 nontrivial<T : type> :: struct{
     val : T = default;
 
-    get : lambda<ref T, {}> = ref T(){ return val; };
-    set : lambda<T, {any}> = T(value : any){ return (val = value); };
+    get : auto = ref T(){ return val; };
+    set : auto = T(value : any){ return (val = value); };
 }
+
+
 
 // Then `get` and `set` are just redefinable variables like any normal member.
 // I dont know if this is how the lambda type will be written, it is just an example.

@@ -1,10 +1,20 @@
 
+# Today:
+- [ ] Add `#recommend_options` compiler directive to allow programs to suggest compilation options. When reached, the compiler will prompt the user if they would like to accept the options or not.
+
+- [ ] Make all compilation be executed using a singular function path, to prevent repetition and multiple steps that must be kept up to date separately
+
+- [ ] Make lockfile or similar system to prevent two instances of asa from compiling something at once
+
+
+
 # Todo:
 
-- [ ] Fix operator overload token string being overwritten by token name
+- [ ] Disallow defining compile time defined symbols using non constant expression.
 
-- [ ] Add `#recommend_options` compiler directive to allow programs to suggest compilation options. When reached, the compiler will prompt the user if they would like to accept the options or not.
-- [ ] Or maybe related: Add `@command_option` or `#command`
+- [ ] Error on attempting to modify a compiler constant. Like `SOME_CONST :: 5;`  `SOME_CONST = 0;`
+
+- [ ] Fix operator overload token string being overwritten by token name
 
 - [ ] Add error for invalid compiler directives
 
@@ -14,13 +24,11 @@
 
 - [ ] Make error checking ensure all code paths have a return value if necessary
 
+- [ ] Improve declaration initialization, adding `default` and `?` values
+
 - [ ] Make modules based completely in AST nodes
 
-- [ ] Make all compilation be executed using a singular function path, to prevent repetition and multiple steps that must be kept up to date separately
-
 - [ ] Ensure `result` statement works in loops and most other scope bodies
-
-- [ ] Improve declaration initialization, adding `default` and `?` values
 
 - [ ] Add `defer` keyword to push a statement to the end of a scope. This involves pusing each deferred expression onto a stack, and executing in reverse order at the end of the current scope. And if the current scope is a function or a `result` returning scope, then the return value should be evaluated first, and then the deferred expressions executed. And they should be executed after any instances of the return/result keyword.
 
@@ -30,6 +38,8 @@
     - [ ] Add AST node poisoning  
 
 - [ ] Make variants use `$` for variant names. Like: `someFunc<$T : type> :: $T(){}`
+
+- [ ] Add `@command_option` or `#command`. To allow creating program options from functions
 
 - [ ] Make enum names act as type name
 
@@ -41,8 +51,7 @@
 
 - [ ] Implement function multi-return
 
-
-- [ ] Make functions able to return a reference. Returning `ref T` allows using return as lvalue, modifying like `foo().x = 5;`. Returning `const ref T` allows only using it as readonly. This is necessary for things like `operator[]`, where getting and setting is expected to have different behavior. Like `someMap[5] = 4;` and `printl(someMap[5]);`   TODO: See if this is actually necessary
+- [ ] Make functions able to return a reference. Returning `ref T` allows using return as lvalue, modifying like `foo().x = 5;`. Returning `const ref T` allows only using it as readonly. This is necessary for things like `operator[]`, where getting and setting is expected to have different behavior. Like `someMap[5] = 4;` and `printl(someMap[5]);`   TODO: See if this differentiation is actually necessary
 
 - [ ] Add way to get all attributes of symbol as array for iterating over
 
@@ -50,12 +59,13 @@
 
 - [ ] Add `@callingconvention("c"):` attribute
 
-- [ ] Make lockfile or similar system to prevent two instances of asa from compiling something at once
 
 
 
 
 
 # Done:
+- [x] Fix If/ If else chaining silently failing
+- [x] Fix function definition multi-line arguments
 - [x] Add `array` type
 - [X] Improve error printing system, make it allow multiple underlined segments with attached messages and connection lines

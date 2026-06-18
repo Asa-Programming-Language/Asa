@@ -1,0 +1,189 @@
+#use Rendering.Raylib;
+
+#recommend_options("-O3");
+
+WINDOW_W :: 960;
+WINDOW_H :: 640;
+TOOLBAR_H :: 40;
+CELL_SIZE :: 12;
+GRID_W :: WINDOW_W / CELL_SIZE;
+GRID_H :: (WINDOW_H - TOOLBAR_H) / CELL_SIZE;
+CELL_COUNT :: GRID_W * GRID_H;
+
+DEFAULT_STEP_TIME :: 0.10;
+MIN_STEP_TIME :: 0.0001;
+MAX_STEP_TIME :: 1.60;
+
+clearGrid :: (grid : *uint8) {
+    for (i in 0..CELL_COUNT) {
+        grid[i] = 0;
+    }
+}
+
+randomizeGrid :: (grid : *uint8) {
+    for (i in 0..CELL_COUNT) {
+        if (GetRandomValue(0, 4) == 0)
+            grid[i] = 1;
+        else
+            grid[i] = 0;
+    }
+}
+
+@inline:
+neighborCount :: int(grid : *uint8, cellX : const int, cellY : const int) {
+    count : int = 0;
+
+    for (offsetIndexY in 0..3) {
+        for (offsetIndexX in 0..3) {
+            offsetY : int = offsetIndexY - 1;
+            offsetX : int = offsetIndexX - 1;
+            if (offsetX == 0 && offsetY == 0)
+                continue;
+
+            x : int = (cellX + offsetX + GRID_W) % GRID_W;
+            y : int = (cellY + offsetY + GRID_H) % GRID_H;
+            count += grid[y*GRID_W + x];
+        }
+    }
+
+    return count;
+}
+
+stepSimulation :: (current : *uint8, next : *uint8) {
+    for (y in 0..GRID_H) {
+        for (x in 0..GRID_W) {
+            index : int = y*GRID_W + x;
+            neighbors : int = neighborCount(current, x, y);
+
+            if (current[index] != 0) {
+                if (neighbors == 2 || neighbors == 3)
+                    next[index] = 1;
+                else
+                    next[index] = 0;
+            }
+            else {
+                if (neighbors == 3)
+                    next[index] = 1;
+                else
+                    next[index] = 0;
+            }
+        }
+    }
+}
+
+drawGrid :: (grid : *uint8) {
+    aliveColor : Color32 = Color32(70, 220, 130);
+    deadColor : Color32 = Color32(12, 18, 25);
+
+    for (y in 0..GRID_H) {
+        for (x in 0..GRID_W) {
+            color : Color32 = deadColor;
+            if (grid[y*GRID_W + x] != 0)
+                color = aliveColor;
+
+            DrawRectangle(
+                x*CELL_SIZE,
+                TOOLBAR_H + y*CELL_SIZE,
+                CELL_SIZE - 1,
+                CELL_SIZE - 1,
+                color
+            );
+        }
+    }
+}
+
+main :: () {
+    InitWindow(WINDOW_W, WINDOW_H, "Asa Game of Life");
+    SetTargetFPS(60);
+
+    current : *uint8 = malloc(CELL_COUNT * #sizeof(uint8));
+    next : *uint8 = malloc(CELL_COUNT * #sizeof(uint8));
+    clearGrid(current);
+    clearGrid(next);
+
+    running : bool = false;
+    elapsed : float = 0.0;
+    stepTime : float = DEFAULT_STEP_TIME;
+    generation : int = 0;
+
+    while (WindowShouldClose() == false) {
+        if (IsKeyPressed(KEY_SPACE))
+            running = !running;
+
+        if (IsKeyPressed(KEY_C)) {
+            clearGrid(current);
+            generation = 0;
+        }
+
+        if (IsKeyPressed(KEY_R)) {
+            randomizeGrid(current);
+            generation = 0;
+        }
+
+        speedUp : bool = IsKeyPressed(KEY_RIGHT_BRACKET) || IsKeyPressedRepeat(KEY_RIGHT_BRACKET);
+        slowDown : bool = IsKeyPressed(KEY_LEFT_BRACKET) || IsKeyPressedRepeat(KEY_LEFT_BRACKET);
+
+        if (speedUp && stepTime > MIN_STEP_TIME)
+            stepTime *= 0.5;
+
+        if (slowDown && stepTime < MAX_STEP_TIME)
+            stepTime *= 2.0;
+
+        stepOnce : bool = IsKeyPressed(KEY_N);
+
+        mouseY : int = GetMouseY() - TOOLBAR_H;
+        if (mouseY >= 0) {
+            cellX : int = GetMouseX() / CELL_SIZE;
+            cellY : int = mouseY / CELL_SIZE;
+
+            if (cellX >= 0 && cellX < GRID_W && cellY >= 0 && cellY < GRID_H) {
+                index : int = cellY*GRID_W + cellX;
+                if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+                    current[index] = 1;
+                if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT))
+                    current[index] = 0;
+            }
+        }
+
+        if (running)
+            elapsed += GetFrameTime();
+
+        while (running && elapsed >= stepTime) {
+            stepSimulation(current, next);
+            swap : *uint8 = current;
+            current = next;
+            next = swap;
+            generation++;
+            elapsed -= stepTime;
+        }
+
+        if (stepOnce) {
+            stepSimulation(current, next);
+            swap : *uint8 = current;
+            current = next;
+            next = swap;
+            generation++;
+        }
+
+        BeginDrawing();
+            ClearBackground(Color32(8, 12, 18));
+            drawGrid(current);
+
+            DrawRectangle(0, 0, WINDOW_W, TOOLBAR_H, Color32(20, 28, 38));
+            DrawText("SPACE: run  N: step  R: random  C: clear  [ ]: speed", 12, 11, 18, RAYWHITE);
+
+            if (running)
+                DrawText("RUNNING", 590, 11, 18, GREEN);
+            else
+                DrawText("PAUSED", 590, 11, 18, YELLOW);
+
+            DrawText("Speed: " + int(1.0 / stepTime) + "/s", 680, 11, 18, RAYWHITE);
+            DrawText("Gen: " + generation, 800, 11, 18, RAYWHITE);
+            DrawFPS(890, 11);
+        EndDrawing();
+    }
+
+    free(current);
+    free(next);
+    CloseWindow();
+}

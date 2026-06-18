@@ -341,6 +341,15 @@ std::vector<Test> errorTests = {
         someVar : int = 5;
     )"),
 
+    Test("Runtime assignment to compiler constant",
+        R"(
+        SOME_VAL :: 5;
+
+        main :: (){
+            SOME_VAL = 1;
+        }
+    )"),
+
     Test("Invalid compiler directive arguments",
         R"(
         #define 2;

@@ -1066,6 +1066,20 @@ void castToHighestAccuracy(LLVMValue*& L, LLVMValue*& R, ASTNode* node)
 
     std::string lTyStr = getStringTypeFromLLVMType(L->getType());
     std::string rTyStr = getStringTypeFromLLVMType(R->getType());
+    if (node && node->childNodes.size() >= 2) {
+        ASTNode* leftNode = node->childNodes[0];
+        ASTNode* rightNode = node->childNodes[1];
+        if (leftNode->asaType && !leftNode->asaType->strVal.empty()) {
+            std::string trackedType = resolveTypeAlias(leftNode->asaType->strVal);
+            if (typeSigns.count(trackedType))
+                lTyStr = trackedType;
+        }
+        if (rightNode->asaType && !rightNode->asaType->strVal.empty()) {
+            std::string trackedType = resolveTypeAlias(rightNode->asaType->strVal);
+            if (typeSigns.count(trackedType))
+                rTyStr = trackedType;
+        }
+    }
     ASTNodeType LType = getASTNodeTypeFromString(lTyStr);
     ASTNodeType RType = getASTNodeTypeFromString(rTyStr);
     bool lIsFloat = false;
@@ -1332,6 +1346,17 @@ valueType* findNamedValue(ASTNode* node, ASTNode* childNode, std::string& identi
         }
     }
 
+    return nullptr;
+}
+
+static ASTNode* findCompilerDefinition(ASTNode* scope, const std::string& identifier)
+{
+    while (scope) {
+        auto it = scope->compilerDefinitions.find(identifier);
+        if (it != scope->compilerDefinitions.end())
+            return it->second;
+        scope = scope->parentNode;
+    }
     return nullptr;
 }
 
@@ -2126,20 +2151,15 @@ void* ASTNode::generateVariableExpression(int pass)
 
         // If variable does not have type, it is a used undefined variable
         if (childNodes.size() == 0) {
-            // Check if it's a compiler define (walk up the tree)
-            ASTNode* scope = parentNode;
-            while (scope) {
-                auto it = scope->compilerDefinitions.find(token->tokenStr);
-                if (it != scope->compilerDefinitions.end()) {
+            ASTNode* compilerDefinition = findCompilerDefinition(parentNode, token->tokenStr);
+            if (compilerDefinition) {
+                messageSystem::endBlock();
+                auto generatedCompilerDefine = (compilerDefinition->*(compilerDefinition->codegen))(pass);
+                if (wasError) {
                     messageSystem::endBlock();
-                    auto generatedCompilerDefine = (it->second->*(it->second->codegen))(pass);
-                    if (wasError) {
-                        messageSystem::endBlock();
-                        return nullptr;
-                    }
-                    return generatedCompilerDefine;
+                    return nullptr;
                 }
-                scope = scope->parentNode;
+                return generatedCompilerDefine;
             }
             return messageSystem::error("Use of undefined variable", messageSystem::Undefined_Symbol_Error);
         }
@@ -2567,6 +2587,7 @@ void* ASTNode::generateExpressionStatement(int pass)
 
     LLVMValue* targetPtr = nullptr;
     LLVMType* targetType = nullptr;
+    bool targetIsSigned = true;
 
     // If the left side is a pointer lvalue
     if (leftNode->nodeType != Identifier_Node && leftNode->nodeType != Colon_Separator_Node) {
@@ -2671,6 +2692,12 @@ void* ASTNode::generateExpressionStatement(int pass)
         if (wasError)
             return nullptr;
         if (!val) {
+            if (!typeNode && findCompilerDefinition(parentNode, leftNode->token->tokenStr)) {
+                return messageSystem::error(
+                    "Cannot modify compiler constant '" + leftNode->token->tokenStr +
+                    "' with '='. Use '::' to redefine it at compile time.");
+            }
+
             // New inferred declaration: `someVar = void;` - void has no type to infer from.
             if (rhsIsVoid && !typeNode)
                 return messageSystem::error("Cannot infer type from 'void'. Use an explicit type annotation: 'name : type = void'.", messageSystem::Type_Inference_From_Void_Error);
@@ -2726,6 +2753,8 @@ void* ASTNode::generateExpressionStatement(int pass)
             }
 
             targetPtr = val->val;
+            std::string resolvedType = resolveTypeAlias(val->type);
+            targetIsSigned = !typeSigns.count(resolvedType) || typeSigns[resolvedType];
 
             // If this is a reference, load the pointer before storing through it
             if (val->isReference) {
@@ -2759,13 +2788,22 @@ void* ASTNode::generateExpressionStatement(int pass)
 
     // Compound assignment: load current value, apply op, then store result
     if (token->tokenType == Plus_Equal || token->tokenType == Minus_Equal ||
-        token->tokenType == Times_Equal || token->tokenType == Slash_Equal) {
+        token->tokenType == Times_Equal || token->tokenType == Slash_Equal ||
+        token->tokenType == Ampersand_Equal || token->tokenType == Bar_Equal ||
+        token->tokenType == Caret_Equal || token->tokenType == Shift_Left_Equal ||
+        token->tokenType == Shift_Right_Equal) {
         // Use targetType directly; LLVM may fold GEPs, making instruction introspection unreliable.
         LLVMType* loadType = targetType;
         LLVMValue* currentVal = llvmIRBuilder->CreateLoad(loadType, targetPtr, "cmpd_load");
 
         bool isFloat = loadType->isFloatingPointTy();
         bool isInt = loadType->isIntegerTy();
+
+        bool isBitwise = token->tokenType == Ampersand_Equal || token->tokenType == Bar_Equal ||
+                         token->tokenType == Caret_Equal || token->tokenType == Shift_Left_Equal ||
+                         token->tokenType == Shift_Right_Equal;
+        if (isBitwise && !isInt)
+            return messageSystem::error("Bitwise compound assignment requires integer operands");
 
         if (isFloat || isInt) {
             // Cast RHS to the variable's type so the result stays the same type
@@ -2786,6 +2824,17 @@ void* ASTNode::generateExpressionStatement(int pass)
             else if (token->tokenType == Slash_Equal)
                 exprVal = isFloat ? llvmIRBuilder->CreateFDiv(currentVal, exprVal, "cmpd_div")
                                   : llvmIRBuilder->CreateSDiv(currentVal, exprVal, "cmpd_div");
+            else if (token->tokenType == Ampersand_Equal)
+                exprVal = llvmIRBuilder->CreateAnd(currentVal, exprVal, "cmpd_and");
+            else if (token->tokenType == Bar_Equal)
+                exprVal = llvmIRBuilder->CreateOr(currentVal, exprVal, "cmpd_or");
+            else if (token->tokenType == Caret_Equal)
+                exprVal = llvmIRBuilder->CreateXor(currentVal, exprVal, "cmpd_xor");
+            else if (token->tokenType == Shift_Left_Equal)
+                exprVal = llvmIRBuilder->CreateShl(currentVal, exprVal, "cmpd_shl");
+            else if (token->tokenType == Shift_Right_Equal)
+                exprVal = targetIsSigned ? llvmIRBuilder->CreateAShr(currentVal, exprVal, "cmpd_ashr")
+                                         : llvmIRBuilder->CreateLShr(currentVal, exprVal, "cmpd_lshr");
         }
         else {
             // Non-scalar: delegate to operator overload for custom types
@@ -2794,6 +2843,11 @@ void* ASTNode::generateExpressionStatement(int pass)
                 {Minus_Equal, "operator." + tokenAsString(Minus)},
                 {Times_Equal, "operator." + tokenAsString(Star)},
                 {Slash_Equal, "operator." + tokenAsString(Slash)},
+                {Ampersand_Equal, "operator." + tokenAsString(Ampersand)},
+                {Bar_Equal, "operator." + tokenAsString(Bar)},
+                {Caret_Equal, "operator." + tokenAsString(Caret)},
+                {Shift_Left_Equal, "operator." + tokenAsString(Shift_Left)},
+                {Shift_Right_Equal, "operator." + tokenAsString(Shift_Right)},
             };
             std::string operatorName = compoundOpName.at(token->tokenType);
             argumentList argList;
@@ -2995,6 +3049,14 @@ void* ASTNode::generateUnaryExpression(int pass)
             return result;
         }
 
+        case Bitwise_Not: {
+            if (!R->getType()->isIntegerTy())
+                return messageSystem::error("Bitwise complement requires an integer operand");
+            LLVMValue* result = llvmIRBuilder->CreateNot(R, "bitnot_tmp");
+            messageSystem::endBlock();
+            return result;
+        }
+
         default:
             return messageSystem::error("Unknown or undefined operator");
     }
@@ -3014,7 +3076,6 @@ static const std::unordered_map<ASTNodeType, llvm::Instruction::BinaryOps> integ
     {Bitwise_Or, llvm::Instruction::Or},
     {Bitwise_Xor, llvm::Instruction::Xor},
     {Bitwise_Shift_Left, llvm::Instruction::Shl},
-    {Bitwise_Shift_Right, llvm::Instruction::LShr},  // or AShr for arithmetic shift
 };
 
 // Float operations
@@ -3240,6 +3301,15 @@ LLVMValue* ASTNode::generateIntegerBinaryOp(LLVMValue* L, LLVMValue* R)
     if (opIt != integerOps.end()) {
         messageSystem::endBlock();
         return llvmIRBuilder->CreateBinOp(opIt->second, L, R, "int_op");
+    }
+
+    if (nodeType == Bitwise_Shift_Right) {
+        bool isSigned = true;
+        if (childNodes[0]->asaType && !childNodes[0]->asaType->strVal.empty())
+            isSigned = isSignedType(resolveTypeAlias(childNodes[0]->asaType->strVal));
+        messageSystem::endBlock();
+        return isSigned ? llvmIRBuilder->CreateAShr(L, R, "ashr_tmp")
+                        : llvmIRBuilder->CreateLShr(L, R, "lshr_tmp");
     }
 
     return (LLVMValue*)messageSystem::error("Unknown integer binary operator");

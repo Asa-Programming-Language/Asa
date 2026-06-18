@@ -1,0 +1,198 @@
+// IntegerBehaviorTests
+// Tests for integer behavior: overflow, underflow, max/min values.
+
+@public:
+IntegerBehaviorTests :: module {
+
+	#use Tests.Testing;
+
+	@public:
+	runIntegerBehaviorTests :: () {
+		beginSection("Integer Behavior");
+
+		///////////////////////
+		// int32 limits      //
+		///////////////////////
+
+		// Maximum int32 value
+		MAX_INT32 :: 2147483647;
+		// Minimum int32 value (negative)
+		MIN_INT32 :: -2147483648;
+
+		test(MAX_INT32 == 2147483647, "MAX_INT32 == 2147483647");
+		test(MIN_INT32 == -2147483648, "MIN_INT32 == -2147483648");
+
+		// Overflow: adding 1 to max wraps to min
+		overflow : int = MAX_INT32 + 1;
+		test(overflow == MIN_INT32, "int32 overflow: MAX_INT32 + 1 == MIN_INT32");
+
+		// Underflow: subtracting 1 from min wraps to max
+		underflow : int = MIN_INT32 - 1;
+		test(underflow == MAX_INT32, "int32 underflow: MIN_INT32 - 1 == MAX_INT32");
+
+		// Negative overflow
+		neg_overflow : int = -2147483648 - 1;
+		test(neg_overflow == 2147483647, "int32 negative overflow");
+
+		///////////////////////
+		// int8 limits       //
+		///////////////////////
+
+		MAX_INT8 :: 127;
+		MIN_INT8 :: -128;
+
+		test(MAX_INT8 == 127, "MAX_INT8 == 127");
+		test(MIN_INT8 == -128, "MIN_INT8 == -128");
+
+		overflow8 : int8 = MAX_INT8 + 1;
+		test(overflow8 == MIN_INT8, "int8 overflow: 127 + 1 == -128");
+
+		underflow8 : int8 = MIN_INT8 - 1;
+		test(underflow8 == MAX_INT8, "int8 underflow: -128 - 1 == 127");
+
+		///////////////////////
+		// int16 limits      //
+		///////////////////////
+
+		MAX_INT16 :: 32767;
+		MIN_INT16 :: -32768;
+
+		test(MAX_INT16 == 32767, "MAX_INT16 == 32767");
+		test(MIN_INT16 == -32768, "MIN_INT16 == -32768");
+
+		overflow16 : int16 = MAX_INT16 + 1;
+		test(overflow16 == MIN_INT16, "int16 overflow: 32767 + 1 == -32768");
+
+		underflow16 : int16 = MIN_INT16 - 1;
+		test(underflow16 == MAX_INT16, "int16 underflow: -32768 - 1 == 32767");
+
+		///////////////////////
+		// uint32 limits     //
+		///////////////////////
+
+		MAX_UINT32 :: 4294967295;
+		MIN_UINT32 :: 0;
+
+		test(MAX_UINT32 == 4294967295, "MAX_UINT32 == 4294967295");
+		test(MIN_UINT32 == 0, "MIN_UINT32 == 0");
+
+		// Unsigned overflow
+		u_overflow : uint = MAX_UINT32 + 1;
+		test(u_overflow == MIN_UINT32, "uint32 overflow: wraps to 0");
+
+		// Unsigned underflow
+		u_underflow : uint = 0 - 1;
+		test(u_underflow == MAX_UINT32, "uint32 underflow: 0 - 1 == MAX");
+
+		///////////////////////
+		// Division by zero  //
+		///////////////////////
+
+		// Division by zero behavior - compiler should handle
+		// This test documents expected behavior (compiler-dependent)
+
+		// Positive divided by small values
+		test(10 / 1 == 10, "10 / 1 == 10");
+		test(10 / 2 == 5, "10 / 2 == 5");
+		test(100 / 10 == 10, "100 / 10 == 10");
+
+		// Modulo by small values
+		test(10 % 1 == 0, "10 % 1 == 0");
+		test(10 % 2 == 0, "10 % 2 == 0");
+		test(10 % 3 == 1, "10 % 3 == 1");
+
+		///////////////////////
+		// Negative division //
+		///////////////////////
+
+		// Truncation toward zero
+		test((-7) / 2 == -3, "(-7) / 2 == -3 (truncate toward zero)");
+		test(7 / (-2) == -3, "7 / (-2) == -3 (truncate toward zero)");
+		test((-7) / (-2) == 3, "(-7) / (-2) == 3 (truncate toward zero)");
+
+		// Modulo with negative dividend
+		test((-7) % 3 == -1, "(-7) % 3 == -1 (sign of dividend)");
+		test(7 % (-3) == 1, "7 % (-3) == 1 (sign of dividend)");
+		test((-7) % (-3) == -1, "(-7) % (-3) == -1");
+
+		///////////////////////
+		// Arithmetic chains //
+		///////////////////////
+
+		// Multiple additions
+		multi_add : int = 2147483645;
+		multi_add += 1;
+		test(multi_add == 2147483646, "multiple adds: 2147483645 + 1");
+		multi_add += 1;
+		test(multi_add == 2147483647, "multiple adds: 2147483646 + 1 = MAX");
+		multi_add += 1;
+		test(multi_add == -2147483648, "multiple adds: overflow to MIN");
+
+		// Subtraction chain
+		multi_sub : int = -2147483646;
+		multi_sub -= 1;
+		test(multi_sub == -2147483647, "multiple subs: -2147483646 - 1");
+		multi_sub -= 1;
+		test(multi_sub == -2147483648, "multiple subs: -2147483647 - 1 = MIN");
+		multi_sub -= 1;
+		test(multi_sub == 2147483647, "multiple subs: underflow to MAX");
+
+		///////////////////////
+		// Multiplication    //
+		///////////////////////
+
+		// Normal multiplication
+		test(100000 * 100000 == 10000000000 % 4294967296, "multiplication wraps");
+
+		// Small values
+		test(2 * 3 == 6, "2 * 3 == 6");
+		test((-2) * 3 == -6, "(-2) * 3 == -6");
+		test((-2) * (-3) == 6, "(-2) * (-3) == 6");
+
+		// Division by negative
+		test(10 / (-2) == -5, "10 / (-2) == -5");
+		test((-10) / (-2) == 5, "(-10) / (-2) == 5");
+
+		///////////////////////
+		// Bit shifts        //
+		///////////////////////
+
+		// Left shift overflow
+		shift_overflow : int = 1073741824; // 2^30
+		shift_overflow <<= 1;
+		test(shift_overflow == -2147483648, "left shift overflow (2^30 << 1)");
+
+		// Right shift
+		shift_right : int = -2147483648; // sign bit set
+		shift_right >>= 1;
+		test(shift_right == -1073741824, "right shift preserves sign");
+
+		///////////////////////
+		// Special values    //
+		///////////////////////
+
+		test(0 * MAX_INT32 == 0, "0 * MAX_INT32 == 0");
+		test(1 * MAX_INT32 == MAX_INT32, "1 * MAX_INT32 == MAX");
+		test((-1) * MAX_INT32 == -2147483647, "-1 * MAX_INT32 == -2147483647");
+
+		// Identity operations
+		test(MAX_INT32 + 0 == MAX_INT32, "MAX + 0 = MAX");
+		test(MIN_INT32 - 0 == MIN_INT32, "MIN - 0 = MIN");
+		test(MAX_INT32 * 1 == MAX_INT32, "MAX * 1 = MAX");
+
+		// Zero properties
+		test(0 + 0 == 0, "0 + 0 == 0");
+		test(0 - 0 == 0, "0 - 0 == 0");
+		test(0 * 0 == 0, "0 * 0 == 0");
+
+		// Self-cancelling operations
+		x : int = 42;
+		test(x + 0 == x, "x + 0 == x");
+		test(x - 0 == x, "x - 0 == x");
+		test(x * 1 == x, "x * 1 == x");
+		test(x / 1 == x, "x / 1 == x");
+		test(x ^ 0 == x, "x ^ 0 == x");
+		test(x & MAX_INT32 == x, "x & MAX == x");
+		test(x | 0 == x, "x | 0 == x");
+	}
+}
