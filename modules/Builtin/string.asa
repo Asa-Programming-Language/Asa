@@ -12,7 +12,7 @@ String :: module{
 
     #extern snprintf as _snprintf_c_extern :: int32(buf : *char, size : uint64, fmt : *char, ...);
 
-    #define IN_STRING_MODULE true;
+    #setflag IN_STRING_MODULE true;
 
     // Struct: string
     // Description: |
@@ -505,5 +505,5 @@ String :: module{
         return resAddr - startAddr;
     }
 
-    #define IN_STRING_MODULE false;
+    #setflag IN_STRING_MODULE false;
 }

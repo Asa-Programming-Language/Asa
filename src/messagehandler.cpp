@@ -256,7 +256,7 @@ namespace messageSystem {
 
             case Invalid_Compiler_Directive_Arguments_Error:
             default: {
-                msg.addSegment(SourceCodeSegment(UnderlinedSegment(currentNode->astNode, "", ERROR_COLOR, "^")));
+                msg.addSegment(SourceCodeSegment(UnderlinedSegment(currentNode->astNode, "here", ERROR_COLOR, "^")));
                 msg.print();
                 break;
             }

@@ -67,6 +67,7 @@ SyntaxTests :: module {
 		test(DERIVED_COUNT == 4000,            "derived constant multiplication");
 		test(DERIVED_PAREN == 920,             "fully parenthesized constant expression");
 		test(multiline_arguments(20, 22) == 42, "function definition with multiline arguments");
+		test(#compiles(#stack_push("syntaxTrailingSemicolonScope", { trailingSemiValue : int = 1; })), "semicolon before implicit scope end in directive argument");
 
 		///////////////////////
 		// Redundant parens  //

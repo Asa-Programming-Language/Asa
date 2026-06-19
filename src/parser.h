@@ -331,6 +331,7 @@ struct ASTNode {
     bool isValueBlock = false;               // true for Scope_Body nodes that are value-returning { result ...; } expressions
     bool isInherited = false;                // true if this is an attribute which was inherited from a parent scope
     bool isPoisoned = false;
+    bool returnsASTNode = false;
     asaToken* closingToken = nullptr;  // closing delimiter token (e.g. }) stored for token range tracking
     //Type* llvmType;
     //Type* baseType = nullptr;
@@ -347,6 +348,7 @@ struct ASTNode {
     std::map<std::string, ASTNode*> compilerDefinitions = std::map<std::string, ASTNode*>();
 
     bool compareTokens = false;
+    ASTNode* (ASTNode::*resolveASTNode)(int pass) = nullptr;
 
     // Codegen functions for each node type:
 
@@ -380,12 +382,24 @@ struct ASTNode {
     void* generateCallExpression(int pass = 0);
     void* generateIncDecrement(int pass = 0);
     void* generateNothing(int pass = 0);
-    void* generateCompilerDefine(int pass = 0);
+    void* generateCompilerFlagDirective(int pass = 0);
+    void* generateCompilerStackPushDirective(int pass = 0);
+    void* generateCompilerStackPopDirective(int pass = 0);
+    void* generateCompilerStackLastDirective(int pass = 0);
+    void* generateCompilerPrintASTDirective(int pass = 0);
+    void* generateCompilerPrintDirective(int pass = 0);
+    void* generateCompilerPrintLineDirective(int pass = 0);
+    void* generateCompilerIfDirective(int pass = 0);
+    void* generateCompilerErrorDirective(int pass = 0);
+    void* generateCompilerWarningDirective(int pass = 0);
     void* generateLibraryDirective(int pass = 0);
     void* generateLibraryStaticDirective(int pass = 0);
     void* generateTypeofDirective(int pass = 0);
     void* generateSizeofDirective(int pass = 0);
     void* generateCompilesDirective(int pass = 0);
+    ASTNode* resolveCompilerStackLastASTNode(int pass = 0);
+    ASTNode* resolveCompilerDefinitionASTNode(int pass = 0);
+    ASTNode* resolveCompilerParentASTNode(int pass = 0);
 
     void* (ASTNode::*codegen)(int pass) = nullptr;
 

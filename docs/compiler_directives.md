@@ -229,3 +229,140 @@ foo :: T(v : T)
     return v * 2;
 }
 ```
+
+-----
+
+## `:::asa #recommend_options(string)`
+
+Sets compiler options at compile time. For security, it asks the user with a prompt before applying, and the user can reject the options. Uses the same syntax as options applied through the command line:
+```asa
+#recommend_options("-O3 -w all");  // Applies optimization level 3 and enables all warnings
+```
+The same as this command:
+```
+asa main.asa -O3 -w all
+```
+
+-----
+
+## `:::asa #error(string, ast_node)`
+
+Causes a compiler error at compile time, using the same error system that the compiler uses for it's builtin errors. It uses the `string` as the error message, and the `ast_node` as the line context shown in the error message.
+```asa
+#error("This is an error", SOME_AST);
+```
+!!! note
+    This requires that the second argument is a reference to an AST node. It will work if you pass something else, such as a variable name: `:::asa #error("...", x);`. But it will be a new node generated for this line, rather than for the definition or set of `:::asa x`
+
+-----
+
+## `:::asa #warning(string, ast_node)`
+
+Causes a compiler warning at compile time, using the same error system that the compiler uses for it's builtin errors. It uses the `string` as the warning message, and the `ast_node` as the line context shown in the warning message.
+```asa
+#warning("This is a warning", SOME_AST);
+```
+!!! note
+    This requires that the second argument is a reference to an AST node. It will work if you pass something else, such as a variable name: `:::asa #warning("...", x);`. But it will be a new node generated for this line, rather than for the definition or set of `:::asa x`
+
+-----
+
+## `:::asa #stack_push(string, ast_node)`
+
+This pushes a given AST node to the named stack. If the stack does not exist yet, it creates a new one. Example:
+```asa
+#stack_push("some stack", true);
+```
+!!! note
+    Like mentioned above, the second argument is an AST node. If you pass a literal or expression, this will pass a new AST node representing that expression.
+
+-----
+
+## `:::asa #stack_pop(string)`
+
+This pops a single item off of the given stack. It does not return anything.
+```asa
+// "some stack" => {0, 4, 2, 1}
+
+#stack_pop("some stack");
+
+// "some stack" => {0, 4, 2}
+```
+
+-----
+
+## `:::asa #stack_last(string)`
+
+This returns the last AST node added to the named stack.
+```asa
+// "some stack" => {0, 4, 2, 1}
+
+printl(#stack_last("some stack"));  // Prints: 1
+```
+
+-----
+
+## `:::asa #print_ast(ast_node)`
+
+This prints out the given AST node to the terminal.
+```asa
+x :: 4;
+
+#print_ast(x);
+
+// Prints:
+// :(Expression_Term){
+//     6:(Integer_Node){}
+// }
+```
+!!! note inline
+    For compile time equals definitions using `:::asa ::`, it is the AST of its value, rather than its definition. 
+
+-----
+
+## `:::asa #parent(ast_node)`
+
+This returns the parent node of the given AST node. You can use this for cases like above, where you want the AST node of the definition rather than the right-hand-side.
+```asa
+x :: 4;
+
+#print_ast(#parent(x));
+
+// Prints:
+// x:(Compiler_Define){
+//     :(Expression_Term){
+//         6:(Integer_Node){}
+//     }
+// }
+```
+
+-----
+
+## `:::asa #print(string)`
+
+Prints the given string to the terminal at compile time.
+```asa
+#print("This prints only during compilation");
+```
+
+-----
+
+## `:::asa #printl(string)`
+
+Prints the given string to the terminal at compile time with a newline.
+```asa
+#printl("This prints only during compilation");
+```
+
+-----
+
+## `:::asa #if(condition, ast_node)`
+
+Evaluates `condition` as a boolean. If it is "true", the `ast_node` is included in compilation. If it is "false", it is ignored.
+```asa
+#if(true, printl(4));  // The print statement is included in the compiled program
+```
+```asa
+x :: { i : int = 9 };
+#if(1 == 2, x);  // The code `i : int = 9` is not included in the program
+```

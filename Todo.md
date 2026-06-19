@@ -1,6 +1,5 @@
 
 # Today:
-- [ ] Add `#recommend_options` compiler directive to allow programs to suggest compilation options. When reached, the compiler will prompt the user if they would like to accept the options or not.
 
 - [ ] Make all compilation be executed using a singular function path, to prevent repetition and multiple steps that must be kept up to date separately
 
@@ -10,9 +9,9 @@
 
 # Todo:
 
-- [ ] Disallow defining compile time defined symbols using non constant expression.
+- [ ] Ensure compiler directives have exact number of expected arguments, and errors on not enough or too many arguments
 
-- [ ] Error on attempting to modify a compiler constant. Like `SOME_CONST :: 5;`  `SOME_CONST = 0;`
+- [ ] Disallow defining compile time defined symbols using non constant expression.
 
 - [ ] Fix operator overload token string being overwritten by token name
 
@@ -65,6 +64,8 @@
 
 
 # Done:
+- [x] Add `#recommend_options` compiler directive to allow programs to suggest compilation options. When reached, the compiler will prompt the user if they would like to accept the options or not.
+- [x] Error on attempting to modify a compiler constant. Like `SOME_CONST :: 5;`  `SOME_CONST = 0;`
 - [x] Fix If/ If else chaining silently failing
 - [x] Fix function definition multi-line arguments
 - [x] Add `array` type

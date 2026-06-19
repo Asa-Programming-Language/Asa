@@ -148,13 +148,15 @@ bool GATHER_SCOPE_BODY(const std::vector<asaToken*>& tokens, std::vector<asaToke
 void GATHER_PAREN_EXPRESSION(const std::vector<asaToken*>& tokens, std::vector<asaToken*>& subTokens, int pLevel, int& i, bool preserveBraces = false)
 {
     int parenLevel = pLevel;
+    int braceDepth = 0;
     if (pLevel == 1)
         i--;
     asaToken* firstToken = NEXT_TOKEN(tokens, i);
     if (pLevel != 1)
         i--;
     for (;;) {
-        if (i >= tokens.size() - 1 || tokens[i]->tokenType == EndOfFile || tokens[i]->tokenType == Semi_Colon) {
+        if (i >= tokens.size() - 1 || tokens[i]->tokenType == EndOfFile ||
+            (tokens[i]->tokenType == Semi_Colon && braceDepth == 0)) {
             printTokenError(tokenRange {firstToken, firstToken}, "Unmatched parenthesis");
             exit(1);
             break;
@@ -174,8 +176,13 @@ void GATHER_PAREN_EXPRESSION(const std::vector<asaToken*>& tokens, std::vector<a
             if (parenLevel != 0 || preserveBraces)
                 subTokens.push_back(t);
         }
-        else
+        else {
+            if (t->tokenType == Left_Brace)
+                braceDepth++;
+            else if (t->tokenType == Right_Brace)
+                braceDepth--;
             subTokens.push_back(t);
+        }
 
         if (parenLevel <= 0)
             break;
@@ -1826,6 +1833,31 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
                         node->codegen = &ASTNode::generateCast;
                     else if (identifier->token->tokenStr == "bitcast")
                         node->codegen = &ASTNode::generateBitcast;
+                    else if (identifier->token->tokenStr == "stack_push")
+                        node->codegen = &ASTNode::generateCompilerStackPushDirective;
+                    else if (identifier->token->tokenStr == "stack_pop")
+                        node->codegen = &ASTNode::generateCompilerStackPopDirective;
+                    else if (identifier->token->tokenStr == "stack_last") {
+                        node->codegen = &ASTNode::generateCompilerStackLastDirective;
+                        node->returnsASTNode = true;
+                        node->resolveASTNode = &ASTNode::resolveCompilerStackLastASTNode;
+                    }
+                    else if (identifier->token->tokenStr == "parent") {
+                        node->returnsASTNode = true;
+                        node->resolveASTNode = &ASTNode::resolveCompilerParentASTNode;
+                    }
+                    else if (identifier->token->tokenStr == "print_ast")
+                        node->codegen = &ASTNode::generateCompilerPrintASTDirective;
+                    else if (identifier->token->tokenStr == "print")
+                        node->codegen = &ASTNode::generateCompilerPrintDirective;
+                    else if (identifier->token->tokenStr == "printl")
+                        node->codegen = &ASTNode::generateCompilerPrintLineDirective;
+                    else if (identifier->token->tokenStr == "if")
+                        node->codegen = &ASTNode::generateCompilerIfDirective;
+                    else if (identifier->token->tokenStr == "error")
+                        node->codegen = &ASTNode::generateCompilerErrorDirective;
+                    else if (identifier->token->tokenStr == "warning")
+                        node->codegen = &ASTNode::generateCompilerWarningDirective;
                     goto addNodeAsLeaf;
                 }
 
@@ -1899,11 +1931,68 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
                 if (identifier->token->tokenStr == "new") {
                     node->codegen = &ASTNode::generateTypeInstance;
                 }
-                if (identifier->token->tokenStr == "define") {
-                    node->codegen = &ASTNode::generateCompilerDefine;
-                    // Leaf nodes in a #define body are intentional tokens (name + value),
+                if (identifier->token->tokenStr == "setflag") {
+                    node->codegen = &ASTNode::generateCompilerFlagDirective;
+                    // Leaf nodes in a #setflag body are intentional tokens (name + value),
                     // not parse errors - move them into childNodes so findUnusedLeafNodes
-                    // doesn't flag them, and collectTokens in generateCompilerDefine finds them.
+                    // doesn't flag them, and collectTokens in generateCompilerFlagDirective finds them.
+                    for (auto& l : bodyNode->leafNodes)
+                        bodyNode->childNodes.push_back(l);
+                    bodyNode->leafNodes.clear();
+                }
+                if (identifier->token->tokenStr == "stack_push") {
+                    node->codegen = &ASTNode::generateCompilerStackPushDirective;
+                    // Leaf nodes in a #stack_push body are intentional tokens (stack name + AST),
+                    // not parse errors - move them into childNodes so findUnusedLeafNodes
+                    // doesn't flag them, and collectTokens in generateCompilerStackPushDirective finds them.
+                    for (auto& l : bodyNode->leafNodes)
+                        bodyNode->childNodes.push_back(l);
+                    bodyNode->leafNodes.clear();
+                }
+                if (identifier->token->tokenStr == "stack_pop") {
+                    node->codegen = &ASTNode::generateCompilerStackPopDirective;
+                    // Leaf nodes in a #stack_pop body are intentional tokens (stack name),
+                    // not parse errors - move them into childNodes so findUnusedLeafNodes
+                    // doesn't flag them, and collectTokens in generateCompilerStackPopDirective finds them.
+                    for (auto& l : bodyNode->leafNodes)
+                        bodyNode->childNodes.push_back(l);
+                    bodyNode->leafNodes.clear();
+                }
+                if (identifier->token->tokenStr == "stack_last") {
+                    node->codegen = &ASTNode::generateCompilerStackLastDirective;
+                    node->returnsASTNode = true;
+                    node->resolveASTNode = &ASTNode::resolveCompilerStackLastASTNode;
+                    // Leaf nodes in a #stack_last body are intentional tokens (stack name),
+                    // not parse errors - move them into childNodes so findUnusedLeafNodes
+                    // doesn't flag them, and collectTokens in generateCompilerStackLastDirective finds them.
+                    for (auto& l : bodyNode->leafNodes)
+                        bodyNode->childNodes.push_back(l);
+                    bodyNode->leafNodes.clear();
+                }
+                if (identifier->token->tokenStr == "parent") {
+                    node->returnsASTNode = true;
+                    node->resolveASTNode = &ASTNode::resolveCompilerParentASTNode;
+                }
+                if (identifier->token->tokenStr == "print_ast") {
+                    node->codegen = &ASTNode::generateCompilerPrintASTDirective;
+                    for (auto& l : bodyNode->leafNodes)
+                        bodyNode->childNodes.push_back(l);
+                    bodyNode->leafNodes.clear();
+                }
+                if (identifier->token->tokenStr == "print") {
+                    node->codegen = &ASTNode::generateCompilerPrintDirective;
+                    for (auto& l : bodyNode->leafNodes)
+                        bodyNode->childNodes.push_back(l);
+                    bodyNode->leafNodes.clear();
+                }
+                if (identifier->token->tokenStr == "printl") {
+                    node->codegen = &ASTNode::generateCompilerPrintLineDirective;
+                    for (auto& l : bodyNode->leafNodes)
+                        bodyNode->childNodes.push_back(l);
+                    bodyNode->leafNodes.clear();
+                }
+                if (identifier->token->tokenStr == "if") {
+                    node->codegen = &ASTNode::generateCompilerIfDirective;
                     for (auto& l : bodyNode->leafNodes)
                         bodyNode->childNodes.push_back(l);
                     bodyNode->leafNodes.clear();
@@ -2550,6 +2639,8 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
             case Identifier: {
                 node->nodeType = Identifier_Node;
                 node->codegen = &ASTNode::generateVariableExpression;
+                node->returnsASTNode = true;
+                node->resolveASTNode = &ASTNode::resolveCompilerDefinitionASTNode;
 
                 //// If this is identifer, and is preceded by identifier, then that one is type, and this is name
                 //if (parentNode->leafNodes.size() >= 1) {

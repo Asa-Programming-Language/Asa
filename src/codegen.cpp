@@ -24,9 +24,69 @@ bool wasError = false;   // TODO: Remove this
 uint8_t errorDepth = 0;  // TODO: Remove this
 
 //bool suppressCodegenErrors = false;
-std::map<std::string, std::string> compilerDefines;
+std::map<std::string, std::string> compilerDirectiveFlags;
+std::map<std::string, std::stack<ASTNode*>> compilerStacks;
 std::vector<std::string> linkedLibraries;
 std::vector<std::string> linkedStaticLibraries;
+
+static ASTNode* resolveASTNodeValue(ASTNode* node, int pass)
+{
+    if (!node || !node->returnsASTNode || !node->resolveASTNode)
+        return node;
+
+    ASTNode* resolvedNode = (node->*(node->resolveASTNode))(pass);
+    return resolvedNode ? resolvedNode : node;
+}
+
+static bool getConstantTruthValue(LLVMValue* value, bool& resolved)
+{
+    resolved = false;
+    if (!value)
+        return false;
+
+    Constant* constantValue = dyn_cast<Constant>(value);
+    if (!constantValue || isa<UndefValue>(constantValue))
+        return false;
+
+    resolved = true;
+    return !constantValue->isNullValue();
+}
+
+static bool evaluateCompilerDirectiveCondition(ASTNode* conditionNode, int pass, bool& resolved)
+{
+    resolved = false;
+    if (!conditionNode || !conditionNode->codegen)
+        return false;
+
+    BasicBlock* savedInsertBlock = llvmIRBuilder->GetInsertBlock();
+    BasicBlock::iterator savedInsertPoint = llvmIRBuilder->GetInsertPoint();
+    bool savedWasError = wasError;
+    uint8_t savedErrorDepth = errorDepth;
+
+    FunctionType* dummyFnType = FunctionType::get(LLVMType::getVoidTy(*llvmCompileContext), false);
+    Function* dummyFn = Function::Create(dummyFnType, Function::PrivateLinkage, "__if_condition_probe__", llvmCompileModule.get());
+    BasicBlock* tempBB = BasicBlock::Create(*llvmCompileContext, "probe", dummyFn);
+    llvmIRBuilder->SetInsertPoint(tempBB);
+
+    wasError = false;
+    LLVMValue* conditionValue = (LLVMValue*)(conditionNode->*(conditionNode->codegen))(pass);
+    bool generatedError = wasError;
+    bool conditionResult = getConstantTruthValue(conditionValue, resolved);
+
+    dummyFn->eraseFromParent();
+
+    if (savedInsertBlock)
+        llvmIRBuilder->SetInsertPoint(savedInsertBlock, savedInsertPoint);
+    else
+        llvmIRBuilder->ClearInsertionPoint();
+
+    if (generatedError)
+        return false;
+
+    wasError = savedWasError;
+    errorDepth = savedErrorDepth;
+    return conditionResult;
+}
 
 bool hasAttribute(ASTNode* node, std::string attributeName)
 {
@@ -1209,7 +1269,8 @@ void resetCodeGenerator()
     isCallMemberFunction = false;
     wasError = false;
     errorDepth = 0;
-    compilerDefines.clear();
+    compilerDirectiveFlags.clear();
+    compilerStacks.clear();
     linkedLibraries.clear();
     linkedStaticLibraries.clear();
     globalInitFn = nullptr;
@@ -1358,6 +1419,43 @@ static ASTNode* findCompilerDefinition(ASTNode* scope, const std::string& identi
         scope = scope->parentNode;
     }
     return nullptr;
+}
+
+static bool isCompileTimeDefinitionNode(ASTNode* node)
+{
+    if (!node)
+        return false;
+
+    return node->nodeType == Compiler_Define ||
+           node->nodeType == Compiler_Define_Function ||
+           node->nodeType == Compiler_Define_Cast ||
+           node->nodeType == Compiler_Define_Struct ||
+           node->nodeType == Compiler_Define_Enum;
+}
+
+static ASTNode* findCompileTimeDefinitionNode(ASTNode* scope, const std::string& identifier)
+{
+    ASTNode* compilerDefinition = findCompilerDefinition(scope, identifier);
+    if (compilerDefinition)
+        return compilerDefinition;
+
+    while (scope) {
+        for (ASTNode* child : scope->childNodes) {
+            if (child && child->token && child->token->tokenStr == identifier && isCompileTimeDefinitionNode(child))
+                return child;
+        }
+        scope = scope->parentNode;
+    }
+
+    return nullptr;
+}
+
+ASTNode* ASTNode::resolveCompilerDefinitionASTNode(int pass)
+{
+    if (!token)
+        return nullptr;
+
+    return findCompileTimeDefinitionNode(parentNode, token->tokenStr);
 }
 
 // Infer the ASA type string for a compile-time define body node (an Expression_Term).
@@ -2106,7 +2204,7 @@ void* ASTNode::generateConstant(int pass)
 
         // Return a string struct { ptr, length } unless we're inside the string
         // module itself (where raw *char is needed for bootstrapping).
-        if (compilerDefines["IN_STRING_MODULE"] != "true" &&
+        if (compilerDirectiveFlags["IN_STRING_MODULE"] != "true" &&
             structDefinitions.count("string") && structDefinitions["string"]->structVal) {
             StructType* strTy = cast<StructType>((LLVMType*)structDefinitions["string"]->structVal);
             Constant* lenConst = ConstantInt::get(LLVMType::getInt32Ty(*llvmCompileContext), (uint32_t)strValue.size());
@@ -4874,7 +4972,7 @@ void* ASTNode::generateCallExpression(int pass)
         }
         else if (identifierNode->nodeType == String_Constant_Node) {
             // String literals produce a string struct unless inside the string module
-            if (compilerDefines["IN_STRING_MODULE"] != "true" &&
+            if (compilerDirectiveFlags["IN_STRING_MODULE"] != "true" &&
                 structDefinitions.count("string") && structDefinitions["string"]->structVal)
                 typeStr = "string";
             else
@@ -6896,17 +6994,17 @@ void* ASTNode::generateNothing(int pass)
     return nullptr;
 }
 
-// #define NAME VALUE;
-// Sets a compiler-time flag in compilerDefines. Processed on every pass so
+// #setflag NAME VALUE;
+// Sets a compiler-time flag in compilerFlags. Processed on every pass so
 // that flags are correctly scoped during each codegen phase.
-void* ASTNode::generateCompilerDefine(int pass)
+void* ASTNode::generateCompilerFlagDirective(int pass)
 {
-    messageSystem::startBlock(this, "Generating `#define` directive", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
+    messageSystem::startBlock(this, "Generating `#setflag` directive", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
 
     if (childNodes.size() < 2)
-        return messageSystem::error("#define requires name and value arguments", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
+        return messageSystem::error("#setflag requires name and value arguments", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
 
-    // childNodes[0] = "define" keyword node
+    // childNodes[0] = "setflag" keyword node
     // childNodes[1] = scope body containing NAME and VALUE tokens
     // Walk the body's tree collecting leaf tokens in order
     std::vector<std::string> tokens;
@@ -6919,9 +7017,9 @@ void* ASTNode::generateCompilerDefine(int pass)
     collectTokens(childNodes[1]);
 
     if (tokens.size() >= 2)
-        compilerDefines[tokens[0]] = tokens[1];
+        compilerDirectiveFlags[tokens[0]] = tokens[1];
     else
-        return messageSystem::error("#define requires name and value arguments", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
+        return messageSystem::error("#setflag requires name and value arguments", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
 
     messageSystem::endBlock();
 
@@ -6987,6 +7085,311 @@ void* ASTNode::generateLibraryStaticDirective(int pass)
     return nullptr;
 }
 
+// #stack_push STACK_NAME AST_NODE;
+// Pushes an AST node onto a named stack.
+void* ASTNode::generateCompilerStackPushDirective(int pass)
+{
+    messageSystem::startBlock(this, "Generating `#stack_push` directive", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
+
+    if (childNodes.size() < 2)
+        return messageSystem::error("#stack_push requires stack name and AST node arguments", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
+
+    ASTNode* argNode = childNodes[1]->childNodes.empty() ? nullptr : childNodes[1]->childNodes[0];
+    if (argNode && argNode->nodeType == Comma_Node && argNode->childNodes.size() >= 2) {
+        std::string stackName = argNode->childNodes[0]->token->tokenStr;
+        if (argNode->childNodes[0]->nodeType == String_Node || argNode->childNodes[0]->nodeType == String_Constant_Node)
+            stackName = stackName.substr(1, stackName.size() - 2);
+        ASTNode* astNodeToPush = argNode->childNodes[1];
+        compilerStacks[stackName].push(astNodeToPush);
+    }
+    else {
+        return messageSystem::error("#stack_push requires stack name and AST node arguments", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
+    }
+
+    messageSystem::endBlock();
+
+    return nullptr;
+}
+
+// #stack_pop STACK_NAME;
+// Pops an AST node from a named stack.
+void* ASTNode::generateCompilerStackPopDirective(int pass)
+{
+    messageSystem::startBlock(this, "Generating `#stack_pop` directive", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
+
+    if (childNodes.size() < 2)
+        return messageSystem::error("#stack_pop requires stack name argument", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
+
+    if (childNodes[1]->childNodes.empty())
+        return messageSystem::error("#stack_pop requires stack name argument", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
+
+    ASTNode* nameNode = childNodes[1]->childNodes[0];
+    std::string stackName = nameNode->token->tokenStr;
+    if (nameNode->nodeType == String_Node || nameNode->nodeType == String_Constant_Node)
+        stackName = stackName.substr(1, stackName.size() - 2);
+    if (compilerStacks.count(stackName) && !compilerStacks[stackName].empty()) {
+        compilerStacks[stackName].pop();
+    }
+
+    messageSystem::endBlock();
+
+    return nullptr;
+}
+
+// #stack_last STACK_NAME;
+// Gets the last AST node from a named stack.
+void* ASTNode::generateCompilerStackLastDirective(int pass)
+{
+    messageSystem::startBlock(this, "Generating `#stack_last` directive", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
+
+    if (childNodes.size() < 2)
+        return messageSystem::error("#stack_last requires stack name argument", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
+
+    if (childNodes[1]->childNodes.empty())
+        return messageSystem::error("#stack_last requires stack name argument", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
+
+    ASTNode* nameNode = childNodes[1]->childNodes[0];
+    std::string stackName = nameNode->token->tokenStr;
+    if (nameNode->nodeType == String_Node || nameNode->nodeType == String_Constant_Node)
+        stackName = stackName.substr(1, stackName.size() - 2);
+    if (!compilerStacks.count(stackName) || compilerStacks[stackName].empty())
+        return messageSystem::error("#stack_last used with an empty stack", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
+
+    ASTNode* stackNode = compilerStacks[stackName].top();
+    if (!stackNode || !stackNode->codegen)
+        return messageSystem::error("#stack_last found a node without a code generator", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
+
+    LLVMValue* value = (LLVMValue*)(stackNode->*(stackNode->codegen))(pass);
+    if (stackNode->asaType) {
+        if (!asaType)
+            asaType = new ASAType(stackNode->asaType->baseLLVMType);
+        asaType->baseLLVMType = stackNode->asaType->baseLLVMType;
+        asaType->strVal = stackNode->asaType->strVal;
+    }
+
+    messageSystem::endBlock();
+    return value;
+}
+
+ASTNode* ASTNode::resolveCompilerStackLastASTNode(int pass)
+{
+    if (childNodes.size() < 2 || childNodes[1]->childNodes.empty())
+        return nullptr;
+
+    ASTNode* nameNode = childNodes[1]->childNodes[0];
+    if (nameNode && nameNode->nodeType == Comma_Node && !nameNode->childNodes.empty())
+        nameNode = nameNode->childNodes[0];
+    if (!nameNode || !nameNode->token)
+        return nullptr;
+
+    std::string stackName = nameNode->token->tokenStr;
+    if (nameNode->nodeType == String_Node || nameNode->nodeType == String_Constant_Node)
+        stackName = stackName.substr(1, stackName.size() - 2);
+
+    if (!compilerStacks.count(stackName) || compilerStacks[stackName].empty())
+        return nullptr;
+
+    return compilerStacks[stackName].top();
+}
+
+ASTNode* ASTNode::resolveCompilerParentASTNode(int pass)
+{
+    if (childNodes.size() < 2 || childNodes[1]->childNodes.empty())
+        return nullptr;
+
+    ASTNode* argNode = childNodes[1]->childNodes[0];
+    if (!argNode)
+        return nullptr;
+
+    ASTNode* resolvedNode = resolveASTNodeValue(argNode, pass);
+    if (!resolvedNode)
+        return nullptr;
+
+    return resolvedNode->parentNode;
+}
+
+// #print_ast AST_NODE;
+// Prints an AST node during compilation.
+void* ASTNode::generateCompilerPrintASTDirective(int pass)
+{
+    if (pass != 2)
+        return nullptr;
+
+    messageSystem::startBlock(this, "Generating `#print_ast` directive", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
+
+    if (childNodes.size() < 2 || childNodes[1]->childNodes.empty())
+        return messageSystem::error("#print_ast requires an AST node argument", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
+
+    ASTNode* argNode = childNodes[1]->childNodes[0];
+    if (!argNode)
+        return messageSystem::error("#print_ast requires an AST node argument", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
+
+    ASTNode* nodeToPrint = resolveASTNodeValue(argNode, pass);
+    if (!nodeToPrint)
+        return messageSystem::error("#print_ast argument did not resolve to an AST node", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
+
+    printAST(nodeToPrint);
+
+    messageSystem::endBlock();
+    return nullptr;
+}
+
+static void* generateCompilerStringPrintDirective(ASTNode* directiveNode, int pass, bool appendNewline)
+{
+    if (pass != 2)
+        return nullptr;
+
+    const std::string directiveName = appendNewline ? "#printl" : "#print";
+    messageSystem::startBlock(directiveNode, "Generating `" + directiveName + "` directive", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
+
+    if (directiveNode->childNodes.size() < 2 || directiveNode->childNodes[1]->childNodes.empty())
+        return messageSystem::error(directiveName + " requires a string argument", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
+
+    ASTNode* messageNode = directiveNode->childNodes[1]->childNodes[0];
+    if (!messageNode || !messageNode->token ||
+        (messageNode->nodeType != String_Node && messageNode->nodeType != String_Constant_Node))
+        return messageSystem::error(directiveName + " argument must be a string literal", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
+
+    std::string rawMessage = messageNode->token->tokenStr;
+    std::string message = rawMessage;
+    if (rawMessage.size() >= 2 && rawMessage.front() == '"' && rawMessage.back() == '"')
+        message = unescapeString(rawMessage.substr(1, rawMessage.size() - 2), messageNode->token);
+
+    if (appendNewline)
+        console::writeLine(message);
+    else
+        console::write(message);
+
+    messageSystem::endBlock();
+    return nullptr;
+}
+
+// #print MESSAGE;
+// Prints a string during compilation.
+void* ASTNode::generateCompilerPrintDirective(int pass)
+{
+    return generateCompilerStringPrintDirective(this, pass, false);
+}
+
+// #printl MESSAGE;
+// Prints a string and newline during compilation.
+void* ASTNode::generateCompilerPrintLineDirective(int pass)
+{
+    return generateCompilerStringPrintDirective(this, pass, true);
+}
+
+// #if CONDITION AST_NODE;
+// Compiles AST_NODE only when CONDITION evaluates to a compile-time true value.
+void* ASTNode::generateCompilerIfDirective(int pass)
+{
+    messageSystem::startBlock(this, "Generating `#if` directive", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
+
+    if (childNodes.size() < 2 || childNodes[1]->childNodes.empty())
+        return messageSystem::error("#if requires condition and AST node arguments", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
+
+    ASTNode* argNode = childNodes[1]->childNodes[0];
+    if (!argNode || argNode->nodeType != Comma_Node || argNode->childNodes.size() < 2)
+        return messageSystem::error("#if requires condition and AST node arguments", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
+
+    ASTNode* conditionNode = argNode->childNodes[0];
+    ASTNode* includedNode = argNode->childNodes[1];
+
+    bool resolved = false;
+    bool conditionValue = evaluateCompilerDirectiveCondition(conditionNode, pass, resolved);
+    if (wasError)
+        return nullptr;
+    if (!resolved)
+        return messageSystem::error("#if condition must evaluate to a compile-time constant", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
+
+    if (!conditionValue) {
+        messageSystem::endBlock();
+        return nullptr;
+    }
+
+    includedNode = resolveASTNodeValue(includedNode, pass);
+    if (!includedNode || !includedNode->codegen)
+        return messageSystem::error("#if AST node argument does not have a code generator", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
+
+    void* result = (includedNode->*(includedNode->codegen))(pass);
+    if (wasError)
+        return nullptr;
+
+    messageSystem::endBlock();
+    return result;
+}
+
+// #error MESSAGE AST_NODE;
+// Generates a custom error with the given message and AST node as context.
+void* ASTNode::generateCompilerErrorDirective(int pass)
+{
+    messageSystem::startBlock(this, "Generating `#error` directive", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
+
+    if (childNodes.size() < 2 || childNodes[1]->childNodes.empty()) {
+        return messageSystem::error("#error requires message and AST node arguments", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
+    }
+
+    ASTNode* argNode = childNodes[1]->childNodes[0];
+    if (!argNode || argNode->nodeType != Comma_Node || argNode->childNodes.size() < 2) {
+        return messageSystem::error("#error requires message and AST node arguments", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
+    }
+
+    // Execute the error
+    ASTNode* messageNode = argNode->childNodes[0];
+    ASTNode* contextNode = argNode->childNodes[1];
+    if (!messageNode || !messageNode->token ||
+        (messageNode->nodeType != String_Node && messageNode->nodeType != String_Constant_Node)) {
+        return messageSystem::error("#error message must be a string literal", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
+    }
+
+    std::string rawMessage = messageNode->token->tokenStr;
+    std::string message = rawMessage;
+    if (rawMessage.size() >= 2 && rawMessage.front() == '"' && rawMessage.back() == '"')
+        message = unescapeString(rawMessage.substr(1, rawMessage.size() - 2), messageNode->token);
+
+    messageSystem::endBlock();
+
+    // Execute the custom error:
+    contextNode = resolveASTNodeValue(contextNode, pass);
+    messageSystem::startBlock(contextNode ? contextNode : this, "#error directive", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
+    return messageSystem::error(message, messageSystem::Custom_Directive_Error);
+}
+
+// #warning MESSAGE AST_NODE;
+// Generates a custom warning with the given message and AST node as context.
+void* ASTNode::generateCompilerWarningDirective(int pass)
+{
+    messageSystem::startBlock(this, "Generating `#warning` directive", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
+
+    if (childNodes.size() < 2 || childNodes[1]->childNodes.empty()) {
+        return messageSystem::error("#warning requires message and AST node arguments", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
+    }
+
+    ASTNode* argNode = childNodes[1]->childNodes[0];
+    if (!argNode || argNode->nodeType != Comma_Node || argNode->childNodes.size() < 2) {
+        return messageSystem::error("#warning requires message and AST node arguments", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
+    }
+
+    ASTNode* messageNode = argNode->childNodes[0];
+    ASTNode* contextNode = argNode->childNodes[1];
+    if (!messageNode || !messageNode->token ||
+        (messageNode->nodeType != String_Node && messageNode->nodeType != String_Constant_Node)) {
+        return messageSystem::error("#warning message must be a string literal", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
+    }
+
+    std::string rawMessage = messageNode->token->tokenStr;
+    std::string message = rawMessage;
+    if (rawMessage.size() >= 2 && rawMessage.front() == '"' && rawMessage.back() == '"')
+        message = unescapeString(rawMessage.substr(1, rawMessage.size() - 2), messageNode->token);
+
+    messageSystem::endBlock();
+
+    // Execute the custom warning:
+    contextNode = resolveASTNodeValue(contextNode, pass);
+    messageSystem::startBlock(contextNode ? contextNode : this, "#warning directive", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
+    messageSystem::warning(message, messageSystem::Custom_Directive_Warning);
+    return nullptr;
+}
+
 // Returns a string value (struct or *char fallback) for a compile-time string constant,
 // using the same global cache and struct-building logic as String_Constant_Node.
 static LLVMValue* makeStringConstant(const std::string& str)
@@ -7014,7 +7417,7 @@ static LLVMValue* makeStringConstant(const std::string& str)
     Constant* strPtr = ConstantExpr::getGetElementPtr(globalStr->getValueType(), globalStr, indices);
 
     // Return a string struct when the string type is defined (matches String_Constant_Node behavior)
-    if (compilerDefines["IN_STRING_MODULE"] != "true" &&
+    if (compilerDirectiveFlags["IN_STRING_MODULE"] != "true" &&
         structDefinitions.count("string") && structDefinitions["string"]->structVal) {
         StructType* strTy = cast<StructType>((LLVMType*)structDefinitions["string"]->structVal);
         Constant* lenConst = ConstantInt::get(LLVMType::getInt32Ty(*llvmCompileContext), (uint32_t)str.size());
@@ -7176,6 +7579,8 @@ void* ASTNode::generateCompilesDirective(int pass)
     BasicBlock::iterator savedInsertPoint = llvmIRBuilder->GetInsertPoint();
     bool savedWasError = wasError;
     uint8_t savedErrorDepth = errorDepth;
+    bool savedSuppressErrors = messageSystem::suppressErrors;
+    messageSystem::MessageBlockNode* savedMessageNode = messageSystem::currentNode;
 
     // Create a temporary function and BasicBlock for speculative codegen
     FunctionType* dummyFnType = FunctionType::get(LLVMType::getVoidTy(*llvmCompileContext), false);
@@ -7188,7 +7593,11 @@ void* ASTNode::generateCompilesDirective(int pass)
     messageSystem::suppressErrors = true;
     if (argNode->codegen)
         (argNode->*(argNode->codegen))(pass);
-    messageSystem::suppressErrors = false;
+    else
+        wasError = true;
+    while (messageSystem::currentNode && messageSystem::currentNode != savedMessageNode)
+        messageSystem::endBlock();
+    messageSystem::suppressErrors = savedSuppressErrors;
 
     bool compiled = !wasError;
     wasError = savedWasError;

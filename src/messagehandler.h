@@ -78,6 +78,7 @@ namespace messageSystem {
         // Type errors:
         Unsupported_Cast_Error,
         // User defined errors:
+        Custom_Directive_Error,
         Removed_Attribute_Error,
     };
     enum WarningMessageType {
@@ -85,6 +86,7 @@ namespace messageSystem {
         Default_Warning = 1,
 
         // User defined warnings:
+        Custom_Directive_Warning,
         Deprecated_Attribute_Warning,
     };
 
