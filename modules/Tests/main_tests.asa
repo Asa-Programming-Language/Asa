@@ -2,22 +2,23 @@
 #use Builtin.*;
 
 #use Tests.Testing;
+#use Tests.SyntaxTests;
 #use Tests.ArithmeticTests;
 #use Tests.ComparisonTests;
+#use Tests.BooleanTests;
 #use Tests.ControlFlowTests;
+#use Tests.IfChainTests;
 #use Tests.StringTests;
 #use Tests.ReferenceTests;
+#use Tests.PrintTests;
 #use Tests.ModuleTests;
 #use Tests.DirectiveTests;
 #use Tests.AttributeTests;
 #use Tests.FileTests;
 #use Tests.ExternTests;
 #use Tests.DefaultParamTests;
-#use Tests.PrintTests;
 #use Tests.VariadicTests;
-#use Tests.BooleanTests;
 #use Tests.MathTests;
-#use Tests.SyntaxTests;
 #use Tests.AccessTests;
 #use Tests.BitcastTests;
 #use Tests.CastTests;
@@ -35,25 +36,29 @@
 #use Tests.EnumTests;
 #use Tests.VariantTests;
 #use Tests.ArrayTests;
+#use Tests.BitwiseTests;
+#use Tests.LoopEdgeCaseTests;
+#use Tests.IntegerBehaviorTests;
 
 @public:
 main :: () {
+    runSyntaxTests();
     runArithmeticTests();
     runComparisonTests();
+    runBooleanTests();
     runControlFlowTests();
+    runIfChainTests();
     runStringTests();
     runReferenceTests();
+    runPrintTests();
     runModuleTests();
     runDirectiveTests();
     runAttributeTests();
     runFileTests();
     runExternTests();
     runDefaultParamTests();
-    runPrintTests();
     runVariadicTests();
-    runBooleanTests();
     runMathTests();
-    runSyntaxTests();
     runAccessTests();
     runBitcastTests();
     runCastTests();
@@ -71,6 +76,9 @@ main :: () {
     runEnumTests();
     runVariantTests();
     runArrayTests();
+    runBitwiseTests();
+    runLoopEdgeCaseTests();
+    runIntegerBehaviorTests();
     printSummary();
     return;
 }

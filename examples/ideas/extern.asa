@@ -1,0 +1,43 @@
+
+// Currently you can declare an external function like:
+#extern SomeLibraryFunction :: (x : int, y : int);
+
+// You can also make it so the usage name is different:
+#extern libFn as SomeLibraryFunction :: (x : int, y : int);
+// Used like:
+libFn(1, 2); // And the symbol `SomeLibraryFunction` is not defined
+
+// This is alright, but you also need to link to the library explicitly like:
+#library "somelibrary";
+// Then you can do the import
+#extern libFn as SomeLibraryFunction :: (x : int, y : int);
+
+// Maybe you should have to attach the library name to the prototype?
+#extern SomeLibraryFunction :: (x : int, y : int) #from("somelibrary");
+// Then if you use many libraries, it becomes more clear where it originates from,
+// and if the linker fails, it can know why, and give a more detailed error message.
+
+// Or as an attribute:
+@fromlibrary("somelibrary"):
+#extern SomeLibraryFunction :: (x : int, y : int);
+
+// Also, sometimes you need to write your own wrapper around a library's function.
+// Maybe it uses a type that you dont want to handle or something, like in this example char* from C
+// You could do something like:
+#extern _someLibraryFunction as SomeLibraryFunction :: (c : *char);
+myWrapper :: (s : string){
+    _someLibraryFunction(s.address);
+}
+// (obviously this wrapper doesnt do anything due to auto casting for string and
+// char, but this is a general example)
+
+// Maybe, instead of polluting the namespace, we could make syntax for it?
+// Like:
+#extern myWrapper(s : string){ SomeLibraryFunction(s.address) } as SomeLibraryFunction :: (c : *char);
+// That is pretty confusing honestly. Maybe like this instead:
+#extern SomeLibraryFunction :: (c : *char) from myWrapper(s : string){ SomeLibraryFunction(s.address) };
+// And formatting better?:
+#extern SomeLibraryFunction :: (c : *char) from 
+    myWrapper(s : string){ 
+        SomeLibraryFunction(s.address) 
+    };

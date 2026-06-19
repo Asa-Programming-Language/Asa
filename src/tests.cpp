@@ -285,6 +285,27 @@ std::vector<Test> errorTests = {
         }
     )"),
 
+    Test("Undefined function with exact candidates",
+        R"(
+        foo :: (x : exact float){
+
+        }
+
+        main :: (){
+            foo(4);
+        }
+    )"),
+
+    Test("Unsupported cast",
+        R"(
+        s :: struct {}
+
+        main :: (){
+            x : s = s();
+            x = 4.5;
+        }
+    )"),
+
     Test("Undefined variable",
         R"(
         main :: (){
@@ -309,10 +330,24 @@ std::vector<Test> errorTests = {
         }
     )"),
 
+    Test("Redefined function, all same line",
+        R"(
+        someFunc :: (){} someFunc :: (){}
+    )"),
+
     Test("Redefined variable",
         R"(
         someVar : int = 5;
         someVar : int = 5;
+    )"),
+
+    Test("Runtime assignment to compiler constant",
+        R"(
+        SOME_VAL :: 5;
+
+        main :: (){
+            SOME_VAL = 1;
+        }
     )"),
 
     Test("Invalid compiler directive arguments",
@@ -341,6 +376,32 @@ std::vector<Test> errorTests = {
             x : int = 9;
             someVar = void;
             x += someVar;
+        }
+    )"),
+
+    Test("Incompatible attributes used together",
+        R"(
+        @external:
+        @internal:
+        main :: (){
+            // ...
+        }
+    )"),
+
+    Test("Incompatible attributes used together, same line",
+        R"(
+        @external: @internal:
+        main :: (){
+            // ...
+        }
+    )"),
+
+    Test("Duplicate attributes",
+        R"(
+        @public:
+        @public:
+        main :: (){
+            // ...
         }
     )"),
 
@@ -414,6 +475,33 @@ std::vector<Test> errorTests = {
         }
     )"),
 
+    Test("Removed function usage with message, very long distance between",
+        R"(
+        @removed("Use `bar()` instead"):
+        foo :: (){
+
+        }
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        main :: (){
+            foo();
+        }
+    )"),
+
     Test("Member variable used without `this` qualifier",
         R"(
         bar :: struct{
@@ -433,6 +521,11 @@ std::vector<Test> errorTests = {
         }
     )"),
 
+    Test("Context info invalid location",
+        R"(
+        #funcname;
+    )"),
+
     ///////////////
     // Warnings: //
     ///////////////
@@ -443,6 +536,7 @@ std::vector<Test> errorTests = {
         foo :: (){
 
         }
+
         main :: (){
             foo();
         }
@@ -454,6 +548,7 @@ std::vector<Test> errorTests = {
         foo :: (){
 
         }
+
         main :: (){
             foo();
         }
@@ -501,10 +596,12 @@ void runTests()
 
             Test& t = tests[i];
             std::vector<asaToken*> localTokens = std::vector<asaToken*>();
+            std::vector<std::string*> localLines;
+            std::vector<std::string*> localFileNames;
 
             // Begin tokenizing file
             std::string fileName = "";
-            int e = tokenize(t.code, localTokens, fileName);
+            int e = tokenize(t.code, localTokens, fileName, localLines, localFileNames);
             if (e != 0) {
                 console::printError("Invalid tokens met", __LINE__, __FILE__);
                 goto testFailed;
@@ -520,7 +617,6 @@ void runTests()
                 console::printError("Invalid tokens met", __LINE__, __FILE__);
                 goto testFailed;
             }
-            e = joinDotAtTokens(localTokens);
 
             // Make allTokens reflect the current test's tokens so collectSourceLines works
             allTokens = localTokens;
@@ -568,6 +664,9 @@ void runTests()
             resolveAttributeAccess(localRoot);
             // Check for incompatible attribute combinations
             checkAttributeCompatibility(localRoot);
+
+            if (wasError)
+                goto fail;
 
             // Do the check this test is for:
             switch (t.testType) {
@@ -624,13 +723,15 @@ void runErrorTests()
         try {
             Test& t = errorTests[i];
             std::vector<asaToken*> localTokens = std::vector<asaToken*>();
+            std::vector<std::string*> localLines;
+            std::vector<std::string*> localFileNames;
 
             console::writeLine("\n\n======================== [" + t.name + "] ======================\n\n");
 
             // Begin tokenizing file
             std::string fileName = "/example/fake/directory/main.asa";
             projectDirectory = "/example/fake/directory/";
-            int e = tokenize(t.code, localTokens, fileName);
+            int e = tokenize(t.code, localTokens, fileName, localLines, localFileNames);
             if (e != 0) {
                 console::printError("Invalid tokens met", __LINE__, __FILE__);
             }
@@ -643,7 +744,6 @@ void runErrorTests()
             if (e != 0) {
                 console::printError("Invalid tokens met", __LINE__, __FILE__);
             }
-            e = joinDotAtTokens(localTokens);
 
             // Make allTokens reflect the current test's tokens so collectSourceLines works
             allTokens = localTokens;
@@ -666,6 +766,32 @@ void runErrorTests()
             if (wasError || !localRoot)
                 goto wasError;
 
+            // Insert `#use Builtin.Casts;` at beginning of AST
+            rootNode->childNodes.insert(rootNode->childNodes.begin(),
+                A(Compile_Time_Directive,
+                    {
+                        A(Identifier_Node, {}, new asaToken("#use", Identifier)),
+                        A(Scope_Body,
+                            {A(Member_Access,
+                                {
+                                    A(Identifier_Node, {}, new asaToken("Builtin", Identifier)),
+                                    A(Identifier_Node, {}, new asaToken("Casts", Identifier)),
+                                },
+                                new asaToken(".", Dot))}),
+                    }));
+            // Insert `#use Builtin.String;` at beginning of AST
+            rootNode->childNodes.insert(rootNode->childNodes.begin(),
+                A(Compile_Time_Directive,
+                    {
+                        A(Identifier_Node, {}, new asaToken("#use", Identifier)),
+                        A(Scope_Body,
+                            {A(Member_Access,
+                                {
+                                    A(Identifier_Node, {}, new asaToken("Builtin", Identifier)),
+                                    A(Identifier_Node, {}, new asaToken("String", Identifier)),
+                                },
+                                new asaToken(".", Dot))}),
+                    }));
             // Handle importing nodes from other sources
             for (;;) {
                 bool noImports = true;
@@ -704,6 +830,9 @@ void runErrorTests()
             resolveAttributeAccess(localRoot);
             // Check for incompatible attribute combinations
             checkAttributeCompatibility(localRoot);
+
+            if (wasError)
+                goto wasError;
 
             // Find any unused leaf nodes, and throw error if there are any
             findUnusedLeafNodes(localRoot);

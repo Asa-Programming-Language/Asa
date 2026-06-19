@@ -32,6 +32,7 @@ foo :: [int, string](x : bool){
         return 2;
 }
 
+
 // Then what is this? And how would you access the values of it?
 res : int, string = foo(true);
 

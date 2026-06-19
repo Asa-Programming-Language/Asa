@@ -49,6 +49,7 @@ const std::vector<std::pair<const std::string, const std::string>> tokenEscapeCa
     {"+-", "+-"},
     {".", "."},
     {"-", ">"},
+    {"<>", "<>"},
     {".", "@"},
     {"/", "/*"},
     {"*", "*/"},
@@ -115,10 +116,12 @@ std::map<const std::string, const TokenType> subTokenTypes = {
     {"|||", Bar_Bar_Bar},
     {"&", Ampersand},
     {"&&", Ampersand_Ampersand},
+    {"&=", Ampersand_Equal},
     {"~", Tilde},
     {"~~", Tilde_Tilde},
     {"^", Caret},
     {"^^", Caret_Caret},
+    {"^=", Caret_Equal},
     {"%", Percent},
     {"%%", Percent_Percent},
     {"@", At},
@@ -127,6 +130,11 @@ std::map<const std::string, const TokenType> subTokenTypes = {
     {"$", Dollar},
     {"->", Arrow_Right},
     {"<-", Arrow_Left},
+    {"<<", Shift_Left},
+    {">>", Shift_Right},
+    {"<<=", Shift_Left_Equal},
+    {">>=", Shift_Right_Equal},
+    {"|=", Bar_Equal},
 
     // Keywords
     {"if", If_Statement},
@@ -170,7 +178,7 @@ const std::string tokenAsString(TokenType t)
 
 TokenType currentToken = Nothing;
 std::string tokenContent = "";
-int tokenize(std::string& rawFile, std::vector<asaToken*>& tokens, std::string& fileName)
+int tokenize(std::string& rawFile, std::vector<asaToken*>& tokens, std::string& fileName, std::vector<std::string*>& outLines, std::vector<std::string*>& outFileNames)
 {
     // First remove carriage returns if they exist
     std::string output = "";
@@ -181,8 +189,8 @@ int tokenize(std::string& rawFile, std::vector<asaToken*>& tokens, std::string& 
     }
     rawFile = output;
 
-    lines.push_back(new std::string(""));
-    fileNames.push_back(new std::string(fileName));
+    outLines.push_back(new std::string(""));
+    outFileNames.push_back(new std::string(fileName));
 
     // Then start making tokens
     int lineNumber = 0;
@@ -230,7 +238,7 @@ int tokenize(std::string& rawFile, std::vector<asaToken*>& tokens, std::string& 
             if (inLineComment) {
                 if (c == '\n') {
                     inLineComment = false;
-                    tokens.push_back(new asaToken(commentContent, Comment, commentStartLine, startIndexInLine, lineValue, fileNames.back(), lineIndent));
+                    tokens.push_back(new asaToken(commentContent, Comment, commentStartLine, startIndexInLine, lineValue, outFileNames.back(), lineIndent));
                     commentContent = "";
                 }
                 else {
@@ -247,7 +255,7 @@ int tokenize(std::string& rawFile, std::vector<asaToken*>& tokens, std::string& 
                     inBlockComment = false;
                     commentContent += "*/";
                     i++;  // consume the '/'
-                    tokens.push_back(new asaToken(commentContent, Comment, commentStartLine, startIndexInLine, lineValue, fileNames.back(), lineIndent));
+                    tokens.push_back(new asaToken(commentContent, Comment, commentStartLine, startIndexInLine, lineValue, outFileNames.back(), lineIndent));
                     commentContent = "";
                     continue;
                 }
@@ -328,7 +336,7 @@ int tokenize(std::string& rawFile, std::vector<asaToken*>& tokens, std::string& 
                             *lineValue = (*lineValue).substr(0, (*lineValue).size() - 1);
                             while (!lineValue->empty() && lineValue->back() == ' ')
                                 lineValue->pop_back();
-                            lines.push_back(lineValue);
+                            outLines.push_back(lineValue);
                             lineValue = new std::string("");
                             indexInLine = 0;
                             lineIndent = 0;
@@ -347,7 +355,7 @@ int tokenize(std::string& rawFile, std::vector<asaToken*>& tokens, std::string& 
 
 
                         // Add tokenContent as element to tokens, and clear it
-                        tokens.push_back(new asaToken(tokenContent, currentToken, lineNumber, startIndexInLine, lineValue, fileNames.back(), lineIndent));
+                        tokens.push_back(new asaToken(tokenContent, currentToken, lineNumber, startIndexInLine, lineValue, outFileNames.back(), lineIndent));
                         tokenContent = "";
 
                         currentToken = Nothing;
@@ -371,7 +379,7 @@ int tokenize(std::string& rawFile, std::vector<asaToken*>& tokens, std::string& 
                 // tokens get correct line numbers for debug info.
                 if (c == '\n' && (currentToken == String || currentToken == Character)) {
                     lineNumber++;
-                    lines.push_back(lineValue);
+                    outLines.push_back(lineValue);
                     lineValue = new std::string("");
                     indexInLine = 0;
                     lineIndent = 0;
@@ -472,18 +480,6 @@ int joinCommentTokens(std::vector<asaToken*>& tokens)
             i = startIndex;
         }
     }
-    return 0;
-}
-
-int joinDotAtTokens(std::vector<asaToken*>& tokens)
-{
-    //for (int i = 0; i < (int)tokens.size() - 1; i++) {
-    //    if (tokens[i]->tokenType == Dot && tokens[i + 1]->tokenType == At) {
-    //        tokens[i]->tokenType = Dot_At;
-    //        tokens[i]->tokenStr = ".@";
-    //        tokens.erase(tokens.begin() + i + 1);
-    //    }
-    //}
     return 0;
 }
 

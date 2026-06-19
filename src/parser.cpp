@@ -18,6 +18,11 @@ static bool isLineContinuation(TokenType lastTok, TokenType nextTok)
         case Minus_Equal:
         case Times_Equal:
         case Slash_Equal:
+        case Ampersand_Equal:
+        case Bar_Equal:
+        case Caret_Equal:
+        case Shift_Left_Equal:
+        case Shift_Right_Equal:
         case Less:
         case Greater:
         case Less_Equal:
@@ -29,6 +34,8 @@ static bool isLineContinuation(TokenType lastTok, TokenType nextTok)
         case Ampersand:
         case Bar:
         case Caret:
+        case Shift_Left:
+        case Shift_Right:
         case Comma:
         case Colon:
         case Colon_Colon:
@@ -57,6 +64,8 @@ static bool isLineContinuation(TokenType lastTok, TokenType nextTok)
         case Ampersand:
         case Bar:
         case Caret:
+        case Shift_Left:
+        case Shift_Right:
         case Dot:
         case Dot_Dot:
             return true;
@@ -139,13 +148,15 @@ bool GATHER_SCOPE_BODY(const std::vector<asaToken*>& tokens, std::vector<asaToke
 void GATHER_PAREN_EXPRESSION(const std::vector<asaToken*>& tokens, std::vector<asaToken*>& subTokens, int pLevel, int& i, bool preserveBraces = false)
 {
     int parenLevel = pLevel;
+    int braceDepth = 0;
     if (pLevel == 1)
         i--;
     asaToken* firstToken = NEXT_TOKEN(tokens, i);
     if (pLevel != 1)
         i--;
     for (;;) {
-        if (i >= tokens.size() - 1 || tokens[i]->tokenType == EndOfFile || tokens[i]->tokenType == Semi_Colon) {
+        if (i >= tokens.size() - 1 || tokens[i]->tokenType == EndOfFile ||
+            (tokens[i]->tokenType == Semi_Colon && braceDepth == 0)) {
             printTokenError(tokenRange {firstToken, firstToken}, "Unmatched parenthesis");
             exit(1);
             break;
@@ -165,8 +176,13 @@ void GATHER_PAREN_EXPRESSION(const std::vector<asaToken*>& tokens, std::vector<a
             if (parenLevel != 0 || preserveBraces)
                 subTokens.push_back(t);
         }
-        else
+        else {
+            if (t->tokenType == Left_Brace)
+                braceDepth++;
+            else if (t->tokenType == Right_Brace)
+                braceDepth--;
             subTokens.push_back(t);
+        }
 
         if (parenLevel <= 0)
             break;
@@ -724,6 +740,9 @@ std::map<TokenType, ASTNodeType> operatorDefaultNodeType = {
     {Ampersand, Bitwise_And},
     {Bar, Bitwise_Or},
     {Caret, Bitwise_Xor},
+    {Tilde, Bitwise_Not},
+    {Shift_Left, Bitwise_Shift_Left},
+    {Shift_Right, Bitwise_Shift_Right},
     {Ref, Reference_Operation},
     {Const, Const_Keyword},
     {Exact, Exact_Type_Node},
@@ -753,15 +772,17 @@ std::map<ASTNodeType, int> operatorPrecedence = {
     {Expression_Modulo, 40},        // %
     {Expression_Plus, 30},          // +
     {Expression_Minus, 30},         // -
+    {Bitwise_Shift_Left, 25},       // <<
+    {Bitwise_Shift_Right, 25},      // >>
+    {Bitwise_And, 24},              // &
+    {Bitwise_Xor, 23},              // ^
+    {Bitwise_Or, 22},               // |
     {Compare_Equal, 20},            // ==
     {Compare_Not, 20},              // !=
     {Compare_Less, 20},             // <
     {Compare_LessEqual, 20},        // <=
     {Compare_Greater, 20},          // >
     {Compare_GreaterEqual, 20},     // >=
-    {Bitwise_And, 19},              // &
-    {Bitwise_Or, 19},               // |
-    {Bitwise_Xor, 19},              // ^
     {Logical_And, 18},              // &&
     {Logical_Or, 16},               // ||
     {Range_Node, 15},               // ..
@@ -872,7 +893,7 @@ static ASTNode* parseType(const std::vector<asaToken*>& tokens, int depth)
     else {
         node->nodeType = Identifier_Node;
         node->codegen = &ASTNode::generateVariableExpression;
-        // Handle variant type application: e.g. array<int> → token "array.int"
+        // Handle variant type application: e.g. array<int> -> token "array.int"
         if (tokens.size() > 1 && tokens[1]->tokenType == Less) {
             std::string mangled = tok->tokenStr;
             int angleDepth = 0;
@@ -1049,7 +1070,7 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
                 conditionNode = generateAST(subTokens, depth + 1);
                 messageSystem::startBlock(conditionNode, "Parsing if condition", __func__, __LINE__, __FILE__, messageSystem::Parser_Block);
                 if (conditionNode->childNodes[0]->nodeType != Expression_Paren_Term)
-                    messageSystem::error("Expected condition surrounded by parens. (Got " + ASTNodeTypeAsString(conditionNode->childNodes[0]->nodeType) + ")");
+                    messageSystem::error("Expected condition surrounded by parens. (Got " + ASTNodeTypeAsString(conditionNode->childNodes[0]->nodeType) + ")", messageSystem::Syntax_Error);
 
                 conditionNode->nodeType = Condition;
                 messageSystem::endBlock();
@@ -1082,18 +1103,9 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
                             subTokens.push_back(nextToken2);  // add `if`
                             GATHER_PAREN_EXPRESSION(tokens, subTokens, 0, i, true);
 
-                            // Check if the next token is a left curly brace, and if not handle single line
-                            asaToken* firstNextToken = getNextNonNothingToken(tokens, i);
-                            i--;
-                            if (firstNextToken->tokenType == Left_Brace)
-                                // Step through all tokens to gather body until braces are closed
-                                GATHER_SCOPE_BODY(tokens, subTokens, 0, i, true, true);
-                            else {
-                                // Otherwise just get the next line until semicolon
-                                GATHER_TO_SEMICOLON_MULTI_LINE(tokens, subTokens, i, true, false);
-                                subTokens.insert(subTokens.begin(), new asaToken("{", Left_Brace));
-                                subTokens.push_back(new asaToken("}", Right_Brace));
-                            }
+                            std::vector<asaToken*> bodyTokens;
+                            gatherOptionalBraceBody(tokens, bodyTokens, i);
+                            subTokens.insert(subTokens.end(), bodyTokens.begin(), bodyTokens.end());
 
                             ASTNode* elseNode = generateAST(subTokens, depth + 1)->childNodes[0];
                             prevNode->childNodes[2] = elseNode;
@@ -1126,7 +1138,7 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
                 messageSystem::startBlock(node, "Parsing else/else-if", __func__, __LINE__, __FILE__, messageSystem::Parser_Block);
                 defer(messageSystem::endBlock());
 
-                messageSystem::error("'else' statement must be preceded by at least one 'if' statement");
+                messageSystem::error("'else' statement must be preceded by at least one 'if' statement", messageSystem::Syntax_Error);
 
                 exit(1);
                 goto dontAddNodeForce;
@@ -1149,7 +1161,7 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
                 conditionNode = generateAST(subTokens, depth + 1);
                 messageSystem::startBlock(conditionNode, "Parsing while condition", __func__, __LINE__, __FILE__, messageSystem::Parser_Block);
                 if (conditionNode->childNodes[0]->nodeType != Expression_Paren_Term)
-                    messageSystem::error("Expected condition surrounded by parens. (Got " + ASTNodeTypeAsString(conditionNode->childNodes[0]->nodeType) + ")");
+                    messageSystem::error("Expected condition surrounded by parens. (Got " + ASTNodeTypeAsString(conditionNode->childNodes[0]->nodeType) + ")", messageSystem::Syntax_Error);
                 conditionNode->nodeType = Condition;
                 messageSystem::endBlock();
 
@@ -1396,6 +1408,8 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
             case Tilde:
             case Tilde_Tilde:
             case Caret:
+            case Shift_Left:
+            case Shift_Right:
             case Caret_Caret:
             case Percent:
             case Percent_Percent:
@@ -1435,7 +1449,7 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
                         goto addNode;
                     }
                     else {
-                        messageSystem::error("Expected ':' or ';' after attribute name");
+                        messageSystem::error("Expected ':' or ';' after attribute name", messageSystem::Syntax_Error);
                         wasError = true;
                         return nullptr;
                     }
@@ -1509,7 +1523,10 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
                             break;
                         if (parenLevel == 1 && braceLevel == 1 && bracketLevel == 1 &&
                             (t->tokenType == Equal || t->tokenType == Plus_Equal || t->tokenType == Minus_Equal ||
-                                t->tokenType == Times_Equal || t->tokenType == Slash_Equal)) {
+                                t->tokenType == Times_Equal || t->tokenType == Slash_Equal ||
+                                t->tokenType == Ampersand_Equal || t->tokenType == Bar_Equal ||
+                                t->tokenType == Caret_Equal || t->tokenType == Shift_Left_Equal ||
+                                t->tokenType == Shift_Right_Equal)) {
                             i--;
                             break;
                         }
@@ -1527,6 +1544,7 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
                                 t->tokenType == Less_Equal || t->tokenType == Greater_Equal ||
                                 t->tokenType == Ampersand_Ampersand || t->tokenType == Bar_Bar ||
                                 t->tokenType == Ampersand || t->tokenType == Bar || t->tokenType == Caret ||
+                                t->tokenType == Shift_Left || t->tokenType == Shift_Right ||
                                 t->tokenType == Comma || t->tokenType == Dot_Dot || t->tokenType == Arrow_Right)) {
                             i--;
                             break;
@@ -1691,6 +1709,7 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
                                 t->tokenType == Less_Equal || t->tokenType == Greater_Equal ||
                                 t->tokenType == Ampersand_Ampersand || t->tokenType == Bar_Bar ||
                                 t->tokenType == Ampersand || t->tokenType == Bar || t->tokenType == Caret ||
+                                t->tokenType == Shift_Left || t->tokenType == Shift_Right ||
                                 t->tokenType == Comma || t->tokenType == Dot_Dot || t->tokenType == Arrow_Right)) {
                             i--;
                             break;
@@ -1721,7 +1740,12 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
             case Plus_Equal:
             case Minus_Equal:
             case Times_Equal:
-            case Slash_Equal: {
+            case Slash_Equal:
+            case Ampersand_Equal:
+            case Bar_Equal:
+            case Caret_Equal:
+            case Shift_Left_Equal:
+            case Shift_Right_Equal: {
                 node->nodeType = Expression_Statement;
                 node->codegen = &ASTNode::generateExpressionStatement;
 
@@ -1809,6 +1833,31 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
                         node->codegen = &ASTNode::generateCast;
                     else if (identifier->token->tokenStr == "bitcast")
                         node->codegen = &ASTNode::generateBitcast;
+                    else if (identifier->token->tokenStr == "stack_push")
+                        node->codegen = &ASTNode::generateCompilerStackPushDirective;
+                    else if (identifier->token->tokenStr == "stack_pop")
+                        node->codegen = &ASTNode::generateCompilerStackPopDirective;
+                    else if (identifier->token->tokenStr == "stack_last") {
+                        node->codegen = &ASTNode::generateCompilerStackLastDirective;
+                        node->returnsASTNode = true;
+                        node->resolveASTNode = &ASTNode::resolveCompilerStackLastASTNode;
+                    }
+                    else if (identifier->token->tokenStr == "parent") {
+                        node->returnsASTNode = true;
+                        node->resolveASTNode = &ASTNode::resolveCompilerParentASTNode;
+                    }
+                    else if (identifier->token->tokenStr == "print_ast")
+                        node->codegen = &ASTNode::generateCompilerPrintASTDirective;
+                    else if (identifier->token->tokenStr == "print")
+                        node->codegen = &ASTNode::generateCompilerPrintDirective;
+                    else if (identifier->token->tokenStr == "printl")
+                        node->codegen = &ASTNode::generateCompilerPrintLineDirective;
+                    else if (identifier->token->tokenStr == "if")
+                        node->codegen = &ASTNode::generateCompilerIfDirective;
+                    else if (identifier->token->tokenStr == "error")
+                        node->codegen = &ASTNode::generateCompilerErrorDirective;
+                    else if (identifier->token->tokenStr == "warning")
+                        node->codegen = &ASTNode::generateCompilerWarningDirective;
                     goto addNodeAsLeaf;
                 }
 
@@ -1882,11 +1931,68 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
                 if (identifier->token->tokenStr == "new") {
                     node->codegen = &ASTNode::generateTypeInstance;
                 }
-                if (identifier->token->tokenStr == "define") {
-                    node->codegen = &ASTNode::generateCompilerDefine;
-                    // Leaf nodes in a #define body are intentional tokens (name + value),
+                if (identifier->token->tokenStr == "setflag") {
+                    node->codegen = &ASTNode::generateCompilerFlagDirective;
+                    // Leaf nodes in a #setflag body are intentional tokens (name + value),
                     // not parse errors - move them into childNodes so findUnusedLeafNodes
-                    // doesn't flag them, and collectTokens in generateCompilerDefine finds them.
+                    // doesn't flag them, and collectTokens in generateCompilerFlagDirective finds them.
+                    for (auto& l : bodyNode->leafNodes)
+                        bodyNode->childNodes.push_back(l);
+                    bodyNode->leafNodes.clear();
+                }
+                if (identifier->token->tokenStr == "stack_push") {
+                    node->codegen = &ASTNode::generateCompilerStackPushDirective;
+                    // Leaf nodes in a #stack_push body are intentional tokens (stack name + AST),
+                    // not parse errors - move them into childNodes so findUnusedLeafNodes
+                    // doesn't flag them, and collectTokens in generateCompilerStackPushDirective finds them.
+                    for (auto& l : bodyNode->leafNodes)
+                        bodyNode->childNodes.push_back(l);
+                    bodyNode->leafNodes.clear();
+                }
+                if (identifier->token->tokenStr == "stack_pop") {
+                    node->codegen = &ASTNode::generateCompilerStackPopDirective;
+                    // Leaf nodes in a #stack_pop body are intentional tokens (stack name),
+                    // not parse errors - move them into childNodes so findUnusedLeafNodes
+                    // doesn't flag them, and collectTokens in generateCompilerStackPopDirective finds them.
+                    for (auto& l : bodyNode->leafNodes)
+                        bodyNode->childNodes.push_back(l);
+                    bodyNode->leafNodes.clear();
+                }
+                if (identifier->token->tokenStr == "stack_last") {
+                    node->codegen = &ASTNode::generateCompilerStackLastDirective;
+                    node->returnsASTNode = true;
+                    node->resolveASTNode = &ASTNode::resolveCompilerStackLastASTNode;
+                    // Leaf nodes in a #stack_last body are intentional tokens (stack name),
+                    // not parse errors - move them into childNodes so findUnusedLeafNodes
+                    // doesn't flag them, and collectTokens in generateCompilerStackLastDirective finds them.
+                    for (auto& l : bodyNode->leafNodes)
+                        bodyNode->childNodes.push_back(l);
+                    bodyNode->leafNodes.clear();
+                }
+                if (identifier->token->tokenStr == "parent") {
+                    node->returnsASTNode = true;
+                    node->resolveASTNode = &ASTNode::resolveCompilerParentASTNode;
+                }
+                if (identifier->token->tokenStr == "print_ast") {
+                    node->codegen = &ASTNode::generateCompilerPrintASTDirective;
+                    for (auto& l : bodyNode->leafNodes)
+                        bodyNode->childNodes.push_back(l);
+                    bodyNode->leafNodes.clear();
+                }
+                if (identifier->token->tokenStr == "print") {
+                    node->codegen = &ASTNode::generateCompilerPrintDirective;
+                    for (auto& l : bodyNode->leafNodes)
+                        bodyNode->childNodes.push_back(l);
+                    bodyNode->leafNodes.clear();
+                }
+                if (identifier->token->tokenStr == "printl") {
+                    node->codegen = &ASTNode::generateCompilerPrintLineDirective;
+                    for (auto& l : bodyNode->leafNodes)
+                        bodyNode->childNodes.push_back(l);
+                    bodyNode->leafNodes.clear();
+                }
+                if (identifier->token->tokenStr == "if") {
+                    node->codegen = &ASTNode::generateCompilerIfDirective;
                     for (auto& l : bodyNode->leafNodes)
                         bodyNode->childNodes.push_back(l);
                     bodyNode->leafNodes.clear();
@@ -1939,11 +2045,44 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
                 // (if function, or if/for/while etc. or any line of code)
                 bool nonFunction = false;
                 bool lParenReached = false;
+                bool lParenClosed = false;
+                bool parenHasContent = false;
+                bool parenHasParamSyntax = false;
+                bool tokensAfterParen = false;
                 bool hasBrace = false;
+                int signatureParenDepth = 0;
                 for (int j = 0; j < tokens.size() - i; j++) {
-                    if (tokens[i + j]->tokenType == Left_Paren)
-                        lParenReached = true;
-                    else if (tokens[i + j]->tokenType == Left_Brace) {
+                    TokenType lookaheadType = tokens[i + j]->tokenType;
+
+                    if (lookaheadType == Left_Paren) {
+                        if (!lParenReached) {
+                            lParenReached = true;
+                            signatureParenDepth = 1;
+                        }
+                        else if (!lParenClosed) {
+                            signatureParenDepth++;
+                            parenHasContent = true;
+                        }
+                    }
+                    else if (lookaheadType == Right_Paren && lParenReached && !lParenClosed) {
+                        signatureParenDepth--;
+                        if (signatureParenDepth == 0)
+                            lParenClosed = true;
+                    }
+                    else if (lParenReached && !lParenClosed &&
+                             lookaheadType != Nothing && lookaheadType != EndOfLine && lookaheadType != Comment) {
+                        parenHasContent = true;
+                        if (signatureParenDepth == 1 &&
+                            (lookaheadType == Colon || lookaheadType == Dot_Dot_Dot))
+                            parenHasParamSyntax = true;
+                    }
+                    else if (lParenClosed &&
+                             lookaheadType != Nothing && lookaheadType != EndOfLine && lookaheadType != Comment &&
+                             lookaheadType != Semi_Colon && lookaheadType != Left_Brace) {
+                        tokensAfterParen = true;
+                    }
+
+                    if (lookaheadType == Left_Brace) {
                         hasBrace = true;
                         if (lParenReached) {  // If first ( then {, this is a function
                             nonFunction = false;
@@ -1955,8 +2094,9 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
                         }
                     }
                     // If semicolon without any brace: alias/define (no paren seen) or prototype (paren seen)
-                    else if (tokens[i + j]->tokenType == Semi_Colon) {
-                        nonFunction = !lParenReached;
+                    else if (lookaheadType == Semi_Colon) {
+                        bool looksLikeParameterList = !parenHasContent || parenHasParamSyntax;
+                        nonFunction = !lParenReached || !lParenClosed || tokensAfterParen || !looksLikeParameterList;
                         break;
                     }
                 }
@@ -2115,8 +2255,10 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
                         if (t->tokenType == Right_Paren)
                             parenLevel--;
 
-                        if (parenLevel == 0 || t->tokenType == EndOfLine || t->tokenType == Semi_Colon)
+                        if (parenLevel == 0 || t->tokenType == Semi_Colon)
                             break;
+                        if (t->tokenType == EndOfLine)
+                            continue;
                         // If comma and parenLevel is in same scope
                         if ((t->tokenType == Comma && parenLevel == 1)) {
                             parseParamWithDefault(subTokens, depth, arguments, argumentDefaults);
@@ -2497,6 +2639,8 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
             case Identifier: {
                 node->nodeType = Identifier_Node;
                 node->codegen = &ASTNode::generateVariableExpression;
+                node->returnsASTNode = true;
+                node->resolveASTNode = &ASTNode::resolveCompilerDefinitionASTNode;
 
                 //// If this is identifer, and is preceded by identifier, then that one is type, and this is name
                 //if (parentNode->leafNodes.size() >= 1) {
@@ -2638,8 +2782,10 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
         // to each child rather than keeping them on the scope body itself.
         if (node->nodeType == Scope_Body && !pendingAttributes.empty()) {
             for (auto* child : node->childNodes) {
-                for (auto* a : pendingAttributes)
+                for (auto* a : pendingAttributes) {
+                    a->isInherited = true;
                     child->attributes.push_back(a);
+                }
             }
             pendingAttributes.clear();
         }
@@ -2803,6 +2949,7 @@ void unifyNodes(ASTNode*& node)
 }
 
 
+// Function to convert value-returning compiler directives into their value  TODO: This should not be its own pass in the future
 void resolveCompileTimeDirectives(ASTNode*& node, std::string moduleCtx, std::string funcCtx)
 {
     // Propagate context downward: update for children before recursing
@@ -2815,10 +2962,15 @@ void resolveCompileTimeDirectives(ASTNode*& node, std::string moduleCtx, std::st
     if (node->nodeType == Compiler_Define_Function)
         childFuncCtx = node->token->tokenStr;
 
-    for (int i = 0; i < node->childNodes.size(); i++)
+    for (int i = 0; i < node->childNodes.size(); i++) {
         resolveCompileTimeDirectives(node->childNodes[i], childModuleCtx, childFuncCtx);
+    }
 
     if (node->nodeType == Compile_Time_Directive && node->childNodes.size() > 0) {
+
+        messageSystem::startBlock(node, "Resolving compile time directive", __func__, __LINE__, __FILE__, messageSystem::Parser_Block);
+        defer(messageSystem::endBlock());
+
         const std::string& name = node->childNodes[0]->token->tokenStr;
         if (name == "linenum") {
             node->nodeType = Integer_Node;
@@ -2848,8 +3000,8 @@ void resolveCompileTimeDirectives(ASTNode*& node, std::string moduleCtx, std::st
         }
         else if (name == "funcname") {
             if (funcCtx.empty()) {
-                printTokenError(getASTTokenRange(node), "#funcname used outside of a function");
-                exit(1);
+                messageSystem::error("#funcname used outside of a function", messageSystem::Context_Info_Invalid_Location);
+                return;
             }
             node->nodeType = String_Constant_Node;
             node->token->tokenStr = "\"" + funcCtx + "\"";
@@ -2858,8 +3010,8 @@ void resolveCompileTimeDirectives(ASTNode*& node, std::string moduleCtx, std::st
         }
         else if (name == "modulename") {
             if (moduleCtx.empty()) {
-                printTokenError(getASTTokenRange(node), "#modulename used outside of a module");
-                exit(1);
+                messageSystem::error("#modulename used outside of a module", messageSystem::Context_Info_Invalid_Location);
+                return;
             }
             node->nodeType = String_Constant_Node;
             node->token->tokenStr = "\"" + moduleCtx + "\"";
@@ -2890,8 +3042,8 @@ void resolveCompileTimeDirectives(ASTNode*& node, std::string moduleCtx, std::st
         }
         else if (name == "nameof") {
             if (node->childNodes.size() < 2 || node->childNodes[1]->childNodes.empty()) {
-                printTokenError(getASTTokenRange(node), "#nameof requires an expression argument");
-                exit(1);
+                messageSystem::error("#nameof requires an expression argument", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
+                return;
             }
             // Walk to the rightmost leaf to get the simple name (e.g. A.B.C -> "C")
             ASTNode* cur = node->childNodes[1]->childNodes[0];
@@ -3009,53 +3161,86 @@ static const std::unordered_set<ASTNodeType> literalNodeTypes = {
     String_Constant_Node,
 };
 
-static void checkAttributeCompatibilityImpl(ASTNode* node)
+void checkAttributeCompatibility(ASTNode* node)
 {
-    for (auto* child : node->childNodes)
-        checkAttributeCompatibilityImpl(child);
+    messageSystem::startBlock(node, "Checking attribute compatability", __func__, __LINE__, __FILE__, messageSystem::Parser_Block);
 
-    if (node->attributes.empty())
+    for (auto* child : node->childNodes) {
+        checkAttributeCompatibility(child);
+    }
+
+    if (node->attributes.empty()) {
+        messageSystem::endBlock();
         return;
+    }
 
-    // Validate attribute arguments and collect names
-    std::vector<std::string> present;
+    // Validate attribute arguments
     for (auto* attr : node->attributes) {
         if (!attr->token || attr->token->tokenStr.empty())
             continue;
-        present.push_back(attr->token->tokenStr);
 
-        // Check argument is a literal constant if one is present
+        // Ensure argument is a literal constant if one is present
         if (!attr->childNodes.empty()) {
             ASTNode* scopeBody = attr->childNodes[0];
-            if (scopeBody->childNodes.empty() ||
-                literalNodeTypes.find(scopeBody->childNodes[0]->nodeType) == literalNodeTypes.end()) {
-                printTokenError(getASTTokenRange(attr),
-                    "Argument to attribute '@" + attr->token->tokenStr + "' must be a compile-time constant (int, float, bool, or string)");
-                exit(1);
+
+            messageSystem::startBlock(scopeBody, "Checking attribute arguments", __func__, __LINE__, __FILE__, messageSystem::Parser_Block);
+
+            if (scopeBody->childNodes.empty() || literalNodeTypes.find(scopeBody->childNodes[0]->nodeType) == literalNodeTypes.end()) {
+                messageSystem::error("Argument to attribute '@" + attr->token->tokenStr + "' must be a compile-time constant (int, float, bool, or string)", messageSystem::Invalid_Attribute_Arguments_Error);
+                return;
             }
+
+            messageSystem::endBlock();
         }
     }
 
+    // Then make sure the node doesnt have attributes that are incompatible with each other:
     for (const auto& group : incompatibleAttributeSets) {
-        std::vector<std::string> conflicts;
+        std::vector<ASTNode*> conflicts;
         for (const auto& name : group)
-            for (const auto& p : present)
-                if (p == name)
-                    conflicts.push_back(name);
+            for (const auto& a : node->attributes) {
+                if (a->isInherited)
+                    continue;
+                if (a->token->tokenStr == name)
+                    conflicts.push_back(a);
+            }
 
         if (conflicts.size() >= 2) {
-            std::string msg = "Incompatible attributes on '" + node->token->tokenStr + "': @" + conflicts[0];
+            std::string msg = "Incompatible attributes on '" + node->token->tokenStr + "': @" + conflicts[0]->token->tokenStr;
             for (int i = 1; i < (int)conflicts.size(); i++)
-                msg += " and @" + conflicts[i];
-            printTokenError(getASTTokenRange(node), msg);
-            exit(1);
+                msg += " and @" + conflicts[i]->token->tokenStr;
+
+            messageSystem::addAttributes(conflicts);
+            messageSystem::error(msg, messageSystem::Incompatible_Attribute_Error);
+            return;
         }
     }
-}
 
-void checkAttributeCompatibility(ASTNode* node)
-{
-    checkAttributeCompatibilityImpl(node);
+    // Finally, error if the node uses an attribute more than once
+    {
+        std::vector<std::string> conflicts;
+        for (const auto& a : node->attributes)
+            for (const auto& b : node->attributes) {
+                if (a->isInherited || b->isInherited)
+                    continue;
+                if (a == b)
+                    continue;
+                if (a->token->tokenStr == b->token->tokenStr)
+                    conflicts.push_back(a->token->tokenStr);
+            }
+
+        if (conflicts.size() > 0) {
+            std::string msg = "Duplicate attributes on '" + node->token->tokenStr + "': @" + conflicts[0];
+            for (int i = 1; i < (int)conflicts.size(); i++)
+                msg += ", and @" + conflicts[i];
+
+            messageSystem::error(msg, messageSystem::Duplicate_Attribute_Error);
+            return;
+        }
+    }
+
+    messageSystem::endBlock();
+    return;
 }
 
 void optimizeASTNode(ASTNode*& node)
@@ -3301,9 +3486,11 @@ void addFileIncludes(ASTNode*& node)
                 }
 
                 std::vector<asaToken*> localTokens = std::vector<asaToken*>();
+                std::vector<std::string*> localLines;
+                std::vector<std::string*> localFileNames;
 
                 // Begin tokenizing file
-                int e = tokenize(fileString, localTokens, fileName);
+                int e = tokenize(fileString, localTokens, fileName, localLines, localFileNames);
                 if (e != 0) {
                     std::cerr << "Invalid tokens met\n";
                     exit(1);
@@ -3319,7 +3506,9 @@ void addFileIncludes(ASTNode*& node)
                     std::cerr << "Invalid tokens met\n";
                     exit(1);
                 }
-                e = joinDotAtTokens(localTokens);
+                allTokens.insert(allTokens.end(), localTokens.begin(), localTokens.end());
+                lines.insert(lines.end(), localLines.begin(), localLines.end());
+                fileNames.insert(fileNames.end(), localFileNames.begin(), localFileNames.end());
 
                 // Generate AST
                 ASTNode* localRoot = generateAST(localTokens);
@@ -3343,8 +3532,10 @@ void loadAllModulesInDir(const std::string& modulePath)
         loadFile(pathStr, outStr);
 
         std::vector<asaToken*> localTokens = std::vector<asaToken*>();
+        std::vector<std::string*> localLines;
+        std::vector<std::string*> localFileNames;
 
-        int e = tokenize(outStr, localTokens, pathStr);
+        int e = tokenize(outStr, localTokens, pathStr, localLines, localFileNames);
         if (e != 0) {
             std::cerr << "Invalid tokens met\n";
             exit(1);
@@ -3359,7 +3550,9 @@ void loadAllModulesInDir(const std::string& modulePath)
             std::cerr << "Invalid tokens met\n";
             exit(1);
         }
-        joinDotAtTokens(localTokens);
+        allTokens.insert(allTokens.end(), localTokens.begin(), localTokens.end());
+        lines.insert(lines.end(), localLines.begin(), localLines.end());
+        fileNames.insert(fileNames.end(), localFileNames.begin(), localFileNames.end());
 
         ASTNode* localRoot = generateAST(localTokens);
 
@@ -3400,9 +3593,11 @@ bool loadModule(std::string& modulePath, std::string& moduleName)
         loadFile(pathStr, outStr);
 
         std::vector<asaToken*> localTokens = std::vector<asaToken*>();
+        std::vector<std::string*> localLines;
+        std::vector<std::string*> localFileNames;
 
         // Begin tokenizing file
-        int e = tokenize(outStr, localTokens, pathStr);
+        int e = tokenize(outStr, localTokens, pathStr, localLines, localFileNames);
         if (e != 0) {
             std::cerr << "Invalid tokens met\n";
             exit(1);
@@ -3418,8 +3613,6 @@ bool loadModule(std::string& modulePath, std::string& moduleName)
             std::cerr << "Invalid tokens met\n";
             exit(1);
         }
-        e = joinDotAtTokens(localTokens);
-
         // Generate AST
         ASTNode* localRoot = generateAST(localTokens);
 
@@ -3432,6 +3625,9 @@ bool loadModule(std::string& modulePath, std::string& moduleName)
 
                     ASTNode* moduleNode = localRoot->childNodes[j]->childNodes[0]->childNodes[0];
                     if (localRoot->childNodes[j]->token->tokenStr == moduleName) {
+                        allTokens.insert(allTokens.end(), localTokens.begin(), localTokens.end());
+                        lines.insert(lines.end(), localLines.begin(), localLines.end());
+                        fileNames.insert(fileNames.end(), localFileNames.begin(), localFileNames.end());
                         auto& moduleDefs = moduleNode->childNodes[0]->compilerDefinitions;
                         for (int i = 0; i < moduleNode->childNodes[0]->childNodes.size(); i++) {
                             ASTNode* importedNode = moduleNode->childNodes[0]->childNodes[i];
@@ -3492,7 +3688,10 @@ bool loadModuleQualified(std::string& modulePath, std::string& moduleName)
         loadFile(pathStr, outStr);
 
         std::vector<asaToken*> localTokens;
-        int e = tokenize(outStr, localTokens, pathStr);
+        std::vector<std::string*> localLines;
+        std::vector<std::string*> localFileNames;
+
+        int e = tokenize(outStr, localTokens, pathStr, localLines, localFileNames);
         if (e != 0) {
             std::cerr << "Invalid tokens met\n";
             exit(1);
@@ -3507,8 +3706,6 @@ bool loadModuleQualified(std::string& modulePath, std::string& moduleName)
             std::cerr << "Invalid tokens met\n";
             exit(1);
         }
-        joinDotAtTokens(localTokens);
-
         ASTNode* localRoot = generateAST(localTokens);
 
         for (int j = 0; j < (int)localRoot->childNodes.size(); j++) {
@@ -3517,6 +3714,9 @@ bool loadModuleQualified(std::string& modulePath, std::string& moduleName)
                     localRoot->childNodes[j]->childNodes[0]->childNodes.size() >= 1 &&
                     localRoot->childNodes[j]->childNodes[0]->childNodes[0]->nodeType == Module_Define_Node) {
                     if (localRoot->childNodes[j]->token->tokenStr == moduleName) {
+                        allTokens.insert(allTokens.end(), localTokens.begin(), localTokens.end());
+                        lines.insert(lines.end(), localLines.begin(), localLines.end());
+                        fileNames.insert(fileNames.end(), localFileNames.begin(), localFileNames.end());
                         importedNodes.push_back(localRoot->childNodes[j]);
                         if (verbosity >= 3)
                             printModuleLoaded(moduleName, pathStr);

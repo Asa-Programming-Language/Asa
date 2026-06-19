@@ -1,0 +1,113 @@
+// IfChainTests
+// Tests for if/else if chains with and without curly braces.
+
+@public:
+IfChainTests :: module {
+
+    #use Tests.Testing;
+
+    @public:
+    runIfChainTests :: () {
+        beginSection("If Chain");
+
+        // Test 1: if/else if chain with curly braces (baseline - should work)
+        val1 : int = 0;
+        if (false) {
+            val1 = 1;
+        } else if (true) {
+            val1 = 2;
+        } else if (true) {
+            val1 = 3;
+        }
+        test(val1 == 2, "if/else if chain with braces: second branch runs");
+
+        // Test 2: if/else if chain without curly braces on first branch
+        val2 : int = 0;
+        if (false)
+            val2 = 1;
+        else if (true) {
+            val2 = 2;
+        }
+        test(val2 == 2, "if/else if without braces on first branch: second branch runs");
+
+        // Test 3: if/else if chain without curly braces on second branch
+        val3 : int = 0;
+        if (false) {
+            val3 = 1;
+        } else if (true)
+            val3 = 2;
+        test(val3 == 2, "if/else if without braces on second branch: second branch runs");
+
+        // Test 4: if/else if chain without curly braces on third branch
+        val4 : int = 0;
+        if (false) {
+            val4 = 1;
+        } else if (false) {
+            val4 = 2;
+        } else if (true) {
+            val4 = 3;
+        }
+        test(val4 == 3, "if/else if chain: third branch runs");
+
+        // Test 5: else if chain without any braces
+        val5 : int = 0;
+        if (false)
+            val5 = 1;
+        else if (false)
+            val5 = 2;
+        else if (true)
+            val5 = 3;
+        test(val5 == 3, "if/else if without any braces: third branch runs");
+
+        // Test 6: Multiple else if branches, last one should execute
+        val6 : int = 0;
+        if (false)
+            val6 = 1;
+        else if (false)
+            val6 = 2;
+        else if (false)
+            val6 = 3;
+        else if (true)
+            val6 = 4;
+        test(val6 == 4, "if/else if chain: fourth branch runs");
+
+        // Test 7: else branch without braces
+        val7 : int = 0;
+        if (false)
+            val7 = 1;
+        else if (false)
+            val7 = 2;
+        else
+            val7 = 5;
+        test(val7 == 5, "if/else if chain with else without braces");
+
+        // Test 8: Single line if/else if without braces
+        val8 : int = 0;
+        if (false)
+            val8 = 1;
+        else
+            val8 = 6;
+        test(val8 == 6, "if/else without braces: else branch runs");
+
+        // Test 9: Nested if/else if inside another block
+        outer : int = 10;
+        inner : int = 0;
+        if (outer == 10) {
+            if (false)
+                inner = 1;
+            else if (true)
+                inner = 7;
+        }
+        test(inner == 7, "nested if/else if without braces inside block");
+
+        // Test 10: All branches false, no else
+        val10 : int = 42;
+        if (false)
+            val10 = 1;
+        else if (false)
+            val10 = 2;
+        else if (false)
+            val10 = 3;
+        test(val10 == 42, "if/else if chain: no branch runs, value unchanged");
+    }
+}

@@ -28,6 +28,7 @@ std::string CommaLargeNumber(long num);
 std::string CommaLargeNumber(unsigned long long int num);
 std::string CommaLargeNumberF(float num);
 std::string CommaLargeNumberF(double num);
+std::string OrdinalSuffixString(int num);
 std::string multiplyHexByInteger(const std::string& hexNumber, int multiplier);
 std::string longDivision(const std::string& number, uint32_t divisor);
 std::string hexLongDivision(const std::string& number, uint32_t divisor);

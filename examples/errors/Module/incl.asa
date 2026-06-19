@@ -1,0 +1,7 @@
+
+LocalModule :: module{
+    @removed("Use `bar()` instead"):
+    foo :: (){
+    
+    }
+}

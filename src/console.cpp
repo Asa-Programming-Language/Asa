@@ -23,6 +23,7 @@
 
     #include "include/color.hpp"
 #else
+    #include <sys/ioctl.h>
     #include <unistd.h>
 #endif
 
@@ -73,6 +74,25 @@ namespace console {
         }
         return false;
 #endif
+    }
+
+    int getTerminalWidth()
+    {
+#if WINDOWS
+        HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+        if (hOut != INVALID_HANDLE_VALUE) {
+            CONSOLE_SCREEN_BUFFER_INFO csbi;
+            if (GetConsoleScreenBufferInfo(hOut, &csbi))
+                return std::max(1, (int)(csbi.srWindow.Right - csbi.srWindow.Left + 1));
+        }
+#else
+        if (isatty(fileno(stdout))) {
+            winsize ws {};
+            if (ioctl(fileno(stdout), TIOCGWINSZ, &ws) == 0 && ws.ws_col > 0)
+                return ws.ws_col;
+        }
+#endif
+        return 80;
     }
 
     std::string colorText(std::string name, std::string color)

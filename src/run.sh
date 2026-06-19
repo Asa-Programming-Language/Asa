@@ -1,14 +1,24 @@
 #!/bin/bash
+
+# Setup build directory
 mkdir ../build;
 cd ../build;
+
+# Optional compiler cache setup
 #echo -e "\nEnabling caching...";
 #export CC="ccache gcc";
 #export CXX="ccache g++";
+
+# Cleanup generated Asa/LLVM files
 echo -e "\nCleaning up build files...";
 find ../modules -name "*.ll.s" -type f -delete;
 find ../modules -name "*.ll" -type f -delete;
+
+# Configure CMake
 echo -e "\nRunning cmake...";
 cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=1 -G Ninja ../src || { echo -e "\ncmake failed."; exit 1; }
+
+# Build and install compiler
 echo -e "\nRunning Ninja...";
 ninja_log=$(mktemp);
 ninja -j2 2>&1 | tee "$ninja_log";
@@ -19,6 +29,8 @@ if [ $ninja_exit -ne 0 ]; then
 	echo -e "\nNinja failed.";
 	exit 1;
 fi
+
+# Update build number only when Ninja rebuilt something
 if grep -q "no work to do" "$ninja_log"; then
 	echo -e "\nNo changes, skipping build number increment.";
 else
@@ -26,13 +38,19 @@ else
 	../src/increment_build.sh;
 fi
 rm "$ninja_log";
+
+# Run internal compiler tests
 echo -e "\nRunning compiler tests...";
-./asa --runtests || { echo -e "\nCompiler tests failed."; exit 1; }
+./asa -O0 --runtests || { echo -e "\nCompiler tests failed."; exit 1; }
+
+# Compile language test executable
 echo -e "\nRunning language tests...";
 tmptime=$(mktemp);
 TIMEFORMAT=$'[total] real\t%Rs\n';
-{ time ./asa --time ../modules/Tests/main_tests.asa; } 2>"$tmptime";
+{ time ./asa -O0 --time ../modules/Tests/main_tests.asa; } 2>"$tmptime";
 compile_exit=$?;
+
+# Print normalized timing summary
 grep -vP '^\[llc\]|^\[clang\]|^\[total\]' "$tmptime" >&2;
 llc_real=$(grep -oP '\[llc\] real\t\K[\d.]+' "$tmptime" | head -1);
 clang_real=$(grep -oP '\[clang\] real\t\K[\d.]+' "$tmptime" | head -1);
@@ -43,4 +61,6 @@ if [ -n "$llc_real" ] && [ -n "$clang_real" ] && [ -n "$total_real" ]; then
 	printf "\n[llc] time\t${llc_real}s\n[clang] time\t${clang_real}s\n[asa] time\t${asa_real}s\n[total] time\t${total_real}s\n\n";
 fi
 if [ $compile_exit -ne 0 ]; then echo -e "\nCompile failed."; exit 1; fi
+
+# Run language tests
 ../modules/Tests/build/main_tests && echo -e "\nAll language tests passed ✔" || { echo -e "\nLanguage tests FAILED ✖"; exit 1; }

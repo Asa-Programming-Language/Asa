@@ -19,72 +19,30 @@ RENAMED_MACRO ::> TEST_MACRO_1;
 
 #use Rendering.Raylib;
 
-
 main :: (){
 
-    GHI :: 12;
+    x :: 6;
 
-    TEST_MACRO_1; // This is equivalent to:
-    // {
-    //     printl("Macro works!");
-    // }
+    //#stack_push("a", { printl("hi!"); });
 
-    TEST_MACRO_2(); // This is literally just a function
+    //#warning("This is a warning", #stack_last("a"));
 
-    // i32 is an alias for int32
-    i : int32 = 6;
-    j : i32 = 8;
+    //#warning("This is a warning", x);
+    //#warning("This is a warning of the definition", #parent(x));
 
-    variantVar<T : type> : T;
+    //printl("This should print first");
 
-    printl(j);
+    //#print_ast(#parent(0));
 
-    printl(ABC);
+    //#print_ast(local);
 
-    printl(GHI);
+    #if(x == 6, {
+        #printl("it was true!");
+    });
 
     printl(local.DEF);
 
-    printl(someAlias);
-
-    PRINTALIAS :: printl;
-
-    PRINTALIAS("print alias works!");
-
-    someArray : array<int, 5> = array<int, 5>();
-
-    //for(i in 0..5)
-    //someArray[i] = i;
-
-    //printl(someArray[0]);
-
-    //printl(#nameof(someArray) + " : " + #typeof(someArray));
-
-    someList : list<int> = list<int>();
-
-    someList.append(5);
-    someList.append(3);
-    someList.append(0);
-    someList.append(0);
-    someList.append(10);
-
-    //if 2 printl("This should absolutely not print"); 
-
-    if(2){
-        printl("This should print");
-    }
-
-    printl("listvals:");
-    for(i in 0..5)
-        printl(someList[i]);
-
-    //r : range = 0..5;
-
-    //for(i in r){
-    //  printl(i);
-    //}
-
-    return;
+    //#stack_last("a");
 }
 
 

@@ -30,6 +30,10 @@ CompilerDefineTests :: module {
     // String constant
     GREETING :: "hello";
 
+    // Compile-time redefinition
+    REDEFINED :: 5;
+    REDEFINED :: 1;
+
     ////////////////////////////
     // Helper functions       //
     ////////////////////////////
@@ -77,5 +81,10 @@ CompilerDefineTests :: module {
         /////////////////////////////
         test(GREETING == "hello",            "string define: GREETING == \"hello\"");
         test(cdStrLen(GREETING) == 5,          "string define: length of GREETING == 5");
+
+        /////////////////////////////
+        // Compile-time redefine   //
+        /////////////////////////////
+        test(REDEFINED == 1,                  "compiler define can be changed with ::");
     }
 }

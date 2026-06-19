@@ -3,8 +3,8 @@
 
 @public:
 CompilerImportTest :: module {
-	@public:
-	x :: int(){
-		return 1;
-	}
+    @public:
+    x :: int(){
+        return 1;
+    }
 }

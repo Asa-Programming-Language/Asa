@@ -13,24 +13,30 @@ using namespace llvm;
 using namespace llvm::sys;
 
 struct ASTNode;
+struct argType;
+typedef std::vector<argType> argumentList;
+struct functionID;
 
 
-extern std::unique_ptr<LLVMContext> TheContext;
-extern std::unique_ptr<Module> TheModule;
-extern std::unique_ptr<DIBuilder> DBuilder;
-extern std::unique_ptr<IRBuilder<>> Builder;
+extern std::unique_ptr<LLVMContext> llvmCompileContext;
+extern std::unique_ptr<Module> llvmCompileModule;
+extern std::unique_ptr<DIBuilder> llvmDebugBuilder;
+extern std::unique_ptr<IRBuilder<>> llvmIRBuilder;
 extern std::map<std::string, Value*> NamedValues;
+extern std::map<std::string, std::string> compilerDirectiveFlags;
+extern std::map<std::string, std::stack<ASTNode*>> compilerStacks;
 
 
 bool isOptimizing();
+llvm::Value* castValue(llvm::Value* value, llvm::Type* destType, bool isSrcSigned, bool isToSigned, ASTNode* node, bool destTypeIsStruct = false);
 void initializeCodeGenerator();
 void resetCodeGenerator();
 int outputObjectFile(std::string& objectFilePath);
 int generateExecutable(const std::string& irFilePath, const std::string& exeFilePath, const std::string& clangOptions);
 void optimizeFunctions();
 void printFunctionPrototypes();
+void printFunctionDifferences(argumentList* arguments, functionID* other);
 
-extern std::map<std::string, std::string> compilerDefines;
 extern std::unordered_map<std::string, std::string> typeAliasMap;
 std::string resolveTypeAlias(const std::string& name, int depth = 0);
 void registerTypeAlias(const std::string& aliasName, const std::string& targetName);

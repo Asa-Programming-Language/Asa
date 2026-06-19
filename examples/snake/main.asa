@@ -1,0 +1,168 @@
+#use Rendering.Raylib;
+
+#recommend_options("-O2");
+
+GRID_SIZE :: 20;
+SCREEN_W :: 800;
+SCREEN_H :: 600;
+GRID_W :: SCREEN_W / GRID_SIZE;
+GRID_H :: SCREEN_H / GRID_SIZE;
+
+SNAKE_COLOR :: GREEN;
+FOOD_COLOR :: RED;
+BG_COLOR :: Color32(30, 30, 30);
+
+SNAKE_MAX :: 100;
+
+snake : *Vector2 = void;
+snakeLength : int = 0;
+food : Vector2 = Vector2();
+direction : Vector2 = Vector2(1, 0);
+nextDirection : Vector2 = Vector2(1, 0);
+score : int = 0;
+gameOver : bool = false;
+spawnTime : float = 0.0;
+spawnInterval :: 0.15;
+
+main :: () {
+    InitWindow(SCREEN_W, SCREEN_H, "Asa Snake");
+    SetTargetFPS(60);
+
+    snake = malloc(SNAKE_MAX * #sizeof(Vector2));
+    snake[0] = Vector2(5, 10);
+    snake[1] = Vector2(4, 10);
+    snake[2] = Vector2(3, 10);
+    snakeLength = 3;
+    
+    spawnFood();
+
+    while (WindowShouldClose() == false) {
+        if (gameOver) {
+            if (IsKeyPressed(KEY_SPACE)) {
+                resetGame();
+            }
+        } else {
+            update(GetFrameTime());
+        }
+
+        BeginDrawing();
+        
+        for (y in 0..GRID_H) {
+            for (x in 0..GRID_W) {
+                dark : bool = (x + y) % 2 == 0;
+                color : Color32 = Color32(20, 20, 20);
+                if (dark == false){
+                    color = Color32(25, 25, 25);
+                }
+                DrawRectangle(x * GRID_SIZE, y * GRID_SIZE, GRID_SIZE, GRID_SIZE, color);
+            }
+        }
+
+        if (gameOver) {
+            DrawText("GAME OVER! Press SPACE to restart", SCREEN_W/2 - 200, SCREEN_H/2 - 20, 24, WHITE);
+            DrawText("Final Score: " + score, SCREEN_W/2 - 100, SCREEN_H/2 + 20, 24, WHITE);
+        } else {
+            drawSnake();
+            drawFood();
+            DrawText("Score: " + score, 10, 10, 20, WHITE);
+        }
+
+        EndDrawing();
+    }
+
+    CloseWindow();
+}
+
+resetGame :: () {
+    snake[0] = Vector2(5, 10);
+    snake[1] = Vector2(4, 10);
+    snake[2] = Vector2(3, 10);
+    snakeLength = 3;
+    direction = Vector2(1, 0);
+    nextDirection = Vector2(1, 0);
+    score = 0;
+    gameOver = false;
+    spawnFood();
+}
+
+spawnFood :: () {
+    valid : bool = false;
+    while (valid == false) {
+        x : int = GetRandomValue(0, GRID_W - 1);
+        y : int = GetRandomValue(0, GRID_H - 1);
+        food = Vector2(x, y);
+        valid = true;
+        for (i in 0..snakeLength) {
+            if (snake[i].x == food.x && snake[i].y == food.y) {
+                valid = false;
+                break;
+            }
+        }
+    }
+}
+
+update :: (dT : float) {
+    if (IsKeyPressed(KEY_UP) && direction.y != 1){
+        nextDirection = Vector2(0, -1);
+    }
+    else if (IsKeyPressed(KEY_DOWN) && direction.y != -1){
+        nextDirection = Vector2(0, 1);
+    }
+    else if (IsKeyPressed(KEY_LEFT) && direction.x != 1){
+        nextDirection = Vector2(-1, 0);
+    }
+    else if (IsKeyPressed(KEY_RIGHT) && direction.x != -1){
+        nextDirection = Vector2(1, 0);
+    }
+    
+    spawnTime += dT;
+    if (spawnTime >= spawnInterval) {
+        spawnTime = 0.0;
+        direction = nextDirection;
+        
+        head : Vector2 = snake[0];
+        newHead : Vector2 = Vector2(head.x + direction.x, head.y + direction.y);
+        
+        if (newHead.x < 0 || newHead.x >= GRID_W || newHead.y < 0 || newHead.y >= GRID_H) {
+            gameOver = true;
+            return;
+        }
+        
+        for (i in 0..snakeLength) {
+            if (snake[i].x == newHead.x && snake[i].y == newHead.y) {
+                gameOver = true;
+                return;
+            }
+        }
+        
+        i : int = snakeLength;
+        while (i > 0) {
+            snake[i] = snake[i-1];
+            i -= 1;
+        }
+        snake[0] = newHead;
+        snakeLength += 1;
+        
+        if (newHead.x == food.x && newHead.y == food.y) {
+            score += 1;
+            spawnFood();
+        } else {
+            snakeLength -= 1;
+        }
+    }
+}
+
+drawSnake :: () {
+    for (i in 0..snakeLength) {
+        t :: float(i) / float(snakeLength);
+        r :: int((1.0 - t) * 34 + t * 20);
+        g :: int((1.0 - t) * 139 + t * 90);
+        b :: int((1.0 - t) * 34 + t * 20);
+        color :: Color32(r, g, b);
+        DrawRectangle(int(snake[i].x) * GRID_SIZE, int(snake[i].y) * GRID_SIZE, GRID_SIZE, GRID_SIZE, color);
+    }
+}
+
+drawFood :: () {
+    DrawRectangle(int(food.x) * GRID_SIZE, int(food.y) * GRID_SIZE, GRID_SIZE, GRID_SIZE, FOOD_COLOR);
+}

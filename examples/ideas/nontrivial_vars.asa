@@ -1,0 +1,103 @@
+// One extremely useful feature is the ability to run a relatively arbitrary set of code
+// when getting/setting the value of a variable. Or to make the value of the variable depend
+// on some pre-processing. And this applies when getting the value of it, as an rvalue, as well
+// as when returning as an lvalue ref.
+// This feature is present in languages like C#. For example, you can do something like:
+//
+//     private string name;
+//     public string Name   // property
+//     {
+//         get { return name; }   // get method
+//         set { name = value; }  // set method
+//     }
+
+// Currently, variables are defined like this:
+x : int = 5;
+
+// I dont think I want to make nontrivial variable declaration the same as C#.
+// It wouldnt fit the existing syntax well. If it did use it, it would be something like:
+someNontrivial : int = {
+    get { return x; };
+    set { return x; };
+}
+// But this is possibly confusing with the existing scope syntax. You can already do:
+y : int = {
+    result 5;
+}
+// So inferring that it is a nontrivial variable based on whether or not it is followed by
+// a scope body doesnt work very well.
+
+// Alternatively, I could make it be defined like modules/structs etc, with a keyword:
+someNontrivial :: nontrivial{
+    get { return x; };
+    set { return x; };
+}
+// But that just makes more questions, like what are `get` and `set` in this context, 
+// and where to put the actual type? If ironed out this could be good, especially using
+// the compile time set :: to show that the nontrivial object itself is immutable. But
+// I dont know if it even will be immutable.
+
+
+// One solution that I think has the fewest problems is defining a custom type with only
+// a small amount of special handling in the compiler itself, for implicitly calling get and set.
+// Then the rest is just using existing features. Like:
+
+// Definition of nontrivial type itself:
+nontrivial<T : type> :: struct{
+    val : T = default;
+
+    @replaceable: @inline:
+    get :: ref T(){
+        return val;
+    }
+
+    @replaceable: @inline:
+    set :: T(value : any){
+        val = value;
+        return val;
+    }
+}
+
+// Usage:
+x : int = 5;
+foo : nontrivial<int> = {
+    get = { return x + 5; },
+    set = { return (x = value); }
+}
+
+foo = 2; // Implicitly calls `foo.set(2)`, changing x to 2
+printl(foo); // Implicitly calls `foo.get()`, returning x+5, which is 7, and calling `printl(7)`
+
+
+
+// This method follows the same style you would expect. It is basically just a struct
+// wrapper for whatever type you want, that allows custom and implicit get and set
+// It will require 3 things that must be implemented first: runtime redefinable function bodies,
+// struct brace construction, and named value setting (like constructing a struct{x : int; y : int;} like {y = 5})
+
+
+// I could also do something like this temporarily, but it is definitely messier:
+foo : nontrivial<int> = default;
+foo.get :: ref foo.T(){ return val + 5; }
+foo.set :: foo.T(value : any){ return (val = value); }
+
+foo = 10;
+printl(foo); // Prints 15
+
+
+// Or, I might make `get` and `set` be lambdas. But those arent implemented yet so I don't
+// really know what it would look like. I just dont know if I want to allow changing
+// function bodies with the regular set operator. I might prefer something like:
+nontrivial<T : type> :: struct{
+    val : T = default;
+
+    get : auto = ref T(){ return val; };
+    set : auto = T(value : any){ return (val = value); };
+}
+
+
+
+// Then `get` and `set` are just redefinable variables like any normal member.
+// I dont know if this is how the lambda type will be written, it is just an example.
+// But this would make the constructor member name initialization used above more logical.
+

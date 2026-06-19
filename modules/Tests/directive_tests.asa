@@ -9,6 +9,9 @@ DirectiveTests :: module {
     #use Builtin.String;
     #use Builtin.Print;
 
+    directiveContextFunction :: () {}
+    DirectiveContextStruct :: struct {}
+
     // runDirectiveTests()
     // Runs all compile-time directive tests.
 
@@ -100,5 +103,63 @@ DirectiveTests :: module {
         // #compiles should return false when the expression is invalid
         // (e.g. using an undeclared identifier)
         test(#compiles(undeclaredIdentifier) == false, "#compiles(undeclared) should be false");
+        test(#compiles(#error("custom compile error", intVar)) == false, "#error should produce a compiler error");
+        test(#compiles(#warning("custom compile warning", intVar)), "#warning should produce a compiler warning without failing");
+        compileTimeContext :: 12;
+        regularContext : int = 4;
+        test(#compiles(#warning("compile-time definition warning", compileTimeContext)), "#warning can use a compile-time definition as context");
+        test(#compiles(#error("compile-time definition error", compileTimeContext)) == false, "#error can use a compile-time definition as context");
+        test(#compiles(#warning("compile-time parent warning", #parent(compileTimeContext))), "#parent can return the parent AST of a compile-time definition value");
+        test(#compiles(#error("compile-time parent error", #parent(compileTimeContext))) == false, "#error can use #parent of a compile-time definition value");
+        test(#compiles(#warning("struct definition warning", DirectiveContextStruct)), "#warning can use a struct definition as context");
+        test(#compiles(#warning("function definition warning", directiveContextFunction)), "#warning can use a function definition as context");
+        test(#compiles(#warning("regular variable warning", regularContext)), "#warning keeps regular variables as usage context");
+        test(#compiles(#warning("function call warning", directiveContextFunction())), "#warning keeps function calls as usage context");
+
+        ifValue : int = 0;
+        #if(true, { ifValue = 3; });
+        test(ifValue == 3, "#if(true) includes its AST node");
+        #if(false, { ifValue = 4; });
+        test(ifValue == 3, "#if(false) skips its AST node");
+        #if(1 == 1, { ifValue = 5; });
+        test(ifValue == 5, "#if supports compile-time comparison conditions");
+        #if(1 == 2, { skippedUnknownIdentifier = 1; });
+        test(ifValue == 5, "#if(false) does not compile skipped invalid AST");
+        IF_CONDITION :: 2 > 1;
+        #if(IF_CONDITION, { ifValue = 7; });
+        test(ifValue == 7, "#if supports compile-time definition conditions");
+        #if(false, { #print("skipped compile-time print"); });
+        #if(false, { #printl("skipped compile-time print line"); });
+        test(#compiles(#if(false, { #print("skipped compile-time print in compiles"); })), "#print parses as a compiler directive");
+        test(#compiles(#if(false, { #printl("skipped compile-time print line in compiles"); })), "#printl parses as a compiler directive");
+
+        // #stack_push should push any AST node to the given stack
+        x : int = 6;
+        #stack_push("variables", x);
+        test(#stack_last("variables") == 6, "#stack_last returns pushed variable value");
+        test(#compiles(#warning("stack warning", #stack_last("variables"))), "#warning can use AST returned by #stack_last");
+        test(#compiles(#warning("stack parent warning", #parent(#stack_last("variables")))), "#parent can use AST returned by #stack_last");
+        test(#compiles(#error("stack error", #stack_last("variables"))) == false, "#error can use AST returned by #stack_last");
+
+        // Stack names can be string literals or identifiers
+        #stack_push(identifierStack, 11);
+        test(#stack_last(identifierStack) == 11, "#stack_last works with identifier stack names");
+
+        // Pushing a second value should make it the new top
+        #stack_push("variables", 9);
+        test(#stack_last("variables") == 9, "#stack_last returns most recent pushed value");
+
+        // #stack_pop should restore the previous value
+        #stack_pop("variables");
+        test(#stack_last("variables") == 6, "#stack_pop restores previous stack value");
+
+        // Separate stacks should not affect each other
+        #stack_push("other", 99);
+        test(#stack_last("other") == 99, "#stack_last reads from the requested stack");
+        test(#stack_last("variables") == 6, "#stack_push on another stack does not affect this stack");
+
+        // Stack entries can be expressions
+        #stack_push("expressions", 2 + 3);
+        test(#stack_last("expressions") == 5, "#stack_last can evaluate pushed expressions");
     }
 }

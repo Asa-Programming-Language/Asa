@@ -68,5 +68,15 @@ if (#any(someVar, ==, CONSTANT_A, CONSTANT_B, CONSTANT_C, CONSTANT_D) &&
     otherVar % 2 == 0){
     // ...
 }
+if (#expand_operator_any({someVar}, ==, {CONSTANT_A, CONSTANT_B, CONSTANT_C, CONSTANT_D}) && 
+    someVar.length > 5 && 
+    otherVar % 2 == 0){
+    // ...
+}
 
-
+// How might this be done using something like a compile-time for loop?
+if (#for(v in {CONSTANT_A, CONSTANT_B, CONSTANT_C, CONSTANT_D}, ||){ #result (someVar == v); } && 
+    someVar.length > 5 && 
+    otherVar % 2 == 0){
+    // ...
+}

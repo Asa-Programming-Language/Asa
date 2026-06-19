@@ -11,6 +11,15 @@ SyntaxTests :: module {
 	#use Builtin.String;
 	#use Builtin.Casts;
 
+	DERIVED_BASE_W :: 960;
+	DERIVED_BASE_H :: 640;
+	DERIVED_MARGIN :: 40;
+	DERIVED_SCALE :: 12;
+	DERIVED_W :: DERIVED_BASE_W / DERIVED_SCALE;
+	DERIVED_H :: (DERIVED_BASE_H - DERIVED_MARGIN) / DERIVED_SCALE;
+	DERIVED_COUNT :: DERIVED_W * DERIVED_H;
+	DERIVED_PAREN :: (DERIVED_BASE_W - DERIVED_MARGIN);
+
 	Vec3 :: struct { x : float; y : float; z : float; }
 	Node :: struct { val : int; depth : int; }
 
@@ -36,11 +45,29 @@ SyntaxTests :: module {
 	// Void helper for standalone-statement multiline call tests
 	accumulate :: (total : ref int, a : int, b : int, c : int) { total = total + a + b + c; }
 
+	multiline_arguments :: int(
+		left : int,
+		right : int
+	) {
+		return left + right;
+	}
+
 	GLOBAL_N : int = 10;
 
 	@public:
 	runSyntaxTests :: () {
 		beginSection("Syntax");
+
+		//////////////////////////////////
+		// Derived constant expressions //
+		//////////////////////////////////
+
+		test(DERIVED_W == 80,                  "derived constant division");
+		test(DERIVED_H == 50,                  "derived parenthesized constant division");
+		test(DERIVED_COUNT == 4000,            "derived constant multiplication");
+		test(DERIVED_PAREN == 920,             "fully parenthesized constant expression");
+		test(multiline_arguments(20, 22) == 42, "function definition with multiline arguments");
+		test(#compiles(#stack_push("syntaxTrailingSemicolonScope", { trailingSemiValue : int = 1; })), "semicolon before implicit scope end in directive argument");
 
 		///////////////////////
 		// Redundant parens  //

@@ -73,6 +73,8 @@ int main(int argc, char** argv)
             case 'f':
                 if (std::string(optarg) == "errortest")
                     compilerFlags |= Flags_RunErrorTests;
+                else if (std::string(optarg) == "compact")
+                    compact = true;
                 else if (std::string(optarg) == "color")
                     compilerFlags |= Flags_Force_Enable_Color;
                 break;
@@ -206,7 +208,7 @@ int main(int argc, char** argv)
 
 
     // Begin tokenizing file
-    int e = tokenize(initialFileString, allTokens, fullFileName);
+    int e = tokenize(initialFileString, allTokens, fullFileName, lines, fileNames);
     if (e != 0) {
         console::write("Invalid tokens met\n");
         exit(1);
@@ -222,7 +224,6 @@ int main(int argc, char** argv)
         console::write("Invalid tokens met\n");
         exit(1);
     }
-    e = joinDotAtTokens(allTokens);
     if (verbosity >= 5) {
         printf("\nTokens:\n");
         for (int i = 0; i < allTokens.size(); i++) {
@@ -239,6 +240,20 @@ int main(int argc, char** argv)
         console::writeLine("\n\nGenerating AST...", console::greenFGColor);
     rootNode = generateAST(allTokens);
 #define A new ASTNode
+
+    // Insert `#use Builtin.Casts;` at beginning of AST
+    rootNode->childNodes.insert(rootNode->childNodes.begin(),
+        A(Compile_Time_Directive,
+            {
+                A(Identifier_Node, {}, new asaToken("#use", Identifier)),
+                A(Scope_Body,
+                    {A(Member_Access,
+                        {
+                            A(Identifier_Node, {}, new asaToken("Builtin", Identifier)),
+                            A(Identifier_Node, {}, new asaToken("Casts", Identifier)),
+                        },
+                        new asaToken(".", Dot))}),
+            }));
     // Insert `#use Builtin.String;` at beginning of AST
     rootNode->childNodes.insert(rootNode->childNodes.begin(),
         A(Compile_Time_Directive,
@@ -252,6 +267,7 @@ int main(int argc, char** argv)
                         },
                         new asaToken(".", Dot))}),
             }));
+
     // Handle importing nodes from other sources
     for (;;) {
         bool noImports = true;
@@ -345,7 +361,7 @@ int main(int argc, char** argv)
     // Finalize debug info before optimization so the optimizer sees a consistent,
     // fully-resolved module. Running optimizeFunctions() on an unfinalized module
     // can cause incorrect loop elimination and other misoptimizations.
-    DBuilder->finalize();
+    llvmDebugBuilder->finalize();
 
     std::string irFilePath = projectDirectory + "build/" + baseFileName + ".ll";
 
@@ -361,7 +377,7 @@ int main(int argc, char** argv)
     // Print out all of the generated code.
     if (verbosity >= 5) {
         console::writeLine("\n\nOutput IR Code:", console::greenFGColor);
-        TheModule->print(errs(), nullptr);
+        llvmCompileModule->print(errs(), nullptr);
     }
     if (wasError)
         goto errorsEncountered;
@@ -374,14 +390,14 @@ int main(int argc, char** argv)
             llvm::errs() << "Could not open file: " << EC.message() << "\n";
             exit(1);
         }
-        TheModule->print(OS, nullptr);
+        llvmCompileModule->print(OS, nullptr);
     }
 
 
     // Verify the module
     if (compilerFlags == Flags_CompilerDebug) {
         console::writeLine("\nVerifying code:");
-        if (llvm::verifyModule(*TheModule, &llvm::errs())) {
+        if (llvm::verifyModule(*llvmCompileModule, &llvm::errs())) {
             std::cerr << "Module verification failed!\n";
             abort();
         }
@@ -389,9 +405,9 @@ int main(int argc, char** argv)
     }
 
 errorsEncountered:
-    // Print out all function prototypes
-    if (verbosity >= 4)
-        printFunctionPrototypes();
+    // Print out all function prototypes TODO: Update this
+    //if (verbosity >= 4)
+    //    printFunctionPrototypes();
 
     if (wasError) {
         console::writeLine("\nErrors were encountered while compiling.", console::redFGColor);
