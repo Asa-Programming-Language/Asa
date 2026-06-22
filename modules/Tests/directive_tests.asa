@@ -111,20 +111,40 @@ DirectiveTests :: module {
         test(#compiles(#error("compile-time definition error", compileTimeContext)) == false, "#error can use a compile-time definition as context");
         test(#compiles(#warning("compile-time parent warning", #parent(compileTimeContext))), "#parent can return the parent AST of a compile-time definition value");
         test(#compiles(#error("compile-time parent error", #parent(compileTimeContext))) == false, "#error can use #parent of a compile-time definition value");
+        test(#compiles(#nameof(#parent())) == false, "#parent without an AST node does not compile");
+        test(#compiles(#warning("missing context warning", #context)) == false, "#context outside a custom directive does not compile");
         test(#compiles(#warning("struct definition warning", DirectiveContextStruct)), "#warning can use a struct definition as context");
         test(#compiles(#warning("function definition warning", directiveContextFunction)), "#warning can use a function definition as context");
         test(#compiles(#warning("regular variable warning", regularContext)), "#warning keeps regular variables as usage context");
         test(#compiles(#warning("function call warning", directiveContextFunction())), "#warning keeps function calls as usage context");
 
+        #setflag TEST_DIRECTIVE_FLAG true;
+        test(#getflag(TEST_DIRECTIVE_FLAG), "#getflag reads a true flag set by #setflag");
+        test(#stack_last("directive_calls") == "getflag", "directive_calls tracks #getflag after it resolves");
+        #setflag TEST_DIRECTIVE_FLAG false;
+        test(#stack_last("directive_calls") == "setflag", "directive_calls tracks #setflag after it runs");
+        test(#getflag(TEST_DIRECTIVE_FLAG) == false, "#getflag reads updated false flag values");
+        test(#getflag(MISSING_DIRECTIVE_FLAG) == false, "#getflag returns false for missing flags");
+
         ifValue : int = 0;
+        #stack_push("control_flow_result", false);
         #if(true, { ifValue = 3; });
         test(ifValue == 3, "#if(true) includes its AST node");
+        test(#stack_last("control_flow_result") == true, "control_flow_result tracks true #if conditions");
+        test(#stack_last("directive_calls") == "stack_last", "directive_calls tracks #stack_last after it resolves");
         #if(false, { ifValue = 4; });
         test(ifValue == 3, "#if(false) skips its AST node");
+        test(#stack_last("directive_calls") == "if", "directive_calls tracks #if after it runs");
+        test(#stack_last("control_flow_result") == false, "control_flow_result tracks false #if conditions");
         #if(1 == 1, { ifValue = 5; });
         test(ifValue == 5, "#if supports compile-time comparison conditions");
         #if(1 == 2, { skippedUnknownIdentifier = 1; });
         test(ifValue == 5, "#if(false) does not compile skipped invalid AST");
+        #stack_push("control_flow_result", false);
+        #if(true, {
+            test(#stack_last("control_flow_result") == false, "#if pushes control_flow_result after its body runs");
+        });
+        test(#stack_last("control_flow_result") == true, "control_flow_result updates after #if body finishes");
         IF_CONDITION :: 2 > 1;
         #if(IF_CONDITION, { ifValue = 7; });
         test(ifValue == 7, "#if supports compile-time definition conditions");

@@ -17,6 +17,12 @@ StructTests :: module {
 		y : int;
 	}
 
+	Defaulted :: struct {
+		a : int = 6;
+		b : bool = true;
+		c : float;
+	}
+
 	Box :: struct {
 		x      : int;
 		y      : int;
@@ -201,6 +207,20 @@ StructTests :: module {
 
 		p.x = p.x + p.y;
 		test(p.x == 10,                       "struct: field update using other field");
+
+		def : Defaulted = default;
+		test(def.a == 6,                      "default-init struct applies int member default");
+		test(def.b == true,                   "default-init struct applies bool member default");
+		test(def.c == 0.0,                    "default-init struct zeroes members without explicit default");
+
+		bareDef : Defaulted;
+		test(bareDef.a == 6,                  "bare typed struct declaration applies int member default");
+		test(bareDef.b == true,               "bare typed struct declaration applies bool member default");
+
+		undefStruct : Defaulted = ?;
+		undefStruct = default;
+		test(undefStruct.a == 6,              "undefined-init struct can later receive default value");
+		test(undefStruct.b == true,           "undefined-init struct assignment applies bool default");
 
 		///////////////////////////////
 		// Member function: return   //

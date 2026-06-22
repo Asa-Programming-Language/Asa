@@ -49,6 +49,34 @@ AttributeTests :: module {
     @removed("gone var"):
     removedVar : int = 0;
 
+    @public:
+    {
+        scopePublic :: () {}
+        @private:
+        scopePrivateOverride :: () {}
+    }
+
+    @deprecated("scope old"):
+    @inline:
+    {
+        scopeDeprecatedInline :: () {}
+    }
+
+    directiveRemoved :: () {}
+    directiveNotRemoved :: () {}
+
+    #set_attribute(directiveRemoved, "removed", true);
+    #if(false, {
+        #set_attribute(directiveNotRemoved, "removed", true);
+    });
+
+    @public:
+    inheritedModuleAttrs :: module {
+        inheritedPublic :: () {}
+        @private:
+        privateOverride :: () {}
+    }
+
     // runAttributeTests()
     // Runs all attribute tests.
 
@@ -60,6 +88,7 @@ AttributeTests :: module {
         test(publicOnly.@public == true,             "@public present -> true");
         test(publicInlineNoast.@public == true,      "@public present alongside others -> true");
         test(inlineOnly.@public == false,            "@public absent -> false");
+        test(privateOnly.@public == false,           "explicit @private does not imply @public");
 
         // @private
         test(privateOnly.@private == true,           "@private present -> true");
@@ -97,6 +126,22 @@ AttributeTests :: module {
         test(p == 3,                                  "@priority on customTagged -> 3");
         test(otherCustom.@priority == 1,              "@priority on otherCustom -> 1");
         test(publicOnly.@priority == false,           "@priority absent -> false");
+
+        // Manual scope attribute inheritance
+        test(scopePublic.@public == true,              "scope @public is inherited by child");
+        test(scopePrivateOverride.@private == true,    "scope child keeps explicit @private");
+        test(scopePrivateOverride.@public == false,    "scope child blocks incompatible inherited @public");
+        test(scopeDeprecatedInline.@deprecated == "scope old", "scope string attribute is inherited by child");
+        test(scopeDeprecatedInline.@inline == true,    "multiple scope attributes are inherited by child");
+
+        // #set_attribute
+        test(#compiles(directiveRemoved()) == false,  "#set_attribute applies during codegen");
+        test(#compiles(directiveNotRemoved()),        "#set_attribute does not run inside false #if");
+
+        // Module attributes are not manually inherited into children
+        test(inheritedPublic.@public == false,  "module attributes are not copied to children");
+        test(privateOverride.@private == true,  "explicit child attribute is kept");
+        test(privateOverride.@public == false,  "module @public is not copied over explicit child attributes");
 
         // .@ result used in control flow
         x : int = 0;

@@ -5,6 +5,10 @@
 @public:
 Print :: module {
 
+    #if (#getflag(COMPILERDEBUG), {
+        #set_attribute(Print, "hideast", false);
+    });
+
     #use Builtin.String;
 
     //#library "libc";

@@ -70,14 +70,19 @@ int main(int argc, char** argv)
                 verbosity = 1;
                 break;
 
-            case 'f':
-                if (std::string(optarg) == "errortest")
+            case 'f': {
+                std::string flagName = std::string(optarg);
+                commandLineCompilerDirectiveFlags[ToLower(flagName)] = true;
+                commandLineCompilerDirectiveFlags[ToUpper(flagName)] = true;
+
+                if (flagName == "errortest")
                     compilerFlags |= Flags_RunErrorTests;
-                else if (std::string(optarg) == "compact")
+                else if (flagName == "compact")
                     compact = true;
-                else if (std::string(optarg) == "color")
+                else if (flagName == "color")
                     compilerFlags |= Flags_Force_Enable_Color;
                 break;
+            }
 
             case 'o':
                 outputFileName = std::filesystem::weakly_canonical(std::filesystem::path(std::string(optarg))).string();
@@ -106,6 +111,10 @@ int main(int argc, char** argv)
 
             case 'd':
                 compilerFlags |= Flags_CompilerDebug;
+                commandLineCompilerDirectiveFlags["compilerdebug"] = true;
+                commandLineCompilerDirectiveFlags["COMPILERDEBUG"] = true;
+                commandLineCompilerDirectiveFlags["compiler_debug"] = true;
+                commandLineCompilerDirectiveFlags["COMPILER_DEBUG"] = true;
                 break;
 
             case 'D':
@@ -304,6 +313,14 @@ int main(int argc, char** argv)
     resolveAttributeAccess(rootNode);
     // Check for incompatible attribute combinations
     checkAttributeCompatibility(rootNode);
+    // Find any unused leaf nodes, and throw error if there are any
+    findUnusedLeafNodes(rootNode);
+    // Process AST-affecting compiler directives after parse validation and before AST output/codegen.
+    processCompilerDirectives(rootNode);
+    // Re-check attributes because directives may have added or replaced them.
+    checkAttributeCompatibility(rootNode);
+    if (wasError)
+        goto errorsEncountered;
 
     // Print AST (verbose)
     if (verbosity >= 4) {
@@ -324,10 +341,6 @@ int main(int argc, char** argv)
         exit(0);
     }
 
-    // Find any unused leaf nodes, and throw error if there are any
-    findUnusedLeafNodes(rootNode);
-    if (wasError)
-        goto errorsEncountered;
 
     // Force run main function
     if (compilerFlags == Flags_Run) {

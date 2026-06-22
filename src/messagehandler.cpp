@@ -254,6 +254,23 @@ namespace messageSystem {
                 break;
             }
 
+            case Declared_Undefined_Variable_Error: {
+                if (currentNode->attributeNodes.size() == 0) {
+                    printMessageSystemError("Message expected at least one attribute node, got zero");
+                    exit(1);
+                }
+                if (currentNode->attributeNodes[0].first == nullptr) {
+                    printMessageSystemError("Message first attribute node is null");
+                    exit(1);
+                }
+                SourceCodeSegment src;
+                src.addUnderline(UnderlinedSegment(currentNode->astNode, "here", ERROR_COLOR, "^"));
+                src.addUnderline(UnderlinedSegment((ASTNode*)currentNode->attributeNodes[0].first, currentNode->attributeNodes[0].second, NEUTRAL_HIGHLIGHT_COLOR, "~", Hide_Scope_Body_Contents));
+                msg.addSegment(src);
+                msg.print();
+                break;
+            }
+
             case Invalid_Compiler_Directive_Arguments_Error:
             default: {
                 msg.addSegment(SourceCodeSegment(UnderlinedSegment(currentNode->astNode, "here", ERROR_COLOR, "^")));
@@ -343,8 +360,8 @@ namespace messageSystem {
 
             default: {
                 UnderlinedSegment warningUnderline(currentNode->astNode, "here", WARNING_COLOR, "~");
-                warningUnderline.aboveContextLines = 1;
-                warningUnderline.belowContextLines = 1;
+                //warningUnderline.aboveContextLines = 1;
+                //warningUnderline.belowContextLines = 1;
                 msg.addSegment(SourceCodeSegment(warningUnderline));
                 msg.print();
                 break;
@@ -407,6 +424,8 @@ namespace messageSystem {
             case Float:
             case True_Literal:
             case False_Literal:
+            case Question:
+            case Default_Keyword:
                 return console::magentaFGColor;
             case Comment:
                 return console::brightBlackFGColor;

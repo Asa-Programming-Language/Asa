@@ -4,6 +4,10 @@
 @public:
 ColorPrint :: module {
 
+    #if (#getflag(COMPILERDEBUG), {
+        #set_attribute(ColorPrint, "hideast", false);
+    });
+
     #use Builtin.Print;
     #use Builtin.String;
     #use Builtin.Casts;

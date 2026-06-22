@@ -1,0 +1,96 @@
+// CustomDirectiveTests
+// Tests for compiler directives defined with #make_directive.
+
+@public:
+CustomDirectiveTests :: module {
+
+    #use Tests.Testing;
+
+    removedByCustomDirective :: () {}
+
+    @public:
+    runCustomDirectiveTests :: () {
+        beginSection("Custom Compiler Directives");
+
+        #make_directive("return_arg_custom", (VALUE), {
+            #return VALUE;
+        });
+        test(#return_arg_custom(42) == 42, "custom directive can return an integer argument");
+        test(#return_arg_custom(2 + 3) == 5, "custom directive can return an expression argument");
+        test(#return_arg_custom(true), "custom directive can return a bool argument");
+
+        #make_directive("return_nothing_custom", (VALUE), {
+            #return;
+        });
+        noReturnValue : int = 0;
+        #return_nothing_custom({ noReturnValue = 1; });
+        test(noReturnValue == 0, "custom directive with empty #return returns no AST");
+
+        #make_directive("include_when_custom", (COND, BODY), {
+            #if(COND, {
+                #return BODY;
+            });
+            #return;
+        });
+
+        includedValue : int = 0;
+        #include_when_custom(false, { includedValue = 1; });
+        test(includedValue == 0, "custom directive can skip a body argument");
+        #include_when_custom(true, { includedValue = 2; });
+        test(includedValue == 2, "custom directive can return a body argument");
+        #include_when_custom(false, { includedValue = 3; });
+        test(includedValue == 2, "custom directive body copy does not leak previous true return");
+        #include_when_custom(true, {
+            includedValue = 4;
+            includedValue = includedValue + 1;
+        });
+        test(includedValue == 5, "custom directive can return a multi-statement body");
+
+        SHOULD_INCLUDE :: 3 > 1;
+        #include_when_custom(SHOULD_INCLUDE, { includedValue = 6; });
+        test(includedValue == 6, "custom directive condition can use compile-time definitions");
+
+        #make_directive("mark_removed_custom", (TARGET), {
+            #set_attribute(TARGET, "removed", true);
+            #return;
+        });
+        #mark_removed_custom(removedByCustomDirective);
+        test(#compiles(removedByCustomDirective()) == false, "custom directive can pass parameters to #set_attribute");
+
+        #make_directive("return_body_custom", (BODY), {
+            #return BODY;
+        });
+        bodyReturnValue : int = 0;
+        #return_body_custom({ bodyReturnValue = 11; });
+        test(bodyReturnValue == 11, "custom directive can directly return a body parameter");
+
+        #make_directive("include_after_if_custom", (BODY), {
+            #var(prev, #stack_last("directive_calls"));
+            #if(#nameof(prev) == "if", {
+                #return BODY;
+            });
+            #return;
+        });
+
+        afterIfValue : int = 0;
+        #if(false, { afterIfValue = 1; });
+        #include_after_if_custom({ afterIfValue = 7; });
+        test(afterIfValue == 7, "custom directive #nameof resolves directive variables at evaluation time");
+
+        notAfterIfValue : int = 0;
+        #return_nothing_custom({});
+        #include_after_if_custom({ notAfterIfValue = 1; });
+        test(notAfterIfValue == 0, "custom directive #nameof sees the current directive_calls stack");
+
+        elseIfValue : int = 0;
+        #if(false, { elseIfValue = 1; });
+        #else_if(true, { elseIfValue = 2; });
+        test(elseIfValue == 2, "#else_if runs after a false #if");
+
+        #if(true, { elseIfValue = 3; });
+        #else_if(true, { elseIfValue = 4; });
+        test(elseIfValue == 3, "#else_if skips after a true #if");
+
+        test(#compiles(#return_arg_custom(12)), "custom directive invocations work inside #compiles");
+    }
+}

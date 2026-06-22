@@ -2,6 +2,10 @@
 
 void* (ASTNode::*codegen)() = nullptr;
 
+static bool canInheritAttribute(ASTNode* node, ASTNode* attr);
+static void inheritAttributeIfCompatible(ASTNode* node, ASTNode* attr);
+static bool tryConsumeVariantParams(const std::vector<asaToken*>& tokens, int& i, std::vector<std::vector<asaToken*>>& groups);
+
 // Returns true if an expression is allowed to continue past a newline, based
 // on the last collected token (trailing operator) or the next token (leading
 // operator on the next line).
@@ -187,6 +191,80 @@ void GATHER_PAREN_EXPRESSION(const std::vector<asaToken*>& tokens, std::vector<a
         if (parenLevel <= 0)
             break;
     }
+}
+
+static std::vector<ASTNode*> parseParenthesizedArgumentNodes(const std::vector<asaToken*>& tokens, int& i, int depth, bool& isLeaf)
+{
+    std::vector<ASTNode*> insideNodes;
+    isLeaf = true;
+
+    int parenLevel = 1;
+    int braceDepth = 0;
+    int variantCloseIdx = -1;
+    TokenType prevMeaningfulToken = Nothing;
+    std::vector<asaToken*> subTokens;
+    for (;;) {
+        if (i >= tokens.size() - 1)
+            break;
+        asaToken* t = NEXT_TOKEN(tokens, i);
+
+        if (t->tokenType == Left_Paren)
+            parenLevel++;
+        if (t->tokenType == Right_Paren)
+            parenLevel--;
+        if (t->tokenType == Left_Brace)
+            braceDepth++;
+        if (t->tokenType == Right_Brace)
+            braceDepth--;
+        if (t->tokenType == Less && prevMeaningfulToken == Identifier && variantCloseIdx < 0) {
+            std::vector<std::vector<asaToken*>> _dummyGroups;
+            int jj = i;
+            if (tryConsumeVariantParams(tokens, jj, _dummyGroups))
+                variantCloseIdx = jj;
+        }
+        if (i > variantCloseIdx)
+            variantCloseIdx = -1;
+        if (t->tokenType != Nothing && t->tokenType != EndOfLine)
+            prevMeaningfulToken = t->tokenType;
+
+        if (parenLevel == 0)
+            break;
+        if (braceDepth == 0 && (t->tokenType == EndOfLine || t->tokenType == Semi_Colon)) {
+            if (t->tokenType == EndOfLine) {
+                if (subTokens.empty())
+                    continue;
+                TokenType lastTok = subTokens.back()->tokenType;
+                TokenType nextTok = (i + 1 < (int)tokens.size()) ? tokens[i + 1]->tokenType : Nothing;
+                if (isLineContinuation(lastTok, nextTok))
+                    continue;
+                int peek = i + 1;
+                while (peek < (int)tokens.size() && (tokens[peek]->tokenType == EndOfLine || tokens[peek]->tokenType == Nothing))
+                    peek++;
+                if (peek < (int)tokens.size() && tokens[peek]->tokenType == Right_Paren)
+                    continue;
+            }
+            isLeaf = false;
+            break;
+        }
+        if (t->tokenType == Comma && parenLevel == 1 && braceDepth == 0 && variantCloseIdx < 0) {
+            ASTNode* newNode = new ASTNode();
+            generateAST(subTokens, depth + 1, newNode);
+            newNode->nodeType = Expression_Term;
+            newNode->codegen = &ASTNode::generateExpression;
+            insideNodes.push_back(newNode);
+            subTokens.clear();
+            continue;
+        }
+
+        subTokens.push_back(t);
+    }
+
+    ASTNode* newNode = new ASTNode();
+    generateAST(subTokens, depth + 1, newNode);
+    newNode->nodeType = Expression_Term;
+    newNode->codegen = &ASTNode::generateExpression;
+    insideNodes.push_back(newNode);
+    return insideNodes;
 }
 
 bool GATHER_TO_SEMICOLON(const std::vector<asaToken*>& tokens, std::vector<asaToken*>& subTokens, int& i, bool includeLast = false, bool allowRunOut = false)
@@ -1818,14 +1896,18 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
                 identifier->nodeType = Identifier_Node;
 
                 // Paren-enclosed argument - function-call-style inline directive (e.g. #directive(arg)).
-                // Gather only the paren contents and treat the whole directive as a value leaf,
-                // so it composes with surrounding expressions without consuming them.
+                // Parse the parenthesized argument list with the same path as normal function calls.
                 if (i + 1 < (int)tokens.size() && tokens[i + 1]->tokenType == Left_Paren) {
-                    std::vector<asaToken*> argTokens;
-                    GATHER_PAREN_EXPRESSION(tokens, argTokens, 0, i, false);
-                    ASTNode* argNode = generateAST(argTokens, depth + 1);
+                    i++;
+                    bool argsAreLeaf = true;
+                    std::vector<ASTNode*> parsedArgs = parseParenthesizedArgumentNodes(tokens, i, depth + 1, argsAreLeaf);
+                    ASTNode* argNode = new ASTNode();
                     argNode->nodeType = Scope_Body;
                     argNode->codegen = &ASTNode::generateScopeBody;
+                    for (auto* arg : parsedArgs) {
+                        arg->parentNode = argNode;
+                        argNode->childNodes.push_back(arg);
+                    }
                     node->token->tokenStr = "#" + identifier->token->tokenStr;
                     node->childNodes.push_back(identifier);
                     node->childNodes.push_back(argNode);
@@ -1846,6 +1928,10 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
                         node->returnsASTNode = true;
                         node->resolveASTNode = &ASTNode::resolveCompilerParentASTNode;
                     }
+                    else if (identifier->token->tokenStr == "context") {
+                        node->returnsASTNode = true;
+                        node->resolveASTNode = &ASTNode::resolveCompilerContextASTNode;
+                    }
                     else if (identifier->token->tokenStr == "print_ast")
                         node->codegen = &ASTNode::generateCompilerPrintASTDirective;
                     else if (identifier->token->tokenStr == "print")
@@ -1858,6 +1944,16 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
                         node->codegen = &ASTNode::generateCompilerErrorDirective;
                     else if (identifier->token->tokenStr == "warning")
                         node->codegen = &ASTNode::generateCompilerWarningDirective;
+                    else if (identifier->token->tokenStr == "set_attribute")
+                        node->codegen = &ASTNode::generateCompilerSetAttributeDirective;
+                    else if (identifier->token->tokenStr == "getflag")
+                        node->codegen = &ASTNode::generateCompilerGetFlagDirective;
+                    else if (identifier->token->tokenStr == "nameof")
+                        node->codegen = &ASTNode::generateNameofDirective;
+                    else if (identifier->token->tokenStr == "make_directive" ||
+                             identifier->token->tokenStr == "return" ||
+                             identifier->token->tokenStr == "context")
+                        node->codegen = &ASTNode::generateNothing;
                     goto addNodeAsLeaf;
                 }
 
@@ -1940,6 +2036,24 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
                         bodyNode->childNodes.push_back(l);
                     bodyNode->leafNodes.clear();
                 }
+                if (identifier->token->tokenStr == "getflag") {
+                    node->codegen = &ASTNode::generateCompilerGetFlagDirective;
+                    for (auto& l : bodyNode->leafNodes)
+                        bodyNode->childNodes.push_back(l);
+                    bodyNode->leafNodes.clear();
+                }
+                if (identifier->token->tokenStr == "nameof") {
+                    node->codegen = &ASTNode::generateNameofDirective;
+                    for (auto& l : bodyNode->leafNodes)
+                        bodyNode->childNodes.push_back(l);
+                    bodyNode->leafNodes.clear();
+                }
+                if (identifier->token->tokenStr == "make_directive" || identifier->token->tokenStr == "return") {
+                    node->codegen = &ASTNode::generateNothing;
+                    for (auto& l : bodyNode->leafNodes)
+                        bodyNode->childNodes.push_back(l);
+                    bodyNode->leafNodes.clear();
+                }
                 if (identifier->token->tokenStr == "stack_push") {
                     node->codegen = &ASTNode::generateCompilerStackPushDirective;
                     // Leaf nodes in a #stack_push body are intentional tokens (stack name + AST),
@@ -1973,6 +2087,10 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
                     node->returnsASTNode = true;
                     node->resolveASTNode = &ASTNode::resolveCompilerParentASTNode;
                 }
+                if (identifier->token->tokenStr == "context") {
+                    node->returnsASTNode = true;
+                    node->resolveASTNode = &ASTNode::resolveCompilerContextASTNode;
+                }
                 if (identifier->token->tokenStr == "print_ast") {
                     node->codegen = &ASTNode::generateCompilerPrintASTDirective;
                     for (auto& l : bodyNode->leafNodes)
@@ -1993,6 +2111,12 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
                 }
                 if (identifier->token->tokenStr == "if") {
                     node->codegen = &ASTNode::generateCompilerIfDirective;
+                    for (auto& l : bodyNode->leafNodes)
+                        bodyNode->childNodes.push_back(l);
+                    bodyNode->leafNodes.clear();
+                }
+                if (identifier->token->tokenStr == "set_attribute") {
+                    node->codegen = &ASTNode::generateCompilerSetAttributeDirective;
                     for (auto& l : bodyNode->leafNodes)
                         bodyNode->childNodes.push_back(l);
                     bodyNode->leafNodes.clear();
@@ -2304,11 +2428,6 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
                     if (!noModifiers) {
                         modifiersNode = generateAST(subTokens, depth + 1);
                         modifiersNode->nodeType = Compiler_Modifiers;
-
-                        for (auto* attr : pendingAttributes) {
-                            if (attr->token && attr->token->tokenStr == "hideast")
-                                node->showInASTOutput = false;
-                        }
                     }
 
                     // Step through all tokens to gather body until braces are closed
@@ -2409,82 +2528,7 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
                     }
                 }
 
-                // Collect all comma-separated terms
-                // Step through all following tokens until last paren
-                int parenLevel = 1;
-                int braceDepth = 0;  // track { } so semicolons inside blocks don't terminate
-                // variantCloseIdx: when >= 0, commas up to this token index are variant params (not arg splits)
-                int variantCloseIdx = -1;
-                TokenType prevMeaningfulToken = Nothing;  // to detect identifier-preceded <
-                std::vector<asaToken*> subTokens = std::vector<asaToken*>();
-                for (;;) {
-                    if (i >= tokens.size() - 1)
-                        break;
-                    asaToken* t = NEXT_TOKEN(tokens, i);
-
-                    if (t->tokenType == Left_Paren)
-                        parenLevel++;
-                    if (t->tokenType == Right_Paren)
-                        parenLevel--;
-                    if (t->tokenType == Left_Brace)
-                        braceDepth++;
-                    if (t->tokenType == Right_Brace)
-                        braceDepth--;
-                    // When < follows an identifier, use lookahead to see if it's really a variant
-                    // opener (matching > followed by ( or ::). Only then suppress comma splitting.
-                    if (t->tokenType == Less && prevMeaningfulToken == Identifier && variantCloseIdx < 0) {
-                        std::vector<std::vector<asaToken*>> _dummyGroups;
-                        // NEXT_TOKEN does ++i, so after reading '<', i IS the position of '<'.
-                        int jj = i;
-                        if (tryConsumeVariantParams(tokens, jj, _dummyGroups)) {
-                            // jj now points at > -- record its absolute index so we know when to stop
-                            variantCloseIdx = jj;
-                        }
-                    }
-                    if (i > variantCloseIdx)
-                        variantCloseIdx = -1;  // past the closing >, re-enable comma splitting
-                    if (t->tokenType != Nothing && t->tokenType != EndOfLine)
-                        prevMeaningfulToken = t->tokenType;
-
-                    if (parenLevel == 0)
-                        break;
-                    if (braceDepth == 0 && (t->tokenType == EndOfLine || t->tokenType == Semi_Colon)) {
-                        if (t->tokenType == EndOfLine) {
-                            // Between arguments (subTokens cleared after comma separator): always skip EOL
-                            if (subTokens.empty())
-                                continue;
-                            TokenType lastTok = subTokens.back()->tokenType;
-                            TokenType nextTok = (i + 1 < (int)tokens.size()) ? tokens[i + 1]->tokenType : Nothing;
-                            if (isLineContinuation(lastTok, nextTok))
-                                continue;
-                            // Peek past any trailing EOL/Nothing tokens: if ')' closes this call, skip EOL
-                            int peek = i + 1;
-                            while (peek < (int)tokens.size() && (tokens[peek]->tokenType == EndOfLine || tokens[peek]->tokenType == Nothing))
-                                peek++;
-                            if (peek < (int)tokens.size() && tokens[peek]->tokenType == Right_Paren)
-                                continue;
-                        }
-                        isLeaf = false;
-                        break;
-                    }
-                    // If comma and parenLevel is in same scope (not inside a nested brace block or variant params)
-                    if (t->tokenType == Comma && parenLevel == 1 && braceDepth == 0 && variantCloseIdx < 0) {
-                        ASTNode* newNode = new ASTNode();
-                        generateAST(subTokens, depth + 1, newNode);
-                        newNode->nodeType = Expression_Term;
-                        newNode->codegen = &ASTNode::generateExpression;
-                        insideNodes.push_back(newNode);
-                        subTokens = std::vector<asaToken*>();
-                        continue;
-                    }
-
-                    subTokens.push_back(t);
-                }
-                ASTNode* newNode = new ASTNode();
-                generateAST(subTokens, depth + 1, newNode);
-                newNode->nodeType = Expression_Term;
-                newNode->codegen = &ASTNode::generateExpression;
-                insideNodes.push_back(newNode);
+                insideNodes = parseParenthesizedArgumentNodes(tokens, i, depth, isLeaf);
 
                 if (isFunction) {
                     ASTNode* argumentsNode = new ASTNode();
@@ -2504,10 +2548,14 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
                     }
                 }
                 else {
-                    insideNodes[0]->nodeType = Expression_Paren_Term;
-                    insideNodes[0]->codegen = &ASTNode::generateExpression;
-                    node = insideNodes[0];
-                    //node->childNodes.push_back(insideNodes[0]);
+                    if (insideNodes.size() == 1) {
+                        insideNodes[0]->nodeType = Expression_Paren_Term;
+                        insideNodes[0]->codegen = &ASTNode::generateExpression;
+                        node = insideNodes[0];
+                    }
+                    else {
+                        node->childNodes = insideNodes;
+                    }
                 }
                 if (isLeaf)
                     goto addNodeAsLeaf;
@@ -2592,6 +2640,20 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
             case Character: {
                 node->nodeType = Character_Constant_Node;
                 goto generateConstantLiteral;
+            }
+
+            case Question: {
+                node->nodeType = Undefined_Initializer_Node;
+                node->codegen = &ASTNode::generateConstant;
+                parentNode->leafNodes.push_back(node);
+                goto dontAddNode;
+            }
+
+            case Default_Keyword: {
+                node->nodeType = Default_Initializer_Node;
+                node->codegen = &ASTNode::generateConstant;
+                parentNode->leafNodes.push_back(node);
+                goto dontAddNode;
             }
 
             case True_Literal:
@@ -2782,10 +2844,8 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
         // to each child rather than keeping them on the scope body itself.
         if (node->nodeType == Scope_Body && !pendingAttributes.empty()) {
             for (auto* child : node->childNodes) {
-                for (auto* a : pendingAttributes) {
-                    a->isInherited = true;
-                    child->attributes.push_back(a);
-                }
+                for (auto* a : pendingAttributes)
+                    inheritAttributeIfCompatible(child, a);
             }
             pendingAttributes.clear();
         }
@@ -2948,6 +3008,7 @@ void unifyNodes(ASTNode*& node)
     }
 }
 
+static void buildDeclMap(ASTNode* node, std::map<std::string, ASTNode*>& map);
 
 // Function to convert value-returning compiler directives into their value  TODO: This should not be its own pass in the future
 void resolveCompileTimeDirectives(ASTNode*& node, std::string moduleCtx, std::string funcCtx)
@@ -3041,18 +3102,15 @@ void resolveCompileTimeDirectives(ASTNode*& node, std::string moduleCtx, std::st
             node->codegen = &ASTNode::generateCompilesDirective;
         }
         else if (name == "nameof") {
-            if (node->childNodes.size() < 2 || node->childNodes[1]->childNodes.empty()) {
-                messageSystem::error("#nameof requires an expression argument", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
-                return;
-            }
-            // Walk to the rightmost leaf to get the simple name (e.g. A.B.C -> "C")
-            ASTNode* cur = node->childNodes[1]->childNodes[0];
-            while (cur->childNodes.size() >= 2)
-                cur = cur->childNodes.back();
-            node->nodeType = String_Constant_Node;
-            node->token->tokenStr = "\"" + cur->token->tokenStr + "\"";
-            node->codegen = &ASTNode::generateConstant;
-            node->childNodes.clear();
+            node->codegen = &ASTNode::generateNameofDirective;
+        }
+        else if (name == "parent") {
+            node->returnsASTNode = true;
+            node->resolveASTNode = &ASTNode::resolveCompilerParentASTNode;
+        }
+        else if (name == "context") {
+            node->returnsASTNode = true;
+            node->resolveASTNode = &ASTNode::resolveCompilerContextASTNode;
         }
     }
 }
@@ -3154,6 +3212,63 @@ static const std::vector<std::vector<std::string>> incompatibleAttributeSets = {
     {"external", "internal"},
 };
 
+static bool attributeNamesConflict(const std::string& left, const std::string& right)
+{
+    if (left == right)
+        return true;
+
+    for (const auto& group : incompatibleAttributeSets) {
+        bool hasLeft = false;
+        bool hasRight = false;
+        for (const auto& name : group) {
+            hasLeft = hasLeft || name == left;
+            hasRight = hasRight || name == right;
+        }
+        if (hasLeft && hasRight)
+            return true;
+    }
+
+    return false;
+}
+
+static bool canInheritAttribute(ASTNode* node, ASTNode* attr)
+{
+    if (!node || !attr || !attr->token)
+        return false;
+
+    for (auto* existingAttr : node->attributes) {
+        if (!existingAttr || !existingAttr->token)
+            continue;
+        if (attributeNamesConflict(existingAttr->token->tokenStr, attr->token->tokenStr))
+            return false;
+    }
+
+    return true;
+}
+
+static void inheritAttributeIfCompatible(ASTNode* node, ASTNode* attr)
+{
+    if (canInheritAttribute(node, attr))
+        node->attributes.push_back(attr);
+}
+
+static ASTNode* getModuleInnerScope(ASTNode* node)
+{
+    if (!node || !node->isModuleScope || node->childNodes.empty())
+        return nullptr;
+
+    ASTNode* outerScope = node->childNodes[0];
+    if (!outerScope || outerScope->nodeType != Scope_Body || outerScope->childNodes.empty())
+        return nullptr;
+
+    ASTNode* moduleNode = outerScope->childNodes[0];
+    if (!moduleNode || moduleNode->nodeType != Module_Define_Node || moduleNode->childNodes.empty())
+        return nullptr;
+
+    ASTNode* innerScope = moduleNode->childNodes[0];
+    return innerScope && innerScope->nodeType == Scope_Body ? innerScope : nullptr;
+}
+
 static const std::unordered_set<ASTNodeType> literalNodeTypes = {
     Integer_Node,
     Float_Node,
@@ -3199,8 +3314,6 @@ void checkAttributeCompatibility(ASTNode* node)
         std::vector<ASTNode*> conflicts;
         for (const auto& name : group)
             for (const auto& a : node->attributes) {
-                if (a->isInherited)
-                    continue;
                 if (a->token->tokenStr == name)
                     conflicts.push_back(a);
             }
@@ -3221,8 +3334,6 @@ void checkAttributeCompatibility(ASTNode* node)
         std::vector<std::string> conflicts;
         for (const auto& a : node->attributes)
             for (const auto& b : node->attributes) {
-                if (a->isInherited || b->isInherited)
-                    continue;
                 if (a == b)
                     continue;
                 if (a->token->tokenStr == b->token->tokenStr)
@@ -3458,7 +3569,7 @@ void addFileIncludes(ASTNode*& node)
                 if (node->childNodes.size() > 1) {
                     ASTNode* strChild = node->childNodes[1]->childNodes[0];
                     if (strChild->nodeType == String_Node) {
-                        fileName = strChild->token->tokenStr.substr(1, strChild->token->tokenStr.size() - 2);
+                        fileName = decodeQuotedStringToken(strChild->token);
 
                         fileName = std::filesystem::weakly_canonical(std::filesystem::path(projectDirectory + fileName)).string();
 
@@ -3568,15 +3679,9 @@ void loadAllModulesInDir(const std::string& modulePath)
                 if (importedModuleNames.find(thisModuleName) != importedModuleNames.end())
                     continue;
 
-                auto& moduleDefs = moduleNode->childNodes[0]->compilerDefinitions;
-                for (int i = 0; i < (int)moduleNode->childNodes[0]->childNodes.size(); i++) {
-                    ASTNode* importedNode = moduleNode->childNodes[0]->childNodes[i];
-                    if (importedNode->enclosingModule.empty())
-                        importedNode->enclosingModule = thisModuleName;
-                    for (auto& def : moduleDefs)
-                        importedNode->compilerDefinitions.emplace(def.first, def.second);
-                    importedNodes.push_back(importedNode);
-                }
+                ASTNode* importedModule = localRoot->childNodes[j];
+                importedModule->importedChildren = true;
+                importedNodes.push_back(importedModule);
                 importedModuleNames.insert(thisModuleName);
                 if (verbosity >= 3)
                     printModuleLoaded(thisModuleName, pathStr);
@@ -3628,15 +3733,9 @@ bool loadModule(std::string& modulePath, std::string& moduleName)
                         allTokens.insert(allTokens.end(), localTokens.begin(), localTokens.end());
                         lines.insert(lines.end(), localLines.begin(), localLines.end());
                         fileNames.insert(fileNames.end(), localFileNames.begin(), localFileNames.end());
-                        auto& moduleDefs = moduleNode->childNodes[0]->compilerDefinitions;
-                        for (int i = 0; i < moduleNode->childNodes[0]->childNodes.size(); i++) {
-                            ASTNode* importedNode = moduleNode->childNodes[0]->childNodes[i];
-                            if (importedNode->enclosingModule.empty())
-                                importedNode->enclosingModule = moduleName;
-                            for (auto& def : moduleDefs)
-                                importedNode->compilerDefinitions.emplace(def.first, def.second);
-                            importedNodes.push_back(importedNode);
-                        }
+                        ASTNode* importedModule = localRoot->childNodes[j];
+                        importedModule->importedChildren = true;
+                        importedNodes.push_back(importedModule);
                         if (verbosity >= 3)
                             printModuleLoaded(moduleName, pathStr);
                         return true;
@@ -3755,7 +3854,6 @@ void addModuleImports(ASTNode*& node)
 
                     if (importedModuleNames.find(moduleName) != importedModuleNames.end()) {
                         node->nodeType = Nothing_Node;
-                        node->showInASTOutput = false;
                         return;
                     }
 
@@ -3779,7 +3877,6 @@ void addModuleImports(ASTNode*& node)
                             exit(1);
                         }
                         node->nodeType = Nothing_Node;
-                        node->showInASTOutput = false;
                         return;
                     }
 
@@ -3855,7 +3952,7 @@ int printAST(ASTNode* startNode, int depth)
             if (startNode->token->tokenStr.size() > 0)
                 printf(":L%d", startNode->lineNumber);
     }
-    if (startNode->showInASTOutput) {
+    if (getInheritedAttributeValue(startNode, "hideast") != "true" || compilerFlags == Flags_PrintAST) {
         console::write(":(");
         console::write(ASTNodeTypeAsString(startNode->nodeType), console::yellowFGColor);
         console::write("){");
@@ -3912,7 +4009,7 @@ int generateOutputCode(ASTNode*& node, int depth, int pass)
 {
     switch (node->nodeType) {
         case Compiler_Define_Struct: {
-            if (verbosity >= 4) {
+            if (verbosity >= 4 && getInheritedAttributeValue(node, "hideast") != "true") {
                 console::printIndent(depth + 1);
                 console::write("pass ");
                 console::write(std::to_string(pass), console::greenFGColor);
@@ -3928,7 +4025,7 @@ int generateOutputCode(ASTNode*& node, int depth, int pass)
         }
 
         case Compiler_Define_Enum: {
-            if (verbosity >= 4) {
+            if (verbosity >= 4 && getInheritedAttributeValue(node, "hideast") != "true") {
                 console::printIndent(depth + 1);
                 console::write("pass ");
                 console::write(std::to_string(pass), console::greenFGColor);
@@ -3946,7 +4043,7 @@ int generateOutputCode(ASTNode*& node, int depth, int pass)
         case Compiler_Define_Cast: {
             if (pass == 0)
                 break;
-            if (verbosity >= 4) {
+            if (verbosity >= 4 && getInheritedAttributeValue(node, "hideast") != "true") {
                 console::printIndent(depth + 1);
                 console::write("pass ");
                 console::write(std::to_string(pass), console::greenFGColor);
@@ -3964,7 +4061,7 @@ int generateOutputCode(ASTNode*& node, int depth, int pass)
         case Compiler_Define_Function: {
             if (pass == 0)
                 break;
-            if (verbosity >= 4) {
+            if (verbosity >= 4 && getInheritedAttributeValue(node, "hideast") != "true") {
                 console::printIndent(depth + 1);
                 console::write("pass ");
                 console::write(std::to_string(pass), console::greenFGColor);
@@ -3982,7 +4079,7 @@ int generateOutputCode(ASTNode*& node, int depth, int pass)
         case Compile_Time_Directive: {
             if (pass == 0)
                 break;
-            if (verbosity >= 4) {
+            if (verbosity >= 4 && getInheritedAttributeValue(node, "hideast") != "true") {
                 console::printIndent(depth + 1);
                 console::write("pass ");
                 console::write(std::to_string(pass), console::greenFGColor);
@@ -4005,8 +4102,13 @@ int generateOutputCode(ASTNode*& node, int depth, int pass)
         }
 
         case Colon_Separator_Node: {
-            // Bare typed declaration with no initializer: call codegen directly to emit the error.
-            if (pass == 2 && node->codegen)
+            if (node->currentNodeDoneGenerating)
+                break;
+            if (pass == 1 && node->parentNode == rootNode) {
+                declareModuleScopeVariable(node, node, false);
+                break;
+            }
+            if (pass == 2 && node->parentNode != rootNode && node->codegen)
                 (Value*)(node->*(node->codegen))(pass);
             break;
         }
@@ -4015,11 +4117,23 @@ int generateOutputCode(ASTNode*& node, int depth, int pass)
             // Named module node: register and declare globals.
             if (pass == 1 && node->isModuleScope)
                 processModuleForDeclarations(node);
+            if (node->isModuleScope && node->importedChildren) {
+                ASTNode* innerScope = getModuleInnerScope(node);
+                if (innerScope) {
+                    for (auto* child : innerScope->childNodes) {
+                        if (child->nodeType == Expression_Statement || child->nodeType == Colon_Separator_Node)
+                            continue;
+                        generateOutputCode(child, depth + 1, pass);
+                        if (wasError)
+                            goto errorDuringCodegen;
+                    }
+                }
+            }
             break;
         }
 
         case Scope_Body: {
-            if (verbosity >= 4) {
+            if (verbosity >= 4 && getInheritedAttributeValue(node, "hideast") != "true") {
                 console::printIndent(depth + 1);
                 console::write("pass ");
                 console::write(std::to_string(pass), console::greenFGColor);
@@ -4030,7 +4144,7 @@ int generateOutputCode(ASTNode*& node, int depth, int pass)
                 // must be stored in the Scope_Body node itself so that findNamedValue can find them
                 // via the depth-0 direct-child scan (the Scope_Body IS a direct child of rootNode,
                 // but the Expression_Statement grandchildren are not).
-                if (pass == 1 && c->nodeType == Expression_Statement) {
+                if (pass == 1 && (c->nodeType == Expression_Statement || c->nodeType == Colon_Separator_Node)) {
                     declareModuleScopeVariable(c, node, false);
                     continue;
                 }

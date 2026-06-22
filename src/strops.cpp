@@ -568,6 +568,139 @@ inline static const std::string roundFloat(const double input, const int decimal
 	return str.str();
 }
 
+std::string unescapeString(const std::string& src)
+{
+	std::string result;
+	result.reserve(src.size());
+
+	for (size_t i = 0; i < src.length(); ++i) {
+		char c = src[i];
+		if (c != '\\') {
+			result.push_back(c);
+			continue;
+		}
+
+		if (i + 1 >= src.length())
+			throw std::runtime_error("Incomplete escape sequence at end of string");
+
+		char esc = src[++i];
+		switch (esc) {
+			case 'a':
+				result.push_back('\a');
+				break;
+			case 'b':
+				result.push_back('\b');
+				break;
+			case 'f':
+				result.push_back('\f');
+				break;
+			case 'n':
+				result.push_back('\n');
+				break;
+			case 'r':
+				result.push_back('\r');
+				break;
+			case 't':
+				result.push_back('\t');
+				break;
+			case 'v':
+				result.push_back('\v');
+				break;
+			case '\\':
+				result.push_back('\\');
+				break;
+			case '\'':
+				result.push_back('\'');
+				break;
+			case '"':
+				result.push_back('\"');
+				break;
+			case '?':
+				result.push_back('\?');
+				break;
+			case 'x': {
+				int value = 0;
+				int digits = 0;
+				while (i + 1 < src.length() && std::isxdigit(src[i + 1])) {
+					++i;
+					value *= 16;
+					char hc = src[i];
+					if (hc >= '0' && hc <= '9')
+						value += hc - '0';
+					else if (hc >= 'a' && hc <= 'f')
+						value += 10 + (hc - 'a');
+					else if (hc >= 'A' && hc <= 'F')
+						value += 10 + (hc - 'A');
+					++digits;
+				}
+				if (digits == 0)
+					throw std::runtime_error("Invalid \\x escape");
+				result.push_back(static_cast<char>(value));
+				break;
+			}
+			case 'u':
+			case 'U': {
+				int maxlen = (esc == 'u') ? 4 : 8;
+				int value = 0;
+				int digits = 0;
+				while (digits < maxlen && i + 1 < src.length() && std::isxdigit(src[i + 1])) {
+					++i;
+					char hc = src[i];
+					value *= 16;
+					if (hc >= '0' && hc <= '9')
+						value += hc - '0';
+					else if (hc >= 'a' && hc <= 'f')
+						value += 10 + (hc - 'a');
+					else if (hc >= 'A' && hc <= 'F')
+						value += 10 + (hc - 'A');
+					++digits;
+				}
+				if (digits != maxlen)
+					throw std::runtime_error("Invalid \\u or \\U escape");
+
+				if (value <= 0x7F)
+					result.push_back(static_cast<char>(value));
+				else if (value <= 0x7FF) {
+					result.push_back(static_cast<char>(0xC0 | ((value >> 6) & 0x1F)));
+					result.push_back(static_cast<char>(0x80 | (value & 0x3F)));
+				}
+				else if (value <= 0xFFFF) {
+					result.push_back(static_cast<char>(0xE0 | ((value >> 12) & 0x0F)));
+					result.push_back(static_cast<char>(0x80 | ((value >> 6) & 0x3F)));
+					result.push_back(static_cast<char>(0x80 | (value & 0x3F)));
+				}
+				else if (value <= 0x10FFFF) {
+					result.push_back(static_cast<char>(0xF0 | ((value >> 18) & 0x07)));
+					result.push_back(static_cast<char>(0x80 | ((value >> 12) & 0x3F)));
+					result.push_back(static_cast<char>(0x80 | ((value >> 6) & 0x3F)));
+					result.push_back(static_cast<char>(0x80 | (value & 0x3F)));
+				}
+				else {
+					throw std::runtime_error("Unicode code point out of range in escape");
+				}
+				break;
+			}
+			default:
+				if (esc >= '0' && esc <= '7') {
+					int value = esc - '0';
+					int digits = 1;
+					while (digits < 3 && i + 1 < src.length() && src[i + 1] >= '0' && src[i + 1] <= '7') {
+						++i;
+						value = value * 8 + (src[i] - '0');
+						++digits;
+					}
+					result.push_back(static_cast<char>(value));
+				}
+				else {
+					result.push_back(esc);
+				}
+				break;
+		}
+	}
+
+	return result;
+}
+
 std::string toCStringLiteral(const std::string& s)
 {
 	std::string out = "\"";

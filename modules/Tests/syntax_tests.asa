@@ -53,6 +53,9 @@ SyntaxTests :: module {
 	}
 
 	GLOBAL_N : int = 10;
+	GLOBAL_BARE : int;
+	GLOBAL_DEFAULT : int = default;
+	GLOBAL_UNDEFINED : int = ?;
 
 	@public:
 	runSyntaxTests :: () {
@@ -747,6 +750,34 @@ SyntaxTests :: module {
 		za : int = void;
 		za = 99;
 		test(za == 99,                        "assign after void-init");
+
+		/////////////////////////////////////
+		// default and undefined init      //
+		/////////////////////////////////////
+
+		di : int = default;
+		test(di == 0,                         "default-init int is zero");
+
+		df : float = default;
+		test(df == 0.0,                       "default-init float is zero");
+
+		db : bool = default;
+		test(db == false,                     "default-init bool is false");
+
+		dp : *int = default;
+		test(dp == void,                      "default-init pointer is null");
+
+		bare : int;
+		test(bare == 0,                       "bare typed declaration defaults int to zero");
+
+		du : int = ?;
+		du = 123;
+		test(du == 123,                       "undefined-init int can be assigned after declaration");
+
+		test(GLOBAL_BARE == 0,                "bare global typed declaration defaults int to zero");
+		test(GLOBAL_DEFAULT == 0,             "global default-init int is zero");
+		GLOBAL_UNDEFINED = 456;
+		test(GLOBAL_UNDEFINED == 456,         "global undefined-init int can be assigned before read");
 
 	}
 

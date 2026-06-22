@@ -130,7 +130,7 @@ x : int = #someDirective(string(), "", 5);
 // Define #else_if directive
 #else_if(COND_EXPR, SCOPE_BODY){
     // Store the AST of the last used compiler directive into a variable called `prev`
-    #var(prev, #stack_last("directives"));  // "directives" is a global stack, which is automatically kept up to date with the last used compiler directive. It is modified only after the directive fully runs
+    #var(prev, #stack_last("directive_calls"));  // "directive_calls" is a global stack, which is automatically kept up to date with the last used compiler directive. It is modified only after the directive fully runs
     // If the last used directive was a #if or #else_if
     #if(#nameof(prev) == "#if" || #nameof(prev) == "#else_if",
         // If it was, make sure it evaluated to false. If it didnt, then control
@@ -154,7 +154,7 @@ x : int = #someDirective(string(), "", 5);
 // Define #else directive
 #else(SCOPE_BODY){
     // Store the AST of the last used compiler directive into a variable called `prev`
-    #var(prev, #stack_last("directives"));
+    #var(prev, #stack_last("directive_calls"));
     // If the last used directive was a #if or #else_if
     #if(#nameof(prev) == "#if" || #nameof(prev) == "#else_if",
         // If it was, make sure it evaluated to false. If it didnt, then control
@@ -176,7 +176,7 @@ x : int = #someDirective(string(), "", 5);
 // Define #else_if directive
 #make_directive("else_if", (COND_EXPR, SCOPE_BODY), {
     // Store the AST of the last used compiler directive into a variable called `prev`
-    #var(prev, #stack_last("directives"));  // "directives" is a global stack, which is automatically kept up to date with the last used compiler directive. It is modified only after the directive fully runs
+    #var(prev, #stack_last("directive_calls"));  // "directive_calls" is a global stack, which is automatically kept up to date with the last used compiler directive. It is modified only after the directive fully runs
     // If the last used directive was a #if or #else_if
     #if(#nameof(prev) == "#if" || #nameof(prev) == "#else_if",
         // If it was, make sure it evaluated to false. If it didnt, then control

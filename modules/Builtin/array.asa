@@ -5,6 +5,10 @@
 @public:
 Array :: module{
 
+    #if (#getflag(COMPILERDEBUG), {
+        #set_attribute(Array, "hideast", false);
+    });
+
     #use Builtin.Memory;
 
     // Struct: array

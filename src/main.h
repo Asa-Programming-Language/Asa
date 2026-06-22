@@ -2,6 +2,7 @@
 #define MAIN_H
 
 #include "codegen.h"
+#include "compiler_directives.h"
 #include "console.h"
 #include "dependencies.h"
 #include "filemanager.h"

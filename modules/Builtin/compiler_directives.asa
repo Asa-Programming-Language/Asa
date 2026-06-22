@@ -1,0 +1,26 @@
+
+CompilerDirectives :: module{
+    // Define #else_if directive
+    #make_directive("else_if", (COND_EXPR, SCOPE_BODY), {
+        // Store the AST of the last used compiler directive into a variable called `prev`
+        #var(prev, #stack_last("directive_calls"));  // "directive_calls" is a global stack, which is automatically kept up to date with the last used compiler directive. It is modified only after the directive fully runs
+        // If the last used directive was a #if or #else_if
+        #if(#nameof(prev) == "if" || #nameof(prev) == "else_if", {
+            // If it was, make sure it evaluated to false. If it didnt, then control
+            // should not flow to this #else_if, and it should return nothing
+            #if(#stack_pop("control_flow_result") == true, { #return; });
+    
+            // Then evaluate the condition. If true, return the scope passed as an argument
+            #if(COND_EXPR, { #return SCOPE_BODY; });
+    
+            // Otherwise, it is false, or at least doesnt evaluate to something that could be called "true"
+            // Push this result to the "control_flow_result" stack and return nothing
+            #stack_push("control_flow_result", false);
+            #return;
+        });
+    
+        // If it wasnt a #if or #else_if, then this #else_if block is placed badly or there is a syntax
+        // error somewhere.
+        #error("`#else_if` compiler directive must be placed after a `#if` or `#else_if` compiler directive", #context);
+    });
+}

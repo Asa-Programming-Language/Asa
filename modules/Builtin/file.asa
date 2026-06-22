@@ -21,6 +21,10 @@
 @public:
 File :: module {
 
+    #if (#getflag(COMPILERDEBUG), {
+        #set_attribute(File, "hideast", false);
+    });
+
     #use Builtin.String;
     #use Builtin.Memory;
     #use Builtin.Casts;

@@ -3,6 +3,11 @@
 @hideast:
 @public:
 List :: module{
+
+    #if (#getflag(COMPILERDEBUG), {
+        #set_attribute(List, "hideast", false);
+    });
+
     #use Builtin.Print;
     #use Builtin.Memory;
 

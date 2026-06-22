@@ -6,6 +6,10 @@
 @public:
 Math :: module {
 
+    #if (#getflag(COMPILERDEBUG), {
+        #set_attribute(Math, "hideast", false);
+    });
+
     #use Builtin.String;
     #use Builtin.Casts;
     #library "m";

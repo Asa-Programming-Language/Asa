@@ -232,6 +232,38 @@ foo :: T(v : T)
 
 -----
 
+## `:::asa #set_attribute(ast_node, attribute_name, value)`
+
+Sets or changes the given AST node's attribute to the new value
+```asa
+@public:
+x : int = 0;
+
+#set_attribute(#parent(x), "public", false);
+```
+
+-----
+
+## `:::asa #setflag(name, value)`
+
+Sets a **global** flag to the given value.
+```asa
+#setflag(FOO, true);
+// OR:
+#setflag FOO true;
+```
+
+-----
+
+## `:::asa #getflag(name)`
+
+Returns the value of the named **global** flag.
+```asa
+#getflag(FOO);
+```
+
+-----
+
 ## `:::asa #recommend_options(string)`
 
 Sets compiler options at compile time. For security, it asks the user with a prompt before applying, and the user can reject the options. Uses the same syntax as options applied through the command line:
@@ -365,4 +397,41 @@ Evaluates `condition` as a boolean. If it is "true", the `ast_node` is included 
 ```asa
 x :: { i : int = 9 };
 #if(1 == 2, x);  // The code `i : int = 9` is not included in the program
+```
+
+-----
+
+## `:::asa #make_directive(name, (ast_arguments), ast_node)`
+
+Creates a new custom compiler directive with the given name, arguments, and body.
+```asa
+#make_directive("custom_add", (A, B), {
+    #return A + B;
+});
+
+#custom_add(1, 2);  // Returns AST node of {1+2}
+```
+
+-----
+
+## `:::asa #return(ast_node)`
+
+Used in conjunction with `:::asa #make_directive` to let the expression result in a given AST node.
+```asa
+#make_directive("custom_add", (A, B), {
+    #return A + B;
+});
+```
+
+-----
+
+## `:::asa #context`
+
+Returns the AST node of the current context. For example, if used inside a `::asa #make_directive` definition, `:::asa #context` will be the node where it is called.
+```asa
+#make_directive("custom_add", (A, B), {
+    #printast(#context);
+});
+
+#custom_add(1, 2);  // `#context` refers to this line
 ```

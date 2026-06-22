@@ -5,6 +5,10 @@
 @public:
 Casts :: module {
 
+    #if (#getflag(COMPILERDEBUG), {
+        #set_attribute(Casts, "hideast", false);
+    });
+
     @public:
     @inline:
     {

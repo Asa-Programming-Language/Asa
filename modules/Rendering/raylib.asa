@@ -22,7 +22,12 @@
 //     }
 //     ```
 @public:
+@hideast:
 Raylib :: module {
+
+    #if (#getflag(COMPILERDEBUG), {
+        #set_attribute(Raylib, "hideast", false);
+    });
 
     #use Builtin.Casts;
     #use Builtin.String;

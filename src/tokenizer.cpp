@@ -1,4 +1,5 @@
 #include "tokenizer.h"
+#include "strops.h"
 
 std::vector<asaToken*> allTokens = std::vector<asaToken*>();
 std::vector<std::string*> lines = std::vector<std::string*>();
@@ -12,6 +13,21 @@ bool charInString(char x, const std::string a)
             return true;
     }
     return false;
+}
+
+std::string decodeQuotedStringToken(asaToken* token)
+{
+    if (!token)
+        return "";
+
+    const std::string& raw = token->tokenStr;
+    if (raw.size() < 2 ||
+        !((raw.front() == '"' && raw.back() == '"') ||
+            (raw.front() == '\'' && raw.back() == '\''))) {
+        throw std::runtime_error("Expected quoted string literal");
+    }
+
+    return unescapeString(std::string(raw.begin() + 1, raw.end() - 1));
 }
 
 //asaToken NEXT_TOKEN(int& i)
@@ -127,6 +143,7 @@ std::map<const std::string, const TokenType> subTokenTypes = {
     {"@", At},
     {"@@", At_At},
     {".@", Dot_At},
+    {"?", Question},
     {"$", Dollar},
     {"->", Arrow_Right},
     {"<-", Arrow_Left},
@@ -152,6 +169,7 @@ std::map<const std::string, const TokenType> subTokenTypes = {
     {"module", Module_Define},
     {"enum", Enum_Define},
     {"operator", Operator_Keyword},
+    {"default", Default_Keyword},
     {"ref", Ref},
     {"const", Const},
     {"exact", Exact},

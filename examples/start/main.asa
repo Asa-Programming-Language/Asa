@@ -14,14 +14,29 @@ TEST_MACRO_1 :: {printl("Macro works!");};
 
 TEST_MACRO_2 :: (){ printl("Macro 2 works!") };
 
-// Completely rename TEST_MACRO_1 to RENAMED_MACRO, undefining its previous name
-RENAMED_MACRO ::> TEST_MACRO_1; 
+RENAMED_MACRO :: > TEST_MACRO_1; 
 
 #use Rendering.Raylib;
 
 main :: (){
 
     x :: 6;
+
+    y : int = default;
+    z : int = ?;
+
+    someStr : string = default;
+
+    z = 5;
+
+    printl("y: " + y);
+    printl("z: " + z);
+    printl("someStr: \"" + someStr + "\"");
+
+    #if(#getflag(COMPILERDEBUG) == false, {
+        #error("This program must be run in compiler debug mode (-fcompilerdebug)", #context);
+    });
+
 
     //#stack_push("a", { printl("hi!"); });
 
@@ -36,11 +51,15 @@ main :: (){
 
     //#print_ast(local);
 
-    #if(x == 6, {
+    #if(x == 5, {
         #printl("it was true!");
+    });
+    #else_if(true, {
+        #printl("else worked");
     });
 
     printl(local.DEF);
+    printl(#nameof(#parent()));
 
     //#stack_last("a");
 }

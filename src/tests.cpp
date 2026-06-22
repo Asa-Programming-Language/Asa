@@ -225,23 +225,39 @@ std::vector<Test> tests = {
                     }
                 ),
                 
-                A(Compiler_Define_Function, // x
+                A(Compiler_Define,
                     {
-                        A(Identifier_Node,{}), // x name
-                        A(Type_Node,
-                            {A(Identifier_Node)}),
-                        A(Arguments,
-                            {A(Expression_Term, {})}
-                        ),
-                        A(Compiler_Modifiers,{A(Scope_Body)}),
-                        A(Variants_Node, {}),
-                        A(Scope_Body, // Contents of x(){
+                        A(Scope_Body,
                             {
-                                A(Return_Node, 
+                                A(Module_Define_Node,
                                     {
-                                        A(Expression_Term,
+                                        A(Scope_Body,
                                             {
-                                                A(Integer_Node)
+                                                A(Compiler_Define_Function, // x
+                                                    {
+                                                        A(Identifier_Node,{}), // x name
+                                                        A(Type_Node,
+                                                            {A(Identifier_Node)}),
+                                                        A(Arguments,
+                                                            {A(Expression_Term, {})}
+                                                        ),
+                                                        A(Compiler_Modifiers,{A(Scope_Body)}),
+                                                        A(Variants_Node, {}),
+                                                        A(Scope_Body, // Contents of x(){
+                                                            {
+                                                                A(Return_Node, 
+                                                                    {
+                                                                        A(Expression_Term,
+                                                                            {
+                                                                                A(Integer_Node)
+                                                                            }
+                                                                        )
+                                                                    }
+                                                                )
+                                                            }
+                                                        )
+                                                    }
+                                                )
                                             }
                                         )
                                     }
@@ -573,6 +589,16 @@ std::vector<Test> errorTests = {
             foo();
 
             bar();
+        }
+    )"),
+
+    Test("Undefined variable usage warning",
+        R"(
+        main :: (){
+            x : int = ?;
+            y : int = x;
+            x = 1;
+            z : int = x;
         }
     )"),
 };

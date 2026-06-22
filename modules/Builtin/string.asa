@@ -6,6 +6,11 @@
 @hideast:
 @public:
 String :: module{
+
+    #if (#getflag(COMPILERDEBUG), {
+        #set_attribute(String, "hideast", false);
+    });
+
     #use Builtin.Print;
     #use Builtin.Memory;
     #use Builtin.Casts;
@@ -36,10 +41,6 @@ String :: module{
         @inline:
         size :: uint32() {
             return this.length;
-        }
-
-        mySize::uint32(){
-            return 100;
         }
 
         // Function: substr(start, len)

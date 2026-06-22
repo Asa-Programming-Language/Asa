@@ -13,6 +13,7 @@
 #use Tests.PrintTests;
 #use Tests.ModuleTests;
 #use Tests.DirectiveTests;
+#use Tests.CustomDirectiveTests;
 #use Tests.AttributeTests;
 #use Tests.FileTests;
 #use Tests.ExternTests;
@@ -53,6 +54,7 @@ main :: () {
     runPrintTests();
     runModuleTests();
     runDirectiveTests();
+    runCustomDirectiveTests();
     runAttributeTests();
     runFileTests();
     runExternTests();

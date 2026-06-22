@@ -4,37 +4,42 @@
 @hideast:
 @public:
 Memory :: module{
-	// Function: malloc(int)
-	// Description: |
-	//     Allocates a block of memory
-	//
-	// Arguments:
-	//     b: int64 The number of bytes to allocate
-	//
-	// Returns: A pointer to the allocated memory block
-	#extern malloc::*int(b : int64);
 
-	// Function: free(pointer)
-	// Description: |
-	//     Frees a block of memory previously allocated by malloc
-	//
-	// Arguments:
-	//     p: Pointer to the memory block to free
-	#extern free::(p : *int);
+    #if (#getflag(COMPILERDEBUG), {
+        #set_attribute(Memory, "hideast", false);
+    });
 
-	// Function: strcmp(*char, *char)
-	// Description: Compares two null-terminated character arrays lexicographically
-	//
-	// Arguments:
-	//     a: First null-terminated string
-	//     b: Second null-terminated string
-	//
-	// Returns: 0 if equal, negative if a < b, positive if a > b
-	#extern strcmp::int(a : *char, b : *char);
+    // Function: malloc(int)
+    // Description: |
+    //     Allocates a block of memory
+    //
+    // Arguments:
+    //     b: int64 The number of bytes to allocate
+    //
+    // Returns: A pointer to the allocated memory block
+    #extern malloc::*int(b : int64);
 
-	// Function: strstr(*char, *char)
-	// Description: Finds the first occurrence of needle in haystack
-	//
-	// Returns: Pointer to the first match, or null if not found
-	#extern strstr :: *char(haystack : *char, needle : *char);
+    // Function: free(pointer)
+    // Description: |
+    //     Frees a block of memory previously allocated by malloc
+    //
+    // Arguments:
+    //     p: Pointer to the memory block to free
+    #extern free::(p : *int);
+
+    // Function: strcmp(*char, *char)
+    // Description: Compares two null-terminated character arrays lexicographically
+    //
+    // Arguments:
+    //     a: First null-terminated string
+    //     b: Second null-terminated string
+    //
+    // Returns: 0 if equal, negative if a < b, positive if a > b
+    #extern strcmp::int(a : *char, b : *char);
+
+    // Function: strstr(*char, *char)
+    // Description: Finds the first occurrence of needle in haystack
+    //
+    // Returns: Pointer to the first match, or null if not found
+    #extern strstr :: *char(haystack : *char, needle : *char);
 }

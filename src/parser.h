@@ -45,6 +45,8 @@ enum ASTNodeType {
     String_Node,
     String_Constant_Node,
     Character_Constant_Node,
+    Undefined_Initializer_Node,
+    Default_Initializer_Node,
     Type_Node,
     Void_Node,
     Any_Type,
@@ -177,6 +179,8 @@ const std::string ASTNodeTypeStrings[] = {
     "String_Node",
     "String_Constant_Node",
     "Character_Constant_Node",
+    "Undefined_Initializer_Node",
+    "Default_Initializer_Node",
     "Type_Node",
     "Void_Node",
     "Any_Type",
@@ -288,6 +292,7 @@ struct valueType {
     bool isFunctionArgument = false;
     bool isConstant = false;
     bool isReference = false;
+    bool isUndefined = false;
     Value* val;
     ASTNode* declNode = nullptr;
     valueType(std::string n, std::string t, Value* v, bool arg = false, bool ref = false)
@@ -323,13 +328,11 @@ struct ASTNode {
     bool isPostfix = false;
     std::string label = "";
     std::string externSymbolName = "";       // when non-empty, the actual C symbol to link (overrides fnName for LLVM)
-    bool showInASTOutput = true;             // TODO: @hideast is attribute, make it so instead of its own bool
-    bool replaceableDefinition = false;      // TODO: @replaceable is attribute, make it so instead of its own bool
     bool isModuleScope = false;              // true for Compiler_Define nodes representing named modules
+    bool importedChildren = false;           // true for #use modules whose children are visible unqualified
     std::string enclosingModule = "";        // set on imported nodes to record source module name
     bool currentNodeDoneGenerating = false;  // TODO: Make codegen mark each node that completely finishes generating as done
     bool isValueBlock = false;               // true for Scope_Body nodes that are value-returning { result ...; } expressions
-    bool isInherited = false;                // true if this is an attribute which was inherited from a parent scope
     bool isPoisoned = false;
     bool returnsASTNode = false;
     asaToken* closingToken = nullptr;  // closing delimiter token (e.g. }) stored for token range tracking
@@ -383,6 +386,7 @@ struct ASTNode {
     void* generateIncDecrement(int pass = 0);
     void* generateNothing(int pass = 0);
     void* generateCompilerFlagDirective(int pass = 0);
+    void* generateCompilerGetFlagDirective(int pass = 0);
     void* generateCompilerStackPushDirective(int pass = 0);
     void* generateCompilerStackPopDirective(int pass = 0);
     void* generateCompilerStackLastDirective(int pass = 0);
@@ -392,12 +396,15 @@ struct ASTNode {
     void* generateCompilerIfDirective(int pass = 0);
     void* generateCompilerErrorDirective(int pass = 0);
     void* generateCompilerWarningDirective(int pass = 0);
+    void* generateCompilerSetAttributeDirective(int pass = 0);
     void* generateLibraryDirective(int pass = 0);
     void* generateLibraryStaticDirective(int pass = 0);
+    void* generateNameofDirective(int pass = 0);
     void* generateTypeofDirective(int pass = 0);
     void* generateSizeofDirective(int pass = 0);
     void* generateCompilesDirective(int pass = 0);
     ASTNode* resolveCompilerStackLastASTNode(int pass = 0);
+    ASTNode* resolveCompilerContextASTNode(int pass = 0);
     ASTNode* resolveCompilerDefinitionASTNode(int pass = 0);
     ASTNode* resolveCompilerParentASTNode(int pass = 0);
 
@@ -489,6 +496,9 @@ void optimizeASTNode(ASTNode*& node);
 void resolveCompileTimeDirectives(ASTNode*& node, std::string moduleCtx = "", std::string funcCtx = "");
 void resolveAttributeAccess(ASTNode*& node);
 void checkAttributeCompatibility(ASTNode* node);
+bool hasAttribute(ASTNode* node, std::string attributeName);
+std::string getAttributeValue(ASTNode* node, std::string attributeName);
+std::string getInheritedAttributeValue(ASTNode* node, std::string attributeName);
 void addFileIncludes(ASTNode*& node);
 void addModuleImports(ASTNode*& node);
 void assignParentNodes(ASTNode*& node, int depth = 0);

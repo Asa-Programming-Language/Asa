@@ -35,6 +35,7 @@ enum TokenType {
     Dot_Dot,
     Dot_Dot_Dot,
     Dot_At,
+    Question,
     Hash,
 
     Plus,
@@ -108,6 +109,7 @@ enum TokenType {
     Enum_Define,
 
     Operator_Keyword,
+    Default_Keyword,
 
     True_Literal,
     False_Literal,
@@ -160,6 +162,7 @@ const std::string tokenTypeStrings[] = {
     "Dot_Dot",
     "Dot_Dot_Dot",
     "Dot_At",
+    "Question",
     "Hash",
 
     "Plus",
@@ -233,6 +236,7 @@ const std::string tokenTypeStrings[] = {
     "Enum_Define",
 
     "Operator_Keyword",
+    "Default_Keyword",
 
     "True_Literal",
     "False_Literal",
@@ -308,3 +312,4 @@ int labelSubTokens(std::vector<asaToken*>& tokens);
 int joinCommentTokens(std::vector<asaToken*>& tokens);
 int removeCommentTokens(std::vector<asaToken*>& tokens);
 const std::string tokenAsString(TokenType t);
+std::string decodeQuotedStringToken(asaToken* token);

@@ -1,5 +1,7 @@
 #include "codegen.h"
 
+#include "compiler_directives.h"
+
 bool isOptimizing()
 {
     return optimizationLevel != "0" && !optimizationLevel.empty();
@@ -13,7 +15,7 @@ std::unique_ptr<Module> llvmCompileModule;
 std::unique_ptr<DIBuilder> llvmDebugBuilder;
 static DICompileUnit* llvmDebugCompileUnit;
 static DIFile* llvmDebugFile;
-static std::map<std::string, DIFile*> llvmDebugFileCache;
+static std::unordered_map<std::string, DIFile*> llvmDebugFileCache;
 static std::vector<DIScope*> LexicalBlocks;
 std::unique_ptr<IRBuilder<>> llvmIRBuilder;
 
@@ -24,8 +26,9 @@ bool wasError = false;   // TODO: Remove this
 uint8_t errorDepth = 0;  // TODO: Remove this
 
 //bool suppressCodegenErrors = false;
-std::map<std::string, std::string> compilerDirectiveFlags;
-std::map<std::string, std::stack<ASTNode*>> compilerStacks;
+std::unordered_map<std::string, bool> compilerDirectiveFlags;
+std::unordered_map<std::string, bool> commandLineCompilerDirectiveFlags;
+std::unordered_map<std::string, std::stack<ASTNode*>> compilerStacks;
 std::vector<std::string> linkedLibraries;
 std::vector<std::string> linkedStaticLibraries;
 
@@ -35,7 +38,26 @@ static ASTNode* resolveASTNodeValue(ASTNode* node, int pass)
         return node;
 
     ASTNode* resolvedNode = (node->*(node->resolveASTNode))(pass);
+    if (!resolvedNode && wasError)
+        return nullptr;
     return resolvedNode ? resolvedNode : node;
+}
+
+static ASTNode* getModuleInnerScope(ASTNode* moduleCompilerDefineNode)
+{
+    if (!moduleCompilerDefineNode || !moduleCompilerDefineNode->isModuleScope || moduleCompilerDefineNode->childNodes.empty())
+        return nullptr;
+
+    ASTNode* outerScope = moduleCompilerDefineNode->childNodes[0];
+    if (!outerScope || outerScope->nodeType != Scope_Body || outerScope->childNodes.empty())
+        return nullptr;
+
+    ASTNode* moduleDef = outerScope->childNodes[0];
+    if (!moduleDef || moduleDef->nodeType != Module_Define_Node || moduleDef->childNodes.empty())
+        return nullptr;
+
+    ASTNode* innerScope = moduleDef->childNodes[0];
+    return innerScope && innerScope->nodeType == Scope_Body ? innerScope : nullptr;
 }
 
 static bool getConstantTruthValue(LLVMValue* value, bool& resolved)
@@ -101,6 +123,63 @@ bool hasAttribute(ASTNode* node, std::string attributeName)
     return false;
 }
 
+static ASTNode* unwrapSingleExpressionNode(ASTNode* node)
+{
+    while (node && node->nodeType == Expression_Term && node->childNodes.size() == 1)
+        node = node->childNodes[0];
+    return node;
+}
+
+static void collectCompilerDirectiveArgs(ASTNode* arg, std::vector<ASTNode*>& args)
+{
+    arg = unwrapSingleExpressionNode(arg);
+    if (!arg)
+        return;
+    if (arg->nodeType == Comma_Node) {
+        for (auto* child : arg->childNodes)
+            collectCompilerDirectiveArgs(child, args);
+        return;
+    }
+    args.push_back(arg);
+}
+
+static std::vector<ASTNode*> getCompilerDirectiveArgs(ASTNode* directiveNode)
+{
+    std::vector<ASTNode*> args;
+    if (!directiveNode || directiveNode->childNodes.size() < 2)
+        return args;
+
+    ASTNode* argContainer = directiveNode->childNodes[1];
+    if (!argContainer)
+        return args;
+
+    if (argContainer->nodeType == Scope_Body || argContainer->nodeType == Arguments) {
+        for (auto* child : argContainer->childNodes)
+            collectCompilerDirectiveArgs(child, args);
+    }
+    else {
+        collectCompilerDirectiveArgs(argContainer, args);
+    }
+
+    return args;
+}
+
+static bool isUndefinedInitializer(ASTNode* node)
+{
+    node = unwrapSingleExpressionNode(node);
+    return node && node->nodeType == Undefined_Initializer_Node;
+}
+
+static bool isDefaultInitializer(ASTNode* node)
+{
+    node = unwrapSingleExpressionNode(node);
+    return node && node->nodeType == Default_Initializer_Node;
+}
+
+static LLVMValue* generateDefaultValueForType(LLVMType* type, const std::string& typeName, int pointerLevel, int pass, ASTNode* node);
+static bool getDeclaredTypeFromColonNode(ASTNode* colonNode, LLVMType*& outType, std::string& outTypeName, int& outPointerLevel, bool& outIsConst, int pass);
+static LLVMValue* makeStringConstant(const std::string& str);
+
 std::string getAttributeValue(ASTNode* node, std::string attributeName)
 {
     for (auto* attr : node->attributes) {
@@ -113,13 +192,41 @@ std::string getAttributeValue(ASTNode* node, std::string attributeName)
             std::string val = "true";
             for (auto* ac : attr->childNodes)
                 if (ac->nodeType == Scope_Body && !ac->childNodes.empty() && ac->childNodes[0]->token) {
-                    const std::string& raw = ac->childNodes[0]->token->tokenStr;
-                    val = raw.size() >= 2 ? raw.substr(1, raw.size() - 2) : raw;
+                    ASTNode* valueNode = ac->childNodes[0];
+                    if (valueNode->nodeType == String_Node || valueNode->nodeType == String_Constant_Node)
+                        val = decodeQuotedStringToken(valueNode->token);
+                    else
+                        val = valueNode->token->tokenStr;
                     break;
                 }
 
             return val;
         }
+    }
+    return "false";
+}
+
+std::string getInheritedAttributeValue(ASTNode* node, std::string attributeName)
+{
+    while (node) {
+        for (auto* attr : node->attributes) {
+            if (!attr->token || attr->token->tokenStr != attributeName)
+                continue;
+
+            std::string value = "true";
+            for (auto* ac : attr->childNodes) {
+                if (ac->nodeType == Scope_Body && !ac->childNodes.empty() && ac->childNodes[0]->token) {
+                    ASTNode* valueNode = ac->childNodes[0];
+                    if (valueNode->nodeType == String_Node || valueNode->nodeType == String_Constant_Node)
+                        value = decodeQuotedStringToken(valueNode->token);
+                    else
+                        value = valueNode->token->tokenStr;
+                    break;
+                }
+            }
+            return value;
+        }
+        node = node->parentNode;
     }
     return "false";
 }
@@ -906,6 +1013,34 @@ static AllocaInst* CreateEntryBlockAlloca(Function* TheFunction, LLVMType* t, St
     return TmpB.CreateAlloca(t, nullptr, VarName);
 }
 
+static LLVMValue* generateDefaultValueForType(LLVMType* type, const std::string& typeName, int pointerLevel, int pass, ASTNode* node)
+{
+    if (!type)
+        return nullptr;
+
+    std::string resolvedTypeName = resolveTypeAlias(typeName);
+    if (pointerLevel == 0 && type->isStructTy() && structDefinitions.find(resolvedTypeName) != structDefinitions.end()) {
+        AsaStruct* structDef = structDefinitions[resolvedTypeName];
+        if (structDef->structVal == nullptr && structDef->sourceNode)
+            (structDef->sourceNode->*(structDef->sourceNode->codegen))(pass);
+        if (wasError)
+            return nullptr;
+
+        argumentList emptyArgs;
+        functionID* ctorID = getExactFunctionFromID(functionIDs, resolvedTypeName, emptyArgs);
+        if (!ctorID || !ctorID->fnValue)
+            return Constant::getNullValue(type);
+
+        Function* fn = llvmIRBuilder->GetInsertBlock()->getParent();
+        AllocaInst* defaultPtr = CreateEntryBlockAlloca(fn, type, "default_" + resolvedTypeName);
+        llvmIRBuilder->CreateCall(ctorID->fnValue, {defaultPtr});
+        ctorID->uses++;
+        return llvmIRBuilder->CreateLoad(type, defaultPtr, "default_load");
+    }
+
+    return Constant::getNullValue(type);
+}
+
 static void instantiateVariantStruct(const std::string&, const std::string&, const std::string&, std::vector<std::pair<std::string, std::string>> = {});
 
 LLVMType* getLLVMTypeFromString(std::string typeName, int pointerLevelOffset, asaToken*& token, bool& wasDefined, int& pass)
@@ -1217,6 +1352,9 @@ wasCastError:
 
 void initializeCodeGenerator()
 {
+    for (const auto& flag : commandLineCompilerDirectiveFlags)
+        compilerDirectiveFlags[flag.first] = flag.second;
+
     // Open a new context and module.
     llvmCompileContext = std::make_unique<LLVMContext>();
     llvmCompileModule = std::make_unique<Module>("asa_global", *llvmCompileContext);
@@ -1270,6 +1408,8 @@ void resetCodeGenerator()
     wasError = false;
     errorDepth = 0;
     compilerDirectiveFlags.clear();
+    for (const auto& flag : commandLineCompilerDirectiveFlags)
+        compilerDirectiveFlags[flag.first] = flag.second;
     compilerStacks.clear();
     linkedLibraries.clear();
     linkedStaticLibraries.clear();
@@ -1350,10 +1490,15 @@ valueType* findNamedValue(ASTNode* node, ASTNode* childNode, std::string& identi
             break;
         }
 
-        // Module-scope nodes (Fore, Back, etc.) hold their variables privately;
-        // those are only reachable via explicit Module.member access, not by name.
-        if (c->isModuleScope)
+        // Module-scope nodes hold their variables privately unless the module
+        // came from #use, in which case its children are visible unqualified.
+        if (c->isModuleScope && !c->importedChildren)
             continue;
+        if (c->isModuleScope && c->importedChildren) {
+            auto moduleValue = c->namedValues.find(identifier);
+            if (moduleValue != c->namedValues.end())
+                return moduleValue->second;
+        }
 
         // At global scope (depth == 0), only search in direct children that are
         // expression statements or variable declarations, not in function bodies
@@ -1410,12 +1555,31 @@ valueType* findNamedValue(ASTNode* node, ASTNode* childNode, std::string& identi
     return nullptr;
 }
 
+static bool isCompileTimeDefinitionNode(ASTNode* node);
+
 static ASTNode* findCompilerDefinition(ASTNode* scope, const std::string& identifier)
 {
     while (scope) {
         auto it = scope->compilerDefinitions.find(identifier);
         if (it != scope->compilerDefinitions.end())
             return it->second;
+
+        for (ASTNode* child : scope->childNodes) {
+            if (!child || !child->isModuleScope || !child->importedChildren)
+                continue;
+
+            if (ASTNode* innerScope = getModuleInnerScope(child)) {
+                auto importedIt = innerScope->compilerDefinitions.find(identifier);
+                if (importedIt != innerScope->compilerDefinitions.end())
+                    return importedIt->second;
+
+                for (ASTNode* moduleChild : innerScope->childNodes) {
+                    if (moduleChild && moduleChild->token && moduleChild->token->tokenStr == identifier && isCompileTimeDefinitionNode(moduleChild))
+                        return moduleChild;
+                }
+            }
+        }
+
         scope = scope->parentNode;
     }
     return nullptr;
@@ -1673,14 +1837,17 @@ void declareModuleScopeVariable(ASTNode* exprStmtNode, ASTNode* ownerNode, bool 
 {
     if (exprStmtNode->childNodes.empty())
         return;
-    ASTNode* leftNode = exprStmtNode->childNodes[0];
+    ASTNode* leftNode = exprStmtNode->nodeType == Colon_Separator_Node ? exprStmtNode : exprStmtNode->childNodes[0];
 
     // A typed declaration with no initializer has only
     // one child (the Colon_Separator_Node).  Allow that through; untyped (inferred)
     // declarations still require a right-hand-side child.
-    bool hasRHS = exprStmtNode->childNodes.size() >= 2;
+    bool hasRHS = exprStmtNode->nodeType != Colon_Separator_Node && exprStmtNode->childNodes.size() >= 2;
     if (!hasRHS && leftNode->nodeType != Colon_Separator_Node)
         return;
+    ASTNode* rhsInitializer = hasRHS ? unwrapSingleExpressionNode(exprStmtNode->childNodes[1]) : nullptr;
+    bool rhsIsUndefined = rhsInitializer && rhsInitializer->nodeType == Undefined_Initializer_Node;
+    bool rhsIsDefault = rhsInitializer && rhsInitializer->nodeType == Default_Initializer_Node;
 
     std::string varName;
     std::string typeName;
@@ -1732,11 +1899,10 @@ void declareModuleScopeVariable(ASTNode* exprStmtNode, ASTNode* ownerNode, bool 
 
         {
             ASTNode* voidCheck = exprNode;
-            if (voidCheck->nodeType == Expression_Term && voidCheck->childNodes.size() == 1)
-                voidCheck = voidCheck->childNodes[0];
-            if (voidCheck->nodeType == Void_Node) {
+            voidCheck = unwrapSingleExpressionNode(voidCheck);
+            if (voidCheck->nodeType == Void_Node || voidCheck->nodeType == Undefined_Initializer_Node || voidCheck->nodeType == Default_Initializer_Node) {
                 messageSystem::startBlock(exprStmtNode, "Processing declaration", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
-                messageSystem::error("Cannot infer type from 'void'. Use an explicit type annotation: 'name : type = void'.", messageSystem::Type_Inference_From_Void_Error);
+                messageSystem::error("Cannot infer type from this initializer. Use an explicit type annotation.", messageSystem::Type_Inference_From_Void_Error);
                 return;
             }
         }
@@ -1776,15 +1942,17 @@ void declareModuleScopeVariable(ASTNode* exprStmtNode, ASTNode* ownerNode, bool 
     }
 
     std::string globalName = varName;
+    Constant* initialValue = rhsIsUndefined ? UndefValue::get(llvmType) : Constant::getNullValue(llvmType);
     GlobalVariable* gv = new GlobalVariable(
         *llvmCompileModule, llvmType, isConst,
         GlobalValue::InternalLinkage,
-        Constant::getNullValue(llvmType),
+        initialValue,
         globalName);
 
     std::string actualType = std::string(pointerLevel, '*') + typeName;
     valueType* vt = new valueType(varName, actualType, gv);
     vt->isConstant = isConst;
+    vt->isUndefined = rhsIsUndefined;
     vt->declNode = exprStmtNode;  // the expression statement node that owns the attributes
 
     // For root-level vars, store in the expression stmt's own namedValues so
@@ -1793,6 +1961,12 @@ void declareModuleScopeVariable(ASTNode* exprStmtNode, ASTNode* ownerNode, bool 
     // via Fore.black member access, not by direct lookup because isModuleScope
     // makes findNamedValue skip it).
     ownerNode->namedValues[varName] = vt;
+    if (ownerNode != exprStmtNode)
+        exprStmtNode->namedValues[varName] = vt;
+    exprStmtNode->currentNodeDoneGenerating = true;
+
+    if (rhsIsUndefined)
+        return;
 
     globalInitList.push_back({gv, exprStmtNode});
 
@@ -1804,6 +1978,25 @@ void declareModuleScopeVariable(ASTNode* exprStmtNode, ASTNode* ownerNode, bool 
 }
 
 // Register a Compiler_Define (module) node and declare all its variable globals.
+static void registerImportedModuleAliases(ASTNode* moduleCompilerDefineNode, const std::string& parentName = "")
+{
+    if (!moduleCompilerDefineNode || !moduleCompilerDefineNode->isModuleScope || !moduleCompilerDefineNode->token)
+        return;
+
+    std::string moduleName = moduleCompilerDefineNode->token->tokenStr;
+    std::string fullName = parentName.empty() ? moduleName : (parentName + "." + moduleName);
+    moduleRegistry[fullName] = moduleCompilerDefineNode;
+
+    ASTNode* innerScope = getModuleInnerScope(moduleCompilerDefineNode);
+    if (!innerScope)
+        return;
+
+    for (ASTNode* child : innerScope->childNodes) {
+        if (child && child->nodeType == Compiler_Define && child->isModuleScope)
+            registerImportedModuleAliases(child, fullName);
+    }
+}
+
 void processModuleForDeclarations(ASTNode* moduleCompilerDefineNode, std::string parentName)
 {
     std::string moduleName = moduleCompilerDefineNode->token->tokenStr;
@@ -1827,7 +2020,7 @@ void processModuleForDeclarations(ASTNode* moduleCompilerDefineNode, std::string
     // Helper to process one child node of the module's inner scope.
     // Declared as a std::function so it can recurse into Scope_Body wrappers.
     std::function<void(ASTNode*)> processChild = [&](ASTNode* child) {
-        if (child->nodeType == Expression_Statement)
+        if (child->nodeType == Expression_Statement || child->nodeType == Colon_Separator_Node)
             declareModuleScopeVariable(child, moduleCompilerDefineNode, true);
         // Recurse into nested sub-modules, registering with compound dot-separated names.
         // Guard with isModuleScope so that plain value defines (DEF :: 42) are not
@@ -1844,6 +2037,13 @@ void processModuleForDeclarations(ASTNode* moduleCompilerDefineNode, std::string
 
     for (auto& child : innerScope->childNodes)
         processChild(child);
+
+    if (moduleCompilerDefineNode->importedChildren) {
+        for (ASTNode* child : innerScope->childNodes) {
+            if (child && child->nodeType == Compiler_Define && child->isModuleScope)
+                registerImportedModuleAliases(child);
+        }
+    }
 }
 
 // Fill in __asa_global_init's body and finalize it. returns false on error/failure
@@ -1863,20 +2063,41 @@ bool finalizeGlobalInit()
         ASTNode* node = gi.exprStmtNode;
         GlobalVariable* gv = gi.gv;
 
-        if (node->childNodes.size() < 2)
-            continue;
-        ASTNode* exprTerm = node->childNodes[1];
-        if (!exprTerm || !exprTerm->codegen)
+        LLVMType* gvType = gv->getValueType();
+        ASTNode* exprTerm = node->nodeType == Colon_Separator_Node ? nullptr : (node->childNodes.size() >= 2 ? node->childNodes[1] : nullptr);
+        ASTNode* initializerNode = unwrapSingleExpressionNode(exprTerm);
+        if (initializerNode && initializerNode->nodeType == Undefined_Initializer_Node)
             continue;
 
-        LLVMValue* initVal = (LLVMValue*)(exprTerm->*(exprTerm->codegen))(2);
+        LLVMValue* initVal = nullptr;
+        if (!exprTerm || (initializerNode && initializerNode->nodeType == Default_Initializer_Node)) {
+            ASTNode* declarationNode = node->nodeType == Colon_Separator_Node ? node : node->childNodes[0];
+            if (declarationNode->nodeType != Colon_Separator_Node || declarationNode->childNodes.size() < 2)
+                return false;
+
+            ASTNode* typeNode = declarationNode->childNodes[1];
+            int pointerLevel = 0;
+        getNextGlobalDefaultPointerLevel:
+            if (typeNode->token->tokenStr == "const" || typeNode->token->tokenStr == "ref" || typeNode->token->tokenStr == "exact") {
+                typeNode = typeNode->childNodes[0];
+                goto getNextGlobalDefaultPointerLevel;
+            }
+            if (typeNode->token->tokenStr == "*") {
+                pointerLevel++;
+                typeNode = typeNode->childNodes[0];
+                goto getNextGlobalDefaultPointerLevel;
+            }
+            initVal = generateDefaultValueForType(gvType, typeNode->token->tokenStr, pointerLevel, 2, node);
+        }
+        else {
+            initVal = (LLVMValue*)(exprTerm->*(exprTerm->codegen))(2);
+        }
         if (wasError || !initVal) {
             return false;
         }
 
         messageSystem::startBlock(node, "Initializing global variable", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
 
-        LLVMType* gvType = gv->getValueType();
         if (initVal->getType() != gvType) {
             if (gvType->isStructTy() && initVal->getType()->isPointerTy()) {
                 // If it's a string struct { ptr, i32 } and we have a *char, build it properly
@@ -1997,149 +2218,6 @@ LLVMValue* castValue(LLVMValue* value, llvm::Type* destType, bool isSrcSigned, b
 //  return false;
 //}
 
-std::string unescapeString(const std::string& src, asaToken*& token)
-{
-    std::string result;
-    result.reserve(src.size());
-
-    for (size_t i = 0; i < src.length(); ++i) {
-        char c = src[i];
-        if (c != '\\') {
-            result.push_back(c);
-        }
-        else {
-            if (i + 1 >= src.length()) {
-                console::indentation = errorDepth;
-                if (errorDepth < maxErrorTraceDepth)
-                    printTokenError(tokenRange {token, token}, "Incomplete escape sequence at end of string");
-                wasError = true;
-                errorDepth++;
-                return "";
-            }
-
-            char esc = src[++i];
-            switch (esc) {
-                case 'a':
-                    result.push_back('\a');
-                    break;
-                case 'b':
-                    result.push_back('\b');
-                    break;
-                case 'f':
-                    result.push_back('\f');
-                    break;
-                case 'n':
-                    result.push_back('\n');
-                    break;
-                case 'r':
-                    result.push_back('\r');
-                    break;
-                case 't':
-                    result.push_back('\t');
-                    break;
-                case 'v':
-                    result.push_back('\v');
-                    break;
-                case '\\':
-                    result.push_back('\\');
-                    break;
-                case '\'':
-                    result.push_back('\'');
-                    break;
-                case '"':
-                    result.push_back('\"');
-                    break;
-                case '?':
-                    result.push_back('\?');
-                    break;
-                // Hexadecimal: \xhh...
-                case 'x': {
-                    int value = 0;
-                    int digits = 0;
-                    while (i + 1 < src.length() && std::isxdigit(src[i + 1])) {
-                        ++i;
-                        value *= 16;
-                        char hc = src[i];
-                        if (hc >= '0' && hc <= '9')
-                            value += hc - '0';
-                        else if (hc >= 'a' && hc <= 'f')
-                            value += 10 + (hc - 'a');
-                        else if (hc >= 'A' && hc <= 'F')
-                            value += 10 + (hc - 'A');
-                        ++digits;
-                    }
-                    if (digits == 0)
-                        throw std::runtime_error("Invalid \\x escape");
-                    result.push_back(static_cast<char>(value));
-                    break;
-                }
-                // Universal character: \uFFFF or \UFFFFFFFF
-                case 'u':
-                case 'U': {
-                    int maxlen = (esc == 'u') ? 4 : 8;
-                    int value = 0;
-                    int digits = 0;
-                    while (digits < maxlen && i + 1 < src.length() && std::isxdigit(src[i + 1])) {
-                        ++i;
-                        char hc = src[i];
-                        value *= 16;
-                        if (hc >= '0' && hc <= '9')
-                            value += hc - '0';
-                        else if (hc >= 'a' && hc <= 'f')
-                            value += 10 + (hc - 'a');
-                        else if (hc >= 'A' && hc <= 'F')
-                            value += 10 + (hc - 'A');
-                        ++digits;
-                    }
-                    if (digits != maxlen)
-                        throw std::runtime_error("Invalid \\u or \\U escape");
-                    // For simplicity, only support basic multilingual plane
-                    if (value <= 0x7F)
-                        result.push_back(static_cast<char>(value));
-                    else if (value <= 0x7FF) {
-                        result.push_back(static_cast<char>(0xC0 | ((value >> 6) & 0x1F)));
-                        result.push_back(static_cast<char>(0x80 | (value & 0x3F)));
-                    }
-                    else if (value <= 0xFFFF) {
-                        result.push_back(static_cast<char>(0xE0 | ((value >> 12) & 0x0F)));
-                        result.push_back(static_cast<char>(0x80 | ((value >> 6) & 0x3F)));
-                        result.push_back(static_cast<char>(0x80 | (value & 0x3F)));
-                    }
-                    else if (value <= 0x10FFFF) {
-                        result.push_back(static_cast<char>(0xF0 | ((value >> 18) & 0x07)));
-                        result.push_back(static_cast<char>(0x80 | ((value >> 12) & 0x3F)));
-                        result.push_back(static_cast<char>(0x80 | ((value >> 6) & 0x3F)));
-                        result.push_back(static_cast<char>(0x80 | (value & 0x3F)));
-                    }
-                    else {
-                        throw std::runtime_error("Unicode code point out of range in escape");
-                    }
-                    break;
-                }
-                // Octal: up to 3 octal digits \nnn
-                default:
-                    if (esc >= '0' && esc <= '7') {
-                        int value = esc - '0';
-                        int digits = 1;
-                        while (digits < 3 && i + 1 < src.length() && src[i + 1] >= '0' && src[i + 1] <= '7') {
-                            ++i;
-                            value = value * 8 + (src[i] - '0');
-                            ++digits;
-                        }
-                        result.push_back(static_cast<char>(value));
-                    }
-                    else {
-                        // Anything else: treat as literal character
-                        result.push_back(esc);
-                    }
-                    break;
-            }
-        }
-    }
-
-    return result;
-}
-
 // LLVMValue*
 void* ASTNode::generateConstant(int pass)
 {
@@ -2171,7 +2249,7 @@ void* ASTNode::generateConstant(int pass)
         return ConstantPointerNull::get(PointerType::getUnqual(*llvmCompileContext));
     }
     else if (nodeType == String_Constant_Node) {
-        std::string strValue = unescapeString(token->tokenStr.substr(1, token->tokenStr.size() - 2), token);  // remove quotes from token
+        std::string strValue = decodeQuotedStringToken(token);
 
         GlobalVariable* globalStr = nullptr;
         if (globalStringLiteralConstants.find(strValue) != globalStringLiteralConstants.end())
@@ -2204,7 +2282,7 @@ void* ASTNode::generateConstant(int pass)
 
         // Return a string struct { ptr, length } unless we're inside the string
         // module itself (where raw *char is needed for bootstrapping).
-        if (compilerDirectiveFlags["IN_STRING_MODULE"] != "true" &&
+        if (!compilerDirectiveFlags["IN_STRING_MODULE"] &&
             structDefinitions.count("string") && structDefinitions["string"]->structVal) {
             StructType* strTy = cast<StructType>((LLVMType*)structDefinitions["string"]->structVal);
             Constant* lenConst = ConstantInt::get(LLVMType::getInt32Ty(*llvmCompileContext), (uint32_t)strValue.size());
@@ -2216,7 +2294,7 @@ void* ASTNode::generateConstant(int pass)
         return strPtr;  // Fallback: returns i8* pointing to the string
     }
     else if (nodeType == Character_Constant_Node) {
-        std::string strValue = unescapeString(token->tokenStr.substr(1, token->tokenStr.size() - 2), token);  // remove quotes from token
+        std::string strValue = decodeQuotedStringToken(token);
 
         if (strValue.size() > 1) {
             return messageSystem::error("Character constant may contain only a single character");
@@ -2300,6 +2378,7 @@ void* ASTNode::generateVariableExpression(int pass)
         std::string actualType = (pointerLevel > 0 ? std::string(pointerLevel, '*') : "") + typeName;
         namedValues[token->tokenStr] = new valueType(token->tokenStr, actualType, targetPtr);
         namedValues[token->tokenStr]->declNode = this;
+        namedValues[token->tokenStr]->isUndefined = false;
 
         llvmIRBuilder->CreateStore(exprVal, targetPtr);
 
@@ -2326,6 +2405,11 @@ void* ASTNode::generateVariableExpression(int pass)
     // Store the type string so pointer element types can be resolved later for array subscripts
     asaType->strVal = val->type;
     asaType->isRef = val->isReference;
+
+    if (!isRef && !lvalue && val->isUndefined) {
+        messageSystem::addAttribute(val->declNode, "declared here");
+        messageSystem::error("Variable '" + token->tokenStr + "' was declared undefined, and used before being defined.", messageSystem::Declared_Undefined_Variable_Error);
+    }
 
     // Handle references: need to dereference when used as rvalue
     if (val->isReference && !isRef && !lvalue) {
@@ -2614,8 +2698,11 @@ void* ASTNode::generateIncDecrement(int pass)
         if (val->isConstant) {
             return messageSystem::error("Cannot modify const variable '" + operand->token->tokenStr + "'");
         }
+        if (val->isUndefined)
+            messageSystem::warning("Variable '" + operand->token->tokenStr + "' may be undefined", messageSystem::Undefined_Variable_Warning);
         targetPtr = val->val;
         targetType = getValueStoredType(targetPtr);
+        val->isUndefined = false;
     }
     else {
         operand->lvalue = true;
@@ -2655,8 +2742,12 @@ void* ASTNode::generateExpressionStatement(int pass)
     messageSystem::startBlock(this, "Generating runtime statement expression", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
 
     ASTNode* leftNode = childNodes[0];
+    ASTNode* declarationNode = leftNode->nodeType == Colon_Separator_Node ? leftNode : this;
     ASTNode* exprNode = childNodes[1];
     Function* theFunction = llvmIRBuilder->GetInsertBlock()->getParent();
+    ASTNode* initializerNode = unwrapSingleExpressionNode(exprNode);
+    bool rhsIsUndefined = initializerNode && initializerNode->nodeType == Undefined_Initializer_Node;
+    bool rhsIsDefault = initializerNode && initializerNode->nodeType == Default_Initializer_Node;
 
     messageSystem::startBlock(exprNode, "Generating expression right side", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
 
@@ -2669,13 +2760,16 @@ void* ASTNode::generateExpressionStatement(int pass)
                 LexicalBlocks.back()));
     }
 
-    // Evaluate right side (rvalue)
-    LLVMValue* exprVal = (LLVMValue*)(exprNode->*(exprNode->codegen))(pass);
-    if (wasError) {
-        return nullptr;
-    }
-    if (!exprVal) {
-        return messageSystem::error("Set expression requires right argument");
+    LLVMValue* exprVal = nullptr;
+    if (!rhsIsUndefined && !rhsIsDefault) {
+        // Evaluate right side (rvalue)
+        exprVal = (LLVMValue*)(exprNode->*(exprNode->codegen))(pass);
+        if (wasError) {
+            return nullptr;
+        }
+        if (!exprVal) {
+            return messageSystem::error("Set expression requires right argument");
+        }
     }
 
     messageSystem::endBlock();
@@ -2686,6 +2780,7 @@ void* ASTNode::generateExpressionStatement(int pass)
     LLVMValue* targetPtr = nullptr;
     LLVMType* targetType = nullptr;
     bool targetIsSigned = true;
+    valueType* targetValue = nullptr;
 
     // If the left side is a pointer lvalue
     if (leftNode->nodeType != Identifier_Node && leftNode->nodeType != Colon_Separator_Node) {
@@ -2710,6 +2805,8 @@ void* ASTNode::generateExpressionStatement(int pass)
     LLVMType* type = nullptr;
     int pointerLevel = 0;
     bool isConst = false;
+    std::string defaultTypeName = "";
+    int defaultPointerLevel = 0;
     if (!leftNode->lvalue) {
         if (leftNode->childNodes.size() > 0) {
             typeNode = leftNode->childNodes[1];
@@ -2734,18 +2831,29 @@ void* ASTNode::generateExpressionStatement(int pass)
             //  return nullptr;
             for (int pL = 0; pL < pointerLevel; pL++)
                 type = PointerType::get(*llvmCompileContext, 0);
+            defaultTypeName = typeNode->token->tokenStr;
+            defaultPointerLevel = pointerLevel;
         }
     }
     //else
     //      type = var->getType();
 
     // x : T = void; zero-initialize x to the declared type, bypassing any cast
-    ASTNode* voidCheckNode = exprNode;
-    if (voidCheckNode->nodeType == Expression_Term && voidCheckNode->childNodes.size() == 1)
-        voidCheckNode = voidCheckNode->childNodes[0];
+    ASTNode* voidCheckNode = unwrapSingleExpressionNode(exprNode);
     bool rhsIsVoid = (voidCheckNode->nodeType == Void_Node);
 
-    if (rhsIsVoid && type != nullptr) {
+    if (rhsIsUndefined) {
+        if (type == nullptr)
+            return messageSystem::error("Cannot infer type from '?'. Use an explicit type annotation.");
+    }
+    else if (rhsIsDefault) {
+        if (type != nullptr) {
+            exprVal = generateDefaultValueForType(type, defaultTypeName, defaultPointerLevel, pass, this);
+            if (wasError || !exprVal)
+                return nullptr;
+        }
+    }
+    else if (rhsIsVoid && type != nullptr) {
         exprVal = Constant::getNullValue(type);
     }
     // Automatically resolve type from expression if not already set
@@ -2799,6 +2907,8 @@ void* ASTNode::generateExpressionStatement(int pass)
             // New inferred declaration: `someVar = void;` - void has no type to infer from.
             if (rhsIsVoid && !typeNode)
                 return messageSystem::error("Cannot infer type from 'void'. Use an explicit type annotation: 'name : type = void'.", messageSystem::Type_Inference_From_Void_Error);
+            if ((rhsIsUndefined || rhsIsDefault) && !typeNode)
+                return messageSystem::error("Cannot infer type from this initializer. Use an explicit type annotation.");
             targetPtr = CreateEntryBlockAlloca(theFunction, type, leftNode->token->tokenStr);
             std::string actualType = "*int";
             if (!typeNode) {
@@ -2811,7 +2921,9 @@ void* ASTNode::generateExpressionStatement(int pass)
                 actualType = (pointerLevel > 0 ? std::string(pointerLevel, '*') : "") + typeNode->token->tokenStr;
             namedValues[leftNode->token->tokenStr] = new valueType(leftNode->token->tokenStr, actualType, targetPtr);
             namedValues[leftNode->token->tokenStr]->isConstant = isConst;
-            namedValues[leftNode->token->tokenStr]->declNode = this->parentNode;
+            namedValues[leftNode->token->tokenStr]->isUndefined = rhsIsUndefined;
+            namedValues[leftNode->token->tokenStr]->declNode = declarationNode;
+            targetValue = namedValues[leftNode->token->tokenStr];
             newConstLocal = isConst;
 
             // Add debug info ONLY if we have a valid scope and the stack is not empty
@@ -2851,8 +2963,15 @@ void* ASTNode::generateExpressionStatement(int pass)
             }
 
             targetPtr = val->val;
+            targetValue = val;
             std::string resolvedType = resolveTypeAlias(val->type);
             targetIsSigned = !typeSigns.count(resolvedType) || typeSigns[resolvedType];
+            defaultTypeName = val->type;
+            defaultPointerLevel = 0;
+            while (!defaultTypeName.empty() && defaultTypeName[0] == '*') {
+                defaultTypeName = defaultTypeName.substr(1);
+                defaultPointerLevel++;
+            }
 
             // If this is a reference, load the pointer before storing through it
             if (val->isReference) {
@@ -2881,6 +3000,19 @@ void* ASTNode::generateExpressionStatement(int pass)
 
     messageSystem::endBlock();
 
+    if (rhsIsUndefined) {
+        messageSystem::endBlock();
+        if (targetValue)
+            targetValue->isUndefined = true;
+        return targetPtr;
+    }
+    if (rhsIsDefault && !exprVal) {
+        if (!targetType)
+            return messageSystem::error("Cannot infer type from 'default'. Use an explicit type annotation.");
+        exprVal = generateDefaultValueForType(targetType, defaultTypeName, defaultPointerLevel, pass, this);
+        if (wasError || !exprVal)
+            return nullptr;
+    }
 
     messageSystem::startBlock(this, "Generating compound assignment operation", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
 
@@ -2892,6 +3024,8 @@ void* ASTNode::generateExpressionStatement(int pass)
         token->tokenType == Shift_Right_Equal) {
         // Use targetType directly; LLVM may fold GEPs, making instruction introspection unreliable.
         LLVMType* loadType = targetType;
+        if (targetValue && targetValue->isUndefined)
+            messageSystem::warning("Variable '" + leftNode->token->tokenStr + "' may be undefined", messageSystem::Undefined_Variable_Warning);
         LLVMValue* currentVal = llvmIRBuilder->CreateLoad(loadType, targetPtr, "cmpd_load");
 
         bool isFloat = loadType->isFloatingPointTy();
@@ -2990,6 +3124,8 @@ void* ASTNode::generateExpressionStatement(int pass)
     }
 
     StoreInst* storeInst = llvmIRBuilder->CreateStore(exprVal, targetPtr);
+    if (targetValue)
+        targetValue->isUndefined = false;
 
     // For a newly declared const local, tell the optimizer this memory is
     // invariant after initialization so it can treat reads as constants.
@@ -3226,16 +3362,80 @@ bool isSignedType(const std::string& typeStr)
     return typeSigns.count(typeStr) && typeSigns[typeStr];
 }
 
+static bool getDeclaredTypeFromColonNode(ASTNode* colonNode, LLVMType*& outType, std::string& outTypeName, int& outPointerLevel, bool& outIsConst, int pass)
+{
+    if (!colonNode || colonNode->nodeType != Colon_Separator_Node || colonNode->childNodes.size() < 2)
+        return false;
+
+    ASTNode* typeNode = colonNode->childNodes[1];
+    outPointerLevel = 0;
+    outIsConst = false;
+
+getNextPointerLevel:
+    if (typeNode->token->tokenStr == "const") {
+        outIsConst = true;
+        typeNode = typeNode->childNodes[0];
+        goto getNextPointerLevel;
+    }
+    if (typeNode->token->tokenStr == "ref" || typeNode->token->tokenStr == "exact") {
+        typeNode = typeNode->childNodes[0];
+        goto getNextPointerLevel;
+    }
+    if (typeNode->token->tokenStr == "*") {
+        outPointerLevel++;
+        typeNode = typeNode->childNodes[0];
+        goto getNextPointerLevel;
+    }
+
+    outTypeName = typeNode->token->tokenStr;
+    bool wasDefined = true;
+    outType = getLLVMTypeFromString(outTypeName, 0, typeNode->token, wasDefined, pass);
+    if (!outType || !wasDefined)
+        return false;
+
+    for (int pL = 0; pL < outPointerLevel; pL++)
+        outType = PointerType::get(*llvmCompileContext, 0);
+
+    return true;
+}
+
+static LLVMValue* generateBareDefaultDeclaration(ASTNode* colonNode, int pass)
+{
+    if (!colonNode || colonNode->childNodes.size() < 2)
+        return nullptr;
+
+    ASTNode* nameNode = colonNode->childNodes[0];
+    LLVMType* type = nullptr;
+    std::string typeName;
+    int pointerLevel = 0;
+    bool isConst = false;
+    if (!getDeclaredTypeFromColonNode(colonNode, type, typeName, pointerLevel, isConst, pass))
+        return nullptr;
+
+    Function* theFunction = llvmIRBuilder->GetInsertBlock()->getParent();
+    AllocaInst* targetPtr = CreateEntryBlockAlloca(theFunction, type, nameNode->token->tokenStr);
+    std::string actualType = (pointerLevel > 0 ? std::string(pointerLevel, '*') : "") + typeName;
+    colonNode->namedValues[nameNode->token->tokenStr] = new valueType(nameNode->token->tokenStr, actualType, targetPtr);
+    colonNode->namedValues[nameNode->token->tokenStr]->isConstant = isConst;
+    colonNode->namedValues[nameNode->token->tokenStr]->isUndefined = false;
+    colonNode->namedValues[nameNode->token->tokenStr]->declNode = colonNode;
+
+    LLVMValue* defaultValue = generateDefaultValueForType(type, typeName, pointerLevel, pass, colonNode);
+    if (wasError || !defaultValue)
+        return nullptr;
+    llvmIRBuilder->CreateStore(defaultValue, targetPtr);
+    return defaultValue;
+}
+
 // LLVMValue*
 void* ASTNode::generateBinaryExpression(int pass)
 {
     messageSystem::startBlock(this, "Generating binary expression", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
 
-    // A bare typed declaration with no RHS (e.g. `x : int;`) reaches here as a
-    // standalone statement. Giving an "undefined variable" error is confusing since
-    // the user clearly intended a definition. Emit a clear message instead.
     if (nodeType == Colon_Separator_Node) {
-        return messageSystem::error("Variable declaration requires an initializer. Use '= void' to zero-initialize.", messageSystem::Variable_Declaration_Error);
+        LLVMValue* defaultValue = generateBareDefaultDeclaration(this, pass);
+        messageSystem::endBlock();
+        return defaultValue;
     }
 
     if (!LexicalBlocks.empty() && token && token->filePath)
@@ -4483,6 +4683,13 @@ void* ASTNode::generateScopeBody(int pass)
     }
 
     for (auto& c : childNodes) {
+        if (pass == 1 && (c->nodeType == Expression_Statement || c->nodeType == Colon_Separator_Node)) {
+            declareModuleScopeVariable(c, this, false);
+            continue;
+        }
+        if (c->currentNodeDoneGenerating &&
+            (c->nodeType == Expression_Statement || c->nodeType == Colon_Separator_Node))
+            continue;
         if (c->codegen != nullptr) {
             (void)(LLVMValue*)(c->*(c->codegen))(pass);
             if (wasError) {
@@ -4495,7 +4702,10 @@ void* ASTNode::generateScopeBody(int pass)
         else {
             if (isValueBlock)
                 resultContextStack.pop();
-            return messageSystem::error("Node `" + ASTNodeTypeAsString(c->nodeType) + "` does not have a code generator");
+            messageSystem::startBlock(c, "Generating child node", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
+            void* result = messageSystem::error("Node `" + ASTNodeTypeAsString(c->nodeType) + "` does not have a code generator");
+            messageSystem::endBlock();
+            return result;
         }
     }
 
@@ -4529,18 +4739,15 @@ void* ASTNode::generateCast(int pass)
 {
     messageSystem::startBlock(this, "Generating cast", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
 
-    if (childNodes.size() < 2 ||
-        childNodes[1]->nodeType != Scope_Body ||
-        childNodes[1]->childNodes.size() == 0 ||
-        childNodes[1]->childNodes[0]->nodeType != Comma_Node ||
-        childNodes[1]->childNodes[0]->childNodes.size() < 2) {
-
+    std::vector<ASTNode*> args = getCompilerDirectiveArgs(this);
+    if (args.size() < 2) {
         return messageSystem::error("Cast expression expected: `#cast(var, type)`");
     }
-    ASTNode* argsNode = childNodes[1]->childNodes[0];
-    std::string varName = argsNode->childNodes[0]->token->tokenStr;
-    std::string tyVal = argsNode->childNodes[1]->token->tokenStr;
-    asaToken* typeToken = argsNode->childNodes[1]->token;
+    ASTNode* varNode = unwrapSingleExpressionNode(args[0]);
+    ASTNode* typeNode = unwrapSingleExpressionNode(args[1]);
+    std::string varName = varNode->token->tokenStr;
+    std::string tyVal = typeNode->token->tokenStr;
+    asaToken* typeToken = typeNode->token;
 
     valueType* val = findNamedValue(parentNode, this, varName, token);
     if (!val && !wasError) {
@@ -4583,17 +4790,14 @@ void* ASTNode::generateBitcast(int pass)
 {
     messageSystem::startBlock(this, "Generating bitcast", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
 
-    if (childNodes.size() < 2 ||
-        childNodes[1]->nodeType != Scope_Body ||
-        childNodes[1]->childNodes.size() == 0 ||
-        childNodes[1]->childNodes[0]->nodeType != Comma_Node ||
-        childNodes[1]->childNodes[0]->childNodes.size() < 2) {
-
+    std::vector<ASTNode*> args = getCompilerDirectiveArgs(this);
+    if (args.size() < 2) {
         return messageSystem::error("Bitcast expression expected: `#bitcast(var, type)`");
     }
-    ASTNode* argsNode = childNodes[1]->childNodes[0];
-    std::string varName = argsNode->childNodes[0]->token->tokenStr;
-    std::string tyVal = typeStringFromNode(argsNode->childNodes[1]);
+    ASTNode* varNode = unwrapSingleExpressionNode(args[0]);
+    ASTNode* typeNode = unwrapSingleExpressionNode(args[1]);
+    std::string varName = varNode->token->tokenStr;
+    std::string tyVal = typeStringFromNode(typeNode);
 
     valueType* val = findNamedValue(parentNode, this, varName, token);
     if (!val && !wasError) {
@@ -4603,7 +4807,7 @@ void* ASTNode::generateBitcast(int pass)
     LLVMValue* value = llvmIRBuilder->CreateLoad(getValueStoredType(var), var, varName + "_load");
 
     bool wasDefined = true;
-    LLVMType* toType = getLLVMTypeFromString(tyVal, 0, argsNode->childNodes[1]->token, wasDefined, pass);
+    LLVMType* toType = getLLVMTypeFromString(tyVal, 0, typeNode->token, wasDefined, pass);
     if (!toType) {
         return messageSystem::error("Unknown type name used in #bitcast");
     }
@@ -4714,9 +4918,8 @@ static ASTNode* deepCopyASTNode(ASTNode* src)
     copy->isPostfix = src->isPostfix;
     copy->label = src->label;
     copy->externSymbolName = src->externSymbolName;
-    copy->showInASTOutput = src->showInASTOutput;
-    copy->replaceableDefinition = src->replaceableDefinition;
     copy->isModuleScope = src->isModuleScope;
+    copy->importedChildren = src->importedChildren;
     copy->enclosingModule = src->enclosingModule;
     copy->currentNodeDoneGenerating = false;
     copy->isValueBlock = src->isValueBlock;
@@ -4773,14 +4976,10 @@ static void substituteTypeParam(ASTNode* node, const std::string& paramName, con
         substituteTypeParam(leaf, paramName, concreteType, concreteNodeType);
 }
 
-// Return the first identifier token text found in the subtree rooted at node.
-// Checks leafNodes before childNodes (Variant_Param_Node stores results in leafNodes).
-// Return the token text of the first significant node in a variant param subtree.
-// Handles both type params (Identifier_Node) and value params (Integer, Float, Bool, String literals).
-static std::string variantParamFirstIdent(ASTNode* node)
+static ASTNode* variantParamFirstValueNode(ASTNode* node)
 {
     if (!node)
-        return "";
+        return nullptr;
     if (node->token && !node->token->tokenStr.empty()) {
         switch (node->nodeType) {
             case Identifier_Node:
@@ -4789,53 +4988,41 @@ static std::string variantParamFirstIdent(ASTNode* node)
             case Boolean_Node:
             case String_Constant_Node:
             case Character_Constant_Node:
-                return node->token->tokenStr;
+                return node;
             default:
                 break;
         }
     }
     for (auto* leaf : node->leafNodes) {
-        auto r = variantParamFirstIdent(leaf);
-        if (!r.empty())
+        auto r = variantParamFirstValueNode(leaf);
+        if (r)
             return r;
     }
     for (auto* child : node->childNodes) {
-        auto r = variantParamFirstIdent(child);
-        if (!r.empty())
+        auto r = variantParamFirstValueNode(child);
+        if (r)
             return r;
     }
-    return "";
+    return nullptr;
+}
+
+// Return the token text of the first significant node in a variant param subtree.
+// Handles both type params (Identifier_Node) and value params (Integer, Float, Bool, String literals).
+static std::string variantParamFirstIdent(ASTNode* node)
+{
+    ASTNode* valueNode = variantParamFirstValueNode(node);
+    if (!valueNode || !valueNode->token)
+        return "";
+    return valueNode->token->tokenStr;
 }
 
 // Return the ASTNodeType of the first significant node in a variant param subtree.
 static ASTNodeType variantParamNodeType(ASTNode* node)
 {
-    if (!node)
+    ASTNode* valueNode = variantParamFirstValueNode(node);
+    if (!valueNode)
         return Nothing_Node;
-    if (node->token && !node->token->tokenStr.empty()) {
-        switch (node->nodeType) {
-            case Identifier_Node:
-            case Integer_Node:
-            case Float_Node:
-            case Boolean_Node:
-            case String_Constant_Node:
-            case Character_Constant_Node:
-                return node->nodeType;
-            default:
-                break;
-        }
-    }
-    for (auto* leaf : node->leafNodes) {
-        auto r = variantParamNodeType(leaf);
-        if (r != Nothing_Node)
-            return r;
-    }
-    for (auto* child : node->childNodes) {
-        auto r = variantParamNodeType(child);
-        if (r != Nothing_Node)
-            return r;
-    }
-    return Nothing_Node;
+    return valueNode->nodeType;
 }
 
 // Instantiate a variant struct template.
@@ -4972,7 +5159,7 @@ void* ASTNode::generateCallExpression(int pass)
         }
         else if (identifierNode->nodeType == String_Constant_Node) {
             // String literals produce a string struct unless inside the string module
-            if (compilerDirectiveFlags["IN_STRING_MODULE"] != "true" &&
+            if (!compilerDirectiveFlags["IN_STRING_MODULE"] &&
                 structDefinitions.count("string") && structDefinitions["string"]->structVal)
                 typeStr = "string";
             else
@@ -5061,8 +5248,11 @@ void* ASTNode::generateCallExpression(int pass)
                 // Sanitize the concrete value for use in the mangled name
                 // (strip quotes from string literals so the name is a valid LLVM identifier).
                 std::string manglePart = concreteType;
-                if (!manglePart.empty() && manglePart.front() == '"')
-                    manglePart = manglePart.substr(1, manglePart.size() > 1 ? manglePart.size() - 2 : 0);
+                if (concreteNT == String_Constant_Node) {
+                    ASTNode* concreteNode = variantParamFirstValueNode(callVariantsNode->childNodes[vi]);
+                    if (concreteNode && concreteNode->token)
+                        manglePart = decodeQuotedStringToken(concreteNode->token);
+                }
                 if (!paramName.empty() && !concreteType.empty()) {
                     mangledFnName += "." + manglePart;
                     substitutions.push_back({paramName, concreteType, concreteNT});
@@ -6684,13 +6874,12 @@ void* ASTNode::generatePrototype(int pass)
     bool isAlwaysInline = false;
     bool forceExternal = false;
     bool forceInternal = false;
+    bool definitionIsReplaceable = getAttributeValue(this, "replaceable") == "true";
     for (auto& m : modifiersNode->childNodes) {
         if (m->token->tokenStr == "#replaceable")
-            replaceableDefinition = true;
+            definitionIsReplaceable = true;
     }
     for (auto* attr : attributes) {
-        if (attr->token && attr->token->tokenStr == "replaceable")
-            replaceableDefinition = true;
         if (attr->token && attr->token->tokenStr == "inline")
             isAlwaysInline = true;
         if (attr->token && attr->token->tokenStr == "external")
@@ -6814,10 +7003,22 @@ void* ASTNode::generateFunction(int pass)
         return messageSystem::error("There was a failure to create a function");
     }
 
+    bool definitionIsReplaceable = getAttributeValue(this, "replaceable") == "true";
+    for (auto* child : childNodes) {
+        if (!child || child->nodeType != Compiler_Modifiers)
+            continue;
+        for (auto* modifier : child->childNodes) {
+            if (modifier && modifier->token && modifier->token->tokenStr == "#replaceable") {
+                definitionIsReplaceable = true;
+                break;
+            }
+        }
+    }
+
     if (!theFunction->empty()) {
         theFunctionID = getFunctionIDFromFunctionPointer(functionIDs, theFunction);
         bool existingIsReplaceable = theFunctionID && theFunctionID->isReplaceable;
-        if (!replaceableDefinition && !existingIsReplaceable) {
+        if (!definitionIsReplaceable && !existingIsReplaceable) {
             if (theFunctionID)
                 messageSystem::addAttribute(theFunctionID->declNode, "previously defined here");
             return messageSystem::error("Function cannot be redefined, requires unique identity", messageSystem::Redefined_Error);
@@ -7016,14 +7217,66 @@ void* ASTNode::generateCompilerFlagDirective(int pass)
     };
     collectTokens(childNodes[1]);
 
-    if (tokens.size() >= 2)
-        compilerDirectiveFlags[tokens[0]] = tokens[1];
+    if (tokens.size() >= 2) {
+        std::string value = ToLower(tokens[1]);
+        if (value == "true" || value == "1")
+            compilerDirectiveFlags[tokens[0]] = true;
+        else if (value == "false" || value == "0")
+            compilerDirectiveFlags[tokens[0]] = false;
+        else
+            return messageSystem::error("#setflag value must be a bool", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
+    }
     else
         return messageSystem::error("#setflag requires name and value arguments", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
 
     messageSystem::endBlock();
+    pushCompilerDirectiveCall("setflag", this);
 
     return nullptr;
+}
+
+// #getflag(NAME)
+// Returns the current compiler-time flag value as a bool. Missing flags read as false.
+void* ASTNode::generateCompilerGetFlagDirective(int pass)
+{
+    if (pass == 0)
+        return nullptr;
+
+    messageSystem::startBlock(this, "Generating `#getflag` directive", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
+
+    std::vector<ASTNode*> args = getCompilerDirectiveArgs(this);
+    if (args.empty())
+        return messageSystem::error("#getflag requires a flag name argument", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
+
+    ASTNode* nameNode = unwrapSingleExpressionNode(args[0]);
+    if (!nameNode)
+        return messageSystem::error("#getflag requires a flag name argument", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
+
+    if (nameNode->nodeType == Comma_Node && !nameNode->childNodes.empty())
+        nameNode = nameNode->childNodes[0];
+
+    while (nameNode && nameNode->nodeType == Expression_Term && nameNode->childNodes.size() == 1)
+        nameNode = nameNode->childNodes[0];
+
+    if (!nameNode || !nameNode->token ||
+        (nameNode->nodeType != Identifier_Node && nameNode->nodeType != String_Node && nameNode->nodeType != String_Constant_Node))
+        return messageSystem::error("#getflag flag name must be an identifier or string literal", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
+
+    std::string flagName = nameNode->token->tokenStr;
+    if (nameNode->nodeType == String_Node || nameNode->nodeType == String_Constant_Node)
+        flagName = decodeQuotedStringToken(nameNode->token);
+
+    auto flag = compilerDirectiveFlags.find(flagName);
+    bool flagValue = flag != compilerDirectiveFlags.end() && flag->second;
+    LLVMValue* result = ConstantInt::get(LLVMType::getInt1Ty(*llvmCompileContext), flagValue ? 1 : 0);
+    if (!asaType)
+        asaType = new ASAType(result->getType());
+    else
+        asaType->baseLLVMType = result->getType();
+
+    messageSystem::endBlock();
+    pushCompilerDirectiveCall("getflag", this);
+    return result;
 }
 
 // #library "name";
@@ -7036,16 +7289,15 @@ void* ASTNode::generateLibraryDirective(int pass)
 
     messageSystem::startBlock(this, "Generating `#library` directive", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
 
-    if (childNodes.size() < 2 || childNodes[1]->childNodes.empty()) {
+    std::vector<ASTNode*> args = getCompilerDirectiveArgs(this);
+    if (args.empty()) {
         return messageSystem::error("#library argument must be a string library name", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
     }
-    ASTNode* nameNode = childNodes[1]->childNodes[0];
+    ASTNode* nameNode = unwrapSingleExpressionNode(args[0]);
     if (nameNode->nodeType != String_Node && nameNode->nodeType != String_Constant_Node) {
         return messageSystem::error("#library argument must be a string literal", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
     }
-    // Strip surrounding quotes from the string token
-    std::string raw = nameNode->token->tokenStr;
-    std::string libName = raw.substr(1, raw.size() - 2);
+    std::string libName = decodeQuotedStringToken(nameNode->token);
 
     messageSystem::endBlock();
 
@@ -7054,6 +7306,7 @@ void* ASTNode::generateLibraryDirective(int pass)
         if (l == libName)
             return nullptr;
     linkedLibraries.push_back(libName);
+    pushCompilerDirectiveCall("library", this);
     return nullptr;
 }
 
@@ -7066,15 +7319,15 @@ void* ASTNode::generateLibraryStaticDirective(int pass)
 
     messageSystem::startBlock(this, "Generating `#library_static` directive", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
 
-    if (childNodes.size() < 2 || childNodes[1]->childNodes.empty()) {
+    std::vector<ASTNode*> args = getCompilerDirectiveArgs(this);
+    if (args.empty()) {
         return messageSystem::error("#library_static requires a string path to a .a file", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
     }
-    ASTNode* nameNode = childNodes[1]->childNodes[0];
+    ASTNode* nameNode = unwrapSingleExpressionNode(args[0]);
     if (nameNode->nodeType != String_Node && nameNode->nodeType != String_Constant_Node) {
         return messageSystem::error("#library_static argument must be a string literal", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
     }
-    std::string raw = nameNode->token->tokenStr;
-    std::string path = raw.substr(1, raw.size() - 2);
+    std::string path = decodeQuotedStringToken(nameNode->token);
 
     messageSystem::endBlock();
 
@@ -7082,6 +7335,7 @@ void* ASTNode::generateLibraryStaticDirective(int pass)
         if (l == path)
             return nullptr;
     linkedStaticLibraries.push_back(path);
+    pushCompilerDirectiveCall("library_static", this);
     return nullptr;
 }
 
@@ -7094,12 +7348,13 @@ void* ASTNode::generateCompilerStackPushDirective(int pass)
     if (childNodes.size() < 2)
         return messageSystem::error("#stack_push requires stack name and AST node arguments", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
 
-    ASTNode* argNode = childNodes[1]->childNodes.empty() ? nullptr : childNodes[1]->childNodes[0];
-    if (argNode && argNode->nodeType == Comma_Node && argNode->childNodes.size() >= 2) {
-        std::string stackName = argNode->childNodes[0]->token->tokenStr;
-        if (argNode->childNodes[0]->nodeType == String_Node || argNode->childNodes[0]->nodeType == String_Constant_Node)
-            stackName = stackName.substr(1, stackName.size() - 2);
-        ASTNode* astNodeToPush = argNode->childNodes[1];
+    std::vector<ASTNode*> args = getCompilerDirectiveArgs(this);
+    if (args.size() >= 2) {
+        ASTNode* stackNameNode = unwrapSingleExpressionNode(args[0]);
+        std::string stackName = stackNameNode->token->tokenStr;
+        if (stackNameNode->nodeType == String_Node || stackNameNode->nodeType == String_Constant_Node)
+            stackName = decodeQuotedStringToken(stackNameNode->token);
+        ASTNode* astNodeToPush = args[1];
         compilerStacks[stackName].push(astNodeToPush);
     }
     else {
@@ -7107,6 +7362,7 @@ void* ASTNode::generateCompilerStackPushDirective(int pass)
     }
 
     messageSystem::endBlock();
+    pushCompilerDirectiveCall("stack_push", this);
 
     return nullptr;
 }
@@ -7120,18 +7376,20 @@ void* ASTNode::generateCompilerStackPopDirective(int pass)
     if (childNodes.size() < 2)
         return messageSystem::error("#stack_pop requires stack name argument", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
 
-    if (childNodes[1]->childNodes.empty())
+    std::vector<ASTNode*> args = getCompilerDirectiveArgs(this);
+    if (args.empty())
         return messageSystem::error("#stack_pop requires stack name argument", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
 
-    ASTNode* nameNode = childNodes[1]->childNodes[0];
+    ASTNode* nameNode = unwrapSingleExpressionNode(args[0]);
     std::string stackName = nameNode->token->tokenStr;
     if (nameNode->nodeType == String_Node || nameNode->nodeType == String_Constant_Node)
-        stackName = stackName.substr(1, stackName.size() - 2);
+        stackName = decodeQuotedStringToken(nameNode->token);
     if (compilerStacks.count(stackName) && !compilerStacks[stackName].empty()) {
         compilerStacks[stackName].pop();
     }
 
     messageSystem::endBlock();
+    pushCompilerDirectiveCall("stack_pop", this);
 
     return nullptr;
 }
@@ -7145,13 +7403,14 @@ void* ASTNode::generateCompilerStackLastDirective(int pass)
     if (childNodes.size() < 2)
         return messageSystem::error("#stack_last requires stack name argument", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
 
-    if (childNodes[1]->childNodes.empty())
+    std::vector<ASTNode*> args = getCompilerDirectiveArgs(this);
+    if (args.empty())
         return messageSystem::error("#stack_last requires stack name argument", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
 
-    ASTNode* nameNode = childNodes[1]->childNodes[0];
+    ASTNode* nameNode = unwrapSingleExpressionNode(args[0]);
     std::string stackName = nameNode->token->tokenStr;
     if (nameNode->nodeType == String_Node || nameNode->nodeType == String_Constant_Node)
-        stackName = stackName.substr(1, stackName.size() - 2);
+        stackName = decodeQuotedStringToken(nameNode->token);
     if (!compilerStacks.count(stackName) || compilerStacks[stackName].empty())
         return messageSystem::error("#stack_last used with an empty stack", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
 
@@ -7168,15 +7427,17 @@ void* ASTNode::generateCompilerStackLastDirective(int pass)
     }
 
     messageSystem::endBlock();
+    pushCompilerDirectiveCall("stack_last", this);
     return value;
 }
 
 ASTNode* ASTNode::resolveCompilerStackLastASTNode(int pass)
 {
-    if (childNodes.size() < 2 || childNodes[1]->childNodes.empty())
+    std::vector<ASTNode*> args = getCompilerDirectiveArgs(this);
+    if (args.empty())
         return nullptr;
 
-    ASTNode* nameNode = childNodes[1]->childNodes[0];
+    ASTNode* nameNode = unwrapSingleExpressionNode(args[0]);
     if (nameNode && nameNode->nodeType == Comma_Node && !nameNode->childNodes.empty())
         nameNode = nameNode->childNodes[0];
     if (!nameNode || !nameNode->token)
@@ -7184,7 +7445,7 @@ ASTNode* ASTNode::resolveCompilerStackLastASTNode(int pass)
 
     std::string stackName = nameNode->token->tokenStr;
     if (nameNode->nodeType == String_Node || nameNode->nodeType == String_Constant_Node)
-        stackName = stackName.substr(1, stackName.size() - 2);
+        stackName = decodeQuotedStringToken(nameNode->token);
 
     if (!compilerStacks.count(stackName) || compilerStacks[stackName].empty())
         return nullptr;
@@ -7192,19 +7453,42 @@ ASTNode* ASTNode::resolveCompilerStackLastASTNode(int pass)
     return compilerStacks[stackName].top();
 }
 
+ASTNode* ASTNode::resolveCompilerContextASTNode(int pass)
+{
+    messageSystem::error("#context is only available inside a custom compiler directive invocation", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
+    return nullptr;
+}
+
 ASTNode* ASTNode::resolveCompilerParentASTNode(int pass)
 {
-    if (childNodes.size() < 2 || childNodes[1]->childNodes.empty())
+    std::vector<ASTNode*> args = getCompilerDirectiveArgs(this);
+    if (args.empty()) {
+        messageSystem::error("#parent requires an AST node argument", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
         return nullptr;
+    }
 
-    ASTNode* argNode = childNodes[1]->childNodes[0];
-    if (!argNode)
+    ASTNode* argNode = args[0];
+    if (!argNode) {
+        messageSystem::error("#parent requires an AST node argument", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
         return nullptr;
+    }
+    argNode = unwrapSingleExpressionNode(argNode);
+    if ((argNode->nodeType == Expression_Term || argNode->nodeType == Expression_Paren_Term) && argNode->childNodes.empty()) {
+        messageSystem::error("#parent requires an AST node argument", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
+        return nullptr;
+    }
 
     ASTNode* resolvedNode = resolveASTNodeValue(argNode, pass);
-    if (!resolvedNode)
+    if (!resolvedNode) {
+        if (!wasError)
+            messageSystem::error("#parent argument resolved to null", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
         return nullptr;
+    }
 
+    if (!resolvedNode->parentNode) {
+        messageSystem::error("#parent argument has no parent AST node", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
+        return nullptr;
+    }
     return resolvedNode->parentNode;
 }
 
@@ -7217,10 +7501,11 @@ void* ASTNode::generateCompilerPrintASTDirective(int pass)
 
     messageSystem::startBlock(this, "Generating `#print_ast` directive", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
 
-    if (childNodes.size() < 2 || childNodes[1]->childNodes.empty())
+    std::vector<ASTNode*> args = getCompilerDirectiveArgs(this);
+    if (args.empty())
         return messageSystem::error("#print_ast requires an AST node argument", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
 
-    ASTNode* argNode = childNodes[1]->childNodes[0];
+    ASTNode* argNode = args[0];
     if (!argNode)
         return messageSystem::error("#print_ast requires an AST node argument", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
 
@@ -7231,6 +7516,7 @@ void* ASTNode::generateCompilerPrintASTDirective(int pass)
     printAST(nodeToPrint);
 
     messageSystem::endBlock();
+    pushCompilerDirectiveCall("print_ast", this);
     return nullptr;
 }
 
@@ -7242,18 +7528,16 @@ static void* generateCompilerStringPrintDirective(ASTNode* directiveNode, int pa
     const std::string directiveName = appendNewline ? "#printl" : "#print";
     messageSystem::startBlock(directiveNode, "Generating `" + directiveName + "` directive", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
 
-    if (directiveNode->childNodes.size() < 2 || directiveNode->childNodes[1]->childNodes.empty())
+    std::vector<ASTNode*> args = getCompilerDirectiveArgs(directiveNode);
+    if (args.empty())
         return messageSystem::error(directiveName + " requires a string argument", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
 
-    ASTNode* messageNode = directiveNode->childNodes[1]->childNodes[0];
+    ASTNode* messageNode = unwrapSingleExpressionNode(args[0]);
     if (!messageNode || !messageNode->token ||
         (messageNode->nodeType != String_Node && messageNode->nodeType != String_Constant_Node))
         return messageSystem::error(directiveName + " argument must be a string literal", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
 
-    std::string rawMessage = messageNode->token->tokenStr;
-    std::string message = rawMessage;
-    if (rawMessage.size() >= 2 && rawMessage.front() == '"' && rawMessage.back() == '"')
-        message = unescapeString(rawMessage.substr(1, rawMessage.size() - 2), messageNode->token);
+    std::string message = decodeQuotedStringToken(messageNode->token);
 
     if (appendNewline)
         console::writeLine(message);
@@ -7261,6 +7545,7 @@ static void* generateCompilerStringPrintDirective(ASTNode* directiveNode, int pa
         console::write(message);
 
     messageSystem::endBlock();
+    pushCompilerDirectiveCall(appendNewline ? "printl" : "print", directiveNode);
     return nullptr;
 }
 
@@ -7278,21 +7563,24 @@ void* ASTNode::generateCompilerPrintLineDirective(int pass)
     return generateCompilerStringPrintDirective(this, pass, true);
 }
 
+// #set_attribute is handled by the pre-codegen compiler directive pass.
+void* ASTNode::generateCompilerSetAttributeDirective(int pass)
+{
+    return nullptr;
+}
+
 // #if CONDITION AST_NODE;
 // Compiles AST_NODE only when CONDITION evaluates to a compile-time true value.
 void* ASTNode::generateCompilerIfDirective(int pass)
 {
     messageSystem::startBlock(this, "Generating `#if` directive", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
 
-    if (childNodes.size() < 2 || childNodes[1]->childNodes.empty())
+    std::vector<ASTNode*> args = getCompilerDirectiveArgs(this);
+    if (args.size() < 2)
         return messageSystem::error("#if requires condition and AST node arguments", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
 
-    ASTNode* argNode = childNodes[1]->childNodes[0];
-    if (!argNode || argNode->nodeType != Comma_Node || argNode->childNodes.size() < 2)
-        return messageSystem::error("#if requires condition and AST node arguments", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
-
-    ASTNode* conditionNode = argNode->childNodes[0];
-    ASTNode* includedNode = argNode->childNodes[1];
+    ASTNode* conditionNode = args[0];
+    ASTNode* includedNode = args[1];
 
     bool resolved = false;
     bool conditionValue = evaluateCompilerDirectiveCondition(conditionNode, pass, resolved);
@@ -7303,6 +7591,8 @@ void* ASTNode::generateCompilerIfDirective(int pass)
 
     if (!conditionValue) {
         messageSystem::endBlock();
+        pushCompilerControlFlowResult(false, this);
+        pushCompilerDirectiveCall("if", this);
         return nullptr;
     }
 
@@ -7315,6 +7605,8 @@ void* ASTNode::generateCompilerIfDirective(int pass)
         return nullptr;
 
     messageSystem::endBlock();
+    pushCompilerControlFlowResult(true, this);
+    pushCompilerDirectiveCall("if", this);
     return result;
 }
 
@@ -7324,27 +7616,20 @@ void* ASTNode::generateCompilerErrorDirective(int pass)
 {
     messageSystem::startBlock(this, "Generating `#error` directive", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
 
-    if (childNodes.size() < 2 || childNodes[1]->childNodes.empty()) {
-        return messageSystem::error("#error requires message and AST node arguments", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
-    }
-
-    ASTNode* argNode = childNodes[1]->childNodes[0];
-    if (!argNode || argNode->nodeType != Comma_Node || argNode->childNodes.size() < 2) {
+    std::vector<ASTNode*> args = getCompilerDirectiveArgs(this);
+    if (args.size() < 2) {
         return messageSystem::error("#error requires message and AST node arguments", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
     }
 
     // Execute the error
-    ASTNode* messageNode = argNode->childNodes[0];
-    ASTNode* contextNode = argNode->childNodes[1];
+    ASTNode* messageNode = unwrapSingleExpressionNode(args[0]);
+    ASTNode* contextNode = args[1];
     if (!messageNode || !messageNode->token ||
         (messageNode->nodeType != String_Node && messageNode->nodeType != String_Constant_Node)) {
         return messageSystem::error("#error message must be a string literal", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
     }
 
-    std::string rawMessage = messageNode->token->tokenStr;
-    std::string message = rawMessage;
-    if (rawMessage.size() >= 2 && rawMessage.front() == '"' && rawMessage.back() == '"')
-        message = unescapeString(rawMessage.substr(1, rawMessage.size() - 2), messageNode->token);
+    std::string message = decodeQuotedStringToken(messageNode->token);
 
     messageSystem::endBlock();
 
@@ -7360,26 +7645,19 @@ void* ASTNode::generateCompilerWarningDirective(int pass)
 {
     messageSystem::startBlock(this, "Generating `#warning` directive", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
 
-    if (childNodes.size() < 2 || childNodes[1]->childNodes.empty()) {
+    std::vector<ASTNode*> args = getCompilerDirectiveArgs(this);
+    if (args.size() < 2) {
         return messageSystem::error("#warning requires message and AST node arguments", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
     }
 
-    ASTNode* argNode = childNodes[1]->childNodes[0];
-    if (!argNode || argNode->nodeType != Comma_Node || argNode->childNodes.size() < 2) {
-        return messageSystem::error("#warning requires message and AST node arguments", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
-    }
-
-    ASTNode* messageNode = argNode->childNodes[0];
-    ASTNode* contextNode = argNode->childNodes[1];
+    ASTNode* messageNode = unwrapSingleExpressionNode(args[0]);
+    ASTNode* contextNode = args[1];
     if (!messageNode || !messageNode->token ||
         (messageNode->nodeType != String_Node && messageNode->nodeType != String_Constant_Node)) {
         return messageSystem::error("#warning message must be a string literal", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
     }
 
-    std::string rawMessage = messageNode->token->tokenStr;
-    std::string message = rawMessage;
-    if (rawMessage.size() >= 2 && rawMessage.front() == '"' && rawMessage.back() == '"')
-        message = unescapeString(rawMessage.substr(1, rawMessage.size() - 2), messageNode->token);
+    std::string message = decodeQuotedStringToken(messageNode->token);
 
     messageSystem::endBlock();
 
@@ -7387,6 +7665,7 @@ void* ASTNode::generateCompilerWarningDirective(int pass)
     contextNode = resolveASTNodeValue(contextNode, pass);
     messageSystem::startBlock(contextNode ? contextNode : this, "#warning directive", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
     messageSystem::warning(message, messageSystem::Custom_Directive_Warning);
+    pushCompilerDirectiveCall("warning", this);
     return nullptr;
 }
 
@@ -7417,13 +7696,55 @@ static LLVMValue* makeStringConstant(const std::string& str)
     Constant* strPtr = ConstantExpr::getGetElementPtr(globalStr->getValueType(), globalStr, indices);
 
     // Return a string struct when the string type is defined (matches String_Constant_Node behavior)
-    if (compilerDirectiveFlags["IN_STRING_MODULE"] != "true" &&
+    if (!compilerDirectiveFlags["IN_STRING_MODULE"] &&
         structDefinitions.count("string") && structDefinitions["string"]->structVal) {
         StructType* strTy = cast<StructType>((LLVMType*)structDefinitions["string"]->structVal);
         Constant* lenConst = ConstantInt::get(LLVMType::getInt32Ty(*llvmCompileContext), (uint32_t)str.size());
         return ConstantStruct::get(strTy, {strPtr, lenConst});
     }
     return strPtr;
+}
+
+static ASTNode* findRightmostTokenNode(ASTNode* node)
+{
+    node = unwrapSingleExpressionNode(node);
+    while (node && node->childNodes.size() >= 2)
+        node = unwrapSingleExpressionNode(node->childNodes.back());
+    while (node && !node->token && node->childNodes.size() == 1)
+        node = unwrapSingleExpressionNode(node->childNodes[0]);
+    return node;
+}
+
+// #nameof(expr) - returns the simple name of an AST node as a string.
+void* ASTNode::generateNameofDirective(int pass)
+{
+    if (pass == 0)
+        return nullptr;
+
+    messageSystem::startBlock(this, "Generating `#nameof` directive", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
+    defer(messageSystem::endBlock());
+
+    std::vector<ASTNode*> args = getCompilerDirectiveArgs(this);
+    if (args.empty())
+        return messageSystem::error("#nameof requires an expression argument", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
+
+    ASTNode* namedNode = resolveASTNodeValue(args[0], pass);
+    namedNode = findRightmostTokenNode(namedNode);
+    if (!namedNode || !namedNode->token)
+        return messageSystem::error("#nameof argument did not resolve to a named AST node", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
+
+    std::string name = namedNode->token->tokenStr;
+    if (namedNode->nodeType == String_Node || namedNode->nodeType == String_Constant_Node)
+        name = decodeQuotedStringToken(namedNode->token);
+
+    LLVMValue* result = makeStringConstant(name);
+    if (!asaType)
+        asaType = new ASAType(result->getType());
+    else
+        asaType->baseLLVMType = result->getType();
+
+    pushCompilerDirectiveCall("nameof", this);
+    return result;
 }
 
 // #typeof(expr) - returns the ASA type name of expr as a string.
@@ -7436,11 +7757,12 @@ void* ASTNode::generateTypeofDirective(int pass)
 
     messageSystem::startBlock(this, "Generating `#typeof` directive", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
 
-    if (childNodes.size() < 2 || childNodes[1]->childNodes.empty()) {
+    std::vector<ASTNode*> args = getCompilerDirectiveArgs(this);
+    if (args.empty()) {
         messageSystem::error("#typeof requires a type or variable argument", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
     }
 
-    ASTNode* argExpr = childNodes[1]->childNodes[0];
+    ASTNode* argExpr = unwrapSingleExpressionNode(args[0]);
     std::string typeStr;
 
     // Fast path: identifier - look up in namedValues, no IR emitted
@@ -7468,6 +7790,7 @@ void* ASTNode::generateTypeofDirective(int pass)
         asaType->baseLLVMType = result->getType();
 
     messageSystem::endBlock();
+    pushCompilerDirectiveCall("typeof", this);
     return result;
 }
 
@@ -7480,11 +7803,12 @@ void* ASTNode::generateSizeofDirective(int pass)
 
     messageSystem::startBlock(this, "Generating `#sizeof` directive", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
 
-    if (childNodes.size() < 2 || childNodes[1]->childNodes.empty()) {
+    std::vector<ASTNode*> args = getCompilerDirectiveArgs(this);
+    if (args.empty()) {
         messageSystem::error("#sizeof requires a type or variable argument", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
     }
 
-    ASTNode* argNode = childNodes[1]->childNodes[0];
+    ASTNode* argNode = unwrapSingleExpressionNode(args[0]);
     LLVMType* llvmType = nullptr;
 
     messageSystem::startBlock(argNode, "Getting argument type", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
@@ -7556,6 +7880,7 @@ void* ASTNode::generateSizeofDirective(int pass)
 
     messageSystem::endBlock();
     messageSystem::endBlock();
+    pushCompilerDirectiveCall("sizeof", this);
     return sizeVal;
 }
 
@@ -7568,11 +7893,12 @@ void* ASTNode::generateCompilesDirective(int pass)
 
     messageSystem::startBlock(this, "Generating `#compiles` directive", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
 
-    if (childNodes.size() < 2 || childNodes[1]->childNodes.empty()) {
+    std::vector<ASTNode*> args = getCompilerDirectiveArgs(this);
+    if (args.empty()) {
         messageSystem::error("#compiles requires an expression argument", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
     }
 
-    ASTNode* argNode = childNodes[1]->childNodes[0];
+    ASTNode* argNode = args[0];
 
     // Save current state
     BasicBlock* savedInsertBlock = llvmIRBuilder->GetInsertBlock();
@@ -7617,6 +7943,7 @@ void* ASTNode::generateCompilesDirective(int pass)
         asaType->baseLLVMType = result->getType();
 
     messageSystem::endBlock();
+    pushCompilerDirectiveCall("compiles", this);
     return result;
 }
 

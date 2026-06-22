@@ -59,6 +59,7 @@ namespace messageSystem {
         Undefined_Function_Error,
         Undefined_Function_Exact_Error,
         Undefined_Variable_Error,
+        Declared_Undefined_Variable_Error,
         Undefined_Member_Error,
         // Redefined errors:
         Redefined_Error,
@@ -88,6 +89,7 @@ namespace messageSystem {
         // User defined warnings:
         Custom_Directive_Warning,
         Deprecated_Attribute_Warning,
+        Undefined_Variable_Warning,
     };
 
     struct MessageBlockNode {

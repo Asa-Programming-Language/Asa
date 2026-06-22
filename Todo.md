@@ -9,21 +9,17 @@
 
 # Todo:
 
+- [ ] Implement string formatting with internal curly braces: `someVar : int = 5;` then `printl(f"{someVar}");` -> `"5"`
+
 - [ ] Ensure compiler directives have exact number of expected arguments, and errors on not enough or too many arguments
 
 - [ ] Disallow defining compile time defined symbols using non constant expression.
 
 - [ ] Fix operator overload token string being overwritten by token name
 
-- [ ] Add error for invalid compiler directives
-
-- [ ] Allow attributes to have empty argument lists. For example, while `@deprecated:` compiles, and `@deprecated("message"):` compiles, `@deprecated:` does not.
-
-- [ ] Add compiler directives: `#if(COND, BODY)`, `#stack_last(NAME)`, `#stack_push(NAME, AST)`, `#stack_pop(NAME)`, `#error(MESSAGE, AST)`, `#warning(MESSAGE, AST)`, `#context`
+- [ ] Allow attributes to have empty argument lists. For example, while `@deprecated:` compiles, and `@deprecated("message"):` compiles, `@deprecated():` does not.
 
 - [ ] Make error checking ensure all code paths have a return value if necessary
-
-- [ ] Improve declaration initialization, adding `default` and `?` values
 
 - [ ] Make modules based completely in AST nodes
 
@@ -64,6 +60,8 @@
 
 
 # Done:
+- [x] Improve declaration initialization, adding `default` and `?` values
+- [x] Add compiler directives: `#if(COND, BODY)`, `#stack_last(NAME)`, `#stack_push(NAME, AST)`, `#stack_pop(NAME)`, `#error(MESSAGE, AST)`, `#warning(MESSAGE, AST)`, `#context`
 - [x] Add `#recommend_options` compiler directive to allow programs to suggest compilation options. When reached, the compiler will prompt the user if they would like to accept the options or not.
 - [x] Error on attempting to modify a compiler constant. Like `SOME_CONST :: 5;`  `SOME_CONST = 0;`
 - [x] Fix If/ If else chaining silently failing

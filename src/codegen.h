@@ -22,9 +22,10 @@ extern std::unique_ptr<LLVMContext> llvmCompileContext;
 extern std::unique_ptr<Module> llvmCompileModule;
 extern std::unique_ptr<DIBuilder> llvmDebugBuilder;
 extern std::unique_ptr<IRBuilder<>> llvmIRBuilder;
-extern std::map<std::string, Value*> NamedValues;
-extern std::map<std::string, std::string> compilerDirectiveFlags;
-extern std::map<std::string, std::stack<ASTNode*>> compilerStacks;
+extern std::unordered_map<std::string, Value*> NamedValues;
+extern std::unordered_map<std::string, bool> compilerDirectiveFlags;
+extern std::unordered_map<std::string, bool> commandLineCompilerDirectiveFlags;
+extern std::unordered_map<std::string, std::stack<ASTNode*>> compilerStacks;
 
 
 bool isOptimizing();
