@@ -2496,8 +2496,23 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
             case Operator_Keyword: {
                 node->nodeType = Operator_Overload_Node;
 
-                // Get next token, which should be the operator
+                asaToken* openParen = NEXT_TOKEN(tokens, i);
+                if (openParen->tokenType != Left_Paren) {
+                    printTokenError(tokenRange {openParen, openParen}, "Operator overload must use parenthesized syntax: operator(<operator>)");
+                    exit(1);
+                }
+
                 asaToken* t = NEXT_TOKEN(tokens, i);
+                if (t->tokenType == Right_Paren || t->tokenType == EndOfLine || t->tokenType == EndOfFile) {
+                    printTokenError(tokenRange {t, t}, "Operator overload requires an operator inside parentheses");
+                    exit(1);
+                }
+
+                asaToken* closeParen = NEXT_TOKEN(tokens, i);
+                if (closeParen->tokenType != Right_Paren) {
+                    printTokenError(tokenRange {closeParen, closeParen}, "Operator overload expected ')' after operator token");
+                    exit(1);
+                }
 
                 ASTNode* operatorNode = new ASTNode(Operator_Type_Node, {}, t);
 
