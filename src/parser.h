@@ -329,12 +329,15 @@ struct ASTNode {
     std::string label = "";
     std::string externSymbolName = "";       // when non-empty, the actual C symbol to link (overrides fnName for LLVM)
     bool isModuleScope = false;              // true for Compiler_Define nodes representing named modules
-    bool importedChildren = false;           // true for #use modules whose children are visible unqualified
+    bool importedChildren = false;           // true for #import modules whose children are visible unqualified
     std::string enclosingModule = "";        // set on imported nodes to record source module name
     bool currentNodeDoneGenerating = false;  // TODO: Make codegen mark each node that completely finishes generating as done
     bool isValueBlock = false;               // true for Scope_Body nodes that are value-returning { result ...; } expressions
     bool isPoisoned = false;
     bool returnsASTNode = false;
+    bool tracksVariableUsage = false;
+    int variableReads = 0;
+    int variableWrites = 0;
     asaToken* closingToken = nullptr;  // closing delimiter token (e.g. }) stored for token range tracking
     //Type* llvmType;
     //Type* baseType = nullptr;

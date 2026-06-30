@@ -1981,8 +1981,8 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
                 isLeafNode = GATHER_TO_SEMICOLON(tokens, subTokens, i, true, true);
                 //GATHER_TO_SEMICOLON_OR_OTHER(tokens, subTokens, i, Left_Brace, true);
 
-                // For #import / #use: convert .* into .(identifier "*") so wildcards parse correctly
-                if (identifier->token->tokenStr == "import" || identifier->token->tokenStr == "use") {
+                // For #import / #import_qualified: convert .* into .(identifier "*") so wildcards parse correctly
+                if (identifier->token->tokenStr == "import" || identifier->token->tokenStr == "import_qualified") {
                     for (int j = 1; j < (int)subTokens.size(); j++) {
                         if (subTokens[j]->tokenType == Star && subTokens[j - 1]->tokenType == Dot)
                             subTokens[j] = new asaToken("*", Identifier, subTokens[j]->lineNumber,
@@ -2617,11 +2617,6 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
             }
 
             // Constant literals
-            case Void: {
-                node->nodeType = Void_Node;
-                goto generateConstantLiteral;
-            }
-
             case Integer: {
                 node->nodeType = Integer_Node;
                 goto generateConstantLiteral;
@@ -3835,11 +3830,11 @@ void addModuleImports(ASTNode*& node)
     if (node->childNodes.size() > 0)
         if (node->nodeType == Compile_Time_Directive) {
             const std::string& directive = node->childNodes[0]->token->tokenStr;
-            // #import = qualified (module kept as a whole, accessed via Module.member)
-            // #use    = flat (module contents brought directly into scope, old #import behavior)
+            // #import = flat (module contents brought directly into scope)
+            // #import_qualified = qualified (module kept as a whole, accessed via Module.member)
             bool isImport = directive == "import";
-            bool isUse = directive == "use";
-            if (!isImport && !isUse)
+            bool isImportQualified = directive == "import_qualified";
+            if (!isImport && !isImportQualified)
                 return;
 
             if (node->childNodes.size() > 1) {
@@ -3859,10 +3854,10 @@ void addModuleImports(ASTNode*& node)
 
                     std::string searchPath[2] = {projectDirectory + modulePath, executableDirectory + "modules/" + modulePath};
 
-                    // Wildcard: #use Some.Dir.*; loads all modules in that directory (flat)
+                    // Wildcard: #import Some.Dir.*; loads all modules in that directory (flat)
                     if (moduleName == "*") {
-                        if (isImport) {
-                            printTokenError(getASTTokenRange(moduleNameNode), "Directory wildcard is not supported with #import; use #use for flat wildcard loading", __LINE__);
+                        if (isImportQualified) {
+                            printTokenError(getASTTokenRange(moduleNameNode), "Directory wildcard is not supported with #import_qualified; use #import for flat wildcard loading", __LINE__);
                             exit(1);
                         }
                         for (int i = 0; i < (int)(sizeof(searchPath) / sizeof(searchPath[0])); i++) {
@@ -3873,7 +3868,7 @@ void addModuleImports(ASTNode*& node)
                             }
                         }
                         if (!moduleFound) {
-                            printTokenError(getASTTokenRange(moduleNameNode), "Wildcard use: directory not found: \"" + modulePath + "\"", __LINE__);
+                            printTokenError(getASTTokenRange(moduleNameNode), "Wildcard import: directory not found: \"" + modulePath + "\"", __LINE__);
                             exit(1);
                         }
                         node->nodeType = Nothing_Node;
@@ -3882,7 +3877,7 @@ void addModuleImports(ASTNode*& node)
 
                     for (int i = 0; i < (int)(sizeof(searchPath) / sizeof(searchPath[0])); i++) {
                         if (directoryExists(searchPath[i])) {
-                            if (isImport)
+                            if (isImportQualified)
                                 moduleFound = loadModuleQualified(searchPath[i], moduleName);
                             else
                                 moduleFound = loadModule(searchPath[i], moduleName);
@@ -4117,7 +4112,7 @@ int generateOutputCode(ASTNode*& node, int depth, int pass)
             // Named module node: register and declare globals.
             if (pass == 1 && node->isModuleScope)
                 processModuleForDeclarations(node);
-            if (node->isModuleScope && node->importedChildren) {
+            if (node->isModuleScope) {
                 ASTNode* innerScope = getModuleInnerScope(node);
                 if (innerScope) {
                     for (auto* child : innerScope->childNodes) {

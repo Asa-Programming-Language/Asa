@@ -50,3 +50,4 @@ void declareModuleScopeVariable(ASTNode* exprStmtNode, ASTNode* ownerNode, bool 
 void declareModuleScopeVariableFromColon(ASTNode* colonNode, ASTNode* ownerNode);
 void processModuleForDeclarations(ASTNode* moduleCompilerDefineNode, std::string parentName = "");
 bool finalizeGlobalInit();
+void warnAboutUnusedVariables(ASTNode* rootNode);

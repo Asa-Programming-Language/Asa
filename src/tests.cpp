@@ -205,7 +205,7 @@ std::vector<Test> tests = {
     // Module includes
     Test(
         R"(
-        #use Tests.CompilerImportTest;
+        #import Tests.CompilerImportTest;
     )",
         A(Scope_Body, // Global
             {
@@ -381,16 +381,16 @@ std::vector<Test> errorTests = {
         someVar : int;
     )"),
 
-    Test("Inferred variable declaration with void missing type",
+    Test("Inferred variable declaration with undefined initializer missing type",
         R"(
-        someVar = void;
+        someVar = ?;
     )"),
 
-    Test("Inferred variable declaration with void missing type, filler lines",
+    Test("Inferred variable declaration with undefined initializer missing type, filler lines",
         R"(
         main :: (){
             x : int = 9;
-            someVar = void;
+            someVar = ?;
             x += someVar;
         }
     )"),
@@ -452,7 +452,7 @@ std::vector<Test> errorTests = {
         R"(
         bar :: struct{}
         main :: (){
-            b : bar = void;
+            b : bar = default;
             b.mem = 5;
         }
     )"),
@@ -460,11 +460,11 @@ std::vector<Test> errorTests = {
     Test("Undefined member with candidates (struct)",
         R"(
         bar :: struct{
-            a : int = void;
+            a : int = default;
             b : char = 'w';
         }
         main :: (){
-            b : bar = void;
+            b : bar = default;
             b.mem = 5;
         }
     )"),
@@ -792,11 +792,11 @@ void runErrorTests()
             if (wasError || !localRoot)
                 goto wasError;
 
-            // Insert `#use Builtin.Casts;` at beginning of AST
+            // Insert `#import Builtin.Casts;` at beginning of AST
             rootNode->childNodes.insert(rootNode->childNodes.begin(),
                 A(Compile_Time_Directive,
                     {
-                        A(Identifier_Node, {}, new asaToken("#use", Identifier)),
+                        A(Identifier_Node, {}, new asaToken("#import", Identifier)),
                         A(Scope_Body,
                             {A(Member_Access,
                                 {
@@ -805,11 +805,11 @@ void runErrorTests()
                                 },
                                 new asaToken(".", Dot))}),
                     }));
-            // Insert `#use Builtin.String;` at beginning of AST
+            // Insert `#import Builtin.String;` at beginning of AST
             rootNode->childNodes.insert(rootNode->childNodes.begin(),
                 A(Compile_Time_Directive,
                     {
-                        A(Identifier_Node, {}, new asaToken("#use", Identifier)),
+                        A(Identifier_Node, {}, new asaToken("#import", Identifier)),
                         A(Scope_Body,
                             {A(Member_Access,
                                 {

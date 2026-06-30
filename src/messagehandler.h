@@ -90,6 +90,7 @@ namespace messageSystem {
         Custom_Directive_Warning,
         Deprecated_Attribute_Warning,
         Undefined_Variable_Warning,
+        Unused_Variable_Warning,
     };
 
     struct MessageBlockNode {

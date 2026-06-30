@@ -176,6 +176,31 @@ static bool isDefaultInitializer(ASTNode* node)
     return node && node->nodeType == Default_Initializer_Node;
 }
 
+valueType* findNamedValue(ASTNode* node, ASTNode* childNode, std::string& identifier, asaToken*& token);
+
+static bool isPointerValue(valueType* val)
+{
+    return val && !val->type.empty() && val->type[0] == '*';
+}
+
+static void markVariableRead(valueType* val)
+{
+    if (val && val->declNode)
+        val->declNode->variableReads++;
+}
+
+static void markVariableWrite(valueType* val)
+{
+    if (val && val->declNode)
+        val->declNode->variableWrites++;
+}
+
+static void trackVariableUsage(ASTNode* declNode)
+{
+    if (declNode)
+        declNode->tracksVariableUsage = true;
+}
+
 static LLVMValue* generateDefaultValueForType(LLVMType* type, const std::string& typeName, int pointerLevel, int pass, ASTNode* node);
 static bool getDeclaredTypeFromColonNode(ASTNode* colonNode, LLVMType*& outType, std::string& outTypeName, int& outPointerLevel, bool& outIsConst, int pass);
 static LLVMValue* makeStringConstant(const std::string& str);
@@ -1026,15 +1051,48 @@ static LLVMValue* generateDefaultValueForType(LLVMType* type, const std::string&
         if (wasError)
             return nullptr;
 
-        argumentList emptyArgs;
-        functionID* ctorID = getExactFunctionFromID(functionIDs, resolvedTypeName, emptyArgs);
-        if (!ctorID || !ctorID->fnValue)
-            return Constant::getNullValue(type);
-
         Function* fn = llvmIRBuilder->GetInsertBlock()->getParent();
         AllocaInst* defaultPtr = CreateEntryBlockAlloca(fn, type, "default_" + resolvedTypeName);
-        llvmIRBuilder->CreateCall(ctorID->fnValue, {defaultPtr});
-        ctorID->uses++;
+
+        LLVMValue* structSize = ConstantInt::get(LLVMType::getInt64Ty(*llvmCompileContext),
+            llvmCompileModule->getDataLayout().getTypeAllocSize(type));
+        Function* memsetFunc = Intrinsic::getOrInsertDeclaration(llvmCompileModule.get(), Intrinsic::memset, {defaultPtr->getType(), LLVMType::getInt64Ty(*llvmCompileContext)});
+        llvmIRBuilder->CreateCall(memsetFunc, {defaultPtr,
+                                                  ConstantInt::get(LLVMType::getInt8Ty(*llvmCompileContext), 0),
+                                                  structSize,
+                                                  ConstantInt::get(LLVMType::getInt1Ty(*llvmCompileContext), 0)});
+
+        StructType* structType = cast<StructType>(type);
+        for (auto& [memberName, defaultNode] : structDef->memberDefaultNodes) {
+            auto idxIt = structDef->memberNameIndexes.find(memberName);
+            if (idxIt == structDef->memberNameIndexes.end())
+                continue;
+
+            uint16_t idx = idxIt->second;
+            LLVMType* memberType = structType->getElementType(idx);
+            LLVMValue* defaultVal = nullptr;
+            ASTNode* unwrappedDefault = unwrapSingleExpressionNode(defaultNode);
+            if (unwrappedDefault && unwrappedDefault->nodeType == Undefined_Initializer_Node)
+                defaultVal = UndefValue::get(memberType);
+            else if (unwrappedDefault && unwrappedDefault->nodeType == Default_Initializer_Node)
+                defaultVal = generateDefaultValueForType(memberType, structDef->members[idx].typeString, structDef->members[idx].pointerLevel, pass, node);
+            else
+                defaultVal = (LLVMValue*)(defaultNode->*(defaultNode->codegen))(pass);
+
+            if (wasError)
+                return nullptr;
+            if (!defaultVal)
+                continue;
+
+            bool isSigned = typeSigns.count(structDef->members[idx].typeString) ? typeSigns[structDef->members[idx].typeString] : false;
+            defaultVal = castValue(defaultVal, memberType, true, isSigned, node);
+            if (wasError)
+                return nullptr;
+
+            LLVMValue* memberPtr = llvmIRBuilder->CreateStructGEP(structType, defaultPtr, idx, memberName + "_default");
+            llvmIRBuilder->CreateStore(defaultVal, memberPtr);
+        }
+
         return llvmIRBuilder->CreateLoad(type, defaultPtr, "default_load");
     }
 
@@ -1483,7 +1541,9 @@ valueType* findNamedValue(ASTNode* node, ASTNode* childNode, std::string& identi
         return node->namedValues[identifier];
     }
 
-    // Search through child nodes, but with proper scoping rules
+    // Search through child nodes, but with proper scoping rules. Keep the
+    // latest matching declaration before the use so shadowing works correctly.
+    valueType* foundValue = nullptr;
     for (auto& c : node->childNodes) {
         // At nested scopes (depth > 0), only search up to the point where it's used
         if (node->depth > 0 && c == childNode) {
@@ -1491,13 +1551,13 @@ valueType* findNamedValue(ASTNode* node, ASTNode* childNode, std::string& identi
         }
 
         // Module-scope nodes hold their variables privately unless the module
-        // came from #use, in which case its children are visible unqualified.
+        // came from #import, in which case its children are visible unqualified.
         if (c->isModuleScope && !c->importedChildren)
             continue;
         if (c->isModuleScope && c->importedChildren) {
             auto moduleValue = c->namedValues.find(identifier);
             if (moduleValue != c->namedValues.end())
-                return moduleValue->second;
+                foundValue = moduleValue->second;
         }
 
         // At global scope (depth == 0), only search in direct children that are
@@ -1511,16 +1571,21 @@ valueType* findNamedValue(ASTNode* node, ASTNode* childNode, std::string& identi
                 continue;
             // Only check the child's own namedValues, don't recurse into it
             if (c->namedValues.find(identifier) != c->namedValues.end()) {
-                return c->namedValues[identifier];
+                foundValue = c->namedValues[identifier];
             }
         }
         else {
-            // At nested scopes, check child and its descendants
-            if (c->namedValues.find(identifier) != c->namedValues.end()) {
-                return c->namedValues[identifier];
+            // At nested scopes, only declaration statement nodes contribute
+            // variables to this lexical scope. Control-flow/scope-body nodes keep
+            // their own named values private.
+            if ((c->nodeType == Expression_Statement || c->nodeType == Colon_Separator_Node) &&
+                c->namedValues.find(identifier) != c->namedValues.end()) {
+                foundValue = c->namedValues[identifier];
             }
         }
     }
+    if (foundValue)
+        return foundValue;
 
     // Search recursively upward, but stop at global scope
     if (node->depth > 0)
@@ -1833,6 +1898,42 @@ std::string getMemberAccessTypeString(ASTNode* node, ASTNode* parentNode, asaTok
 // ownerNode: the node in whose namedValues the valueType is stored.
 //   Root-level vars: ownerNode == exprStmtNode (so findNamedValue can find it).
 //   Module vars: ownerNode == the Compiler_Define module node.
+static bool reportSameScopeRedeclaration(ASTNode* declarationNode, ASTNode* previousDeclarationNode, const std::string& varName)
+{
+    messageSystem::startBlock(declarationNode, "Checking variable declaration", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
+    if (previousDeclarationNode)
+        messageSystem::addAttribute(previousDeclarationNode, "previously declared here");
+    messageSystem::error("Variable '" + varName + "' is already declared in this scope.", messageSystem::Variable_Declaration_Error);
+    messageSystem::endBlock();
+    return true;
+}
+
+static bool checkSameScopeRedeclaration(ASTNode* ownerNode, ASTNode* declarationNode, const std::string& varName)
+{
+    if (!ownerNode)
+        return false;
+
+    auto existing = ownerNode->namedValues.find(varName);
+    if (existing != ownerNode->namedValues.end() && existing->second) {
+        ASTNode* previousDeclarationNode = existing->second->declNode;
+        if (previousDeclarationNode != declarationNode)
+            return reportSameScopeRedeclaration(declarationNode, previousDeclarationNode, varName);
+    }
+
+    for (ASTNode* child : ownerNode->childNodes) {
+        if (child == declarationNode)
+            break;
+        if (!child || (child->nodeType != Expression_Statement && child->nodeType != Colon_Separator_Node))
+            continue;
+
+        auto childValue = child->namedValues.find(varName);
+        if (childValue != child->namedValues.end() && childValue->second)
+            return reportSameScopeRedeclaration(declarationNode, childValue->second->declNode, varName);
+    }
+
+    return false;
+}
+
 void declareModuleScopeVariable(ASTNode* exprStmtNode, ASTNode* ownerNode, bool isModuleVar)
 {
     if (exprStmtNode->childNodes.empty())
@@ -1900,7 +2001,7 @@ void declareModuleScopeVariable(ASTNode* exprStmtNode, ASTNode* ownerNode, bool 
         {
             ASTNode* voidCheck = exprNode;
             voidCheck = unwrapSingleExpressionNode(voidCheck);
-            if (voidCheck->nodeType == Void_Node || voidCheck->nodeType == Undefined_Initializer_Node || voidCheck->nodeType == Default_Initializer_Node) {
+            if (voidCheck->nodeType == Undefined_Initializer_Node || voidCheck->nodeType == Default_Initializer_Node) {
                 messageSystem::startBlock(exprStmtNode, "Processing declaration", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
                 messageSystem::error("Cannot infer type from this initializer. Use an explicit type annotation.", messageSystem::Type_Inference_From_Void_Error);
                 return;
@@ -1940,6 +2041,9 @@ void declareModuleScopeVariable(ASTNode* exprStmtNode, ASTNode* ownerNode, bool 
     else {
         return;
     }
+
+    if (checkSameScopeRedeclaration(ownerNode, exprStmtNode, varName))
+        return;
 
     std::string globalName = varName;
     Constant* initialValue = rhsIsUndefined ? UndefValue::get(llvmType) : Constant::getNullValue(llvmType);
@@ -1997,6 +2101,16 @@ static void registerImportedModuleAliases(ASTNode* moduleCompilerDefineNode, con
     }
 }
 
+static void setModuleMemberContext(ASTNode* node, const std::string& moduleName)
+{
+    if (!node)
+        return;
+    if (node->enclosingModule.empty())
+        node->enclosingModule = moduleName;
+    for (auto* child : node->childNodes)
+        setModuleMemberContext(child, moduleName);
+}
+
 void processModuleForDeclarations(ASTNode* moduleCompilerDefineNode, std::string parentName)
 {
     std::string moduleName = moduleCompilerDefineNode->token->tokenStr;
@@ -2037,6 +2151,13 @@ void processModuleForDeclarations(ASTNode* moduleCompilerDefineNode, std::string
 
     for (auto& child : innerScope->childNodes)
         processChild(child);
+
+    if (!moduleCompilerDefineNode->importedChildren) {
+        for (ASTNode* child : innerScope->childNodes) {
+            if (child && !(child->nodeType == Compiler_Define && child->isModuleScope))
+                setModuleMemberContext(child, fullName);
+        }
+    }
 
     if (moduleCompilerDefineNode->importedChildren) {
         for (ASTNode* child : innerScope->childNodes) {
@@ -2149,6 +2270,38 @@ bool finalizeGlobalInit()
     return true;
 }
 
+static void warnAboutUnusedVariablesRecursive(ASTNode* node)
+{
+    if (!node)
+        return;
+
+    if (node->tracksVariableUsage && node->variableReads == 0) {
+        std::string name = node->token ? node->token->tokenStr : "variable";
+        ASTNode* declarationNode = node;
+        if (node->nodeType == Expression_Statement && !node->childNodes.empty())
+            declarationNode = node->childNodes[0];
+        if (declarationNode->nodeType == Colon_Separator_Node &&
+            !declarationNode->childNodes.empty() &&
+            declarationNode->childNodes[0]->token)
+            name = declarationNode->childNodes[0]->token->tokenStr;
+
+        messageSystem::startBlock(node, "Checking variable usage", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
+        messageSystem::warning("Variable '" + name + "' was declared but never used.", messageSystem::Unused_Variable_Warning);
+        messageSystem::endBlock();
+    }
+
+    for (auto* child : node->childNodes)
+        warnAboutUnusedVariablesRecursive(child);
+}
+
+void warnAboutUnusedVariables(ASTNode* rootNode)
+{
+    if (!(warningFlags == W_Unused || warningFlags == W_All))
+        return;
+
+    warnAboutUnusedVariablesRecursive(rootNode);
+}
+
 
 LLVMValue* castValue(LLVMValue* value, llvm::Type* destType, bool isSrcSigned, bool isToSigned, ASTNode* node, bool destTypeIsStruct)
 {
@@ -2242,6 +2395,10 @@ void* ASTNode::generateConstant(int pass)
     else if (nodeType == Float_Node) {
         messageSystem::endBlock();
         return ConstantFP::get(*llvmCompileContext, APFloat(stod(token->tokenStr)));
+    }
+    else if (nodeType == Undefined_Initializer_Node) {
+        messageSystem::endBlock();
+        return ConstantPointerNull::get(PointerType::getUnqual(*llvmCompileContext));
     }
     else if (nodeType == Void_Node) {
         messageSystem::endBlock();
@@ -2379,6 +2536,8 @@ void* ASTNode::generateVariableExpression(int pass)
         namedValues[token->tokenStr] = new valueType(token->tokenStr, actualType, targetPtr);
         namedValues[token->tokenStr]->declNode = this;
         namedValues[token->tokenStr]->isUndefined = false;
+        trackVariableUsage(this);
+        markVariableWrite(namedValues[token->tokenStr]);
 
         llvmIRBuilder->CreateStore(exprVal, targetPtr);
 
@@ -2410,6 +2569,8 @@ void* ASTNode::generateVariableExpression(int pass)
         messageSystem::addAttribute(val->declNode, "declared here");
         messageSystem::error("Variable '" + token->tokenStr + "' was declared undefined, and used before being defined.", messageSystem::Declared_Undefined_Variable_Error);
     }
+    if (!isRef && (!lvalue || isPointerValue(val)))
+        markVariableRead(val);
 
     // Handle references: need to dereference when used as rvalue
     if (val->isReference && !isRef && !lvalue) {
@@ -2742,7 +2903,8 @@ void* ASTNode::generateExpressionStatement(int pass)
     messageSystem::startBlock(this, "Generating runtime statement expression", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
 
     ASTNode* leftNode = childNodes[0];
-    ASTNode* declarationNode = leftNode->nodeType == Colon_Separator_Node ? leftNode : this;
+    ASTNode* declarationNode = this;
+    //ASTNode* declarationNode = leftNode->nodeType == Colon_Separator_Node ? leftNode : this;
     ASTNode* exprNode = childNodes[1];
     Function* theFunction = llvmIRBuilder->GetInsertBlock()->getParent();
     ASTNode* initializerNode = unwrapSingleExpressionNode(exprNode);
@@ -2838,10 +3000,6 @@ void* ASTNode::generateExpressionStatement(int pass)
     //else
     //      type = var->getType();
 
-    // x : T = void; zero-initialize x to the declared type, bypassing any cast
-    ASTNode* voidCheckNode = unwrapSingleExpressionNode(exprNode);
-    bool rhsIsVoid = (voidCheckNode->nodeType == Void_Node);
-
     if (rhsIsUndefined) {
         if (type == nullptr)
             return messageSystem::error("Cannot infer type from '?'. Use an explicit type annotation.");
@@ -2852,9 +3010,6 @@ void* ASTNode::generateExpressionStatement(int pass)
             if (wasError || !exprVal)
                 return nullptr;
         }
-    }
-    else if (rhsIsVoid && type != nullptr) {
-        exprVal = Constant::getNullValue(type);
     }
     // Automatically resolve type from expression if not already set
     else if (type == nullptr) {
@@ -2893,20 +3048,20 @@ void* ASTNode::generateExpressionStatement(int pass)
     bool newConstLocal = false;
     if (leftNode->nodeType == Identifier_Node) {
         // Simple variable: find alloca and use it as targetPtr.
-        // If there is an explicit type annotation, this is always a new declaration (shadowing).
+        // If there is an explicit type annotation, this is always a new declaration
         valueType* val = typeNode ? nullptr : findNamedValue(parentNode, this, leftNode->token->tokenStr, token);
         if (wasError)
             return nullptr;
+        // If this variable name doesnt exist in this context
         if (!val) {
             if (!typeNode && findCompilerDefinition(parentNode, leftNode->token->tokenStr)) {
                 return messageSystem::error(
                     "Cannot modify compiler constant '" + leftNode->token->tokenStr +
                     "' with '='. Use '::' to redefine it at compile time.");
             }
+            if (typeNode && checkSameScopeRedeclaration(parentNode, declarationNode, leftNode->token->tokenStr))
+                return nullptr;
 
-            // New inferred declaration: `someVar = void;` - void has no type to infer from.
-            if (rhsIsVoid && !typeNode)
-                return messageSystem::error("Cannot infer type from 'void'. Use an explicit type annotation: 'name : type = void'.", messageSystem::Type_Inference_From_Void_Error);
             if ((rhsIsUndefined || rhsIsDefault) && !typeNode)
                 return messageSystem::error("Cannot infer type from this initializer. Use an explicit type annotation.");
             targetPtr = CreateEntryBlockAlloca(theFunction, type, leftNode->token->tokenStr);
@@ -2924,6 +3079,7 @@ void* ASTNode::generateExpressionStatement(int pass)
             namedValues[leftNode->token->tokenStr]->isUndefined = rhsIsUndefined;
             namedValues[leftNode->token->tokenStr]->declNode = declarationNode;
             targetValue = namedValues[leftNode->token->tokenStr];
+            trackVariableUsage(declarationNode);
             newConstLocal = isConst;
 
             // Add debug info ONLY if we have a valid scope and the stack is not empty
@@ -3004,6 +3160,7 @@ void* ASTNode::generateExpressionStatement(int pass)
         messageSystem::endBlock();
         if (targetValue)
             targetValue->isUndefined = true;
+        markVariableWrite(targetValue);
         return targetPtr;
     }
     if (rhsIsDefault && !exprVal) {
@@ -3026,6 +3183,7 @@ void* ASTNode::generateExpressionStatement(int pass)
         LLVMType* loadType = targetType;
         if (targetValue && targetValue->isUndefined)
             messageSystem::warning("Variable '" + leftNode->token->tokenStr + "' may be undefined", messageSystem::Undefined_Variable_Warning);
+        markVariableRead(targetValue);
         LLVMValue* currentVal = llvmIRBuilder->CreateLoad(loadType, targetPtr, "cmpd_load");
 
         bool isFloat = loadType->isFloatingPointTy();
@@ -3124,8 +3282,10 @@ void* ASTNode::generateExpressionStatement(int pass)
     }
 
     StoreInst* storeInst = llvmIRBuilder->CreateStore(exprVal, targetPtr);
-    if (targetValue)
+    if (targetValue) {
         targetValue->isUndefined = false;
+        markVariableWrite(targetValue);
+    }
 
     // For a newly declared const local, tell the optimizer this memory is
     // invariant after initialization so it can treat reads as constants.
@@ -3419,6 +3579,8 @@ static LLVMValue* generateBareDefaultDeclaration(ASTNode* colonNode, int pass)
     colonNode->namedValues[nameNode->token->tokenStr]->isConstant = isConst;
     colonNode->namedValues[nameNode->token->tokenStr]->isUndefined = false;
     colonNode->namedValues[nameNode->token->tokenStr]->declNode = colonNode;
+    trackVariableUsage(colonNode);
+    markVariableWrite(colonNode->namedValues[nameNode->token->tokenStr]);
 
     LLVMValue* defaultValue = generateDefaultValueForType(type, typeName, pointerLevel, pass, colonNode);
     if (wasError || !defaultValue)
@@ -3536,8 +3698,17 @@ void* ASTNode::generateBinaryExpression(int pass)
         return messageSystem::error("Error generating term");
     }
 
+    bool isComparison = intCompareOps.find(nodeType) != intCompareOps.end();
+    bool leftIsPointer = L->getType()->isPointerTy();
+    bool rightIsPointer = R->getType()->isPointerTy();
+    bool leftIsInteger = L->getType()->isIntegerTy();
+    bool rightIsInteger = R->getType()->isIntegerTy();
+    if (isComparison && ((leftIsPointer && rightIsInteger) || (leftIsInteger && rightIsPointer))) {
+        return messageSystem::error("Cannot compare pointer and integer without an explicit cast. Use int(ptr) or compare the pointer with '?'.");
+    }
+
     // Check for operator overloads first (skip for pointer operands)
-    bool eitherIsPointer = L->getType()->isPointerTy() || R->getType()->isPointerTy();
+    bool eitherIsPointer = leftIsPointer || rightIsPointer;
     if (!eitherIsPointer && (nodeType == Redefined_Operator_Expr || checkForOperatorOverload(L, R))) {
         messageSystem::endBlock();
         return generateOperatorOverloadCall(L, R);
@@ -3638,7 +3809,7 @@ LLVMValue* ASTNode::generatePointerBinaryOp(LLVMValue* L, LLVMValue* R)
 {
     messageSystem::startBlock(this, "Generating pointer binary operation", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
 
-    // Pointer comparisons (== and !=, e.g. ptr == void / ptr != void)
+    // Pointer comparisons (== and !=, e.g. ptr == ? / ptr != ?)
     auto compIt = intCompareOps.find(nodeType);
     if (compIt != intCompareOps.end()) {
         messageSystem::endBlock();
@@ -4045,13 +4216,28 @@ void* ASTNode::generateMemberAccess(int pass)
         }
         if (!leftModType.empty() && leftModType.size() > 11 && leftModType.substr(0, 11) == "__module__:") {
             std::string modName = leftModType.substr(11);
-            std::string memberName = childNodes[1]->token->tokenStr;
+            ASTNode* rightNode = childNodes[1];
+            std::string memberName = rightNode->token->tokenStr;
             auto modIt = moduleRegistry.find(modName);
             if (modIt != moduleRegistry.end()) {
                 ASTNode* modNode = modIt->second;
+                if (rightNode->nodeType == Function_Call) {
+                    std::string originalName = rightNode->token->tokenStr;
+                    rightNode->token->tokenStr = modName + "." + originalName;
+                    LLVMValue* callValue = (LLVMValue*)(rightNode->*(rightNode->codegen))(pass);
+                    rightNode->token->tokenStr = originalName;
+                    if (rightNode->asaType) {
+                        asaType = new ASAType(rightNode->asaType->baseLLVMType, rightNode->asaType->isRef, rightNode->asaType->isConst, rightNode->asaType->strVal, rightNode->asaType->pointerLevel);
+                        lastRetrievedElementType.push(asaType);
+                    }
+                    messageSystem::endBlock();
+                    return callValue;
+                }
                 auto varIt = modNode->namedValues.find(memberName);
                 if (varIt != modNode->namedValues.end()) {
                     valueType* vt = varIt->second;
+                    if (!lvalue)
+                        markVariableRead(vt);
                     LLVMValue* gv = vt->val;
                     LLVMType* gvType = getValueStoredType(gv);
                     asaType = new ASAType(gvType);
@@ -4129,6 +4315,7 @@ void* ASTNode::generateMemberAccess(int pass)
         if (!v && !wasError) {
             return messageSystem::error("Unknown variable name used");
         }
+        markVariableRead(v);
 
         // Resolve through pointer indirection if needed
         std::string AsaStructName = v->type;
@@ -4213,8 +4400,9 @@ void* ASTNode::generateMemberAccess(int pass)
             if (lvalue)
                 return gep;
             // If rvalue, return value
-            else
+            else {
                 return llvmIRBuilder->CreateLoad(elementType, gep, "member_load");
+            }
         }
         // Handle if member function call
         else if (childNodes[1]->nodeType == Function_Call) {
@@ -4487,8 +4675,9 @@ void* ASTNode::generateMemberAccess(int pass)
             if (lvalue)
                 return gep;
             // If rvalue, return value
-            else
+            else {
                 return llvmIRBuilder->CreateLoad(elementType, gep, "member_load");
+            }
         }
         // Handle if member function call
         else if (childNodes[1]->nodeType == Function_Call) {
@@ -4753,6 +4942,7 @@ void* ASTNode::generateCast(int pass)
     if (!val && !wasError) {
         return messageSystem::error("Unknown variable name used");
     }
+    markVariableRead(val);
     LLVMValue* var = val->val;
     LLVMValue* value = llvmIRBuilder->CreateLoad(getValueStoredType(var), var, varName + "_load");
     bool wasDefined = true;
@@ -4803,6 +4993,7 @@ void* ASTNode::generateBitcast(int pass)
     if (!val && !wasError) {
         return messageSystem::error("Unknown variable name used");
     }
+    markVariableRead(val);
     LLVMValue* var = val->val;
     LLVMValue* value = llvmIRBuilder->CreateLoad(getValueStoredType(var), var, varName + "_load");
 
@@ -6577,6 +6768,10 @@ void* ASTNode::generatePrototype(int pass)
         mangledName = currentStructName.top() + "." + mangledName;
         isStruct = true;
     }
+    else if (!enclosingModule.empty()) {
+        fnName = enclosingModule + "." + fnName;
+        mangledName = enclosingModule + "." + mangledName;
+    }
     //else
     //  fnName = fnName;
 
@@ -6982,6 +7177,9 @@ void* ASTNode::generateFunction(int pass)
     if (currentStructName.size() > 0) {
         functionName = currentStructName.top() + "." + functionName;
         isStruct = true;
+    }
+    else if (!enclosingModule.empty()) {
+        functionName = enclosingModule + "." + functionName;
     }
 
     // If this function has variant parameters, store it as a template and

@@ -415,7 +415,6 @@ namespace messageSystem {
             case Ref:
             case Const:
             case Exact:
-            case Void:
                 return console::cyanFGColor;
             case String:
             case Character:

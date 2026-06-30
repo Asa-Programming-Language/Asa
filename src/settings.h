@@ -26,6 +26,7 @@ enum WarningFlags {
     W_None = 0,
     W_Conversion = 1 << 0,
     W_Attributes = 1 << 1,
+    W_Unused = 1 << 2,
     W_All = 0b111111111111111111111111111111,
 };
 

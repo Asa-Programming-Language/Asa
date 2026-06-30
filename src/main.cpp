@@ -135,6 +135,8 @@ int main(int argc, char** argv)
                     warningFlags |= W_Conversion;
                 else if (flagVal == "attributes")
                     warningFlags |= W_Attributes;
+                else if (flagVal == "unused")
+                    warningFlags |= W_Unused;
                 break;
             }
 
@@ -188,8 +190,8 @@ int main(int argc, char** argv)
     // Load file if provided
     if (fileName != "") {
         int e = loadFile(fileName, initialFileString);
-        //initialFileString = "#use Builtin.String;\n" + initialFileString;
-        //initialFileString = "#use Builtin.*;\n" + initialFileString;
+        //initialFileString = "#import Builtin.String;\n" + initialFileString;
+        //initialFileString = "#import Builtin.*;\n" + initialFileString;
         if (e != 0) {
             console::writeLine("Invalid file path provided");
             if (verbosity >= 3)
@@ -250,11 +252,11 @@ int main(int argc, char** argv)
     rootNode = generateAST(allTokens);
 #define A new ASTNode
 
-    // Insert `#use Builtin.Casts;` at beginning of AST
+    // Insert `#import Builtin.Casts;` at beginning of AST
     rootNode->childNodes.insert(rootNode->childNodes.begin(),
         A(Compile_Time_Directive,
             {
-                A(Identifier_Node, {}, new asaToken("#use", Identifier)),
+                A(Identifier_Node, {}, new asaToken("#import", Identifier)),
                 A(Scope_Body,
                     {A(Member_Access,
                         {
@@ -263,11 +265,11 @@ int main(int argc, char** argv)
                         },
                         new asaToken(".", Dot))}),
             }));
-    // Insert `#use Builtin.String;` at beginning of AST
+    // Insert `#import Builtin.String;` at beginning of AST
     rootNode->childNodes.insert(rootNode->childNodes.begin(),
         A(Compile_Time_Directive,
             {
-                A(Identifier_Node, {}, new asaToken("#use", Identifier)),
+                A(Identifier_Node, {}, new asaToken("#import", Identifier)),
                 A(Scope_Body,
                     {A(Member_Access,
                         {
@@ -370,6 +372,12 @@ int main(int argc, char** argv)
             exit(1);
     }
     bool res = finalizeGlobalInit();
+    if (!res || wasError)
+        goto errorsEncountered;
+
+    warnAboutUnusedVariables(rootNode);
+    if (wasError)
+        goto errorsEncountered;
 
     // Finalize debug info before optimization so the optimizer sees a consistent,
     // fully-resolved module. Running optimizeFunctions() on an unfinalized module
