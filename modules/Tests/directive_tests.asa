@@ -5,9 +5,9 @@
 @public:
 DirectiveTests :: module {
 
-    #use Tests.Testing;
-    #use Builtin.String;
-    #use Builtin.Print;
+    #import Tests.Testing;
+    #import Builtin.String;
+    #import Builtin.Print;
 
     directiveContextFunction :: () {}
     DirectiveContextStruct :: struct {}
@@ -80,6 +80,7 @@ DirectiveTests :: module {
         test(#typeof(floatVar) == "float", "#typeof(float var) should return \"float\"");
         strVar : string = "hello";
         test(#typeof(strVar) == "string", "#typeof(string var) should return \"string\"");
+        test(#typeof(int32) == "int32", "#typeof(type name) should return the type name");
 
         // #sizeof should return the byte size of a type
         test(#sizeof(int) == 4, "#sizeof(int) should be 4");
@@ -105,6 +106,7 @@ DirectiveTests :: module {
         test(#compiles(undeclaredIdentifier) == false, "#compiles(undeclared) should be false");
         test(#compiles(#error("custom compile error", intVar)) == false, "#error should produce a compiler error");
         test(#compiles(#warning("custom compile warning", intVar)), "#warning should produce a compiler warning without failing");
+        test(#compiles(printl(f"bad directive: {#typename int32}")) == false, "unimplemented directive in f-string does not compile");
         compileTimeContext :: 12;
         regularContext : int = 4;
         test(#compiles(#warning("compile-time definition warning", compileTimeContext)), "#warning can use a compile-time definition as context");

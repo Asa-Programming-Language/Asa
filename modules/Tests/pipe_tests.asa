@@ -5,8 +5,8 @@
 @public:
 PipeTests :: module {
 
-	#use Tests.Testing;
-	#use Builtin.Math;
+	#import Tests.Testing;
+	#import Builtin.Math;
 
 	addOne :: int(x : const int) {
 		return x + 1;

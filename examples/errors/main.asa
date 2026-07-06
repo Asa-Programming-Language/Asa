@@ -1,6 +1,6 @@
 
 //#embed "./incl.asa"; 
-#use Module.LocalModule;
+#import Module.LocalModule;
 
 main :: (){
     foo();

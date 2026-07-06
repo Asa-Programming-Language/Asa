@@ -11,7 +11,7 @@
 // you need to write its name everywhere you use it. Let's just say you need to access a function
 // called foo() from it, and very often. For example:
 
-#import Some.Really.Super.Long.Name;
+#import_qualified Some.Really.Super.Long.Name;
 Some.Really.Super.Long.Name.foo();
 
 printl(Some.Really.Super.Long.Name.foo());

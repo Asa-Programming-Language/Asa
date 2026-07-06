@@ -1,19 +1,19 @@
 
 // AccessTests
-// Tests for the [] access operator on *char buffers, *int buffers, and strings.
+// Tests for the [] access operator on pointer buffers and overloaded struct access.
 
 @public:
 AccessTests :: module {
 
-	#use Tests.Testing;
-	#use Builtin.Memory;
-	#use Builtin.Casts;
-	#use Builtin.String;
+	#import Tests.Testing;
+	#import Builtin.Memory;
+	#import Builtin.Casts;
+	#import Builtin.String;
 
 	// Module level pointer variables
-	g_intbuf  : *int = void;
+	g_intbuf  : *int = default;
 	g_sentinel : int = 0xABCD;   // adjacent global; must survive writes through g_intbuf
-	g_charbuf : *char = void;
+	g_charbuf : *char = default;
 
 	@public:
 	runAccessTests :: () {
@@ -96,21 +96,12 @@ AccessTests :: module {
 		test(s[2] == 'l',                     "string: index 2 is 'l'");
 		test(s[3] == 'l',                     "string: index 3 is 'l'");
 		test(s[4] == 'o',                     "string: index 4 is 'o'");
-
-		t : string = "world";
-		test(t[0] == 'w',                     "string: 'world' index 0 is 'w'");
-		test(t[4] == 'd',                     "string: 'world' index 4 is 'd'");
-
-		// Count matching characters via string indexing
-		vowels : int = 0;
-		str : string = "language";
-		for (i in 0..int(str.length)) {
-			c : char = str[i];
-			if (c == 'a' || c == 'e' || c == 'i' || c == 'o' || c == 'u') {
-				vowels += 1;
-			}
-		}
-		test(vowels == 4,                     "string: count vowels in 'language' is 4");
+		s[0] = 'H';
+		test(s[0] == 'H',                     "string: indexed assignment updates index 0");
+		test(s.address[0] == 'H',             "string: indexed assignment writes through to address");
+		refReturnValue : int = 3;
+		returnRefInt(refReturnValue) = 9;
+		test(refReturnValue == 9,              "ref return: returning ref parameter keeps original storage");
 
 		///////////////////////
 		// *char null byte    //
@@ -171,7 +162,7 @@ AccessTests :: module {
 		test(allMatch,                            "ref *int: ref read matches direct read for all indices");
 
 		///////////////////////
-		// ref string access  //
+		// ref string member  //
 		///////////////////////
 
 		hello : string = "hello";
@@ -290,7 +281,7 @@ AccessTests :: module {
 		test(constRefBufRead(crbuf, 4) == 12,           "ref buf: read at 4 is 12");
 		test(constRefBufSum(crbuf, 5) == 30,            "ref buf: sum 0+3+6+9+12 is 30");
 
-		// const ref string char access
+		// const ref string member access
 		cs : string = "hello";
 		csi0 : int = 0;
 		csi4 : int = 4;
@@ -323,6 +314,10 @@ AccessTests :: module {
 
 	constRefCharRead :: char(buf : *char, i : const ref int) {
 		return buf[i];
+	}
+
+	returnRefInt :: ref int(x : ref int) {
+		return x;
 	}
 
 	constRefBufRead :: int(buf : ref *int, i : int) {

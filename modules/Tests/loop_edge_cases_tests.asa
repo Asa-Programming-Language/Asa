@@ -4,7 +4,7 @@
 @public:
 LoopEdgeCaseTests :: module {
 
-	#use Tests.Testing;
+	#import Tests.Testing;
 
 	@public:
 	runLoopEdgeCaseTests :: () {

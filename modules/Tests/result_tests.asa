@@ -7,8 +7,8 @@
 @public:
 ResultTests :: module {
 
-	#use Tests.Testing;
-	#use Builtin.Math;
+	#import Tests.Testing;
+	#import Builtin.Math;
 
 	@public:
 	runResultTests :: () {

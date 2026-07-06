@@ -4,7 +4,7 @@
 @public:
 IfChainTests :: module {
 
-    #use Tests.Testing;
+    #import Tests.Testing;
 
     @public:
     runIfChainTests :: () {

@@ -1,8 +1,8 @@
 
-#import Builtin.Print;
-#import Builtin.Math;
-#import Rendering.Raylib;
-#import Builtin.String;
+#import_qualified Builtin.Print;
+#import_qualified Builtin.Math;
+#import_qualified Rendering.Raylib;
+#import_qualified Builtin.String;
 
 
 gameObject :: struct{

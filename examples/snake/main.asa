@@ -1,4 +1,4 @@
-#use Rendering.Raylib;
+#import Rendering.Raylib;
 
 #recommend_options("-O2");
 
@@ -14,8 +14,8 @@ BG_COLOR :: Color32(30, 30, 30);
 
 SNAKE_MAX :: 100;
 
-snake : *Vector2 = void;
-snakeLength : int = 0;
+snake : *Vector2 = ?;
+snakeLength : int = ?;
 food : Vector2 = Vector2();
 direction : Vector2 = Vector2(1, 0);
 nextDirection : Vector2 = Vector2(1, 0);

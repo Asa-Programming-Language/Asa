@@ -13,9 +13,11 @@ One of the most used directives, used for importing modules by name. For example
 #import Rendering.Window;
 #import Rendering.Drawing.Line;
 ```
-This imports the module `Window` in the directory `modules/Rendering`. The module expression can be more complex, for example sub-directories: `:::asa #import A.B.C.ModuleName;`, which would be in `modules/A/B/C`. You can also wildcard import modules by using the base path followed by an asterisk: `:::asa #import Builtin.*;`, which would import all modules of all files in the directory `modules/Builtin/`.
+This imports the module `Window` in the directory `modules/Rendering` and makes its exported members available without qualifying them with the module name. The module expression can be more complex, for example sub-directories: `:::asa #import A.B.C.ModuleName;`, which would be in `modules/A/B/C`. You can also wildcard import modules by using the base path followed by an asterisk: `:::asa #import Builtin.*;`, which would import all modules of all files in the directory `modules/Builtin/`.
 
-`:::asa #import` looks in multiple locations for the specified module. First, it looks in the local directory from where it is called. If there is a matching module (including all path components), then it will stop there. If it does not find a matching module locally, it will look in the global modules folder, which is installed next to the `asa` executable. This allows you to override builtin modules for specific use cases.
+`:::asa #import_qualified` imports the module but requires qualified access through the module name, like `:::asa Foo.someFunc();`.
+
+Both `:::asa #import` and `:::asa #import_qualified` look in multiple locations for the specified module. First, they look in the local directory from where they are called. If there is a matching module (including all path components), then it will stop there. If it does not find a matching module locally, it will look in the global modules folder, which is installed next to the `asa` executable. This allows you to override builtin modules for specific use cases.
 
 -----
 

@@ -8,7 +8,7 @@
 @public:
 ScopingTests :: module {
 
-	#use Tests.Testing;
+	#import Tests.Testing;
 
 	@public:
 	runScopingTests :: () {

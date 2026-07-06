@@ -1,5 +1,5 @@
 
-#use Builtin.*;
+#import Builtin.*;
 
 local :: module{
     DEF :: 182;
@@ -16,7 +16,16 @@ TEST_MACRO_2 :: (){ printl("Macro 2 works!") };
 
 RENAMED_MACRO :: > TEST_MACRO_1; 
 
-#use Rendering.Raylib;
+#import Rendering.Raylib;
+
+custom :: struct{
+    x : int = 5;
+}
+
+operator([]) :: ref custom(l : const ref custom, i : int){
+    l.x += i;
+    return l;
+}
 
 main :: (){
 
@@ -25,17 +34,31 @@ main :: (){
     y : int = default;
     z : int = ?;
 
-    someStr : string = default;
+    someStr : string = "hello world";
 
     z = 5;
+
+    printl(f"str index: {someStr[3]}");
+
+    c : custom = default;
 
     printl("y: " + y);
     printl("z: " + z);
     printl("someStr: \"" + someStr + "\"");
+    printl(f"fstring: \"{1 + 5}\"");
+    printl(f"fstring: \"{someAlias}\"");
+    printl(f"fstring: \"{#typeof int32}\"");
+    printl(f"fstring: \"{#typeof i32}\"");
+    printl(f"operator[]: {c[4].x}");
 
     #if(#getflag(COMPILERDEBUG) == false, {
-        #error("This program must be run in compiler debug mode (-fcompilerdebug)", #context);
+        //#error("This program must be run in compiler debug mode (-fcompilerdebug)", {});
     });
+
+
+    a : array<int, 16> = default;
+
+    a[9] = 5;
 
 
     //#stack_push("a", { printl("hi!"); });
@@ -59,11 +82,8 @@ main :: (){
     });
 
     printl(local.DEF);
-    printl(#nameof(#parent()));
 
     //#stack_last("a");
 }
-
-
 
 

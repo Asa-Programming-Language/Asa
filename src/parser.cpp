@@ -79,6 +79,182 @@ static bool isLineContinuation(TokenType lastTok, TokenType nextTok)
     return false;
 }
 
+static asaToken* makeSyntheticToken(const std::string& text, TokenType tokenType, asaToken* sourceToken)
+{
+    return new asaToken(text, tokenType,
+        sourceToken ? sourceToken->lineNumber : 0,
+        sourceToken ? sourceToken->indexInLine : 0,
+        sourceToken ? sourceToken->lineValue : nullptr,
+        sourceToken ? sourceToken->filePath : nullptr,
+        sourceToken ? sourceToken->lineIndent : 0);
+}
+
+static bool isAdjacentFStringPrefix(asaToken* prefixToken, asaToken* stringToken)
+{
+    return prefixToken &&
+           stringToken &&
+           prefixToken->tokenStr == "f" &&
+           prefixToken->lineNumber == stringToken->lineNumber &&
+           prefixToken->indexInLine + prefixToken->length == stringToken->indexInLine;
+}
+
+static void appendTokenizedFStringExpression(std::vector<asaToken*>& outTokens, const std::string& expr, asaToken* sourceToken, int exprStartInString)
+{
+    std::vector<asaToken*> exprTokens;
+    std::vector<std::string*> exprLines;
+    std::vector<std::string*> exprFileNames;
+    std::string fileName = sourceToken && sourceToken->filePath ? *sourceToken->filePath : std::string("f-string");
+    std::string exprSource = expr;
+
+    tokenize(exprSource, exprTokens, fileName, exprLines, exprFileNames);
+    labelSubTokens(exprTokens);
+    joinCommentTokens(exprTokens);
+
+    for (auto* t : exprTokens) {
+        if (t->tokenType == EndOfFile || t->tokenType == EndOfLine || t->tokenType == Nothing)
+            continue;
+        int localLineNumber = t->lineNumber;
+        if (sourceToken) {
+            t->filePath = sourceToken->filePath;
+            t->lineValue = sourceToken->lineValue;
+            t->lineNumber = sourceToken->lineNumber + localLineNumber - 1;
+            if (localLineNumber == 1)
+                t->indexInLine = sourceToken->indexInLine + exprStartInString + t->indexInLine;
+        }
+        outTokens.push_back(t);
+    }
+}
+
+static ASTNode* parseFStringLiteral(asaToken* prefixToken, asaToken* stringToken, int depth)
+{
+    const std::string& raw = stringToken->tokenStr;
+    if (raw.size() < 2 || raw.front() != '"' || raw.back() != '"') {
+        printTokenError(tokenRange {stringToken, stringToken}, "Invalid formatted string literal");
+        wasError = true;
+        return nullptr;
+    }
+
+    struct FStringPart {
+        bool isExpression = false;
+        std::string text;
+        int startInString = 0;
+    };
+
+    std::vector<FStringPart> parts;
+    std::string textPart;
+    std::string content = raw.substr(1, raw.size() - 2);
+
+    for (int pos = 0; pos < (int)content.size();) {
+        char c = content[pos];
+        if (c == '\\') {
+            textPart += c;
+            if (pos + 1 < (int)content.size())
+                textPart += content[pos + 1];
+            pos += 2;
+            continue;
+        }
+        if (c == '}') {
+            printTokenError(tokenRange {stringToken, stringToken}, "Unmatched '}' in formatted string literal");
+            wasError = true;
+            return nullptr;
+        }
+        if (c != '{') {
+            textPart += c;
+            pos++;
+            continue;
+        }
+
+        if (!textPart.empty()) {
+            parts.push_back({false, textPart, pos - (int)textPart.size()});
+            textPart.clear();
+        }
+
+        int exprStart = pos + 1;
+        int exprEnd = exprStart;
+        int braceDepth = 1;
+        bool inQuote = false;
+        char quoteChar = 0;
+        bool escaped = false;
+        for (; exprEnd < (int)content.size(); exprEnd++) {
+            char ec = content[exprEnd];
+            if (escaped) {
+                escaped = false;
+                continue;
+            }
+            if (ec == '\\') {
+                escaped = true;
+                continue;
+            }
+            if (inQuote) {
+                if (ec == quoteChar)
+                    inQuote = false;
+                continue;
+            }
+            if (ec == '"' || ec == '\'') {
+                inQuote = true;
+                quoteChar = ec;
+                continue;
+            }
+            if (ec == '{') {
+                braceDepth++;
+                continue;
+            }
+            if (ec == '}') {
+                braceDepth--;
+                if (braceDepth == 0)
+                    break;
+            }
+        }
+
+        if (braceDepth != 0) {
+            printTokenError(tokenRange {stringToken, stringToken}, "Unclosed '{' in formatted string literal");
+            wasError = true;
+            return nullptr;
+        }
+
+        std::string expr = content.substr(exprStart, exprEnd - exprStart);
+        if (TrimString(expr).empty()) {
+            printTokenError(tokenRange {stringToken, stringToken}, "Formatted string expression cannot be empty");
+            wasError = true;
+            return nullptr;
+        }
+        parts.push_back({true, expr, exprStart});
+        pos = exprEnd + 1;
+    }
+
+    if (!textPart.empty())
+        parts.push_back({false, textPart, (int)content.size() - (int)textPart.size()});
+
+    std::vector<asaToken*> loweredTokens;
+    for (int partIndex = 0; partIndex < (int)parts.size(); partIndex++) {
+        if (partIndex > 0)
+            loweredTokens.push_back(makeSyntheticToken("+", Plus, prefixToken));
+
+        const FStringPart& part = parts[partIndex];
+        if (!part.isExpression) {
+            loweredTokens.push_back(makeSyntheticToken("\"" + part.text + "\"", String, stringToken));
+            continue;
+        }
+
+        loweredTokens.push_back(makeSyntheticToken("string", Identifier, stringToken));
+        loweredTokens.push_back(makeSyntheticToken("(", Left_Paren, stringToken));
+        appendTokenizedFStringExpression(loweredTokens, part.text, stringToken, part.startInString);
+        loweredTokens.push_back(makeSyntheticToken(")", Right_Paren, stringToken));
+    }
+
+    if (loweredTokens.empty())
+        loweredTokens.push_back(makeSyntheticToken("\"\"", String, stringToken));
+
+    ASTNode* parsed = generateAST(loweredTokens, depth + 1);
+    if (!parsed || parsed->childNodes.empty()) {
+        printTokenError(tokenRange {prefixToken, stringToken}, "Failed to parse formatted string literal");
+        wasError = true;
+        return nullptr;
+    }
+
+    return parsed->childNodes[0];
+}
+
 
 asaToken* getNextNonNothingToken(const std::vector<asaToken*>& tokens, int& i)
 {
@@ -983,7 +1159,14 @@ static ASTNode* parseType(const std::vector<asaToken*>& tokens, int depth)
                     if (--angleDepth == 0)
                         break;
                 }
-                else if (angleDepth == 1 && tokens[j]->tokenType == Identifier) {
+                else if (angleDepth == 1 &&
+                         (tokens[j]->tokenType == Identifier ||
+                             tokens[j]->tokenType == Integer ||
+                             tokens[j]->tokenType == Float ||
+                             tokens[j]->tokenType == String ||
+                             tokens[j]->tokenType == Character ||
+                             tokens[j]->tokenType == True_Literal ||
+                             tokens[j]->tokenType == False_Literal)) {
                     mangled += "." + tokens[j]->tokenStr;
                 }
             }
@@ -1015,7 +1198,14 @@ static void collapseVariantTypeTokens(std::vector<asaToken*>& tokens)
                         break;
                     }
                 }
-                else if (angleDepth == 1 && tokens[j]->tokenType == Identifier) {
+                else if (angleDepth == 1 &&
+                         (tokens[j]->tokenType == Identifier ||
+                             tokens[j]->tokenType == Integer ||
+                             tokens[j]->tokenType == Float ||
+                             tokens[j]->tokenType == String ||
+                             tokens[j]->tokenType == Character ||
+                             tokens[j]->tokenType == True_Literal ||
+                             tokens[j]->tokenType == False_Literal)) {
                     mangled += "." + tokens[j]->tokenStr;
                 }
             }
@@ -2709,6 +2899,17 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
             }
 
             case Identifier: {
+                if (i + 1 < (int)tokens.size() &&
+                    tokens[i + 1]->tokenType == String &&
+                    isAdjacentFStringPrefix(token, tokens[i + 1])) {
+                    ASTNode* formattedStringNode = parseFStringLiteral(token, tokens[i + 1], depth);
+                    if (formattedStringNode == nullptr)
+                        return nullptr;
+                    node = formattedStringNode;
+                    i++;
+                    goto addNodeAsLeaf;
+                }
+
                 node->nodeType = Identifier_Node;
                 node->codegen = &ASTNode::generateVariableExpression;
                 node->returnsASTNode = true;

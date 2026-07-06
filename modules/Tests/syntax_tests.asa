@@ -6,10 +6,10 @@
 @public:
 SyntaxTests :: module {
 
-	#use Tests.Testing;
-	#use Builtin.Math;
-	#use Builtin.String;
-	#use Builtin.Casts;
+	#import Tests.Testing;
+	#import Builtin.Math;
+	#import Builtin.String;
+	#import Builtin.Casts;
 
 	DERIVED_BASE_W :: 960;
 	DERIVED_BASE_H :: 640;
@@ -180,6 +180,16 @@ SyntaxTests :: module {
 			test(shadow == 0,                 "for iterator shadows outer variable");
 		}
 		test(shadow == 5,                     "outer shadow restored after for");
+		test(!#compiles({
+			sameScopeRedeclare : int = 1;
+			sameScopeRedeclare : int = 2;
+		}),                                  "same-scope variable redeclaration is rejected");
+		test(#compiles({
+			nestedScopeShadow : int = 1;
+			{
+				nestedScopeShadow : int = 2;
+			}
+		}),                                  "nested-scope variable shadowing is allowed");
 
 		///////////////////////
 		// Chained member     //
@@ -447,13 +457,13 @@ SyntaxTests :: module {
 		// Standalone multiline calls //
 		///////////////////////////////
 
-		// test() itself is a standalone void call; verify it works multiline
+		// test() itself is a standalone ? call; verify it works multiline
 		test(
 		    1 == 1,
-		    "standalone void call: single arg on next line");
+		    "standalone ? call: single arg on next line");
 
 		test(add_one(3) == 4 &&
-		     add_one(4) == 5,                 "standalone void call: multiline condition");
+		     add_one(4) == 5,                 "standalone ? call: multiline condition");
 
 		// Void function called as standalone statement, args on separate lines
 		acc : int = 0;
@@ -461,20 +471,20 @@ SyntaxTests :: module {
 		           1,
 		           2,
 		           3);
-		test(acc == 6,                        "standalone void call: args on separate lines");
+		test(acc == 6,                        "standalone ? call: args on separate lines");
 
 		accumulate(acc,
 		           add_one(0),
 		           add_one(1),
 		           add_one(2));
-		test(acc == 12,                       "standalone void call: call-expr args on separate lines");
+		test(acc == 12,                       "standalone ? call: call-expr args on separate lines");
 
 		// Standalone call with struct args on separate lines (mimics raycaster DrawTexturePro pattern)
 		accumulate(acc,
 		           int(rect_width(Rect(0.0, 0.0, float(GLOBAL_N), float(-GLOBAL_N)))),
 		           int(rect_width(Rect(0.0, 0.0, float(GLOBAL_N),  float(GLOBAL_N)))),
 		           0);
-		test(acc == 32,                       "standalone void call: struct ctor args on separate lines with float(-var)");
+		test(acc == 32,                       "standalone ? call: struct ctor args on separate lines with float(-var)");
 
 		// Closing paren on its own line (mimics DrawTexturePro raycaster pattern)
 		accumulate(acc,
@@ -482,7 +492,7 @@ SyntaxTests :: module {
 		           2,
 		           3
 		);
-		test(acc == 38,                       "standalone void call: closing paren on its own line");
+		test(acc == 38,                       "standalone ? call: closing paren on its own line");
 
 		///////////////////////
 		// Zero-effect ops    //
@@ -724,32 +734,32 @@ SyntaxTests :: module {
 		test(cmt_block == 2,                  "while: trailing block comment before brace");
 
 		/////////////////////////////////////
-		// void zero-initializer           //
+		// default zero-initializer           //
 		/////////////////////////////////////
 
 		// Primitives
-		zi : int = void;
-		test(zi == 0,                         "void-init int is zero");
+		zi : int = default;
+		test(zi == 0,                         "default-init int is zero");
 
-		zf : float = void;
-		test(zf == 0.0,                       "void-init float is zero");
+		zf : float = default;
+		test(zf == 0.0,                       "default-init float is zero");
 
-		zb : bool = void;
-		test(zb == false,                     "void-init bool is false");
+		zb : bool = default;
+		test(zb == false,                     "default-init bool is false");
 
 		// Pointer
-		zp : *int = void;
-		test(zp == void,                      "void-init pointer is null");
+		zp : *int = default;
+		test(zp == ?,                      "default-init pointer is null");
 
 		// Struct: all fields zero
-		zn : Node = void;
-		test(zn.val == 0,                     "void-init struct field val is zero");
-		test(zn.depth == 0,                   "void-init struct field depth is zero");
+		zn : Node = default;
+		test(zn.val == 0,                     "default-init struct field val is zero");
+		test(zn.depth == 0,                   "default-init struct field depth is zero");
 
-		// Assign after void-init
-		za : int = void;
+		// Assign after default-init
+		za : int = default;
 		za = 99;
-		test(za == 99,                        "assign after void-init");
+		test(za == 99,                        "assign after default-init");
 
 		/////////////////////////////////////
 		// default and undefined init      //
@@ -765,7 +775,7 @@ SyntaxTests :: module {
 		test(db == false,                     "default-init bool is false");
 
 		dp : *int = default;
-		test(dp == void,                      "default-init pointer is null");
+		test(dp == ?,                      "default-init pointer is null");
 
 		bare : int;
 		test(bare == 0,                       "bare typed declaration defaults int to zero");

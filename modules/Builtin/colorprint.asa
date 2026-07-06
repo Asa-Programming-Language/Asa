@@ -8,27 +8,28 @@ ColorPrint :: module {
         #set_attribute(ColorPrint, "hideast", false);
     });
 
-    #use Builtin.Print;
-    #use Builtin.String;
-    #use Builtin.Casts;
+    #import Builtin.Print;
+    #import Builtin.String;
+    #import Builtin.Casts;
 
-    #extern isatty :: int(fd : int);
-    #extern getenv :: *char(name : *char);
+    #extern isatty as _isatty_c_extern :: int(fd : int);
+    #extern getenv as _getenv_c_extern :: *char(name : *char);
 
     // Function: consoleSupportsColor()
     // Description: Returns true if stdout is a TTY and the TERM environment variable indicates color support
     @public:
     consoleSupportsColor :: bool() {
-        if (isatty(1) == 0) {
+        if (_isatty_c_extern(1) == 0) {
             return false;
         }
-        termPtr : *char = getenv("TERM");
+        termPtr : *char = _getenv_c_extern("TERM");
         termAddr : int64 = int64(termPtr);
         if (termAddr == 0) {
             return false;
         }
         term : string = string(termPtr);
 
+        // TODO: Make this a switch case
         if (find(term, "xterm")  >= 0)  return true;
         if (find(term, "color")  >= 0)  return true;
         if (find(term, "ansi")   >= 0)  return true;

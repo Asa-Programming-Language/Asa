@@ -1,12 +1,12 @@
 
-//#import Rendering.Raylib;
-#use Rendering.Raylib;
+//#import_qualified Rendering.Raylib;
+#import Rendering.Raylib;
 
 playerObject : GameObject = GameObject();
 
-distances : *float = void; // Perpendicular wall distances, one per screen column
+distances : *float = default; // Perpendicular wall distances, one per screen column
 
-allTextures : *NamedTexture = void;
+allTextures : *NamedTexture = default;
 loadedTexturesCount : uint16 = 0;
 
 MOVE_SPEED    :: 2.5;
@@ -47,11 +47,11 @@ LEVEL : const string ="
 ########D############################################........................
 ";
 
-levelObjects : *Wall = void;  // Stores static gameObjects
+levelObjects : *Wall = default;  // Stores static gameObjects
 levelObjectCount : uint16 = 0; // TODO: Implement the list generic type
-levelGrid : **Wall = void;  // 2D grid for O(1) lookups, indexed by [z * (levelWidth+1) + x]
+levelGrid : **Wall = default;  // 2D grid for O(1) lookups, indexed by [z * (levelWidth+1) + x]
 
-entities : *Entity = void;  // Stores moving billboarded game objects
+entities : *Entity = default;  // Stores moving billboarded game objects
 entityCount : uint16 = 0;
 
 
@@ -281,13 +281,13 @@ main :: (){
 checkLevelValue :: char(x : const int, y : const int){
     if(x < 0 || y < 0 || x > levelWidth || y > levelHeight) return 0;
     w : const *Wall = levelGrid[y * (levelWidth + 1) + x];
-    if(w == void) return '.';
+    if(w == ?) return '.';
     return w.symbol;
 }
 
 @inline:
 getLevelValue :: *Wall(x : const int, y : const int){
-    if(x < 0 || y < 0 || x > levelWidth || y > levelHeight) return void;
+    if(x < 0 || y < 0 || x > levelWidth || y > levelHeight) return ?;
     return levelGrid[y * (levelWidth + 1) + x];
 }
 
@@ -307,7 +307,7 @@ buildLevelGrid :: (){
     gridSize : int = (levelHeight + 1) * (levelWidth + 1);
     levelGrid = malloc(gridSize * #sizeof(*Wall));
     for (i in 0..gridSize)
-        levelGrid[i] = void;
+        levelGrid[i] = default;
     for (i in 0..levelObjectCount)
         levelGrid[levelObjects[i].position.z * (levelWidth + 1) + levelObjects[i].position.x] = &levelObjects[i];
 }
@@ -464,7 +464,7 @@ drawEntities :: (projDist : const float){
 
 tryOpenDoor :: bool(cellX : const int, cellZ : const int){
     door : *Wall = getLevelValue(cellX, cellZ);
-    if(door == void) return false;
+    if(door == ?) return false;
     if(door.symbol == 'D' || door.symbol == 'd'){
         door.targetOpen = !door.targetOpen;
         return true;
@@ -499,7 +499,7 @@ updateDoors :: (dT : const float){
 @inline:
 isPassableCell :: bool(x : const int, z : const int){
     wall : *Wall = getLevelValue(x, z);
-    if(wall == void) return true;
+    if(wall == ?) return true;
     if(wall.symbol == 'd' && wall.openAmount >= 1.0) return true;
     return false;
 }
@@ -509,7 +509,7 @@ tryInteract :: (){
     cellZ : const int = int(floorf(playerObject.position.z));
 
     currentDoor : const *Wall = getLevelValue(cellX, cellZ);
-    if(currentDoor != void && currentDoor.symbol == 'D'){
+    if(currentDoor != ? && currentDoor.symbol == 'D'){
         if(tryOpenDoor(cellX, cellZ)) return;
     }
 
@@ -532,7 +532,7 @@ tryInteract :: (){
 
 // Try to move by (dx, dz), resolving X and Z axes independently so the player slides along walls
 tryMove :: (dx : const float, dz : const float) {
-    r : float = PLAYER_RADIUS;
+    r : const float = PLAYER_RADIUS;
     newX : float = playerObject.position.x + dx;
     newZ : float = playerObject.position.z + dz;
 
@@ -601,10 +601,10 @@ update :: (dT : const float){
         fracX : const float = playerFracX;
         fracZ : const float = playerFracZ;
 
-        stepX : int = 0;
-        stepZ : int = 0;
-        sideDistX : float = 0.0;
-        sideDistZ : float = 0.0;
+        stepX : int = ?;
+        stepZ : int = ?;
+        sideDistX : float = ?;
+        sideDistZ : float = ?;
 
         if (rdx < 0.0) {
             stepX = -1;
@@ -621,18 +621,14 @@ update :: (dT : const float){
             sideDistZ = (1.0 - fracZ) * deltaDistZ;
         }
 
-        hitWall : *Wall = void;
-        hitChar : char = 0;
-        side : uint8 = 0;
+        hitWall : *Wall = ?;
+        side : uint8 = ?;
         hitDoorFrame : bool = false;
-        hitInnerFrame : bool = false;
-        doorHitCoord : float = 0.0;
-        hasDoorHitCoord : bool = false;
 
 
         for (j in 0..100) {
             currentWall : const *Wall = getLevelValue(mapX, mapZ);
-            if(currentWall != void){
+            if(currentWall != ?){
                 if(currentWall.symbol == 'D' || currentWall.symbol == 'd'){
                     // If the ray is already inside a door cell, crossing a boundary perpendicular
                     // to the door panel should hit the doorway threshold immediately.
@@ -642,13 +638,9 @@ update :: (dT : const float){
                         hitDoorFrame = true;
                         if(currentWall.rotation == 0){
                             side = 1;
-                            doorHitCoord = playerObject.position.z + sideDistX * rdz;
-                            hasDoorHitCoord = true;
                             sideDistX += deltaDistX;
                         } else {
                             side = 0;
-                            doorHitCoord = playerObject.position.x + sideDistZ * rdx;
-                            hasDoorHitCoord = true;
                             sideDistZ += deltaDistZ;
                         }
                         break;
@@ -667,7 +659,7 @@ update :: (dT : const float){
             }
             hitWall = getLevelValue(mapX, mapZ);
 
-            if(hitWall != void){
+            if(hitWall != ?){
                 if(hitWall.symbol == 'D' || hitWall.symbol == 'd'){
                     // rotation=0: door panel faces N/S (hit via Z-step, side=0)
                     // rotation=1: door panel faces E/W (hit via X-step, side=1)
@@ -718,7 +710,7 @@ update :: (dT : const float){
                             }
                         }
                         if(passesOpening){
-                            hitWall = void;
+                            hitWall = default;
                             continue;
                         }
                     } 
@@ -729,7 +721,7 @@ update :: (dT : const float){
                             if(stepX < 0) panelOffsetX = 0.0;
                             panelSideDist = (sideDistX - deltaDistX) + deltaDistX * panelOffsetX;
                             if(sideDistZ < panelSideDist){
-                                hitWall = void;
+                                hitWall = default;
                                 continue;
                             }
                         }
@@ -738,7 +730,7 @@ update :: (dT : const float){
                             if(stepZ < 0) panelOffsetZ = 0.0;
                             panelSideDist = (sideDistZ - deltaDistZ) + deltaDistZ * panelOffsetZ;
                             if(sideDistX < panelSideDist){
-                                hitWall = void;
+                                hitWall = default;
                                 continue;
                             }
                         }
@@ -758,7 +750,7 @@ update :: (dT : const float){
             distances[i] = sideDistZ - deltaDistZ;
         }
 
-        if (hitWall != void) {
+        if (hitWall != ?) {
             wallHeight : const int = int(projDist / distances[i]);
             wallTop    : const int = SCREEN_H/2 - wallHeight/2;
 

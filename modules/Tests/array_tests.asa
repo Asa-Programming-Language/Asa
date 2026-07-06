@@ -5,9 +5,9 @@
 @public:
 ArrayTests :: module {
 
-	#use Tests.Testing;
-	#use Builtin.Array;
-	#use Builtin.Memory;
+	#import Tests.Testing;
+	#import Builtin.Array;
+	#import Builtin.Memory;
 
 	@public:
 	runArrayTests :: () {

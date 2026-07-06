@@ -5,7 +5,7 @@
 @public:
 ComparisonTests :: module {
 
-	#use Tests.Testing;
+	#import Tests.Testing;
 
 	// runComparisonTests()
 	// Runs all comparison and boolean operator tests.

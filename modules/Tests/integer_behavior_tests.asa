@@ -4,7 +4,7 @@
 @public:
 IntegerBehaviorTests :: module {
 
-	#use Tests.Testing;
+	#import Tests.Testing;
 
 	@public:
 	runIntegerBehaviorTests :: () {

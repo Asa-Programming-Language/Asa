@@ -7,7 +7,7 @@
 @public:
 TypeAliasTests :: module {
 
-    #use Tests.Testing;
+    #import Tests.Testing;
 
     ////////////////////////////
     // Structs used in tests  //

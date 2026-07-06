@@ -2,7 +2,7 @@
 // Ideas for zero-initialization and leaving things uninitialized
 
 // Ideas:
-x : int = void;
+x : int = default;
 x : int = null;
 x : int = default;
 x : int = ?;

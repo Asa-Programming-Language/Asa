@@ -7,7 +7,7 @@
 @public:
 EnumTests :: module {
 
-    #use Tests.Testing;
+    #import Tests.Testing;
 
     ////////////////////////////////////////////////////
     // Module-scope enum definitions                  //

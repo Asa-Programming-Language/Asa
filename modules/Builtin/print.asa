@@ -9,7 +9,7 @@ Print :: module {
         #set_attribute(Print, "hideast", false);
     });
 
-    #use Builtin.String;
+    #import Builtin.String;
 
     //#library "libc";
     //print :: {#foreign "printf"};

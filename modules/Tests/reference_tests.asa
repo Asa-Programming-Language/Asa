@@ -5,9 +5,9 @@
 @public:
 ReferenceTests :: module {
 
-	#use Tests.Testing;
-	#use Builtin.Memory;
-	#use Builtin.Casts;
+	#import Tests.Testing;
+	#import Builtin.Memory;
+	#import Builtin.Casts;
 
 	// ---- ref int helpers ----
 	@public: setToZero  :: (x : ref int)                    { x = 0; }

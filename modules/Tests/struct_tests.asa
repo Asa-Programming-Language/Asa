@@ -5,8 +5,8 @@
 @public:
 StructTests :: module {
 
-	#use Tests.Testing;
-	#use Builtin.Memory;
+	#import Tests.Testing;
+	#import Builtin.Memory;
 
 	///////////////////////
 	// Struct definitions //
@@ -171,8 +171,8 @@ StructTests :: module {
 		id  : int;
 	}
 
-	g_arr   : *IntPair = void;  // global array pointer for global arr[i].field test
-	g_narr  : *Nested = void;  // global array for arr[i].structField in loop
+	g_arr   : *IntPair = default;  // global array pointer for global arr[i].field test
+	g_narr  : *Nested = default;  // global array for arr[i].structField in loop
 
 	st_g_pair : IntPair = IntPair();
 

@@ -1,5 +1,5 @@
 
-#use Rendering.Raylib;
+#import Rendering.Raylib;
 
 #recommend_options("-Ofast");
 

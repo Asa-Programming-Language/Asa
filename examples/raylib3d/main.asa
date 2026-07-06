@@ -1,5 +1,5 @@
 
-#use Rendering.Raylib;
+#import Rendering.Raylib;
 
 SCREEN_WIDTH  :: 800;
 SCREEN_HEIGHT :: 450;
@@ -34,7 +34,7 @@ main :: (){
 
     selected : bool = false;          // Selected object flag
 
-    SetTargetFPS(TARGET_FPS);               // Set our game to run at 60 frames-per-second
+    //SetTargetFPS(TARGET_FPS);               // Set our game to run at 60 frames-per-second
     //--------------------------------------------------------------------------------------
 
     // Main game loop

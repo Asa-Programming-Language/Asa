@@ -1,4 +1,8 @@
 
+// Module: Aliases
+// Description: Defines aliases for builtin types
+@hideast:
+@public:
 Aliases :: module {
     i8   :: int8;
     i16  :: int16;

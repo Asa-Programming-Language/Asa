@@ -1,41 +1,47 @@
 
 // PointerTests
-// Tests for pointer operations: null checks (== void / != void),
+// Tests for pointer operations: null checks (== ? / != ?),
 // and type modifier orderings (const/ref/*)
 
 @public:
 PointerTests :: module {
 
-	#use Tests.Testing;
-	#use Builtin.Memory;
+	#import Tests.Testing;
+	#import Builtin.Memory;
 
 	@public:
 	runPointerTests :: () {
 		beginSection("Pointers");
 
 		///////////////////////////////
-		// Null check: == void       //
+		// Null check: == ?       //
 		///////////////////////////////
 
-		np : *int = void;
-		test(np == void,                      "null ptr == void is true");
-		test(!(np != void),                   "null ptr != void is false");
+		np : *int = default;
+		test(np == ?,                      "null ptr == ? is true");
+		test(!(np != ?),                   "null ptr != ? is false");
+		test(#compiles(np == 0) == false,  "pointer == integer requires explicit cast");
+		test(#compiles(0 == np) == false,  "integer == pointer requires explicit cast");
+		test(#compiles(np != 0) == false,  "pointer != integer requires explicit cast");
+		test(#compiles(int(np) == 0),      "explicit pointer-to-int cast can compare with integer");
+		test(#compiles(uint64(np) == 0),   "explicit pointer-to-uint64 cast can compare with integer");
+		test(#compiles(int8(np) == 0),     "explicit pointer-to-int8 cast compiles");
 
 		nnp : *int = malloc(#sizeof(int));
-		test(nnp != void,                     "non-null ptr != void is true");
-		test(!(nnp == void),                  "non-null ptr == void is false");
+		test(nnp != ?,                     "non-null ptr != ? is true");
+		test(!(nnp == ?),                  "non-null ptr == ? is false");
 
 		// Reset to null and re-check
 		mp : *int = malloc(#sizeof(int));
-		test(mp != void,                      "ptr != void before reset");
-		mp = void;
-		test(mp == void,                      "ptr == void after reset");
+		test(mp != ?,                      "ptr != ? before reset");
+		mp = default;
+		test(mp == ?,                      "ptr == ? after reset");
 
 		// Struct pointer null checks
-		mp2 : *int = void;
-		test(mp2 == void,                     "struct ptr == void when unset");
+		mp2 : *int = default;
+		test(mp2 == ?,                     "struct ptr == ? when unset");
 		mp2 = malloc(#sizeof(int));
-		test(mp2 != void,                     "struct ptr != void after allocation");
+		test(mp2 != ?,                     "struct ptr != ? after allocation");
 
 		///////////////////////////////
 		// Type modifier orderings   //
@@ -188,8 +194,8 @@ PointerTests :: module {
 		///////////////////////////////
 
 		// Null declaration
-		dp : * *int = void;
-		test(dp == void,                            "* *int starts as void");
+		dp : * *int = default;
+		test(dp == ?,                            "* *int starts as ?");
 
 		// Array of *int pointers
 		a0 : int = 10;
@@ -208,25 +214,25 @@ PointerTests :: module {
 		test(a1 == 99,                              "* *int: write through arr[1] updates original");
 
 		// Null slot
-		arr[2] = void;
-		test(arr[2] == void,                        "* *int: slot set to void is void");
-		test(arr[0] != void,                        "* *int: non-null slot != void");
+		arr[2] = default;
+		test(arr[2] == ?,                        "* *int: slot set to ? is ?");
+		test(arr[0] != ?,                        "* *int: non-null slot != ?");
 
 		///////////////////////////////
 		// * *struct grid            //
 		///////////////////////////////
 
-		// Build a 4-wide x 3-tall grid of *GridCell, all slots void initially
+		// Build a 4-wide x 3-tall grid of *GridCell, all slots ? initially
 		gridW : const int = 4;
 		gridH : const int = 3;
 		gridSize : int = gridH * gridW;
 		grid : * *GridCell = malloc(gridSize * #sizeof(*GridCell));
 		for (i in 0..gridSize)
-			grid[i] = void;
+			grid[i] = default;
 
-		// Verify all slots start void
-		test(grid[0] == void,                       "grid: slot 0 starts void");
-		test(grid[gridSize - 1] == void,            "grid: last slot starts void");
+		// Verify all slots start ?
+		test(grid[0] == ?,                       "grid: slot 0 starts ?");
+		test(grid[gridSize - 1] == ?,            "grid: last slot starts ?");
 
 		// Place two cells at specific (row, col) positions
 		cellA : GridCell = GridCell();
@@ -238,15 +244,15 @@ PointerTests :: module {
 		grid[1 * gridW + 2] = &cellA;   // row 1, col 2
 		grid[2 * gridW + 0] = &cellB;   // row 2, col 0
 
-		// Empty slots remain void
-		test(grid[0 * gridW + 0] == void,           "grid: (0,0) is void");
-		test(grid[0 * gridW + 3] == void,           "grid: (0,3) is void");
+		// Empty slots remain ?
+		test(grid[0 * gridW + 0] == ?,           "grid: (0,0) is ?");
+		test(grid[0 * gridW + 3] == ?,           "grid: (0,3) is ?");
 
-		// Occupied slots are non-void and hold correct data
-		test(grid[1 * gridW + 2] != void,           "grid: (1,2) is non-void after placement");
+		// Occupied slots are non-null and hold correct data
+		test(grid[1 * gridW + 2] != ?,           "grid: (1,2) is non-null after placement");
 		test(grid[1 * gridW + 2].value == 42,       "grid: (1,2) value == 42");
 		test(grid[1 * gridW + 2].symbol == 'A',     "grid: (1,2) symbol == 'A'");
-		test(grid[2 * gridW + 0] != void,           "grid: (2,0) is non-void after placement");
+		test(grid[2 * gridW + 0] != ?,           "grid: (2,0) is non-null after placement");
 		test(grid[2 * gridW + 0].value == 77,       "grid: (2,0) value == 77");
 		test(grid[2 * gridW + 0].symbol == 'B',     "grid: (2,0) symbol == 'B'");
 
@@ -257,27 +263,27 @@ PointerTests :: module {
 		// Round-trip through helper functions
 		test(gridLookupValue(grid, gridW, gridH, 2, 1) == 100,   "grid: helper lookup (2,1) value == 100");
 		test(gridLookupValue(grid, gridW, gridH, 0, 2) == 77,    "grid: helper lookup (0,2) value == 77");
-		test(gridLookupValue(grid, gridW, gridH, 0, 0) == -1,    "grid: helper returns -1 for void slot");
+		test(gridLookupValue(grid, gridW, gridH, 0, 0) == -1,    "grid: helper returns -1 for ? slot");
 		test(gridLookupSymbol(grid, gridW, gridH, 2, 1) == 'A',  "grid: helper lookup symbol (2,1) == 'A'");
 		test(gridLookupSymbol(grid, gridW, gridH, 9, 9) == '.',  "grid: helper returns '.' out-of-bounds");
 	}
 
-	// Return pointer from grid or void
+	// Return pointer from grid or ?
 	gridLookupCell :: *GridCell(grid : * *GridCell, gridW : const int, gridH : const int, x : const int, y : const int) {
-		if (x < 0 || y < 0 || x >= gridW || y >= gridH) return void;
+		if (x < 0 || y < 0 || x >= gridW || y >= gridH) return ?;
 		return grid[y * gridW + x];
 	}
 
 	gridLookupValue :: int(grid : * *GridCell, gridW : const int, gridH : const int, x : const int, y : const int) {
 		cell : *GridCell = gridLookupCell(grid, gridW, gridH, x, y);
-		if (cell == void) return -1;
+		if (cell == ?) return -1;
 		return cell.value;
 	}
 
 	gridLookupSymbol :: char(grid : * *GridCell, gridW : const int, gridH : const int, x : const int, y : const int) {
 		if (x < 0 || y < 0 || x >= gridW || y >= gridH) return '.';
 		cell : *GridCell = grid[y * gridW + x];
-		if (cell == void) return '.';
+		if (cell == ?) return '.';
 		return cell.symbol;
 	}
 }

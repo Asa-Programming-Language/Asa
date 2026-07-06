@@ -7,7 +7,7 @@
 //
 //     Example:
 //     ```asa
-//     #use Rendering.Raylib;
+//     #import Rendering.Raylib;
 //
 //     main :: () {
 //         InitWindow(800, 600, "Hello, raylib!");
@@ -29,9 +29,9 @@ Raylib :: module {
         #set_attribute(Raylib, "hideast", false);
     });
 
-    #use Builtin.Casts;
-    #use Builtin.String;
-    #use Builtin.Math;
+    #import Builtin.Casts;
+    #import Builtin.String;
+    #import Builtin.Math;
 
     #library "raylib";
 
@@ -88,13 +88,13 @@ Raylib :: module {
 
     @public:
     @inline:
-    operator== :: bool(l : Color32, r : Color32){
+    operator(==) :: bool(l : Color32, r : Color32){
         return l.r == r.r && l.g == r.g && l.b == r.b && l.a == r.a;
     }
 
     @public:
     @inline:
-    operator* :: Color32(l : float, r : Color32){
+    operator(*) :: Color32(l : float, r : Color32){
         r.r *= l;
         r.g *= l;
         r.b *= l;

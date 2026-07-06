@@ -49,6 +49,6 @@ SomeModule<T : type> :: module{
 }
 
 // Then you can import this module like:
-#use SomeModule<string>;
-#use SomeModule<int>;
+#import SomeModule<string>;
+#import SomeModule<int>;
 

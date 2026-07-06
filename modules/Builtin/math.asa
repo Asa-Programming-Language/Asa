@@ -10,8 +10,8 @@ Math :: module {
         #set_attribute(Math, "hideast", false);
     });
 
-    #use Builtin.String;
-    #use Builtin.Casts;
+    #import Builtin.String;
+    #import Builtin.Casts;
     #library "m";
 
     ///////////////////////
@@ -24,10 +24,10 @@ Math :: module {
     Vector2 :: struct {
         // Variable: x
         // Description: The x component of the vector
-        x : float;
+        x : float = 0;
         // Variable: y
         // Description: The y component of the vector
-        y : float;
+        y : float = 0;
 
         // Function: normalize()
         // Description: A function that will normalize the vector to a magnitude of 1. Modifies vector.
@@ -65,10 +65,10 @@ Math :: module {
     Vector2I :: struct {
         // Variable: x
         // Description: The x component of the vector
-        x : int32;
+        x : int32 = 0;
         // Variable: y
         // Description: The y component of the vector
-        y : int32;
+        y : int32 = 0;
 
         // Function: normalize()
         // Description: A function that will normalize the vector to a magnitude of 1. Modifies vector.
@@ -106,13 +106,13 @@ Math :: module {
     Vector3 :: struct {
         // Variable: x
         // Description: The x component of the vector
-        x : float;
+        x : float = 0;
         // Variable: y
         // Description: The y component of the vector
-        y : float;
+        y : float = 0;
         // Variable: z
         // Description: The z component of the vector
-        z : float;
+        z : float = 0;
 
         // Function: normalize()
         // Description: A function that will normalize the vector to a magnitude of 1. Modifies vector.
@@ -168,13 +168,13 @@ Math :: module {
     Vector3I :: struct {
         // Variable: x
         // Description: The x component of the vector
-        x : int32;
+        x : int32 = 0;
         // Variable: y
         // Description: The y component of the vector
-        y : int32;
+        y : int32 = 0;
         // Variable: z
         // Description: The z component of the vector
-        z : int32;
+        z : int32 = 0;
 
         // Function: normalize()
         // Description: A function that will normalize the vector to a magnitude of 1. Modifies vector.
@@ -225,7 +225,7 @@ Math :: module {
     // Description: Compares two Vector3I's to see if they are equal
     @public:
     @inline:
-    operator== :: bool(l : const Vector3I, r : const Vector3I){
+    operator(==) :: bool(l : const Vector3I, r : const Vector3I){
         return l.x == r.x && l.y == r.y && l.z == r.z;
     }
 
@@ -424,33 +424,33 @@ Math :: module {
     @inline:
     @public:
     {
-        operator+ :: Vector2(a : const Vector2, b : const Vector2) { return Vector2(a.x + b.x, a.y + b.y); }
-        operator- :: Vector2(a : const Vector2, b : const Vector2) { return Vector2(a.x - b.x, a.y - b.y); }
-        operator* :: Vector2(a : const Vector2, s : const float)   { return Vector2(a.x * s, a.y * s); }
-        operator* :: Vector2(s : const float,   a : const Vector2) { return Vector2(a.x * s, a.y * s); }
-        operator* :: Vector2(a : const Vector2, s : const int)     { return Vector2(a.x * s, a.y * s); }
-        operator* :: Vector2(s : const int,     a : const Vector2) { return Vector2(a.x * s, a.y * s); }
+        operator(+) :: Vector2(a : const Vector2, b : const Vector2) { return Vector2(a.x + b.x, a.y + b.y); }
+        operator(-) :: Vector2(a : const Vector2, b : const Vector2) { return Vector2(a.x - b.x, a.y - b.y); }
+        operator(*) :: Vector2(a : const Vector2, s : const float)   { return Vector2(a.x * s, a.y * s); }
+        operator(*) :: Vector2(s : const float,   a : const Vector2) { return Vector2(a.x * s, a.y * s); }
+        operator(*) :: Vector2(a : const Vector2, s : const int)     { return Vector2(a.x * s, a.y * s); }
+        operator(*) :: Vector2(s : const int,     a : const Vector2) { return Vector2(a.x * s, a.y * s); }
 
-        operator+ :: Vector2I(a : const Vector2I, b : const Vector2I) { return Vector2I(a.x + b.x, a.y + b.y); }
-        operator- :: Vector2I(a : const Vector2I, b : const Vector2I) { return Vector2I(a.x - b.x, a.y - b.y); }
-        operator* :: Vector2I(a : const Vector2I, s : const int)      { return Vector2I(a.x * s, a.y * s); }
-        operator* :: Vector2I(s : const int,      a : const Vector2I) { return Vector2I(a.x * s, a.y * s); }
-        operator* :: Vector2I(a : const Vector2I, s : const float)    { return Vector2I(a.x * s, a.y * s); }
-        operator* :: Vector2I(s : const float,    a : const Vector2I) { return Vector2I(a.x * s, a.y * s); }
+        operator(+) :: Vector2I(a : const Vector2I, b : const Vector2I) { return Vector2I(a.x + b.x, a.y + b.y); }
+        operator(-) :: Vector2I(a : const Vector2I, b : const Vector2I) { return Vector2I(a.x - b.x, a.y - b.y); }
+        operator(*) :: Vector2I(a : const Vector2I, s : const int)      { return Vector2I(a.x * s, a.y * s); }
+        operator(*) :: Vector2I(s : const int,      a : const Vector2I) { return Vector2I(a.x * s, a.y * s); }
+        operator(*) :: Vector2I(a : const Vector2I, s : const float)    { return Vector2I(a.x * s, a.y * s); }
+        operator(*) :: Vector2I(s : const float,    a : const Vector2I) { return Vector2I(a.x * s, a.y * s); }
 
-        operator+ :: Vector3(a : const Vector3, b : const Vector3) { return Vector3(a.x + b.x, a.y + b.y, a.z + b.z); }
-        operator- :: Vector3(a : const Vector3, b : const Vector3) { return Vector3(a.x - b.x, a.y - b.y, a.z - b.z); }
-        operator* :: Vector3(a : const Vector3, s : const float)   { return Vector3(a.x * s, a.y * s, a.z * s); }
-        operator* :: Vector3(s : const float,   a : const Vector3) { return Vector3(a.x * s, a.y * s, a.z * s); }
-        operator* :: Vector3(a : const Vector3, s : const int)     { return Vector3(a.x * s, a.y * s, a.z * s); }
-        operator* :: Vector3(s : const int,     a : const Vector3) { return Vector3(a.x * s, a.y * s, a.z * s); }
+        operator(+) :: Vector3(a : const Vector3, b : const Vector3) { return Vector3(a.x + b.x, a.y + b.y, a.z + b.z); }
+        operator(-) :: Vector3(a : const Vector3, b : const Vector3) { return Vector3(a.x - b.x, a.y - b.y, a.z - b.z); }
+        operator(*) :: Vector3(a : const Vector3, s : const float)   { return Vector3(a.x * s, a.y * s, a.z * s); }
+        operator(*) :: Vector3(s : const float,   a : const Vector3) { return Vector3(a.x * s, a.y * s, a.z * s); }
+        operator(*) :: Vector3(a : const Vector3, s : const int)     { return Vector3(a.x * s, a.y * s, a.z * s); }
+        operator(*) :: Vector3(s : const int,     a : const Vector3) { return Vector3(a.x * s, a.y * s, a.z * s); }
 
-        operator+ :: Vector3I(a : const Vector3I, b : const Vector3I) { return Vector3I(a.x + b.x, a.y + b.y, a.z + b.z); }
-        operator- :: Vector3I(a : const Vector3I, b : const Vector3I) { return Vector3I(a.x - b.x, a.y - b.y, a.z - b.z); }
-        operator* :: Vector3I(a : const Vector3I, s : const int)      { return Vector3I(a.x * s, a.y * s, a.z * s); }
-        operator* :: Vector3I(s : const int,      a : const Vector3I) { return Vector3I(a.x * s, a.y * s, a.z * s); }
-        operator* :: Vector3I(a : const Vector3I, s : const float)    { return Vector3I(a.x * s, a.y * s, a.z * s); }
-        operator* :: Vector3I(s : const float,    a : const Vector3I) { return Vector3I(a.x * s, a.y * s, a.z * s); }
+        operator(+) :: Vector3I(a : const Vector3I, b : const Vector3I) { return Vector3I(a.x + b.x, a.y + b.y, a.z + b.z); }
+        operator(-) :: Vector3I(a : const Vector3I, b : const Vector3I) { return Vector3I(a.x - b.x, a.y - b.y, a.z - b.z); }
+        operator(*) :: Vector3I(a : const Vector3I, s : const int)      { return Vector3I(a.x * s, a.y * s, a.z * s); }
+        operator(*) :: Vector3I(s : const int,      a : const Vector3I) { return Vector3I(a.x * s, a.y * s, a.z * s); }
+        operator(*) :: Vector3I(a : const Vector3I, s : const float)    { return Vector3I(a.x * s, a.y * s, a.z * s); }
+        operator(*) :: Vector3I(s : const float,    a : const Vector3I) { return Vector3I(a.x * s, a.y * s, a.z * s); }
     }
 
     ///////////////////////
@@ -461,10 +461,10 @@ Math :: module {
     // Description: Rect defined by position and size
     @public:
     Rect :: struct {
-        x      : float;
-        y      : float;
-        width  : float;
-        height : float;
+        x      : float = 0;
+        y      : float = 0;
+        width  : float = 0;
+        height : float = 0;
     }
 
     // Constructor: Rect(x, y, width, height)

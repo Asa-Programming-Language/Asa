@@ -5,7 +5,7 @@
 @public:
 ArithmeticTests :: module {
 
-	#use Tests.Testing;
+	#import Tests.Testing;
 
 	Vec2 :: struct { x : int; y : int; }
 

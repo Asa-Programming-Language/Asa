@@ -8,16 +8,16 @@ List :: module{
         #set_attribute(List, "hideast", false);
     });
 
-    #use Builtin.Print;
-    #use Builtin.Memory;
+    #import Builtin.Print;
+    #import Builtin.Memory;
 
     // Struct: list
     // Description: A dynamically allocated list structure
     @public:
     list<T : type> :: struct{
 
-        address : *T;
-        length : uint32;
+        address : *T = ?;
+        length : uint32 = 0;
         allocatedMemory : uint32 = 1;
         
         // Function: size()
@@ -52,13 +52,13 @@ List :: module{
             return val;
         }
 
-        //operator[] :: ref ELEMENT_TYPE(i : int) #inline {
+        //operator([]) :: ref ELEMENT_TYPE(i : int) #inline {
         //  return ELEMENT_TYPE(this.address[i]);
         //}
     }
 
     
-    list<T : type>.operator[] :: ref T(l : list<T>, i : int) {
+    list<T : type>.operator([]) :: ref T(l : list<T>, i : int) {
         return l.address[i];
     }
 
@@ -96,7 +96,7 @@ List :: module{
     //  newRange.next = iter.next;
     //}
 
-    //operator: :: iterator(item ref : ELEMENT_TYPE, l : list)
+    //operator(:) :: iterator(item ref : ELEMENT_TYPE, l : list)
     //  #mod ELEMENT_TYPE = #run(typeof(l));
     //{
     //  newIter : iterator = iterator<ELEMENT_TYPE = ELEMENT_TYPE>(0, l.length);
@@ -108,7 +108,7 @@ List :: module{
         end   : int = 0;
     }
 
-    operator.. :: range(l : int, r : int){
+    operator(..) :: range(l : int, r : int){
         o : range = range();
         o.start = l;
         o.end = r;

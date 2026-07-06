@@ -89,10 +89,9 @@ x += 1; // Imports normally
 ```
 ```asa
 // Scoped:
-#import scopedModule;
+#import_qualified scopedModule;
 scopedModule.x += 1; // Requires full name
 ```
 
 -----
-
 

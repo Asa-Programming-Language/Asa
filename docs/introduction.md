@@ -190,19 +190,19 @@ Just like in C++, there are some special ways to define functions for certain us
 Operator overloading is used to override builtin behavior or add new behavior to existing or new symbols. For example:
 
 ```asa
-operator+- :: int(x : int, y : int){
+operator(+) :: int(x : int, y : int){
     return x * y;
 }
 
-printl(3 +- 1);
+printl(3 + 1);
 // -> Outputs 3
 ```
 
 Defining an operator overload is done with the following syntax:
 
 ```
-operator<symbol> :: <return type>(<Left value>, <Right value>){
+operator(<symbol>) :: <return type>(<Left value>, <Right value>){
 }
 ```
 
-The `<symbol>` can be any ASCII special character, and can be a double character as well. Example: `:::asa $` or `:::asa $$`. The only symbols you cannot overload are the compile time define `:::asa ::` and a few punctuation symbols. Also, the list of available symbols is predefined, so some combinations may be missing.
+The `<symbol>` can be any overloadable operator token. Examples: `:::asa +`, `:::asa ==`, `:::asa []`, or `:::asa ..`. The compile time define `:::asa ::` and a few punctuation symbols cannot be overloaded. Also, the list of available symbols is predefined, so some combinations may be missing.

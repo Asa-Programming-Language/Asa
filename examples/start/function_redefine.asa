@@ -1,4 +1,4 @@
-#import Builtin.Print;
+#import_qualified Builtin.Print;
 
 testRedefineFunction :: (){
     printl("* Function testFunction():");

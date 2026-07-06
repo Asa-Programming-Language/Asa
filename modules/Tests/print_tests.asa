@@ -7,9 +7,9 @@
 @public:
 PrintTests :: module {
 
-	#use Tests.Testing;
-	#use Builtin.String;
-	#use Builtin.Print;
+	#import Tests.Testing;
+	#import Builtin.String;
+	#import Builtin.Print;
 
 	@public:
 	runPrintTests :: () {

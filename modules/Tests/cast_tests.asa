@@ -5,7 +5,7 @@
 @public:
 CastTests :: module {
 
-	#use Tests.Testing;
+	#import Tests.Testing;
 
 	@public:
 	runCastTests :: () {

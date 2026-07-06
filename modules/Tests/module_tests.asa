@@ -5,7 +5,8 @@
 @public:
 ModuleTests :: module {
 
-	#use Tests.Testing;
+	#import Tests.Testing;
+	#import_qualified Tests.CompilerImportTest;
 
 	@public:
 	NumConsts :: module {
@@ -57,6 +58,7 @@ ModuleTests :: module {
 		test(NumConsts.ten > NumConsts.one,          "ten should be greater than one");
 
 		test(Nested.Inner.val == 42, "Nested.Inner.val should be 42");
+		test(CompilerImportTest.x() == 1, "#import_qualified requires module-qualified access");
 
 		test(funcInitVar == 99,         "module var initialized from function call");
 		test(ctorInitVar.x == 10,       "module var initialized from constructor (x)");

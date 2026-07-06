@@ -5,7 +5,7 @@
 @public:
 ControlFlowTests :: module {
 
-    #use Tests.Testing;
+    #import Tests.Testing;
 
     // runControlFlowTests()
     // Runs all control flow tests.

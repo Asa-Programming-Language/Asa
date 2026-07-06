@@ -1,21 +1,17 @@
 
-# Today:
+# Todo:
 
 - [ ] Make all compilation be executed using a singular function path, to prevent repetition and multiple steps that must be kept up to date separately
 
-- [ ] Make lockfile or similar system to prevent two instances of asa from compiling something at once
-
-
-
-# Todo:
-
-- [ ] Implement string formatting with internal curly braces: `someVar : int = 5;` then `printl(f"{someVar}");` -> `"5"`
-
 - [ ] Ensure compiler directives have exact number of expected arguments, and errors on not enough or too many arguments
+
+- [ ] Make lockfile or similar system to prevent two instances of asa from compiling something at once
 
 - [ ] Disallow defining compile time defined symbols using non constant expression.
 
 - [ ] Fix operator overload token string being overwritten by token name
+
+- [ ] Add `#export_name("str")` compiler directive
 
 - [ ] Allow attributes to have empty argument lists. For example, while `@deprecated:` compiles, and `@deprecated("message"):` compiles, `@deprecated():` does not.
 
@@ -60,6 +56,7 @@
 
 
 # Done:
+- [x] Implement string formatting with internal curly braces: `someVar : int = 5;` then `printl(f"{someVar}");` -> `"5"`
 - [x] Improve declaration initialization, adding `default` and `?` values
 - [x] Add compiler directives: `#if(COND, BODY)`, `#stack_last(NAME)`, `#stack_push(NAME, AST)`, `#stack_pop(NAME)`, `#error(MESSAGE, AST)`, `#warning(MESSAGE, AST)`, `#context`
 - [x] Add `#recommend_options` compiler directive to allow programs to suggest compilation options. When reached, the compiler will prompt the user if they would like to accept the options or not.

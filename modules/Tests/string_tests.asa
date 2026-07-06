@@ -5,8 +5,8 @@
 @public:
 StringTests :: module {
 
-	#use Tests.Testing;
-	#use Builtin.String;
+	#import Tests.Testing;
+	#import Builtin.String;
 
 	// runStringTests()
 	// Runs all string tests.
@@ -79,6 +79,26 @@ StringTests :: module {
 		j : string = "" + 42;
 		test(j.length == 2,         "empty + 42 has length 2");
 		test(j == "42",             "empty + 42 equals \"42\"");
+
+		//////////////////////
+		// f-strings        //
+		//////////////////////
+
+		sumString : string = f"sum: {5 + 1}";
+		test(sumString == "sum: 6", "f-string formats arithmetic expression");
+
+		value : int = 7;
+		valueString : string = f"value: {value}";
+		test(valueString == "value: 7", "f-string formats identifier expression");
+
+		typeString : string = f"type: {#typeof int32}";
+		test(typeString == "type: int32", "f-string formats compile-time directive expression");
+
+		multiPart : string = f"{2}{3} apples";
+		test(multiPart == "23 apples", "f-string supports multiple expressions and empty edge text");
+
+		escapedBraces : string = f"\{not an expression\}";
+		test(escapedBraces == "{not an expression}", "f-string supports escaped braces");
 
 		//////////////////////
 		// isEmpty()        //

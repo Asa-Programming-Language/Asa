@@ -1,4 +1,4 @@
-#use Rendering.Raylib;
+#import Rendering.Raylib;
 
 main :: () {
     // Initialize window

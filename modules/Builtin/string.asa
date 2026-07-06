@@ -11,9 +11,9 @@ String :: module{
         #set_attribute(String, "hideast", false);
     });
 
-    #use Builtin.Print;
-    #use Builtin.Memory;
-    #use Builtin.Casts;
+    #import Builtin.Print;
+    #import Builtin.Memory;
+    #import Builtin.Casts;
 
     #extern snprintf as _snprintf_c_extern :: int32(buf : *char, size : uint64, fmt : *char, ...);
 
@@ -31,7 +31,7 @@ String :: module{
     @version(1):
     string :: struct {
 
-        @unsafe: address : *char;
+        address : *char = ?;
 
         length : uint32 = 0;
 
@@ -54,14 +54,21 @@ String :: module{
         // Returns: A new string
         @public:
         substr :: string(start : int, len : int) {
-            res : string = string();
-            strLen : int = int(this.length);
-            if (start < 0) { start = 0; }
-            if (start > strLen) { start = strLen; }
-            if (len < 0) { len = 0; }
-            if (start + len > strLen) { len = strLen - start; }
+            res : string = default;
+            strLen : uint32 = this.length;
+
+            if (start < 0)
+                start = 0;
+            else if (start > strLen)
+                start = strLen;
+
+            if (len < 0)
+                len = 0;
+            if (start + len > strLen)
+                len = strLen - start;
+
             res.address = malloc(len * 2 + 1);
-            res.length = uint32(len);
+            res.length = len;
             for (i in 0..len) {
                 res.address[i] = this.address[start + i];
             }
@@ -91,9 +98,11 @@ String :: module{
         @public:
         indexOf :: int(sub : string) {
             res : *char = strstr(this.address, sub.address);
-            resAddr : int64 = int64(res);
-            if (resAddr == 0) { return -1; }
-            startAddr : int64 = int64(this.address);
+            resAddr : int64 = res;
+
+            if (resAddr == 0) return -1;
+
+            startAddr : int64 = this.address;
             return int(resAddr - startAddr);
         }
 
@@ -101,10 +110,12 @@ String :: module{
         // Returns: true if this string begins with prefix
         @public:
         startsWith :: bool(prefix : string) {
-            prefLen : int = int(prefix.length);
-            if (prefLen > int(this.length)) { return false; }
+            prefLen : uint32 = prefix.length;
+
+            if (prefLen > this.length)  return false;
+
             for (i in 0..prefLen) {
-                if (this.address[i] != prefix.address[i]) { return false; }
+                if (this.address[i] != prefix.address[i])  return false;
             }
             return true;
         }
@@ -113,12 +124,16 @@ String :: module{
         // Returns: true if this string ends with suffix
         @public:
         endsWith :: bool(suffix : string) {
-            sufLen : int = int(suffix.length);
-            strLen : int = int(this.length);
-            if (sufLen > strLen) { return false; }
-            offset : int = strLen - sufLen;
+            sufLen : uint32 = suffix.length;
+            strLen : uint32 = this.length;
+
+            if (sufLen > strLen)  return false;
+
+            offset : uint32 = strLen - sufLen;
+
             for (i in 0..sufLen) {
-                if (this.address[offset + i] != suffix.address[i]) { return false; }
+                if (this.address[offset + i] != suffix.address[i]) 
+                    return false;
             }
             return true;
         }
@@ -127,17 +142,17 @@ String :: module{
         // Returns: This string concatenated with itself n times. Empty string if n <= 0.
         @public:
         repeat :: string(n : int) {
-            res : string = string();
-            thisLen : int = int(this.length);
+            res : string = default;
+            thisLen : uint32 = this.length;
             if (n <= 0 || thisLen == 0) {
                 res.address = malloc(1);
                 res.address[0] = char(0);
-                res.length = uint32(0);
+                res.length = 0;
                 return res;
             }
-            totalLen : int = thisLen * n;
+            totalLen : uint32 = thisLen * n;
             res.address = malloc(totalLen * 2 + 1);
-            res.length = uint32(totalLen);
+            res.length = totalLen;
             for (i in 0..n) {
                 offset : int = i * thisLen;
                 for (j in 0..thisLen) {
@@ -158,10 +173,10 @@ String :: module{
     // Returns: A new string containing the characters from the array
     @public:
     create :: string(c : exact const *char) {
-        s : string = string();
+        s : string = default;
 
         len : uint32 = 0;
-        for(i in 0..65535){
+        for(i in 0..65535){ // TODO: Replace this with uint16.max
             if(c[i] == 0){
                 len = i;
                 break;
@@ -169,11 +184,44 @@ String :: module{
         }
         s.address = malloc(len*2 + 1);
         s.length = len;
-        for(i in 0..(len)){
+        for(i in 0..len){
             s.address[i] = c[i];
         }
         s.address[len] = char(0);
         return s;
+    }
+
+    // Constructor: string(*char, int)
+    // Description: Creates a string from a null-terminated character array, given the size beforehand
+    //
+    // Arguments:
+    //     c: Pointer to a null-terminated character array
+    //     len: Integer describing the length of the string in characters
+    //
+    // Returns: A new string containing the characters from the array
+    @public:
+    create :: string(c : exact const *char, len : const int) {
+        s : string = default;
+
+        s.address = malloc(len*2 + 1);
+        s.length = len;
+        for(i in 0..len){
+            s.address[i] = c[i];
+        }
+        s.address[len] = char(0);
+        return s;
+    }
+
+    // Operator: [](string, int)
+    // Description: Indexes the character of the string at the given index
+    //
+    // Arguments:
+    //     s: The string
+    //     i: The index of the character
+    //
+    // Returns: A reference to the character at the given index
+    operator([]) :: ref char(s : const ref exact string, i : int){
+        return s.address[i];
     }
 
     // Operator: +(string, string)
@@ -185,17 +233,17 @@ String :: module{
     //
     // Returns: A new string containing the concatenation of both strings
     @public:
-    operator+ :: string(thisStr : const exact string, otherStr : const exact string){
-        newStr : string = string();
+    operator(+) :: string(thisStr : const exact string, otherStr : const exact string){
+        newStr : string = default;
 
         len : const uint32 = thisStr.length + otherStr.length;
         newStr.address = malloc(len*2 + 1);
         newStr.length = len;
         for(i in 0..thisStr.length){
-            newStr.address[i] = thisStr[i];
+            newStr.address[i] = thisStr.address[i];
         }
         for(i in 0..otherStr.length){
-            newStr.address[i + thisStr.length] = otherStr[i];
+            newStr.address[i + thisStr.length] = otherStr.address[i];
         }
         newStr.address[len] = 0;
         return newStr;
@@ -210,14 +258,14 @@ String :: module{
     //
     // Returns: A new string containing the concatenation of the string and character
     @public:
-    operator+ :: string(thisStr : const exact string, ch : const exact char){
-        newStr : string = string();
+    operator(+) :: string(thisStr : const exact string, ch : const exact char){
+        newStr : string = default;
 
         len : const uint32 = thisStr.length + 1;
         newStr.address = malloc(len*2 + 1);
         newStr.length = len;
         for(i in 0..thisStr.length){
-            newStr.address[i] = thisStr[i];
+            newStr.address[i] = thisStr.address[i];
         }
         newStr.address[thisStr.length] = ch;
         newStr.address[len] = 0;
@@ -225,7 +273,7 @@ String :: module{
     }
 
     // Operator: +(string, uint8)
-    // Description: Concatenates a string with a uint8
+    // Description: Concatenates a string with the decimal representation of a uint8
     //
     // Arguments:
     //     thisStr: The string
@@ -234,7 +282,7 @@ String :: module{
     // Returns: A new string containing the concatenation of the string and uint8
     @public:
     @inline:
-    operator+ :: string(thisStr : const exact string, n : const exact uint8){
+    operator(+) :: string(thisStr : const exact string, n : const exact uint8){
         return thisStr + string(int64(n));
     }
 
@@ -248,7 +296,7 @@ String :: module{
     // Returns: A new string containing the concatenation
     @public:
     @inline:
-    operator+ :: string(thisStr : const exact string, n : const int64){
+    operator(+) :: string(thisStr : const exact string, n : const int64){
         return thisStr + string(n);
     }
 
@@ -262,7 +310,7 @@ String :: module{
     // Returns: A new string containing the concatenation
     @public:
     @inline:
-    operator+ :: string(n : const int64, otherStr : const exact string){
+    operator(+) :: string(n : const int64, otherStr : const exact string){
         return string(n) + otherStr;
     }
 
@@ -276,7 +324,7 @@ String :: module{
     // Returns: A new string containing the concatenation
     @public:
     @inline:
-    operator+ :: string(thisStr : const exact string, f : const float){
+    operator(+) :: string(thisStr : const exact string, f : const float){
         return thisStr + string(f);
     }
 
@@ -290,7 +338,7 @@ String :: module{
     // Returns: A new string containing the concatenation
     @public:
     @inline:
-    operator+ :: string(f : const float, thisStr : exact const string){
+    operator(+) :: string(f : const float, thisStr : exact const string){
         return string(f) + thisStr;
     }
 
@@ -303,12 +351,12 @@ String :: module{
     //
     // Returns: A pointer to a new character array containing the concatenation
     @public:
-    operator+ :: *char(thisStr : const exact *char, otherStr : const exact *char){
-        newStr : *char = void;
+    operator(+) :: *char(thisStr : const exact *char, otherStr : const exact *char){
+        newStr : *char = default;
 
-        lenA : uint32 = 0;
-        lenB : uint32 = 0;
-        len : uint32 = 0;
+        lenA : uint32 = ?;
+        lenB : uint32 = ?;
+        len : uint32 = ?;
         for(i in 0..65535){
             if(thisStr[i] == 0){
                 lenA = i-1;
@@ -321,7 +369,7 @@ String :: module{
                 break;
             }
         }
-        len : uint32 = lenA + lenB;
+        len = lenA + lenB;
 
         newStr = malloc(len*2);
         for(i in 0..lenA){
@@ -342,7 +390,7 @@ String :: module{
     // Returns: A new string containing the decimal representation of n
     @public:
     cast :: string(n : int64) {
-        s : string = string();
+        s : string = default;
         if (n < 0) {
             s = s + '-';
             if (n == -2147483648) {
@@ -362,7 +410,7 @@ String :: module{
     // Description: Converts a char to a single-character string
     @public:
     cast :: string(c : const exact char) {
-        s : string = string();
+        s : string = default;
         s.address = malloc(2);
         s.length = 1;
         s.address[0] = c;
@@ -371,7 +419,7 @@ String :: module{
     }
 
     // Constructor: string(uint8)
-    // Description: Converts an uint8 to its decimal string representation
+    // Description: Converts a uint8 to its decimal string representation
     //
     // Arguments:
     //     n: The integer to convert
@@ -407,7 +455,7 @@ String :: module{
     // Returns: true if the contents are identical, false otherwise
     @public:
     @inline:
-    operator== :: bool(a : const exact *char, b : const exact *char) {
+    operator(==) :: bool(a : const exact *char, b : const exact *char) {
         return strcmp(a, b) == 0;
     }
 
@@ -417,7 +465,7 @@ String :: module{
     // Returns: true if both strings have equal length and identical characters
     @public:
     @inline:
-    operator== :: bool(a : const exact string, b : const exact string) {
+    operator(==) :: bool(a : const exact string, b : const exact string) {
         if (a.length != b.length)
             return false;
         return strcmp(a.address, b.address) == 0;
@@ -425,7 +473,7 @@ String :: module{
 
     @public:
     @inline:
-    operator!= :: bool(a : const exact string, b : const exact string) {
+    operator(!=) :: bool(a : const exact string, b : const exact string) {
         return !(a == b);
     }
 
@@ -453,7 +501,7 @@ String :: module{
     @public:
     padRight :: string(s : const exact string, ch : const exact char, targetLen : const int) {
         res : string = s;
-        len : int = int(s.length);
+        len : uint32 = s.length;
         for (i in len..targetLen) {
             res = res + ch;
         }
@@ -465,8 +513,8 @@ String :: module{
     //              If s is already at or beyond targetLen, returns s unchanged.
     @public:
     padLeft :: string(s : const exact string, ch : const exact char, targetLen : const int) {
-        prefix : string = string();
-        len : int = int(s.length);
+        prefix : string = default;
+        len : uint32 = s.length;
         for (i in len..targetLen) {
             prefix = prefix + ch;
         }
@@ -479,18 +527,18 @@ String :: module{
     @public:
     basename :: string(s : const exact string) {
         lastSlash : int = -1;
-        for (i in 0..int(s.length)) {
-            if (s[i] == '/') {
+        for (i in 0..s.length) {
+            if (s.address[i] == '/') {
                 lastSlash = i;
             }
         }
         if (lastSlash == -1) {
             return s;
         }
-        res : string = string();
+        res : string = default;
         start : int = lastSlash + 1;
-        for (i in start..int(s.length)) {
-            res = res + s[i];
+        for (i in start..s.length) {
+            res = res + s.address[i];
         }
         return res;
     }
@@ -500,9 +548,10 @@ String :: module{
     @public:
     find :: int64(s : const exact string, sub : const exact string) {
         res : *char = strstr(s.address, sub.address);
-        resAddr : int64 = int64(res);
-        if (resAddr == 0) { return -1; }
-        startAddr : int64 = int64(s.address);
+        resAddr : int64 = res;
+        if (resAddr == 0)
+            return -1;
+        startAddr : int64 = s.address;
         return resAddr - startAddr;
     }
 

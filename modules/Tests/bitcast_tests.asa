@@ -6,8 +6,8 @@
 @public:
 BitcastTests :: module {
 
-	#use Tests.Testing;
-	#use Builtin.Memory;
+	#import Tests.Testing;
+	#import Builtin.Memory;
 
 	@public:
 	runBitcastTests :: () {
@@ -75,7 +75,7 @@ BitcastTests :: module {
 		test(p_as_int != 0,                   "bitcast non-null ptr -> uint64 is non-zero");
 
 		// Null pointer casts to zero
-		null_p : *int = void;
+		null_p : *int = default;
 		null_as_int : uint64 = #bitcast(null_p, uint64);
 		test(null_as_int == 0,                "bitcast null ptr -> uint64 is zero");
 

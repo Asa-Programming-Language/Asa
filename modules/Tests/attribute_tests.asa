@@ -5,7 +5,7 @@
 @public:
 AttributeTests :: module {
 
-    #use Tests.Testing;
+    #import Tests.Testing;
 
     // Subjects used by the tests below
 

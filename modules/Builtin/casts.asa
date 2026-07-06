@@ -37,6 +37,7 @@ Casts :: module {
         cast:: char(x : const uint64) { return #cast(x, char); }
         cast:: char(x : const float)  { return #cast(x, char); }
         cast:: char(x : const double) { return #cast(x, char); }
+        cast:: char(x : const *any)   { return #cast(x, char); }
 
         // Group: Int8 Casts
         cast:: int8(x : const bool)   { return #cast(x, int8); }
@@ -50,6 +51,7 @@ Casts :: module {
         cast:: int8(x : const uint64) { return #cast(x, int8); }
         cast:: int8(x : const float)  { return #cast(x, int8); }
         cast:: int8(x : const double) { return #cast(x, int8); }
+        cast:: int8(x : const *any)   { return #cast(x, int8); }
 
         // Group: Uint8 Casts
         cast:: uint8(x : const bool)   { return #cast(x, uint8); }
@@ -63,6 +65,7 @@ Casts :: module {
         cast:: uint8(x : const uint64) { return #cast(x, uint8); }
         cast:: uint8(x : const float)  { return #cast(x, uint8); }
         cast:: uint8(x : const double) { return #cast(x, uint8); }
+        cast:: uint8(x : const *any)   { return #cast(x, uint8); }
 
         // Group: Int16 Casts
         cast:: int16(x : const bool)   { return #cast(x, int16); }
@@ -76,6 +79,7 @@ Casts :: module {
         cast:: int16(x : const uint64) { return #cast(x, int16); }
         cast:: int16(x : const float)  { return #cast(x, int16); }
         cast:: int16(x : const double) { return #cast(x, int16); }
+        cast:: int16(x : const *any)   { return #cast(x, int16); }
 
         // Group: Uint16 Casts
         cast:: uint16(x : const bool)   { return #cast(x, uint16); }
@@ -89,6 +93,7 @@ Casts :: module {
         cast:: uint16(x : const uint64) { return #cast(x, uint16); }
         cast:: uint16(x : const float)  { return #cast(x, uint16); }
         cast:: uint16(x : const double) { return #cast(x, uint16); }
+        cast:: uint16(x : const *any)   { return #cast(x, uint16); }
 
         // Group: Int Casts
         cast:: int(x : const bool)   { return #cast(x, int); }
@@ -102,6 +107,7 @@ Casts :: module {
         cast:: int(x : const uint64) { return #cast(x, int); }
         cast:: int(x : const float)  { return #cast(x, int); }
         cast:: int(x : const double) { return #cast(x, int); }
+        cast:: int(x : const *any)   { return #cast(x, int); }
 
         // Group: Int32 Casts
         cast:: int32(x : const bool)   { return #cast(x, int32); }
@@ -115,6 +121,7 @@ Casts :: module {
         cast:: int32(x : const uint64) { return #cast(x, int32); }
         cast:: int32(x : const float)  { return #cast(x, int32); }
         cast:: int32(x : const double) { return #cast(x, int32); }
+        cast:: int32(x : const *any)   { return #cast(x, int32); }
 
         // Group: Uint Casts
         cast:: uint(x : const bool)   { return #cast(x, uint); }
@@ -128,6 +135,7 @@ Casts :: module {
         cast:: uint(x : const uint64) { return #cast(x, uint); }
         cast:: uint(x : const float)  { return #cast(x, uint); }
         cast:: uint(x : const double) { return #cast(x, uint); }
+        cast:: uint(x : const *any)   { return #cast(x, uint); }
 
         // Group: Uint32 Casts
         cast:: uint32(x : const bool)   { return #cast(x, uint32); }
@@ -141,6 +149,7 @@ Casts :: module {
         cast:: uint32(x : const uint64) { return #cast(x, uint32); }
         cast:: uint32(x : const float)  { return #cast(x, uint32); }
         cast:: uint32(x : const double) { return #cast(x, uint32); }
+        cast:: uint32(x : const *any)   { return #cast(x, uint32); }
 
         // Group: Int64 Casts
         cast:: int64(x : const bool)   { return #cast(x, int64); }
@@ -154,7 +163,7 @@ Casts :: module {
         cast:: int64(x : const uint64) { return #cast(x, int64); }
         cast:: int64(x : const float)  { return #cast(x, int64); }
         cast:: int64(x : const double) { return #cast(x, int64); }
-        cast:: int64(x : const *char)  { return #cast(x, int64); }
+        cast:: int64(x : const *any)   { return #cast(x, int64); }
 
         // Group: Uint64 Casts
         cast:: uint64(x : const bool)   { return #cast(x, uint64); }
@@ -168,6 +177,7 @@ Casts :: module {
         cast:: uint64(x : const uint64) { return #cast(x, uint64); }
         cast:: uint64(x : const float)  { return #cast(x, uint64); }
         cast:: uint64(x : const double) { return #cast(x, uint64); }
+        cast:: uint64(x : const *any)   { return #cast(x, uint64); }
 
         // Group: Float Casts
         cast:: float(x : const bool)   { return #cast(x, float); }

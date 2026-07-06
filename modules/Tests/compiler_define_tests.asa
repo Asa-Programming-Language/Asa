@@ -7,7 +7,7 @@
 @public:
 CompilerDefineTests :: module {
 
-    #use Tests.Testing;
+    #import Tests.Testing;
 
     ////////////////////////////
     // Defines under test     //
