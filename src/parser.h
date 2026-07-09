@@ -114,6 +114,7 @@ enum ASTNodeType {
     Goto_Node,
 
     Throw_Node,
+    Throw_Caller_Node,
 
     Iterator,
     Condition,
@@ -248,6 +249,7 @@ const std::string ASTNodeTypeStrings[] = {
     "Goto_Node",
 
     "Throw_Node",
+    "Throw_Caller_Node",
 
     "Iterator",
     "Condition",
@@ -384,7 +386,11 @@ struct ASTNode {
     void* generateCast(int pass = 0);
     void* generateBitcast(int pass = 0);
     void* generateThrow(int pass = 0);
+    void* generateThrowCaller(int pass = 0);
     void* generateTypeInstance(int pass = 0);
+    void* generateCallerFilepathDirective(int pass = 0);
+    void* generateCallerLineNumDirective(int pass = 0);
+    void* generateCallerLineDirective(int pass = 0);
     void* generateCallExpression(int pass = 0);
     void* generateIncDecrement(int pass = 0);
     void* generateNothing(int pass = 0);
@@ -410,6 +416,7 @@ struct ASTNode {
     ASTNode* resolveCompilerContextASTNode(int pass = 0);
     ASTNode* resolveCompilerDefinitionASTNode(int pass = 0);
     ASTNode* resolveCompilerParentASTNode(int pass = 0);
+    ASTNode* resolveCompilerFuncASTNode(int pass = 0);
 
     void* (ASTNode::*codegen)(int pass) = nullptr;
 
@@ -495,6 +502,7 @@ const std::string ASTNodeTypeAsString(ASTNodeType t);
 int printAST(ASTNode* startNode, int depth = 0);
 void fixPrecedence(ASTNode*& node);
 void unifyNodes(ASTNode*& node);
+void normalizeQualifiedCompilerDefinitions(ASTNode*& node);
 void optimizeASTNode(ASTNode*& node);
 void resolveCompileTimeDirectives(ASTNode*& node, std::string moduleCtx = "", std::string funcCtx = "");
 void resolveAttributeAccess(ASTNode*& node);

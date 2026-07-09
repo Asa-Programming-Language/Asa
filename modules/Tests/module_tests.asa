@@ -24,6 +24,16 @@ ModuleTests :: module {
 		}
 	}
 
+	QualifiedTarget :: module {}
+	QualifiedTarget.double :: int(x : int) {
+		return x * 2;
+	}
+	QualifiedTarget.answer :: 42;
+
+	Nested.Inner.triple :: int(x : int) {
+		return x * 3;
+	}
+
 	// Module-scope variables initialized via function calls
 	makeInt :: int() { return 99; }
 	Pair :: struct { x : int; y : int; }
@@ -58,6 +68,9 @@ ModuleTests :: module {
 		test(NumConsts.ten > NumConsts.one,          "ten should be greater than one");
 
 		test(Nested.Inner.val == 42, "Nested.Inner.val should be 42");
+		test(QualifiedTarget.double(6) == 12, "external module fn definition");
+		test(QualifiedTarget.answer == 42,    "external module compile-time value definition");
+		test(Nested.Inner.triple(5) == 15,    "external nested module fn definition");
 		test(CompilerImportTest.x() == 1, "#import_qualified requires module-qualified access");
 
 		test(funcInitVar == 99,         "module var initialized from function call");

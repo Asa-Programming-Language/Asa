@@ -61,6 +61,7 @@ namespace messageSystem {
         Undefined_Variable_Error,
         Declared_Undefined_Variable_Error,
         Undefined_Member_Error,
+        Undefined_Member_Function_Error,
         // Redefined errors:
         Redefined_Error,
         // Compiler directive errors:

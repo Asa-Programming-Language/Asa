@@ -166,6 +166,22 @@ namespace messageSystem {
 
         // Additional handling for different message types:
         switch (messageType) {
+            case Undefined_Member_Function_Error: {
+                SourceCodeSegment src(UnderlinedSegment(currentNode->astNode, "used here", ERROR_COLOR, "^"));
+                src.addContextNode(currentNode->astNode->parentNode);
+                msg.addSegment(src);
+                msg.print();
+                if (currentNode->attributeNodes.size() > 0) {
+                    console::write("\nCould you have possibly meant one of the following?:\n");
+                    console::write("Candidates:\n", NEUTRAL_HIGHLIGHT_COLOR);
+                    console::indentation = 1;
+                    for (int i = 0; i < (int)currentNode->attributeNodes.size(); i++)
+                        printFunctionCandidate((functionID*)currentNode->attributeNodes[i].first);
+                    console::indentation = 0;
+                }
+                break;
+            }
+
             case Undefined_Member_Error:
             case Undefined_Symbol_Error:
             case Undefined_Function_Error:
@@ -408,6 +424,7 @@ namespace messageSystem {
             case Continue_Statement:
             case Goto_Statement:
             case Throw_Statement:
+            case Throw_Caller_Statement:
             case Struct_Define:
             case Module_Define:
             case Enum_Define:

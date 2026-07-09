@@ -16,48 +16,48 @@ FileTests :: module {
         testPath : string = string("/tmp/asa_file_test.txt");
 
         // Write a file
-        f : File = openFile(testPath, "w");
+        f : File = File(testPath, "w");
         test(f.isOpen, "open for write should succeed");
-        writeLine(f, "hello");
-        writeLine(f, "world");
-        closeFile(f);
+        f.writeLine("hello");
+        f.writeLine("world");
+        f.close();
 
         // Read it back
-        g : File = openFile(testPath, "r");
+        g : File = File(testPath, "r");
         test(g.isOpen, "open for read should succeed");
-        contents : string = readAll(g);
-        closeFile(g);
+        contents : string = g.readAll();
+        g.close();
 
         test(contents.length > 0,                     "readAll should return non-empty string");
         test(contents == "hello\nworld\n",             "readAll contents should match what was written");
 
         // readLine
-        h : File = openFile(testPath, "r");
-        line1 : string = readLine(h);
-        line2 : string = readLine(h);
-        closeFile(h);
+        h : File = File(testPath, "r");
+        line1 : string = h.readLine();
+        line2 : string = h.readLine();
+        h.close();
 
         test(line1 == "hello\n",                       "first readLine should be \"hello\\n\"");
         test(line2 == "world\n",                       "second readLine should be \"world\\n\"");
 
         // Append mode
-        a : File = openFile(testPath, "a");
+        a : File = File(testPath, "a");
         test(a.isOpen, "open for append should succeed");
-        writeLine(a, "appended");
-        closeFile(a);
+        a.writeLine("appended");
+        a.close();
 
-        b : File = openFile(testPath, "r");
-        all : string = readAll(b);
-        closeFile(b);
+        b : File = File(testPath, "r");
+        all : string = b.readAll();
+        b.close();
         test(all == "hello\nworld\nappended\n",        "appended line should appear in file");
 
         // Non-existent file
-        bad : File = openFile(string("/tmp/asa_does_not_exist_xyz.txt"), "r");
+        bad : File = File(string("/tmp/asa_does_not_exist_xyz.txt"), "r");
         test(bad.isOpen == false,                      "open of missing file should fail");
 
         // Delete the test file
         test(deleteFile(testPath),                     "deleteFile should return true on success");
-        gone : File = openFile(testPath, "r");
+        gone : File = File(testPath, "r");
         test(gone.isOpen == false,                     "file should not exist after deleteFile");
     }
 }

@@ -684,7 +684,7 @@ static bool tryConsumeVariantParams(const std::vector<asaToken*>& tokens, int& i
                 while (next < (int)tokens.size() && (tokens[next]->tokenType == Nothing || tokens[next]->tokenType == EndOfLine))
                     next++;
                 TokenType following = (next < (int)tokens.size()) ? tokens[next]->tokenType : Nothing;
-                if (following != Left_Paren && following != Colon_Colon)
+                if (following != Left_Paren && following != Colon_Colon && following != Dot)
                     return false;
                 // Collect comma-separated token groups between '<' and '>'
                 std::vector<asaToken*> current;
@@ -1249,6 +1249,8 @@ static ASTNode* makeScopeBodyNode(
 
 // Parse a function parameter (with optional default value = expr) and append
 // the result to arguments / argumentDefaults.
+static void collapseVariantTypeTokens(std::vector<asaToken*>& tokens);
+
 static void parseParamWithDefault(
     const std::vector<asaToken*>& subTokens,
     int depth,
@@ -1258,13 +1260,18 @@ static void parseParamWithDefault(
     std::vector<asaToken*> paramTokens = subTokens;
     ASTNode* defaultArgNode = nullptr;
     int d = 0;
+    int angleDepth = 0;
     for (int si = 0; si < (int)subTokens.size(); si++) {
         TokenType tt = subTokens[si]->tokenType;
         if (tt == Left_Paren || tt == Left_Bracket || tt == Left_Brace)
             d++;
         else if (tt == Right_Paren || tt == Right_Bracket || tt == Right_Brace)
             d--;
-        else if (tt == Equal && d == 0) {
+        else if (tt == Less)
+            angleDepth++;
+        else if (tt == Greater && angleDepth > 0)
+            angleDepth--;
+        else if (tt == Equal && d == 0 && angleDepth == 0) {
             paramTokens = {subTokens.begin(), subTokens.begin() + si};
             std::vector<asaToken*> defaultTokens(subTokens.begin() + si + 1, subTokens.end());
             defaultArgNode = new ASTNode();
@@ -1275,6 +1282,7 @@ static void parseParamWithDefault(
             break;
         }
     }
+    collapseVariantTypeTokens(paramTokens);
     ASTNode* newNode = new ASTNode();
     generateAST(paramTokens, depth + 1, newNode);
     newNode->nodeType = Expression_Term;
@@ -1282,6 +1290,9 @@ static void parseParamWithDefault(
     arguments.push_back(newNode);
     argumentDefaults.push_back(defaultArgNode);
 }
+
+static ASTNode* getQualifiedLocalNameNode(ASTNode* node);
+static ASTNode* makeQualifiedNameMarker(ASTNode* qualifiedName);
 
 ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* parentNodePtr, bool isScopeBody)
 {
@@ -1794,7 +1805,8 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
                                 t->tokenType == Times_Equal || t->tokenType == Slash_Equal ||
                                 t->tokenType == Ampersand_Equal || t->tokenType == Bar_Equal ||
                                 t->tokenType == Caret_Equal || t->tokenType == Shift_Left_Equal ||
-                                t->tokenType == Shift_Right_Equal)) {
+                                t->tokenType == Shift_Right_Equal ||
+                                t->tokenType == Colon_Colon)) {
                             i--;
                             break;
                         }
@@ -1813,7 +1825,8 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
                                 t->tokenType == Ampersand_Ampersand || t->tokenType == Bar_Bar ||
                                 t->tokenType == Ampersand || t->tokenType == Bar || t->tokenType == Caret ||
                                 t->tokenType == Shift_Left || t->tokenType == Shift_Right ||
-                                t->tokenType == Comma || t->tokenType == Dot_Dot || t->tokenType == Arrow_Right)) {
+                                t->tokenType == Comma || t->tokenType == Dot_Dot ||
+                                t->tokenType == Arrow_Right || t->tokenType == Colon_Colon)) {
                             i--;
                             break;
                         }
@@ -2118,6 +2131,10 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
                         node->returnsASTNode = true;
                         node->resolveASTNode = &ASTNode::resolveCompilerParentASTNode;
                     }
+                    else if (identifier->token->tokenStr == "func_ast") {
+                        node->returnsASTNode = true;
+                        node->resolveASTNode = &ASTNode::resolveCompilerFuncASTNode;
+                    }
                     else if (identifier->token->tokenStr == "context") {
                         node->returnsASTNode = true;
                         node->resolveASTNode = &ASTNode::resolveCompilerContextASTNode;
@@ -2277,6 +2294,10 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
                     node->returnsASTNode = true;
                     node->resolveASTNode = &ASTNode::resolveCompilerParentASTNode;
                 }
+                if (identifier->token->tokenStr == "func_ast") {
+                    node->returnsASTNode = true;
+                    node->resolveASTNode = &ASTNode::resolveCompilerFuncASTNode;
+                }
                 if (identifier->token->tokenStr == "context") {
                     node->returnsASTNode = true;
                     node->resolveASTNode = &ASTNode::resolveCompilerContextASTNode;
@@ -2351,7 +2372,20 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
                     exit(1);
                 }
                 parentNode->leafNodes.pop_back();
-                identifier->nodeType = Identifier_Node;
+                ASTNode* qualifiedNameMarker = nullptr;
+                if (identifier->nodeType == Member_Access) {
+                    ASTNode* localName = getQualifiedLocalNameNode(identifier);
+                    if (!localName) {
+                        messageSystem::error("Invalid qualified compiler definition name", messageSystem::Syntax_Error);
+                        wasError = true;
+                        return nullptr;
+                    }
+                    qualifiedNameMarker = makeQualifiedNameMarker(identifier);
+                    identifier = localName;
+                }
+                else if (identifier->nodeType != Operator_Overload_Node) {
+                    identifier->nodeType = Identifier_Node;
+                }
                 argumentsNode->nodeType = Arguments;
                 modifiersNode->nodeType = Compiler_Modifiers;
 
@@ -2435,9 +2469,10 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
                         node->nodeType = Compiler_Define;
                         node->codegen = &ASTNode::generateNothing;
                         node->childNodes.push_back(bodyNode);
-                        parentNode->compilerDefinitions[identifier->token->tokenStr] = bodyNode;
+                        if (!qualifiedNameMarker)
+                            parentNode->compilerDefinitions[identifier->token->tokenStr] = bodyNode;
                         // If the target is a plain identifier, treat it as a type alias
-                        if (isSingleIdentifier)
+                        if (!qualifiedNameMarker && isSingleIdentifier)
                             registerTypeAlias(identifier->token->tokenStr, subTokens[0]->tokenStr);
                     }
                     else {
@@ -2530,7 +2565,8 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
                             }
                             else if (!node->isModuleScope) {
                                 // General block macro: register in the enclosing scope
-                                parentNode->compilerDefinitions[identifier->token->tokenStr] = bodyNode;
+                                if (!qualifiedNameMarker)
+                                    parentNode->compilerDefinitions[identifier->token->tokenStr] = bodyNode;
                                 node->codegen = &ASTNode::generateNothing;
                             }
                         }
@@ -2557,6 +2593,7 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
                     secondPart->nodeType = Type_Node;
                     // Step through all following tokens until parens are closed
                     int parenLevel = 1;
+                    int angleLevel = 0;
                     subTokens = std::vector<asaToken*>();
                     std::vector<ASTNode*> argumentDefaults;  // parallel to arguments, nullptr if no default
                     for (;;) {
@@ -2568,13 +2605,17 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
                             parenLevel++;
                         if (t->tokenType == Right_Paren)
                             parenLevel--;
+                        if (t->tokenType == Less)
+                            angleLevel++;
+                        if (t->tokenType == Greater && angleLevel > 0)
+                            angleLevel--;
 
                         if (parenLevel == 0 || t->tokenType == Semi_Colon)
                             break;
                         if (t->tokenType == EndOfLine)
                             continue;
                         // If comma and parenLevel is in same scope
-                        if ((t->tokenType == Comma && parenLevel == 1)) {
+                        if ((t->tokenType == Comma && parenLevel == 1 && angleLevel == 0)) {
                             parseParamWithDefault(subTokens, depth, arguments, argumentDefaults);
                             subTokens = std::vector<asaToken*>();
                             continue;
@@ -2680,6 +2721,8 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
                         node->nodeType = Compiler_Define_Function;
                     }
                 }
+                if (qualifiedNameMarker)
+                    node->childNodes.push_back(qualifiedNameMarker);
                 break;
             }
 
@@ -2698,6 +2741,14 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
                     exit(1);
                 }
 
+                if (t->tokenType == Left_Bracket && i + 1 < (int)tokens.size() && tokens[i + 1]->tokenType == Right_Bracket) {
+                    asaToken* syntheticBothBrackets = new asaToken(*t);
+                    syntheticBothBrackets->tokenStr = tokenAsString(Both_Brackets);
+                    syntheticBothBrackets->tokenType = Both_Brackets;
+                    t = syntheticBothBrackets;
+                    i++;
+                }
+
                 asaToken* closeParen = NEXT_TOKEN(tokens, i);
                 if (closeParen->tokenType != Right_Paren) {
                     printTokenError(tokenRange {closeParen, closeParen}, "Operator overload expected ')' after operator token");
@@ -2705,8 +2756,6 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
                 }
 
                 ASTNode* operatorNode = new ASTNode(Operator_Type_Node, {}, t);
-
-                node->token->tokenStr = node->token->tokenStr + "." + tokenAsString(t->tokenType);
 
                 node->childNodes.push_back(operatorNode);
                 goto addNodeAsLeaf;
@@ -2954,6 +3003,10 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
             case Throw_Statement:
                 node->nodeType = Throw_Node;
                 node->codegen = &ASTNode::generateThrow;
+                goto getStatementArgument;
+            case Throw_Caller_Statement:
+                node->nodeType = Throw_Caller_Node;
+                node->codegen = &ASTNode::generateThrowCaller;
                 goto getStatementArgument;
             case Return_Statement:
                 node->nodeType = Return_Node;
@@ -3319,9 +3372,22 @@ void resolveCompileTimeDirectives(ASTNode*& node, std::string moduleCtx, std::st
             node->returnsASTNode = true;
             node->resolveASTNode = &ASTNode::resolveCompilerParentASTNode;
         }
+        else if (name == "func_ast") {
+            node->returnsASTNode = true;
+            node->resolveASTNode = &ASTNode::resolveCompilerFuncASTNode;
+        }
         else if (name == "context") {
             node->returnsASTNode = true;
             node->resolveASTNode = &ASTNode::resolveCompilerContextASTNode;
+        }
+        else if (name == "caller_filepath") {
+            node->codegen = &ASTNode::generateCallerFilepathDirective;
+        }
+        else if (name == "caller_linenum") {
+            node->codegen = &ASTNode::generateCallerLineNumDirective;
+        }
+        else if (name == "caller_line") {
+            node->codegen = &ASTNode::generateCallerLineDirective;
         }
     }
 }
@@ -3463,6 +3529,27 @@ static void inheritAttributeIfCompatible(ASTNode* node, ASTNode* attr)
         node->attributes.push_back(attr);
 }
 
+static ASTNode* getQualifiedLocalNameNode(ASTNode* node)
+{
+    if (!node || node->nodeType != Member_Access || node->childNodes.size() != 2)
+        return nullptr;
+
+    ASTNode* localName = node->childNodes[1];
+    while (localName && localName->nodeType == Member_Access && localName->childNodes.size() == 2)
+        localName = localName->childNodes[1];
+    return localName;
+}
+
+static ASTNode* makeQualifiedNameMarker(ASTNode* qualifiedName)
+{
+    ASTNode* marker = new ASTNode();
+    ASTNodes.push_back(marker);
+    marker->nodeType = Nothing_Node;
+    marker->label = "__qualified_define_name";
+    marker->childNodes.push_back(qualifiedName);
+    return marker;
+}
+
 static ASTNode* getModuleInnerScope(ASTNode* node)
 {
     if (!node || !node->isModuleScope || node->childNodes.empty())
@@ -3478,6 +3565,194 @@ static ASTNode* getModuleInnerScope(ASTNode* node)
 
     ASTNode* innerScope = moduleNode->childNodes[0];
     return innerScope && innerScope->nodeType == Scope_Body ? innerScope : nullptr;
+}
+
+static ASTNode* getContainerScope(ASTNode* node)
+{
+    if (!node)
+        return nullptr;
+
+    if (node->nodeType == Compiler_Define_Struct) {
+        if (!node->childNodes.empty() && node->childNodes[0]->nodeType == Scope_Body)
+            return node->childNodes[0];
+        return nullptr;
+    }
+
+    if (node->nodeType == Compiler_Define && node->isModuleScope)
+        return getModuleInnerScope(node);
+
+    if (node->nodeType == Module_Define_Node && !node->childNodes.empty() && node->childNodes[0]->nodeType == Scope_Body)
+        return node->childNodes[0];
+
+    return nullptr;
+}
+
+static ASTNode* findEarlierContainedDefinition(ASTNode* scope, ASTNode* beforeNode, const std::string& name)
+{
+    if (!scope)
+        return nullptr;
+
+    for (ASTNode* child : scope->childNodes) {
+        if (child == beforeNode)
+            break;
+        if (child && child->token && child->token->tokenStr == name &&
+            (child->nodeType == Compiler_Define ||
+                child->nodeType == Compiler_Define_Struct ||
+                child->nodeType == Compiler_Define_Enum ||
+                child->nodeType == Compiler_Define_Function ||
+                child->nodeType == Compiler_Define_Cast))
+            return child;
+    }
+
+    return nullptr;
+}
+
+static ASTNode* resolveQualifiedOwnerInContainer(ASTNode* container, ASTNode* ownerExpr)
+{
+    if (!container || !ownerExpr)
+        return nullptr;
+
+    if (ownerExpr->nodeType == Identifier_Node && ownerExpr->token)
+        return findEarlierContainedDefinition(container, nullptr, ownerExpr->token->tokenStr);
+
+    if (ownerExpr->nodeType != Member_Access || ownerExpr->childNodes.size() != 2)
+        return nullptr;
+
+    ASTNode* leftOwner = resolveQualifiedOwnerInContainer(container, ownerExpr->childNodes[0]);
+    ASTNode* leftScope = getContainerScope(leftOwner);
+    if (!leftScope)
+        return nullptr;
+
+    ASTNode* right = ownerExpr->childNodes[1];
+    if (!right || right->nodeType != Identifier_Node || !right->token)
+        return nullptr;
+
+    return findEarlierContainedDefinition(leftScope, nullptr, right->token->tokenStr);
+}
+
+static ASTNode* resolveQualifiedOwner(ASTNode* definitionNode, ASTNode* ownerExpr)
+{
+    if (!definitionNode || !ownerExpr)
+        return nullptr;
+
+    if (ownerExpr->nodeType != Identifier_Node && ownerExpr->nodeType != Member_Access)
+        return nullptr;
+
+    ASTNode* scope = definitionNode->parentNode;
+    ASTNode* beforeNode = definitionNode;
+
+    while (scope) {
+        if (ownerExpr->nodeType == Identifier_Node && ownerExpr->token) {
+            ASTNode* found = findEarlierContainedDefinition(scope, beforeNode, ownerExpr->token->tokenStr);
+            if (found)
+                return found;
+        }
+        else if (ownerExpr->nodeType == Member_Access) {
+            ASTNode* found = resolveQualifiedOwnerInContainer(scope, ownerExpr);
+            if (found)
+                return found;
+        }
+
+        beforeNode = scope;
+        scope = scope->parentNode;
+    }
+
+    return nullptr;
+}
+
+static bool getQualifiedPathString(ASTNode* node, std::string& out)
+{
+    if (!node || !node->token)
+        return false;
+
+    if (node->nodeType == Identifier_Node) {
+        out = node->token->tokenStr;
+        return true;
+    }
+
+    if (node->nodeType != Member_Access || node->childNodes.size() != 2)
+        return false;
+
+    std::string left;
+    std::string right;
+    if (!getQualifiedPathString(node->childNodes[0], left) ||
+        !getQualifiedPathString(node->childNodes[1], right))
+        return false;
+
+    out = left + "." + right;
+    return true;
+}
+
+static ASTNode* takeQualifiedNameMarker(ASTNode* node)
+{
+    if (!node)
+        return nullptr;
+
+    for (int i = 0; i < (int)node->childNodes.size(); i++) {
+        ASTNode* child = node->childNodes[i];
+        if (child && child->nodeType == Nothing_Node && child->label == "__qualified_define_name") {
+            node->childNodes.erase(node->childNodes.begin() + i);
+            return child;
+        }
+    }
+
+    return nullptr;
+}
+
+static void registerMovedCompilerDefinition(ASTNode* targetScope, ASTNode* definitionNode)
+{
+    if (!targetScope || !definitionNode || !definitionNode->token)
+        return;
+
+    if (definitionNode->nodeType == Compiler_Define && !definitionNode->childNodes.empty())
+        targetScope->compilerDefinitions[definitionNode->token->tokenStr] = definitionNode->childNodes[0];
+}
+
+void normalizeQualifiedCompilerDefinitions(ASTNode*& node)
+{
+    if (!node)
+        return;
+
+    for (int i = 0; i < (int)node->childNodes.size();) {
+        ASTNode* child = node->childNodes[i];
+        ASTNode* marker = takeQualifiedNameMarker(child);
+
+        if (!marker) {
+            normalizeQualifiedCompilerDefinitions(child);
+            i++;
+            continue;
+        }
+
+        if (marker->childNodes.empty() ||
+            marker->childNodes[0]->nodeType != Member_Access ||
+            marker->childNodes[0]->childNodes.size() != 2) {
+            messageSystem::error("Invalid qualified compiler definition name", messageSystem::Syntax_Error);
+            wasError = true;
+            i++;
+            continue;
+        }
+
+        ASTNode* ownerExpr = marker->childNodes[0]->childNodes[0];
+        ASTNode* owner = resolveQualifiedOwner(child, ownerExpr);
+        ASTNode* targetScope = getContainerScope(owner);
+        if (!owner || !targetScope) {
+            messageSystem::error("Qualified compiler definition owner must be an earlier struct or module definition", messageSystem::Syntax_Error);
+            wasError = true;
+            i++;
+            continue;
+        }
+
+        node->childNodes.erase(node->childNodes.begin() + i);
+        child->parentNode = targetScope;
+        if (owner->nodeType == Compiler_Define && owner->isModuleScope &&
+            (child->nodeType == Compiler_Define_Function || child->nodeType == Compiler_Define_Cast)) {
+            std::string ownerPath;
+            if (getQualifiedPathString(ownerExpr, ownerPath))
+                child->enclosingModule = ownerPath;
+        }
+        targetScope->childNodes.push_back(child);
+        registerMovedCompilerDefinition(targetScope, child);
+    }
 }
 
 static const std::unordered_set<ASTNodeType> literalNodeTypes = {

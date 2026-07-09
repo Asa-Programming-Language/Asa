@@ -9,26 +9,47 @@ Array :: module{
         #set_attribute(Array, "hideast", false);
     });
 
+    #import Builtin.CompilerDirectives;
     #import Builtin.Memory;
 
     // Struct: array
     // Description: A generic array type
-    array<T : type, N : uint32> :: struct{
+    array<T : type> :: struct{
         address : *T = ?;
         length : int = 0;
+        elementSize : const int = #sizeof(T);
     }
 
-    // Function: array<T, N>()
+    // Constructor: array<T, N>()
     // Description: Creates an instance of an array of the specified type `T` and given length `N`
-    create<T : type, N : uint32> :: array<T, N>(){
-        o : array<T, N> = default;
+    create<T : type, N : uint32> :: array<T>(){
+        o : array<T> = default;
         o.address = malloc(#sizeof(T) * N);
         o.length = N;
         return o;
     }
 
-    array<T : type, N : uint32>.operator([]) :: ref T(a : array<T, N>, i : int){
+    // Operator: [](array, int)
+    // Description: Indexes the item of the array at the given index
+    //
+    // Arguments:
+    //     a: The array
+    //     i: The index of the item
+    //
+    // Returns: A reference to the item at the given index
+    @tracked_caller:
+    array<T : type>.operator([]) :: ref T(a : const ref array<T>, i : int){
+        
+        #if(#getflag(NO_RUNTIME_SAFETY_CHECKS), {
+            #set_attribute(#func_ast, "tracked_caller", false);
+        });
+        #else({
+            if(i >= a.length){
+                throw_caller "Array index out of range";
+            }
+        });
 
+        return a.address[i];
     }
 
 

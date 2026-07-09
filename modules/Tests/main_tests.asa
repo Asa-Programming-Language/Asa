@@ -40,6 +40,7 @@
 #import Tests.BitwiseTests;
 #import Tests.LoopEdgeCaseTests;
 #import Tests.IntegerBehaviorTests;
+#import Tests.TrackedCallerTests;
 
 @public:
 main :: () {
@@ -81,6 +82,7 @@ main :: () {
     runBitwiseTests();
     runLoopEdgeCaseTests();
     runIntegerBehaviorTests();
+    runTrackedCallerTests();
     printSummary();
     return;
 }

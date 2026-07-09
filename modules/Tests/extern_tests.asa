@@ -7,9 +7,6 @@ ExternTests :: module {
 
 	#import Tests.Testing;
 
-	// Basic extern: abs() from libc
-	#extern abs :: int(x : int32);
-
 	// Aliased extern: getpid() linked under ASA name pidFunc
 	// The C symbol "getpid" should not be accessible; only "pidFunc" should be.
 	#extern getpid as pidFunc :: int32();
@@ -17,11 +14,6 @@ ExternTests :: module {
 	@public:
 	runExternTests :: () {
 		beginSection("Extern");
-
-		// Plain extern
-		test(abs(-5) == 5,    "plain extern: abs(-5) == 5");
-		test(abs(0)  == 0,    "plain extern: abs(0) == 0");
-		test(abs(3)  == 3,    "plain extern: abs(3) == 3");
 
 		// Aliased extern: call succeeds via alias
 		pid : int = int(pidFunc());

@@ -165,6 +165,7 @@ std::map<const std::string, const TokenType> subTokenTypes = {
     {"continue", Continue_Statement},
     {"goto", Goto_Statement},
     {"throw", Throw_Statement},
+    {"throw_caller", Throw_Caller_Statement},
     {"struct", Struct_Define},
     {"module", Module_Define},
     {"enum", Enum_Define},

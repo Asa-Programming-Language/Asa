@@ -601,11 +601,6 @@ static bool processVarDirective(ASTNode* directiveNode, CompilerDirectiveInvocat
     messageSystem::startBlock(directiveNode, "Processing `#var` directive", __func__, __LINE__, __FILE__, messageSystem::Parser_Block);
     defer(messageSystem::endBlock());
 
-    if (!invocation) {
-        messageSystem::error("#var can only be used inside #make_directive bodies", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
-        return false;
-    }
-
     std::vector<ASTNode*> args = getDirectiveCallArgs(directiveNode);
     if (args.size() < 2) {
         messageSystem::error("#var requires name and value arguments", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
@@ -624,7 +619,10 @@ static bool processVarDirective(ASTNode* directiveNode, CompilerDirectiveInvocat
         return false;
     }
 
-    invocation->arguments[nameNode->token->tokenStr] = valueNode;
+    if (invocation)
+        invocation->arguments[nameNode->token->tokenStr] = valueNode;
+    else if (directiveNode->parentNode)
+        directiveNode->parentNode->compilerDefinitions[nameNode->token->tokenStr] = valueNode;
     return true;
 }
 
@@ -787,6 +785,7 @@ static void processCompilerDirectiveTree(ASTNode*& node, CompilerDirectiveInvoca
         if (name == "var") {
             if (processVarDirective(node, invocation))
                 pushCompilerDirectiveCall(name, node);
+            makeDirectiveNodeEmpty(node);
             return;
         }
 
@@ -870,10 +869,33 @@ static void processCompilerDirectiveTree(ASTNode*& node, CompilerDirectiveInvoca
     }
 }
 
+// Pre-pass: register all #make_directive calls before any other directive runs.
+// This ensures custom directives are available regardless of module load order.
+static void processMakeDirectivesOnly(ASTNode*& node)
+{
+    if (!node || wasError)
+        return;
+
+    if (node->nodeType == Compile_Time_Directive && !node->childNodes.empty() && node->childNodes[0]->token) {
+        const std::string& name = node->childNodes[0]->token->tokenStr;
+        if (name == "make_directive") {
+            if (registerCustomDirective(node)) {
+                pushCompilerDirectiveCall(name, node);
+                makeDirectiveNodeEmpty(node);
+            }
+            return;
+        }
+    }
+
+    for (auto*& child : node->childNodes)
+        processMakeDirectivesOnly(child);
+}
+
 void processCompilerDirectives(ASTNode*& node)
 {
     messageSystem::startBlock(node, "Processing compiler directives", __func__, __LINE__, __FILE__, messageSystem::Parser_Block);
     seedCompilerDirectiveFlags();
+    processMakeDirectivesOnly(node);
     processCompilerDirectiveTree(node);
     messageSystem::endBlock();
 }

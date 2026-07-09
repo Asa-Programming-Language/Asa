@@ -1,0 +1,33 @@
+
+// You can currently define a struct like:
+foo :: struct {
+    a : int = 5;
+
+    dump :: (){
+        printl(a);
+    }
+}
+
+// I am thinking you should be able to created inherited structs as well, but only in a basic sense.
+// Like:
+bar :: foo {
+    b : int = 2;
+}
+
+x : bar = default;
+
+x.dump(); // -> 5
+printl(x.b); // -> 2
+
+
+
+// Or maybe use something like:
+bar :: struct #copy(foo) {
+    b : int = 2;
+}
+
+// Or:
+@copyfrom(foo):
+bar :: struct{
+    b : int = 2;
+}

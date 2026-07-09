@@ -10,8 +10,6 @@ VariadicTests :: module {
 	#import Builtin.String;
 	#import Builtin.Memory;
 
-	#extern snprintf as _snprintf_c_extern :: int32(buf : *char, size : uint64, fmt : *char, ...);
-
 	@public:
 	runVariadicTests :: () {
 		beginSection("Variadic");

@@ -37,6 +37,7 @@ int generateExecutable(const std::string& irFilePath, const std::string& exeFile
 void optimizeFunctions();
 void printFunctionPrototypes();
 void printFunctionDifferences(argumentList* arguments, functionID* other);
+void printFunctionCandidate(functionID* fn);
 
 extern std::unordered_map<std::string, std::string> typeAliasMap;
 std::string resolveTypeAlias(const std::string& name, int depth = 0);

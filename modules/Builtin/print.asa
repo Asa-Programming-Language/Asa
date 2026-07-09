@@ -122,4 +122,22 @@ Print :: module {
         printl(string(x));
         return;
     }
+
+    // Function: print(char)
+    // Description: Prints a single character to the terminal
+    @public:
+    @inline:
+    print :: (x : exact char) {
+        print(string(x));
+        return;
+    }
+
+    // Function: printl(char)
+    // Description: Prints a single character to the terminal with a newline
+    @public:
+    @inline:
+    printl :: (x : exact char) {
+        printl(string(x));
+        return;
+    }
 }

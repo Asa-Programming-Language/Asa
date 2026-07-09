@@ -30,6 +30,13 @@ std::unordered_map<std::string, bool> compilerDirectiveFlags;
 std::unordered_map<std::string, bool> commandLineCompilerDirectiveFlags;
 std::unordered_map<std::string, std::stack<ASTNode*>> compilerStacks;
 std::vector<std::string> linkedLibraries;
+
+struct CallerLocationParams {
+    llvm::Argument* filepath = nullptr;
+    llvm::Argument* lineNum = nullptr;
+    llvm::Argument* lineContent = nullptr;
+};
+static std::stack<CallerLocationParams> callerLocationParamStack;
 std::vector<std::string> linkedStaticLibraries;
 
 static ASTNode* resolveASTNodeValue(ASTNode* node, int pass)
@@ -468,6 +475,7 @@ struct functionID {
     // Auto-generated struct default constructors are marked replaceable so that a user-defined
     // `create` constructor with the same identity can override them without error.
     bool isReplaceable = false;
+    bool isTrackedCaller = false;
     uint32_t uses = 0;
     bool isMemberFunction = false;
     Function* fnValue = nullptr;
@@ -895,6 +903,41 @@ void printFunctionDifferences(argumentList* arguments, functionID* other)
         else
             console::write(aStr + " != " + bStr, console::redFGColor);
         if (i < arguments->size() - 1)
+            console::write(", ");
+    }
+    console::write(")\n");
+}
+
+void printFunctionCandidate(functionID* fn)
+{
+    if (!fn)
+        return;
+
+    std::string displayName = fn->name;
+    if (fn->isMemberFunction) {
+        size_t dotPos = displayName.rfind('.');
+        if (dotPos != std::string::npos)
+            displayName = displayName.substr(dotPos + 1);
+    }
+
+    console::applyIndent();
+    console::write(displayName, console::greenFGColor);
+    console::write(" :: ");
+    if (fn->returnIsReference)
+        console::write("ref ", console::magentaFGColor);
+    if (!fn->returnType.empty())
+        console::write(fn->returnType, console::blueFGColor);
+    console::write("(");
+    for (int i = 0; i < (int)fn->userArguments.size(); i++) {
+        const argType& arg = fn->userArguments[i];
+        if (arg.isConstant)
+            console::write("const ", console::magentaFGColor);
+        if (arg.isReference)
+            console::write("ref ", console::magentaFGColor);
+        if (arg.pointerLevel > 0)
+            console::write(std::string(arg.pointerLevel, '*'));
+        console::write(arg.typeString, console::blueFGColor);
+        if (i < (int)fn->userArguments.size() - 1)
             console::write(", ");
     }
     console::write(")\n");
@@ -2669,6 +2712,55 @@ void* ASTNode::generateVariableExpression(int pass)
         return llvmIRBuilder->CreateLoad(valType, A, token->tokenStr + "_load");
 }
 
+void* ASTNode::generateCallerFilepathDirective(int pass)
+{
+    if (callerLocationParamStack.empty())
+        return messageSystem::error("#caller_filepath used outside of a function with @tracked_caller", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
+
+    if (!compilerDirectiveFlags["IN_STRING_MODULE"] &&
+        structDefinitions.count("string") && structDefinitions["string"]->structVal) {
+        llvm::Argument* rawPtr = callerLocationParamStack.top().filepath;
+        StructType* strTy = cast<StructType>((LLVMType*)structDefinitions["string"]->structVal);
+        LLVMValue* undef = UndefValue::get(strTy);
+        LLVMValue* addr = llvmIRBuilder->CreateInsertValue(undef, rawPtr, {0});
+        FunctionType* strlenFuncType = FunctionType::get(LLVMType::getInt64Ty(*llvmCompileContext), {PointerType::getUnqual(*llvmCompileContext)}, false);
+        FunctionCallee strlenFn = llvmCompileModule->getOrInsertFunction("strlen", strlenFuncType);
+        LLVMValue* lenVal = llvmIRBuilder->CreateCall(strlenFn, {rawPtr}, "caller_strlen");
+        LLVMValue* lenTrunc = llvmIRBuilder->CreateTrunc(lenVal, Type::getInt32Ty(*llvmCompileContext), "caller_len");
+        return llvmIRBuilder->CreateInsertValue(addr, lenTrunc, {1});
+    }
+
+    return callerLocationParamStack.top().filepath;
+}
+
+void* ASTNode::generateCallerLineNumDirective(int pass)
+{
+    if (callerLocationParamStack.empty())
+        return messageSystem::error("#caller_linenum used outside of a function with @tracked_caller", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
+    return callerLocationParamStack.top().lineNum;
+}
+
+void* ASTNode::generateCallerLineDirective(int pass)
+{
+    if (callerLocationParamStack.empty())
+        return messageSystem::error("#caller_line used outside of a function with @tracked_caller", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
+
+    if (!compilerDirectiveFlags["IN_STRING_MODULE"] &&
+        structDefinitions.count("string") && structDefinitions["string"]->structVal) {
+        llvm::Argument* rawPtr = callerLocationParamStack.top().lineContent;
+        StructType* strTy = cast<StructType>((LLVMType*)structDefinitions["string"]->structVal);
+        LLVMValue* undef = UndefValue::get(strTy);
+        LLVMValue* addr = llvmIRBuilder->CreateInsertValue(undef, rawPtr, {0});
+        FunctionType* strlenFuncType = FunctionType::get(LLVMType::getInt64Ty(*llvmCompileContext), {PointerType::getUnqual(*llvmCompileContext)}, false);
+        FunctionCallee strlenFn = llvmCompileModule->getOrInsertFunction("strlen", strlenFuncType);
+        LLVMValue* lenVal = llvmIRBuilder->CreateCall(strlenFn, {rawPtr}, "caller_strlen");
+        LLVMValue* lenTrunc = llvmIRBuilder->CreateTrunc(lenVal, Type::getInt32Ty(*llvmCompileContext), "caller_len");
+        return llvmIRBuilder->CreateInsertValue(addr, lenTrunc, {1});
+    }
+
+    return callerLocationParamStack.top().lineContent;
+}
+
 void* ASTNode::generateThrow(int pass)
 {
     messageSystem::startBlock(this, "Generating throw statement", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
@@ -2713,7 +2805,11 @@ void* ASTNode::generateThrow(int pass)
 
         // TODO: Make this better for non-high-level expressions
         if (exprNode->nodeType == String_Constant_Node) {
-            typeStr = "*char";
+            if (!compilerDirectiveFlags["IN_STRING_MODULE"] &&
+                structDefinitions.count("string") && structDefinitions["string"]->structVal)
+                typeStr = "string";
+            else
+                typeStr = "*char";
         }
         else {
             typeStr = getStringTypeFromLLVMType(outVal->getType());
@@ -2753,6 +2849,83 @@ void* ASTNode::generateThrow(int pass)
     llvmIRBuilder->CreateCall(exitFunc, {ConstantInt::get(LLVMType::getInt32Ty(*llvmCompileContext), 1)});
 
     // Create an unreachable instruction since exit() doesn't return
+    llvmIRBuilder->CreateUnreachable();
+
+    messageSystem::endBlock();
+
+    return nullptr;
+}
+
+void* ASTNode::generateThrowCaller(int pass)
+{
+    messageSystem::startBlock(this, "Generating throw_caller statement", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
+
+    if (callerLocationParamStack.empty())
+        return messageSystem::error("throw_caller used outside of a @tracked_caller function");
+
+    llvm::Argument* callerFile = callerLocationParamStack.top().filepath;
+    llvm::Argument* callerLine = callerLocationParamStack.top().lineNum;
+    llvm::Argument* callerLineContent = callerLocationParamStack.top().lineContent;
+
+    FunctionType* printfFuncType = FunctionType::get(
+        LLVMType::getInt32Ty(*llvmCompileContext),
+        {PointerType::getUnqual(*llvmCompileContext)},
+        true);
+    FunctionCallee printfFunc = llvmCompileModule->getOrInsertFunction("printf", printfFuncType);
+
+    LLVMValue* formatStr = llvmIRBuilder->CreateGlobalString("Exception at %s\n%d |  %s\n");
+    llvmIRBuilder->CreateCall(printfFunc, {formatStr, callerFile, callerLine, callerLineContent});
+
+    // Evaluate and print the thrown value if present
+    if (childNodes.size() > 0) {
+        size_t childIndex = 0;
+        ASTNode* exprNode = childNodes[childIndex];
+
+        void* rawVal = (exprNode->*(exprNode->codegen))(pass);
+        LLVMValue* outVal = (LLVMValue*)rawVal;
+
+        argumentList argList;
+        std::string typeStr = "";
+
+        if (exprNode->nodeType == String_Constant_Node) {
+            if (!compilerDirectiveFlags["IN_STRING_MODULE"] &&
+                structDefinitions.count("string") && structDefinitions["string"]->structVal)
+                typeStr = "string";
+            else
+                typeStr = "*char";
+        }
+        else {
+            typeStr = getStringTypeFromLLVMType(outVal->getType());
+        }
+
+        uint8_t pointerLevel = 0;
+        std::string baseTypeStr = typeStr;
+        while (baseTypeStr.length() > 0 && baseTypeStr[0] == '*') {
+            pointerLevel++;
+            baseTypeStr = baseTypeStr.substr(1);
+        }
+
+        argList.push_back(argType(baseTypeStr, getASTNodeTypeFromString(baseTypeStr), pointerLevel));
+
+        std::string printFnName = "printl";
+        functionID* printFnID = getFunctionFromID(functionIDs, printFnName, argList, true, false);
+
+        if (printFnID) {
+            std::vector<LLVMValue*> printArgs;
+            printArgs.push_back(outVal);
+            llvmIRBuilder->CreateCall(printFnID->fnValue, printArgs);
+            printFnID->uses++;
+        }
+    }
+
+    FunctionType* exitFuncType = FunctionType::get(
+        LLVMType::getVoidTy(*llvmCompileContext),
+        {Type::getInt32Ty(*llvmCompileContext)},
+        false);
+    FunctionCallee exitFunc = llvmCompileModule->getOrInsertFunction("exit", exitFuncType);
+
+    llvmIRBuilder->CreateCall(exitFunc, {ConstantInt::get(LLVMType::getInt32Ty(*llvmCompileContext), 1)});
+
     llvmIRBuilder->CreateUnreachable();
 
     messageSystem::endBlock();
@@ -3363,6 +3536,18 @@ void* ASTNode::generateExpressionStatement(int pass)
             }
             calleeID->uses++;
             std::vector<LLVMValue*> ArgsV = {currentVal, exprVal};
+
+            // Append tracked_caller hidden parameters if the callee requires them
+            if (calleeID->isTrackedCaller && token && token->filePath) {
+                LLVMValue* hiddenFilepath = llvmIRBuilder->CreateGlobalString(*token->filePath);
+                LLVMValue* hiddenLineNum = ConstantInt::get(Type::getInt32Ty(*llvmCompileContext), token->lineNumber);
+                LLVMValue* hiddenLineContent = llvmIRBuilder->CreateGlobalString(
+                    token->lineValue ? *token->lineValue : "");
+                ArgsV.push_back(hiddenFilepath);
+                ArgsV.push_back(hiddenLineNum);
+                ArgsV.push_back(hiddenLineContent);
+            }
+
             if (calleeID->isStructReturn) {
                 auto structIt = structDefinitions.find(calleeID->returnType);
                 if (structIt == structDefinitions.end() || !structIt->second->structVal) {
@@ -4070,6 +4255,17 @@ LLVMValue* ASTNode::generateOperatorOverloadCall(LLVMValue* L, LLVMValue* R)
         }
     }
 
+    // Append tracked_caller hidden parameters if the callee requires them
+    if (calleeID->isTrackedCaller && token && token->filePath) {
+        LLVMValue* hiddenFilepath = llvmIRBuilder->CreateGlobalString(*token->filePath);
+        LLVMValue* hiddenLineNum = ConstantInt::get(Type::getInt32Ty(*llvmCompileContext), token->lineNumber);
+        LLVMValue* hiddenLineContent = llvmIRBuilder->CreateGlobalString(
+            token->lineValue ? *token->lineValue : "");
+        ArgsV.push_back(hiddenFilepath);
+        ArgsV.push_back(hiddenLineNum);
+        ArgsV.push_back(hiddenLineContent);
+    }
+
     // If the operator returns a struct, we need to pass an sret pointer as the first arg
     if (calleeID->isStructReturn) {
         auto structIt = structDefinitions.find(calleeID->returnType);
@@ -4217,6 +4413,18 @@ void* ASTNode::generateAccessOperation(int pass)
                     lArg = llvmIRBuilder->CreateLoad(asaType->baseLLVMType, L, "struct_load");
             }
             std::vector<LLVMValue*> ArgsV = {lArg, R};
+
+            // Append tracked_caller hidden parameters if the callee requires them
+            if (opCalleeID->isTrackedCaller && token && token->filePath) {
+                LLVMValue* hiddenFilepath = llvmIRBuilder->CreateGlobalString(*token->filePath);
+                LLVMValue* hiddenLineNum = ConstantInt::get(Type::getInt32Ty(*llvmCompileContext), token->lineNumber);
+                LLVMValue* hiddenLineContent = llvmIRBuilder->CreateGlobalString(
+                    token->lineValue ? *token->lineValue : "");
+                ArgsV.push_back(hiddenFilepath);
+                ArgsV.push_back(hiddenLineNum);
+                ArgsV.push_back(hiddenLineContent);
+            }
+
             if (opCalleeID->isStructReturn) {
                 auto sIt = structDefinitions.find(opCalleeID->returnType);
                 if (sIt == structDefinitions.end() || !sIt->second->structVal) {
@@ -4525,8 +4733,8 @@ void* ASTNode::generateMemberAccess(int pass)
         }
         // Handle if member function call
         else if (childNodes[1]->nodeType == Function_Call) {
+            std::string userMemberName = memberName;
             memberName = structDefinition->name + "." + memberName;
-            childNodes[1]->token->tokenStr = memberName;
 
             ASTNode* argsNode = childNodes[1]->childNodes[0];
             std::vector<ASTNode*> args = std::vector<ASTNode*>();
@@ -4538,6 +4746,10 @@ void* ASTNode::generateMemberAccess(int pass)
             std::vector<LLVMValue*> ArgsV = std::vector<LLVMValue*>();
             argumentList argList = argumentList();
             // 'this' goes in ArgsV (LLVM call) but NOT in argList (lookup uses userArguments which excludes 'this')
+            // If the base is a reference (e.g. 'this' in a member function), dereference it
+            // to get the actual struct pointer before passing as 'this'.
+            if (v && v->isReference)
+                basePtr = llvmIRBuilder->CreateLoad(PointerType::getUnqual(*llvmCompileContext), basePtr, "ref_struct_ptr");
             ArgsV.push_back(basePtr);
             if (!ArgsV.back()) {
                 messageSystem::endBlock();
@@ -4562,12 +4774,10 @@ void* ASTNode::generateMemberAccess(int pass)
             functionID* CalleeFID = getFunctionFromID(structDefinition->memberFunctions, memberName, argList, true, true);
             if (!CalleeFID) {
                 for (auto& f : structDefinition->memberFunctions) {
-                    if (f->name != memberName)
-                        continue;
-                    messageSystem::addAttribute(f->declNode);
+                    messageSystem::addAttribute(f);
                 }
 
-                return messageSystem::error("Struct definition does not contain member function \"" + memberName + "\"", messageSystem::Undefined_Member_Error);
+                return messageSystem::error("Struct definition does not contain member function \"" + userMemberName + "\"", messageSystem::Undefined_Member_Function_Error);
             }
 
             // Call function
@@ -4588,14 +4798,18 @@ void* ASTNode::generateMemberAccess(int pass)
             }
 
             // If argument mismatch error. ArgsV has [sret?] + 'this' + user args = full LLVM arg count.
-            if (CalleeFID->variableNumArguments == false)
-                if (CalleeF->arg_size() != ArgsV.size()) {
-                    return messageSystem::error("Incorrect number of arguments passed to function");
-                }
-                // If variable arguments, make sure the amount in call are <= the required amount
-                else if (CalleeF->arg_size() > ArgsV.size()) {
-                    return messageSystem::error("Incorrect number of arguments passed to function");
-                }
+            {
+                size_t expectedArgCount = ArgsV.size();
+                if (CalleeFID->isTrackedCaller)
+                    expectedArgCount += 3;
+                if (CalleeFID->variableNumArguments == false)
+                    if (CalleeF->arg_size() != expectedArgCount) {
+                        return messageSystem::error("Incorrect number of arguments passed to function");
+                    }
+                    else if (CalleeF->arg_size() > expectedArgCount) {
+                        return messageSystem::error("Incorrect number of arguments passed to function");
+                    }
+            }
 
             // Rebuild ArgsV for the actual call
             ArgsV = std::vector<LLVMValue*>();
@@ -4674,6 +4888,19 @@ void* ASTNode::generateMemberAccess(int pass)
 
             isCallMemberFunction = false;
             asaType = lastRetrievedElementType.top();
+            if (CalleeFID->returnIsReference)
+                asaType->isRef = true;
+
+            // Append tracked_caller hidden parameters if the callee requires them
+            if (CalleeFID->isTrackedCaller && token && token->filePath) {
+                LLVMValue* hiddenFilepath = llvmIRBuilder->CreateGlobalString(*token->filePath);
+                LLVMValue* hiddenLineNum = ConstantInt::get(Type::getInt32Ty(*llvmCompileContext), token->lineNumber);
+                LLVMValue* hiddenLineContent = llvmIRBuilder->CreateGlobalString(
+                    token->lineValue ? *token->lineValue : "");
+                ArgsV.push_back(hiddenFilepath);
+                ArgsV.push_back(hiddenLineNum);
+                ArgsV.push_back(hiddenLineContent);
+            }
 
             LLVMValue* callResult = nullptr;
             LLVMType* retType = CalleeF->getReturnType();
@@ -4688,6 +4915,13 @@ void* ASTNode::generateMemberAccess(int pass)
             if (memberIsStructReturn) {
                 AsaStruct* retStruct = structDefinitions[CalleeFID->returnType];
                 return llvmIRBuilder->CreateLoad(retStruct->structVal, memberSretAlloc, "member_sret_load");
+            }
+            if (CalleeFID->returnIsReference) {
+                if (lvalue || isRef)
+                    return callResult;
+                bool wasDef = true;
+                LLVMType* refType = getLLVMTypeFromString(CalleeFID->returnType, 0, this, wasDef, pass);
+                return llvmIRBuilder->CreateLoad(refType, callResult, "ref_load");
             }
             return callResult;
         }
@@ -4800,8 +5034,8 @@ void* ASTNode::generateMemberAccess(int pass)
         }
         // Handle if member function call
         else if (childNodes[1]->nodeType == Function_Call) {
+            std::string userMemberName = memberName;
             memberName = structDefinition->name + "." + memberName;
-            childNodes[1]->token->tokenStr = memberName;
 
             ASTNode* argsNode = childNodes[1]->childNodes[0];
             std::vector<ASTNode*> args = std::vector<ASTNode*>();
@@ -4837,7 +5071,10 @@ void* ASTNode::generateMemberAccess(int pass)
             functionID* CalleeFID = getFunctionFromID(structDefinition->memberFunctions, memberName, argList, true, true);
             if (!CalleeFID) {
                 messageSystem::startBlock(childNodes[1], "Generating struct function call", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
-                return messageSystem::error("Struct definition does not contain member function");
+                for (auto& f : structDefinition->memberFunctions) {
+                    messageSystem::addAttribute(f);
+                }
+                return messageSystem::error("Struct definition does not contain member function \"" + userMemberName + "\"", messageSystem::Undefined_Member_Function_Error);
             }
 
             // Call function
@@ -4858,14 +5095,18 @@ void* ASTNode::generateMemberAccess(int pass)
             }
 
             // If argument mismatch error. ArgsV has [sret?] + 'this' + user args = full LLVM arg count.
-            if (CalleeFID->variableNumArguments == false)
-                if (CalleeF->arg_size() != ArgsV.size()) {
-                    return messageSystem::error("Incorrect number of arguments passed to function");
-                }
-                // If variable arguments, make sure the amount in call are <= the required amount
-                else if (CalleeF->arg_size() > ArgsV.size()) {
-                    return messageSystem::error("Incorrect number of arguments passed to function");
-                }
+            {
+                size_t expectedArgCount = ArgsV.size();
+                if (CalleeFID->isTrackedCaller)
+                    expectedArgCount += 3;
+                if (CalleeFID->variableNumArguments == false)
+                    if (CalleeF->arg_size() != expectedArgCount) {
+                        return messageSystem::error("Incorrect number of arguments passed to function");
+                    }
+                    else if (CalleeF->arg_size() > expectedArgCount) {
+                        return messageSystem::error("Incorrect number of arguments passed to function");
+                    }
+            }
 
             // Rebuild ArgsV for the actual call
             ArgsV = std::vector<LLVMValue*>();
@@ -4939,11 +5180,24 @@ void* ASTNode::generateMemberAccess(int pass)
             if (memberIsStructReturn)
                 ArgsV.insert(ArgsV.begin(), memberSretAlloc);
 
+            // Append tracked_caller hidden parameters if the callee requires them
+            if (CalleeFID->isTrackedCaller && token && token->filePath) {
+                LLVMValue* hiddenFilepath = llvmIRBuilder->CreateGlobalString(*token->filePath);
+                LLVMValue* hiddenLineNum = ConstantInt::get(Type::getInt32Ty(*llvmCompileContext), token->lineNumber);
+                LLVMValue* hiddenLineContent = llvmIRBuilder->CreateGlobalString(
+                    token->lineValue ? *token->lineValue : "");
+                ArgsV.push_back(hiddenFilepath);
+                ArgsV.push_back(hiddenLineNum);
+                ArgsV.push_back(hiddenLineContent);
+            }
+
             bool wasDefined = true;
             lastRetrievedElementType.push(new ASAType(getLLVMTypeFromString(CalleeFID->returnType, 0, this, wasDefined, pass)));
 
             isCallMemberFunction = false;
             asaType = lastRetrievedElementType.top();
+            if (CalleeFID->returnIsReference)
+                asaType->isRef = true;
 
             LLVMValue* callResult = nullptr;
             LLVMType* retType = CalleeF->getReturnType();
@@ -4960,6 +5214,13 @@ void* ASTNode::generateMemberAccess(int pass)
             if (memberIsStructReturn) {
                 AsaStruct* retStruct = structDefinitions[CalleeFID->returnType];
                 return llvmIRBuilder->CreateLoad(retStruct->structVal, memberSretAlloc, "member_sret_load");
+            }
+            if (CalleeFID->returnIsReference) {
+                if (lvalue || isRef)
+                    return callResult;
+                bool wasDef = true;
+                LLVMType* refType = getLLVMTypeFromString(CalleeFID->returnType, 0, this, wasDef, pass);
+                return llvmIRBuilder->CreateLoad(refType, callResult, "ref_load");
             }
             return callResult;
 
@@ -5212,11 +5473,15 @@ void* ASTNode::generateTypeInstance(int pass)
 // Deep-copy an ASTNode for template instantiation.
 // Does NOT copy parentNode (caller sets it after the call).
 // Resets currentNodeDoneGenerating so the copy generates fresh.
-static ASTNode* deepCopyASTNode(ASTNode* src)
+static ASTNode* deepCopyASTNodeImpl(ASTNode* src, std::map<ASTNode*, ASTNode*>& visited)
 {
     if (!src)
         return nullptr;
+    auto it = visited.find(src);
+    if (it != visited.end())
+        return it->second;
     ASTNode* copy = new ASTNode();
+    visited[src] = copy;
     copy->nodeType = src->nodeType;
     copy->token = new asaToken(*src->token);
     copy->lineNumber = src->lineNumber;
@@ -5238,14 +5503,20 @@ static ASTNode* deepCopyASTNode(ASTNode* src)
     copy->defaultRawTokens = src->defaultRawTokens;
     copy->asaType = src->asaType;
     for (auto* child : src->childNodes)
-        copy->childNodes.push_back(deepCopyASTNode(child));
+        copy->childNodes.push_back(deepCopyASTNodeImpl(child, visited));
     for (auto* leaf : src->leafNodes)
-        copy->leafNodes.push_back(deepCopyASTNode(leaf));
+        copy->leafNodes.push_back(deepCopyASTNodeImpl(leaf, visited));
     for (auto* attr : src->attributes)
-        copy->attributes.push_back(deepCopyASTNode(attr));
+        copy->attributes.push_back(deepCopyASTNodeImpl(attr, visited));
     for (auto& [k, v] : src->compilerDefinitions)
-        copy->compilerDefinitions[k] = deepCopyASTNode(v);
+        copy->compilerDefinitions[k] = deepCopyASTNodeImpl(v, visited);
     return copy;
+}
+
+static ASTNode* deepCopyASTNode(ASTNode* src)
+{
+    std::map<ASTNode*, ASTNode*> visited;
+    return deepCopyASTNodeImpl(src, visited);
 }
 
 // Walk an AST subtree and replace every token whose text equals paramName with concreteType.
@@ -5750,6 +6021,8 @@ void* ASTNode::generateCallExpression(int pass)
     // For coerced functions, the LLVM arg count is larger than the user arg count
     if (CalleeFID->variableNumArguments == false) {
         size_t expectedIRArgCount = ArgsV.size();
+        if (CalleeFID->isTrackedCaller)
+            expectedIRArgCount += 3;
         for (auto& ua : CalleeFID->userArguments)
             if (ua.externCoercionCount > 0)
                 expectedIRArgCount += ua.externCoercionCount - 1;
@@ -5939,6 +6212,17 @@ void* ASTNode::generateCallExpression(int pass)
     // If struct return, re-insert sret as first arg (after rebuilding)
     if (isStructReturn) {
         ArgsV.insert(ArgsV.begin(), sretAlloc);
+    }
+
+    // Append tracked_caller hidden parameters if the callee requires them
+    if (CalleeFID->isTrackedCaller && token && token->filePath) {
+        LLVMValue* hiddenFilepath = llvmIRBuilder->CreateGlobalString(*token->filePath);
+        LLVMValue* hiddenLineNum = ConstantInt::get(Type::getInt32Ty(*llvmCompileContext), token->lineNumber);
+        LLVMValue* hiddenLineContent = llvmIRBuilder->CreateGlobalString(
+            token->lineValue ? *token->lineValue : "");
+        ArgsV.push_back(hiddenFilepath);
+        ArgsV.push_back(hiddenLineNum);
+        ArgsV.push_back(hiddenLineContent);
     }
 
     LLVMValue* callResult = nullptr;
@@ -6159,8 +6443,68 @@ void* ASTNode::generateStruct(int pass)
     std::unordered_map<std::string, ASTNode*> memberDefaultNodes = std::unordered_map<std::string, ASTNode*>();
     std::unordered_map<std::string, ASTNode*> memberNameTypeNodes = std::unordered_map<std::string, ASTNode*>();
     uint16_t i = 0;
-    for (; generatingType < 2; generatingType++)
-        for (auto fieldNode : childNodes[0]->childNodes) {
+    std::vector<ASTNode*> structBodyNodes;
+    if (!childNodes.empty() && childNodes[0]) {
+        for (ASTNode* bodyChild : childNodes[0]->childNodes) {
+            if (bodyChild && bodyChild->nodeType == Scope_Body) {
+                for (ASTNode* nestedChild : bodyChild->childNodes)
+                    structBodyNodes.push_back(nestedChild);
+            }
+            else {
+                structBodyNodes.push_back(bodyChild);
+            }
+        }
+    }
+    for (; generatingType < 2; generatingType++) {
+        // Pre-populate memberFunctions from the global functionIDs list so that
+        // member functions can reference each other during codegen.
+        if (generatingType == 1 && pass > 1) {
+            // Generate prototypes for all member functions first (if not already done
+            // in pass 1), so they exist in functionIDs for cross-referencing during
+            // body generation.
+            for (auto fieldNode : structBodyNodes) {
+                if (fieldNode->nodeType == Compiler_Define_Function) {
+                    bool isOperatorOverload = fieldNode->token &&
+                                              (fieldNode->token->tokenStr == "operator" || fieldNode->token->tokenStr.rfind("operator.", 0) == 0);
+                    if (isOperatorOverload) {
+                        if (fieldNode->childNodes.size() > 4 && !fieldNode->childNodes[4]->childNodes.empty()) {
+                            (void)(fieldNode->*(fieldNode->codegen))(1);
+                            (void)fieldNode->generatePrototype(1);
+                        }
+                        continue;
+                    }
+                    std::string qualifiedName = structName + "." + fieldNode->token->tokenStr;
+                    bool found = false;
+                    for (auto& fid : functionIDs) {
+                        if (fid->name == qualifiedName) {
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found) {
+                        (fieldNode->*(fieldNode->codegen))(1);
+                    }
+                }
+            }
+            memberFunctions.clear();
+            for (auto fieldNode : structBodyNodes) {
+                if (fieldNode->nodeType == Compiler_Define_Function) {
+                    bool isOperatorOverload = fieldNode->token &&
+                                              (fieldNode->token->tokenStr == "operator" || fieldNode->token->tokenStr.rfind("operator.", 0) == 0);
+                    if (isOperatorOverload)
+                        continue;
+                    std::string qualifiedName = structName + "." + fieldNode->token->tokenStr;
+                    for (auto& fid : functionIDs) {
+                        if (fid->name == qualifiedName) {
+                            memberFunctions.push_back(fid);
+                            break;
+                        }
+                    }
+                }
+            }
+            structDefinitions[structName]->memberFunctions = memberFunctions;
+        }
+        for (auto fieldNode : structBodyNodes) {
 
             // Unwrap member declaration with default value: Expression_Statement(Colon(name, type), defaultVal)
             ASTNode* defaultValNode = nullptr;
@@ -6180,32 +6524,22 @@ void* ASTNode::generateStruct(int pass)
                 }
 
 
-                ASTNode* typeNode = fieldNode->childNodes[1];
-                std::string memberType = typeNode->token->tokenStr;
-
                 ASTNode* nameTypeNode = fieldNode;
                 fieldNode = fieldNode->childNodes[0];
 
                 std::string memberName = fieldNode->token->tokenStr;
-                int pointerLevel = 0;
-
                 memberNameTypeNodes[memberName] = nameTypeNode;
 
-            recurseAddMemberPointer:
-
-                if (typeNode->token->tokenStr == "*") {
-                    pointerLevel++;
-                    typeNode = typeNode->childNodes[0];
-                    goto recurseAddMemberPointer;
+                LLVMType* fieldType = nullptr;
+                std::string memberType;
+                int pointerLevel = 0;
+                bool isConst = false;
+                if (!getDeclaredTypeFromColonNode(nameTypeNode, fieldType, memberType, pointerLevel, isConst, pass)) {
+                    currentStructName.pop();
+                    messageSystem::startBlock(nameTypeNode, "Generating struct member", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
+                    return messageSystem::error("Unable to resolve struct member type");
                 }
 
-                memberType = typeNode->token->tokenStr;
-
-                bool wasDefined = true;
-                LLVMType* fieldType = getLLVMTypeFromString(memberType, 0, typeNode,
-                    wasDefined, pass);
-                for (int i = 0; i < pointerLevel; i++)
-                    fieldType = PointerType::get(*llvmCompileContext, 0);
                 fieldTypes.push_back(fieldType);
                 fieldNames.push_back(memberName);
                 memberNameIndexes[memberName] = i;
@@ -6213,12 +6547,14 @@ void* ASTNode::generateStruct(int pass)
                 if (defaultValNode != nullptr)
                     memberDefaultNodes[memberName] = defaultValNode;
 
-                members.push_back(argType(memberType, getASTNodeTypeFromString(memberType), pointerLevel));
+                members.push_back(argType(memberType, getASTNodeTypeFromString(memberType), pointerLevel, false, false, isConst));
                 i++;
             }
             // Else it is a member function definition
             else if (fieldNode->nodeType == Compiler_Define_Function &&
                      generatingType == 1 && pass > 1) {
+                bool isOperatorOverload = fieldNode->token &&
+                                          (fieldNode->token->tokenStr == "operator" || fieldNode->token->tokenStr.rfind("operator.", 0) == 0);
                 // Generate function
                 Function* memberFunction = (Function*)(fieldNode->*(fieldNode->codegen))(pass);
                 if (wasError) {
@@ -6226,11 +6562,19 @@ void* ASTNode::generateStruct(int pass)
                     messageSystem::endBlock();
                     return nullptr;
                 }
-                // Get pointer to generated function from global
-                functionID* fnID = getFunctionIDFromFunctionPointer(functionIDs, memberFunction);
-                memberFunctions.push_back(fnID);
+                if (isOperatorOverload)
+                    continue;
+                // Member function IDs were pre-populated before the loop so that
+                // member functions can reference each other during codegen.
             }
         }
+        if (generatingType == 0 && pass > 1 && structDefinitions.count(structName)) {
+            structDefinitions[structName]->members = members;
+            structDefinitions[structName]->memberNameIndexes = memberNameIndexes;
+            structDefinitions[structName]->memberDefaultNodes = memberDefaultNodes;
+            structDefinitions[structName]->memberNameTypeNodes = memberNameTypeNodes;
+        }
+    }
     // pass 0 declare struct name,
     // pass 1 struct body and function prototypes,
     // pass 2 function bodies
@@ -6904,11 +7248,15 @@ void* ASTNode::generatePrototype(int pass)
     std::string mangledName = token->tokenStr;
     bool isStruct = false;
     bool isSpecial = false;
+    bool isOperatorOverload = fnName == "operator" || fnName.rfind("operator.", 0) == 0;
 
     if (fnName == "operator") {
         isSpecial = true;
         fnName = fnName + "." + tokenAsString(childNodes[0]->childNodes[0]->token->tokenType);
         mangledName = fnName + "." + tokenAsString(childNodes[0]->childNodes[0]->token->tokenType);
+    }
+    else if (isOperatorOverload) {
+        isSpecial = true;
     }
     else if (fnName == "cast" || fnName == "create" || fnName == "destroy") {
         isSpecial = true;
@@ -7026,7 +7374,7 @@ void* ASTNode::generatePrototype(int pass)
 
     // Get function arguments
     // If it is a struct member function, first add a "this" argument like: (this : ref structName, ...)
-    if (currentStructName.size() > 0) {
+    if (currentStructName.size() > 0 && !isOperatorOverload) {
         std::string typeStr = currentStructName.top();
         bool isReference = true;
         int pointerLevel = 0;  // References don't count as pointer level
@@ -7223,6 +7571,18 @@ void* ASTNode::generatePrototype(int pass)
             return messageSystem::error("Invalid function parameter syntax (expected 'name : type', got something else)");
         }
     }
+
+    bool isTrackedCaller = hasAttribute(this, "tracked_caller");
+    if (isTrackedCaller) {
+        LLVMType* i8PtrTy = PointerType::getUnqual(*llvmCompileContext);
+        argTypes.push_back(i8PtrTy);
+        argTypes.push_back(Type::getInt32Ty(*llvmCompileContext));
+        argTypes.push_back(i8PtrTy);
+        argNames.push_back("__caller_filepath");
+        argNames.push_back("__caller_linenum");
+        argNames.push_back("__caller_line");
+    }
+
     bool isAlwaysInline = false;
     bool forceExternal = false;
     bool forceInternal = false;
@@ -7245,6 +7605,15 @@ void* ASTNode::generatePrototype(int pass)
     //Function* theFunction = llvmCompileModule->getFunction(token->tokenStr);
     functionID* theFunctionID = getExactFunctionFromID(functionIDs, fnName, userArgList);
     if (theFunctionID) {
+        // If the existing functionID was created by a different definition node,
+        // treat this as a redefinition error. Auto-generated defaults are exempt
+        // (isReplaceable) so user-defined functions can legitimately override them.
+        if (theFunctionID->declNode && theFunctionID->declNode != this && !theFunctionID->isReplaceable) {
+            messageSystem::addAttribute(theFunctionID->declNode, "previously defined here");
+            messageSystem::error("Function cannot be redefined, requires unique identity", messageSystem::Redefined_Error);
+            messageSystem::endBlock();
+            return theFunctionID->fnValue;
+        }
         if (verbosity >= 5) {
             console::printIndent(2);
             console::write("-- Pre-existing function definition found for: ");
@@ -7255,7 +7624,6 @@ void* ASTNode::generatePrototype(int pass)
         messageSystem::endBlock();
         return theFunctionID->fnValue;
     }
-
 
     FunctionType* FT = FunctionType::get(actualRetType, argTypes, variableNumArguments);
 
@@ -7291,24 +7659,28 @@ void* ASTNode::generatePrototype(int pass)
         fn->addParamAttr(byvalParamIndices[bi], Attribute::getWithByValType(*llvmCompileContext, byvalParamTypes[bi]));
 
     uint16_t Idx = 0;
+    int numHidden = isTrackedCaller ? 3 : 0;
     for (auto& arg : fn->args()) {
-        arg.setName(argNames[Idx++]);
+        if (Idx < (int)argNames.size())
+            arg.setName(argNames[Idx]);
 
-        if (argList[Idx - 1].isConstant) {
-            LLVMType* argType = arg.getType();
+        if (Idx < (int)argNames.size() - numHidden && Idx < (int)argList.size()) {
+            if (argList[Idx].isConstant) {
+                LLVMType* argType = arg.getType();
 
-            // readonly can only be applied to pointer types
-            if (argType->isPointerTy()) {
-                arg.addAttr(llvm::Attribute::ReadOnly);
-                // Optionally also add NoCapture to indicate the pointer isn't stored
-                // arg.addAttr(llvm::Attribute::NoCapture);
+                // readonly can only be applied to pointer types
+                if (argType->isPointerTy()) {
+                    arg.addAttr(llvm::Attribute::ReadOnly);
+                }
             }
         }
+        Idx++;
     }
 
     functionIDs.push_back(new functionID(fnName, this, token, mangledName, rTypeString, argList, userArgList, fn, variableNumArguments, isStruct, isStructReturn, returnIsReference));
     functionIDs.back()->externReturnCoercionCount = externReturnCoercionCount;
     functionIDs.back()->externReturnCoercionIsFloat = externReturnCoercionIsFloat;
+    functionIDs.back()->isTrackedCaller = isTrackedCaller;
     //functionIDs.back()->declNode = this;
     if (verbosity >= 5) {
         console::printIndent(depth + 2);
@@ -7324,14 +7696,24 @@ void* ASTNode::generateFunction(int pass)
 {
     messageSystem::startBlock(this, "Defining function", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
 
+    // Nested function definitions are not allowed
+    for (ASTNode* p = this->parentNode; p; p = p->parentNode) {
+        if (p->nodeType == Compiler_Define_Function) {
+            messageSystem::error("Nested function definitions are not allowed");
+            messageSystem::endBlock();
+            return nullptr;
+        }
+    }
+
     // First, check for an existing function from a previous declaration.
     //Function* theFunction = llvmCompileModule->getFunction(token->tokenStr);
     functionID* theFunctionID = nullptr;
     Function* theFunction = nullptr;
     std::string functionName = token->tokenStr;
     bool isStruct = false;
+    bool isOperatorOverload = functionName == "operator" || functionName.rfind("operator.", 0) == 0;
 
-    if (currentStructName.size() > 0) {
+    if (currentStructName.size() > 0 && !isOperatorOverload) {
         functionName = currentStructName.top() + "." + functionName;
         isStruct = true;
     }
@@ -7448,9 +7830,31 @@ void* ASTNode::generateFunction(int pass)
         DILocation::get(SP->getContext(), LineNo, 0, SP));
 
 
+    // Push tracked_caller hidden params onto the stack so #caller_* directives can access them
+    if (theFunctionID->isTrackedCaller) {
+        CallerLocationParams params;
+        int argIdx = 0;
+        for (auto& arg : theFunction->args()) {
+            std::string name = arg.getName().str();
+            if (name == "__caller_filepath")
+                params.filepath = &arg;
+            else if (name == "__caller_linenum")
+                params.lineNum = &arg;
+            else if (name == "__caller_line")
+                params.lineContent = &arg;
+            argIdx++;
+        }
+        callerLocationParamStack.push(params);
+    }
+
     // Add remaining arguments
     int i = 0;
     for (auto& arg : theFunction->args()) {
+        std::string argName = arg.getName().str();
+        if (theFunctionID->isTrackedCaller &&
+            (argName == "__caller_filepath" || argName == "__caller_linenum" || argName == "__caller_line")) {
+            continue;  // Skip hidden tracked_caller params (no alloca/named value needed)
+        }
         if (i >= theFunctionID->arguments.size()) {
             //theFunctionID->print(); // TODO: Add this information to message attribute if necessary
             return messageSystem::error("Mismatch in number of arguments vs function signature: " + std::to_string(theFunctionID->arguments.size()));
@@ -7539,6 +7943,9 @@ void* ASTNode::generateFunction(int pass)
     //// Optimize the function. // This causes issues
     //if (optimizationLevel >= 1)
     //  TheFPM->run(*theFunction, *TheFAM);
+
+    if (theFunctionID->isTrackedCaller && !callerLocationParamStack.empty())
+        callerLocationParamStack.pop();
 
     messageSystem::endBlock();
     return theFunction;
@@ -7817,10 +8224,8 @@ ASTNode* ASTNode::resolveCompilerContextASTNode(int pass)
 ASTNode* ASTNode::resolveCompilerParentASTNode(int pass)
 {
     std::vector<ASTNode*> args = getCompilerDirectiveArgs(this);
-    if (args.empty()) {
-        messageSystem::error("#parent requires an AST node argument", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
-        return nullptr;
-    }
+    if (args.empty())
+        return this->parentNode;
 
     ASTNode* argNode = args[0];
     if (!argNode) {
@@ -7847,6 +8252,18 @@ ASTNode* ASTNode::resolveCompilerParentASTNode(int pass)
     return resolvedNode->parentNode;
 }
 
+ASTNode* ASTNode::resolveCompilerFuncASTNode(int pass)
+{
+    ASTNode* scope = this->parentNode;
+    while (scope) {
+        if (scope->nodeType == Compiler_Define_Function)
+            return scope;
+        scope = scope->parentNode;
+    }
+    messageSystem::error("#func_ast is only available inside a function definition", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
+    return nullptr;
+}
+
 // #print_ast AST_NODE;
 // Prints an AST node during compilation.
 void* ASTNode::generateCompilerPrintASTDirective(int pass)
@@ -7867,6 +8284,18 @@ void* ASTNode::generateCompilerPrintASTDirective(int pass)
     ASTNode* nodeToPrint = resolveASTNodeValue(argNode, pass);
     if (!nodeToPrint)
         return messageSystem::error("#print_ast argument did not resolve to an AST node", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
+
+    if (nodeToPrint->nodeType == Identifier_Node && nodeToPrint->token) {
+        ASTNode* scope = this->parentNode;
+        while (scope) {
+            auto it = scope->compilerDefinitions.find(nodeToPrint->token->tokenStr);
+            if (it != scope->compilerDefinitions.end()) {
+                nodeToPrint = it->second;
+                break;
+            }
+            scope = scope->parentNode;
+        }
+    }
 
     printAST(nodeToPrint);
 

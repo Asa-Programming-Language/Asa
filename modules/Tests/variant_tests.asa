@@ -475,11 +475,8 @@ VariantTests :: module {
         test(#compiles(scale<2.0, 3.0>(5.0)) == false,     "#compiles: function variant rejects too many args");
         test(#compiles(duo<int>()) == false,               "#compiles: struct variant rejects too few args");
         test(#compiles(pair<int, float>()) == false,       "#compiles: struct variant rejects too many args");
-        test(#compiles(array<bool>()) == false,            "#compiles: array<T,N> rejects missing N");
-        test(#compiles(array<bool, 4, 8>()) == false,      "#compiles: array<T,N> rejects extra args");
-        test(#compiles({
-            invalidArrayArity : array<bool> = default;
-        }) == false,                                      "#compiles: array<T,N> type rejects missing N");
+        //test(#compiles(array<>()) == false,            "#compiles: array<T> rejects missing T");  // TODO: Fix empty <> parser handling
+        test(#compiles(array<bool, 4, 8>()) == false,      "#compiles: array<T> rejects extra args");
 
         return;
     }

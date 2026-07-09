@@ -55,10 +55,24 @@ main :: (){
         //#error("This program must be run in compiler debug mode (-fcompilerdebug)", {});
     });
 
+    l : list<int> = list<int>();
+    l.append(5);
+    l.append(912389);
+    l.append(32);
+    l.append(0);
+    printl(l.at(0));
+    printl(l.at(1));
 
-    a : array<int, 16> = default;
 
-    a[9] = 5;
+    //a : array<int> = default;
+
+    //a[9] = 5;
+
+    //unistring : string = "some string ❌";
+    //printl(unistring);
+    //for(x in 0..unistring.size()){
+    //    printl(char(unistring[x]));
+    //}
 
 
     //#stack_push("a", { printl("hi!"); });

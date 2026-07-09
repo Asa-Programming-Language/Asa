@@ -307,6 +307,9 @@ int main(int argc, char** argv)
     //optimizeASTNode(rootNode);
     // Assign parent nodes
     assignParentNodes(rootNode);
+    // Move qualified compile-time definitions (`Owner.member :: ...`) into their owner scope.
+    normalizeQualifiedCompilerDefinitions(rootNode);
+    assignParentNodes(rootNode);
     // Unify nested nodes
     unifyNodes(rootNode);
     // Resolve compile-time constant directives (#linenum, #line, etc.)

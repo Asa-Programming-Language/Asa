@@ -1,0 +1,61 @@
+
+// TrackedCallerTests
+// Tests for @tracked_caller attribute and #caller_filepath, #caller_linenum, #caller_line directives.
+
+@public:
+TrackedCallerTests :: module {
+
+    #import Tests.Testing;
+    #import Builtin.String;
+
+    @tracked_caller:
+    getCallerFilepath :: string() {
+        return #caller_filepath;
+    }
+
+    @tracked_caller:
+    getCallerLinenum :: int() {
+        return #caller_linenum;
+    }
+
+    @tracked_caller:
+    getCallerLine :: string() {
+        return #caller_line;
+    }
+
+    // #caller_linenum used in an expression
+    @tracked_caller:
+    addWithCallerLine :: int(x: int) {
+        return x + #caller_linenum;
+    }
+
+    @public:
+    runTrackedCallerTests :: () {
+        beginSection("@tracked_caller");
+
+        fpath : string = getCallerFilepath();
+        test(fpath.length > 0, "#caller_filepath should be non-empty");
+
+        lnum : int = getCallerLinenum();
+        test(lnum > 0, "#caller_linenum should be positive");
+
+        line : string = getCallerLine();
+        test(line.length > 0, "#caller_line should be non-empty");
+
+        // Multiple calls produce expected consecutive line numbers
+        a : int = getCallerLinenum();
+        b : int = getCallerLinenum();
+        test(b == a + 1, "consecutive getCallerLinenum calls should differ by 1");
+
+        c : int = addWithCallerLine(100);
+        test(c > 100, "addWithCallerLine should add caller line number");
+
+        // Test that #caller_* outside @tracked_caller fails to compile
+        test(#compiles(#caller_filepath) == false, "#caller_filepath outside @tracked_caller should error");
+        test(#compiles(#caller_linenum) == false, "#caller_linenum outside @tracked_caller should error");
+        test(#compiles(#caller_line) == false, "#caller_line outside @tracked_caller should error");
+
+        // Test that throw_caller outside @tracked_caller fails to compile
+        test(#compiles({ throw_caller "test"; }) == false, "throw_caller outside @tracked_caller should error");
+    }
+}

@@ -16,7 +16,6 @@
 //     contents : string = readAll(g);
 //     close(g);
 //     ```
-@todo("Make file operation functions be methods of File struct"):
 @hideast:
 @public:
 File :: module {
@@ -29,8 +28,8 @@ File :: module {
     #import Builtin.Memory;
     #import Builtin.Casts;
 
-    // C standard file I/O - FILE* is represented as *char (opaque pointer)
-    #extern fopen  as _fopen_c_extern   :: *char(path : *char, mode : *char);
+    // C standard file I/O - FILE* is represented as *any (opaque pointer)
+    #extern fopen  as _fopen_c_extern   :: *any(path : *char, mode : *char);
     #extern fclose as _fclose_c_extern  :: int(handle : *char);
     #extern fread  as _fread_c_extern   :: uint64(buf : *char, size : uint64, count : uint64, handle : *char);
     #extern fwrite as _fwrite_c_extern  :: uint64(buf : *char, size : uint64, count : uint64, handle : *char);
@@ -47,83 +46,107 @@ File :: module {
     File :: struct {
         handle : *char = ?;
         isOpen : bool = false;
+
+        // Function: open(path, mode)
+        // Description: |
+        //     Opens a file and returns a File handle.
+        //     Mode follows C conventions: "r" (read), "w" (write/create),
+        //     "a" (append), "r+" (read+write), "w+" (create+read+write).
+        //     Check .isOpen to confirm the file opened successfully.
+        @public:
+        open :: File(path : const string, mode : const string) {
+            this = default;
+            h : *char = _fopen_c_extern(path.address, mode.address);
+            if (h != ?) {
+                this.handle = h;
+                this.isOpen = true;
+            }
+            return this;
+        }
+
+        // Function: close()
+        // Description: Closes the file and releases the handle.
+        @public:
+        close :: () {
+            if (this.isOpen)
+                _fclose_c_extern(this.handle);
+        }
+
+        // Function: readAll()
+        // Description: Reads the entire contents of the file and returns it as a string.
+        @public:
+        readAll :: string() {
+            _fseek_c_extern(this.handle, 0, 2);
+            size : int64 = _ftell_c_extern(this.handle);
+            _rewind_c_extern(this.handle);
+            buf : *char = malloc(size + 1);
+            _fread_c_extern(buf, 1, size, this.handle);
+            buf[size] = 0;
+            return string(buf);
+        }
+
+        // Function: readLine()
+        // Description: |
+        //     Reads one line from the file (up to 4095 characters).
+        //     Returns an empty string at end of file.
+        @public:
+        readLine :: string() {
+            buf : *char = malloc(4096);
+            res : *char = _fgets_c_extern(buf, 4096, this.handle);
+
+            if (res == ?)
+                return "";
+
+            return string(buf);
+        }
+
+        // Function: atEnd()
+        // Description: Returns true if the file position is at end of file.
+        @public:
+        atEnd :: bool() {
+            return _feof_c_extern(this.handle) != 0;
+        }
+
+        // Function: write(s)
+        // Description: Writes a string to the file.
+        @public:
+        write:: (s : string) {
+            _fwrite_c_extern(s.address, 1, s.length, this.handle);
+        }
+
+        // Function: writeLine(s)
+        // Description: Writes a string followed by a newline to the file.
+        @public:
+        writeLine :: (s : string) {
+            this.write(s + "\n");
+        }
     }
 
-    // Function: openFile(path, mode)
-    // Description: |
-    //     Opens a file and returns a File handle.
-    //     Mode follows C conventions: "r" (read), "w" (write/create),
-    //     "a" (append), "r+" (read+write), "w+" (create+read+write).
-    //     Check .isOpen to confirm the file opened successfully.
+    // Constructor: File()
+    // Description: Creates an empty file object
+    //
+    // Returns: An empty File object
     @public:
-    openFile :: File(path : const string, mode : const string) {
-        f : File = File();
-        h : *char = _fopen_c_extern(path.address, mode.address);
-        if (h != ?) {
-            f.handle = h;
-            f.isOpen = true;
-        }
+    create :: File(){
+        f : File = default;
         return f;
     }
 
-    // Function: closeFile(f)
-    // Description: Closes the file and releases the handle.
+    // Constructor: File(path, mode)
+    // Description: Creates a file object at the given path, using the specified mode
+    //
+    // Arguments:
+    //     path: String containing the file path
+    //     mode: String specifying read/write mode, follows C conventions: "r" (read),
+    //         "w" (write/create), "a" (append), "r+" (read+write), "w+" (create+read+write).
+    //         Check .isOpen to confirm the file opened successfully.
+    //
+    // Returns: A new file referencing the file at the given path
     @public:
-    closeFile :: (f : File) {
-        if (f.isOpen) {
-            _fclose_c_extern(f.handle);
-        }
-    }
-
-    // Function: readAll(f)
-    // Description: Reads the entire contents of the file and returns it as a string.
-    @public:
-    readAll :: string(f : File) {
-        _fseek_c_extern(f.handle, 0, 2);
-        size : int64 = _ftell_c_extern(f.handle);
-        _rewind_c_extern(f.handle);
-        buf : *char = malloc(size + 1);
-        _fread_c_extern(buf, 1, size, f.handle);
-        buf[int(size)] = char(0);
-        return string(buf);
-    }
-
-    // Function: readLine(f)
-    // Description: |
-    //     Reads one line from the file (up to 4095 characters).
-    //     Returns an empty string at end of file.
-    @public:
-    readLine :: string(f : File) {
-        buf : *char = malloc(4096);
-        res : *char = _fgets_c_extern(buf, 4096, f.handle);
-        if (res == ?) {
-            return string();
-        }
-        return string(buf);
-    }
-
-    // Function: atEnd(f)
-    // Description: Returns true if the file position is at end of file.
-    @public:
-    atEnd :: bool(f : File) {
-        return _feof_c_extern(f.handle) != 0;
-    }
-
-    // Function: writeFile(f, s)
-    // Description: Writes a string to the file.
-    @public:
-    writeFile :: (f : File, s : string) {
-        _fwrite_c_extern(s.address, 1, s.length, f.handle);
-    }
-
-    // Function: writeLine(f, s)
-    // Description: Writes a string followed by a newline to the file.
-    @public:
-    writeLine :: (f : File, s : string) {
-        writeFile(f, s);
-        newl : string = default;
-        newl = newl + '\n';
-        writeFile(f, newl);
+    create :: File(path : string, mode : string){
+        f : File = default;
+        f.open(path, mode);
+        return f;
     }
 
     // Function: deleteFile(path)

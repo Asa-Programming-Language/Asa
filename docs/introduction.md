@@ -18,7 +18,7 @@ main :: (){
 ## The Compile Time Define Operator
 
 One of the operators you will be using most often in Asa is the compile time define. This is the double colon, `:::asa ::`.
-It shares many of the characteristics of the set operator (`:::asa =`), and sometimes their functionality even overlaps. It can somewhat also be compared to the `:::asa #define` preprocessor keyword from C or C++, although Asa does not have a preprocessor. Importantly, anything defined with this operator is ***immutable***. This means that it cannot change during runtime. But, that does *not* mean it cannot be *re*-defined.
+It shares many of the characteristics of the set operator (`:::asa =`), and sometimes their functionality even overlaps. It can somewhat also be compared to the `:::asa #define` preprocessor keyword from C or C++, although Asa does not have a preprocessor. Importantly, anything defined with this operator is **immutable**. This means that it cannot change during runtime. But, that does *not* mean it cannot be *re*-defined.
 
 
 Compile time define is used to assign an expression to a name. The most basic example would be:

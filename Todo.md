@@ -1,6 +1,12 @@
 
 # Todo:
 
+- [ ] Add **builtin** array type
+
+- [ ] Make functions able to return a reference. Returning `ref T` allows using return as lvalue, modifying like `foo().x = 5;`. Returning `const ref T` allows only using it as readonly. This is necessary for things like `operator[]`, where getting and setting is expected to have different behavior. Like `someMap[5] = 4;` and `printl(someMap[5]);`   TODO: See if this differentiation is actually necessary
+
+- [ ] Re-implement file.asa
+
 - [ ] Make all compilation be executed using a singular function path, to prevent repetition and multiple steps that must be kept up to date separately
 
 - [ ] Ensure compiler directives have exact number of expected arguments, and errors on not enough or too many arguments
@@ -36,17 +42,11 @@
 
 - [ ] Add `#embed_binary` compiler directive
 
-- [ ] Fix `operator[]`.
-
 - [ ] Allow setting specific type of enum values, ie. `uint16` or `float`
 
 - [ ] Implement function multi-return
 
-- [ ] Make functions able to return a reference. Returning `ref T` allows using return as lvalue, modifying like `foo().x = 5;`. Returning `const ref T` allows only using it as readonly. This is necessary for things like `operator[]`, where getting and setting is expected to have different behavior. Like `someMap[5] = 4;` and `printl(someMap[5]);`   TODO: See if this differentiation is actually necessary
-
 - [ ] Add way to get all attributes of symbol as array for iterating over
-
-- [ ] Add **builtin** array type
 
 - [ ] Add `@callingconvention("c"):` attribute
 
@@ -56,6 +56,8 @@
 
 
 # Done:
+- [x] Fix `operator[]`.
+- [x] Add builtin type documentation
 - [x] Implement string formatting with internal curly braces: `someVar : int = 5;` then `printl(f"{someVar}");` -> `"5"`
 - [x] Improve declaration initialization, adding `default` and `?` values
 - [x] Add compiler directives: `#if(COND, BODY)`, `#stack_last(NAME)`, `#stack_push(NAME, AST)`, `#stack_pop(NAME)`, `#error(MESSAGE, AST)`, `#warning(MESSAGE, AST)`, `#context`

@@ -23,6 +23,7 @@ List :: module{
         // Function: size()
         // Description: Returns the number of elements in the list
         // Returns: An integer representing the number of elements in the list
+        @inline:
         size :: uint32() {
             return this.length;
         }
@@ -33,8 +34,8 @@ List :: module{
         //     ```asa
         //     list.append(element)
         //     ```
-        //     Returns: The element that was just added
-        append :: T(val : T){ // TODO: Make this return ref
+        // Returns: The element that was just added
+        append :: ref T(val : T){
             this.length += 1;
             requiredBytes = this.length * #sizeof(T);
             // Reallocate memory, doubling amount each time so it isn't copied and re-allocated
@@ -49,35 +50,71 @@ List :: module{
                 this.address = newAddress;
             }
             this.address[this.length-1] = val;
-            return val;
+            return this.address[this.length-1];
         }
 
-        //operator([]) :: ref ELEMENT_TYPE(i : int) #inline {
-        //  return ELEMENT_TYPE(this.address[i]);
-        //}
+        // Function: at(i)
+        // Description: |
+        //     Get an element of the list at the given index
+        // Returns: The element that was just added
+        @tracked_caller:
+        @inline:
+        at :: ref T(i : int){
+            #if(#getflag(NO_RUNTIME_SAFETY_CHECKS), {
+                #set_attribute(#func_ast, "tracked_caller", false);
+            });
+            #else({
+                if(i >= this.length){
+                    throw_caller "List index out of range";
+                }
+            });
+
+            return this.address[i];
+        }
+
+        // Operator: [](list, int)
+        // Description: Indexes the item of the list at the given index
+        //
+        // Arguments:
+        //     l: The list
+        //     i: The index of the item
+        //
+        // Returns: A reference to the item at the given index
+        @tracked_caller:
+        @inline:
+        operator([]) :: ref T(l : const ref list<T>, i : int){
+            #if(#getflag(NO_RUNTIME_SAFETY_CHECKS), {
+                #set_attribute(#func_ast, "tracked_caller", false);
+            });
+            #else({
+                if(i >= l.length){
+                    throw_caller "List index out of range";
+                }
+            });
+
+            return l.address[i];
+        }
     }
 
-    
-    list<T : type>.operator([]) :: ref T(l : list<T>, i : int) {
-        return l.address[i];
+    // Constructor: list<T>()
+    // Description: Creates a new empty list of the specified type `T`
+    @inline:
+    create<T : type> :: list<T>(){
+        l : list<T> = default;
+        return l;
     }
 
-    //// Function: list<type>()
-    //// Description: |
-    ////     Creates a new list of the specified type.
-    ////     Example:
-    ////     ```asa
-    ////     x : list = list<type=int32>();
-    ////     ```
-    //// Returns: A list object
-    //@public:
-    //create<T : type> :: list(){
-    //  l : list = list();
-    //  l.TYPE = T;
-    //  return l;
-    //}
+    // Constructor: list<T>(array)
+    // Description: Creates a new list of the specified type `T` from an array of the same type
+    create<T : type> :: list<T>(a : array<T>){
+        l : list<T> = default;
+        for(i in 0..a.length){
+            l.append(a[i]);
+        }
+        return l;
+    }
 
-    //// Function: range(list)
+    //// Constructor: range(list)
     //// Description: |
     ////     Gets the <range> object representing the list at the time of calling
     ////     Example:
