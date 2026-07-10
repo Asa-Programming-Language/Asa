@@ -362,8 +362,7 @@ std::unordered_map<std::string, bool> typeSigns = {
     {"uint16", false},
     {"uint8", false},
 
-    {"char", false},
-    {"uchar", false},
+    {"byte", false},
     {"bool", false},
 
     {"double", false},
@@ -378,9 +377,8 @@ static std::unordered_map<std::string, int> typeEquivGroup = {
     {"uint", 1},
     {"uint32", 1},
     {"int8", 2},
-    {"char", 2},
+    {"byte", 2},
     {"uint8", 3},
-    {"uchar", 3},  // TODO: Will there be uchar?
 };
 static int nextTypeEquivGroup = 4;
 
@@ -610,11 +608,11 @@ struct functionID {
             if (userArguments[i].pointerLevel != a[i].pointerLevel) {
                 bool isStringToCharPtr =
                     userArguments[i].pointerLevel == 1 &&
-                    (userArguments[i].typeString == "char" || userArguments[i].typeString == "int8") &&
+                    (userArguments[i].typeString == "byte" || userArguments[i].typeString == "int8") &&
                     a[i].pointerLevel == 0 && a[i].typeString == "string";
                 bool isCharPtrToString =
                     userArguments[i].pointerLevel == 0 && userArguments[i].typeString == "string" &&
-                    a[i].pointerLevel == 1 && (a[i].typeString == "char" || a[i].typeString == "int8");
+                    a[i].pointerLevel == 1 && (a[i].typeString == "byte" || a[i].typeString == "int8");
                 if (isStringToCharPtr || isCharPtrToString) {
                     differences += 10;
                     continue;
@@ -812,7 +810,7 @@ DIType* createDIType(LLVMType* llvmType, const std::string& typeString)
 
         // Check if unsigned
         if (typeString.find("uint") != std::string::npos ||
-            typeString == "bool" || typeString == "char" || typeString == "uchar") {
+            typeString == "bool" || typeString == "byte") {
             encoding = dwarf::DW_ATE_unsigned;
         }
 
@@ -1208,7 +1206,7 @@ LLVMType* getLLVMTypeFromString(std::string typeName, int pointerLevelOffset, AS
         aType = LLVMType::getInt32Ty(*llvmCompileContext);
     else if (typeName == "int16" || typeName == "uint16")
         aType = LLVMType::getInt16Ty(*llvmCompileContext);
-    else if (typeName == "int8" || typeName == "uint8" || typeName == "uchar" || typeName == "char")
+    else if (typeName == "int8" || typeName == "uint8" || typeName == "byte")
         aType = LLVMType::getInt8Ty(*llvmCompileContext);
     else if (typeName == "int64" || typeName == "uint64")
         aType = LLVMType::getInt64Ty(*llvmCompileContext);
@@ -1325,7 +1323,7 @@ std::string getStringTypeFromLLVMType(llvm::Type* type)
         baseTypeName = "bool";
     }
     else if (baseType->isIntegerTy(8)) {
-        baseTypeName = "char";  // char/uint8 are unsigned in ASA; use unsigned default for i8
+        baseTypeName = "byte";  // byte/uint8 are unsigned in ASA; use unsigned default for i8
     }
     else if (baseType->isIntegerTy(16)) {
         baseTypeName = "int16";
@@ -1397,8 +1395,8 @@ ASTNodeType getASTNodeTypeFromString(const std::string& typeNameIn)
         return SInt128_Type;
     if (typeName == "uint128")
         return UInt128_Type;
-    if (typeName == "char")
-        return Char_Type;
+    if (typeName == "byte")
+        return Byte_Type;
     if (typeName == "bool")
         return Boolean_Node;
     if (typeName == "float")
@@ -1590,17 +1588,16 @@ void resetCodeGenerator()
     resultContextStack = std::stack<ResultContext>();
     currentStructName = std::stack<std::string>();
 
-    // Reset type alias map and dynamic equivalence groups
-    typeAliasMap.clear();
+    // Reset dynamic equivalence groups (typeAliasMap is preserved — aliases are
+    // registered during parsing, before initializeCodeGenerator is called).
     typeEquivGroup = {
         {"int", 0},
         {"int32", 0},
         {"uint", 1},
         {"uint32", 1},
         {"int8", 2},
-        {"char", 2},
+        {"byte", 2},
         {"uint8", 3},
-        {"uchar", 3},
     };
     nextTypeEquivGroup = 4;
 
@@ -1618,8 +1615,7 @@ void resetCodeGenerator()
         {"uint", false},
         {"uint16", false},
         {"uint8", false},
-        {"char", false},
-        {"uchar", false},
+        {"byte", false},
         {"bool", false},
         {"double", false},
         {"float", false},
@@ -2786,7 +2782,7 @@ void* ASTNode::generateThrow(int pass)
 
     // Look up print function for the prefix (char* type)
     argumentList prefixArgList;
-    prefixArgList.push_back(argType("char", Char_Type, 1));
+    prefixArgList.push_back(argType("byte", Byte_Type, 1));
     std::string printFnName = "print";
     functionID* prefixPrintFnID = getFunctionFromID(functionIDs, printFnName, prefixArgList, true, false);
 
@@ -5930,7 +5926,13 @@ void* ASTNode::generateCallExpression(int pass)
         }
     }
 
-    functionID* CalleeFID = getFunctionFromID(functionIDs, resolvedFnName, argList, true, shouldBeMemberFunction, true);
+    // Try alias-resolved name first, then fall back to the original token name
+    // (cast functions like `char(x)` use the original name, not the alias target)
+    functionID* CalleeFID = nullptr;
+    if (resolvedFnName != token->tokenStr)
+        CalleeFID = getFunctionFromID(functionIDs, resolvedFnName, argList, true, shouldBeMemberFunction, false);
+    if (!CalleeFID)
+        CalleeFID = getFunctionFromID(functionIDs, token->tokenStr, argList, true, shouldBeMemberFunction, true);
     if (!CalleeFID) {
         return nullptr;
     }
@@ -6110,7 +6112,7 @@ void* ASTNode::generateCallExpression(int pass)
         const argType& formal = CalleeFID->arguments[formalArgIdx];
         if (argVal && argVal->getType()->isStructTy() &&
             formal.pointerLevel == 1 &&
-            (formal.typeString == "char" || formal.typeString == "int8")) {
+            (formal.typeString == "byte" || formal.typeString == "int8")) {
             // string -> *char: extract .address (element 0)
             argVal = llvmIRBuilder->CreateExtractValue(argVal, {0}, "str_addr");
         }
@@ -7299,7 +7301,7 @@ void* ASTNode::generatePrototype(int pass)
             mangledName += ".ptr";
         else
             mangledName += "." + typeNode->token->tokenStr;
-        rTypeString += typeNode->token->tokenStr;
+        rTypeString += resolveTypeAlias(typeNode->token->tokenStr);
 
         if (typeNode->token->tokenStr == "*") {
             goto recurseAddPointer;
@@ -7463,7 +7465,7 @@ void* ASTNode::generatePrototype(int pass)
                 //  isConstant = false;
 
                 mangledName += "." + typeNode->token->tokenStr;
-                typeStr += typeNode->token->tokenStr;
+                typeStr += resolveTypeAlias(typeNode->token->tokenStr);
 
 
                 LLVMType* aType = nullptr;

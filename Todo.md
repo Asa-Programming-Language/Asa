@@ -1,11 +1,6 @@
 
 # Todo:
 
-- [ ] Add **builtin** array type
-
-- [ ] Make functions able to return a reference. Returning `ref T` allows using return as lvalue, modifying like `foo().x = 5;`. Returning `const ref T` allows only using it as readonly. This is necessary for things like `operator[]`, where getting and setting is expected to have different behavior. Like `someMap[5] = 4;` and `printl(someMap[5]);`   TODO: See if this differentiation is actually necessary
-
-- [ ] Re-implement file.asa
 
 - [ ] Make all compilation be executed using a singular function path, to prevent repetition and multiple steps that must be kept up to date separately
 
@@ -52,10 +47,10 @@
 
 
 
-
-
-
 # Done:
+- [x] Make functions able to return a reference. Returning `ref T` allows using return as lvalue, modifying like `foo().x = 5;`. Returning `const ref T` allows only using it as readonly. This is necessary for things like `operator[]`, where getting and setting is expected to have different behavior. Like `someMap[5] = 4;` and `printl(someMap[5]);`   TODO: See if this differentiation is actually necessary
+- [x] Re-implement file.asa
+- [x] Add **builtin** array type
 - [x] Fix `operator[]`.
 - [x] Add builtin type documentation
 - [x] Implement string formatting with internal curly braces: `someVar : int = 5;` then `printl(f"{someVar}");` -> `"5"`

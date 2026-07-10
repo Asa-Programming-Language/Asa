@@ -252,6 +252,20 @@ int main(int argc, char** argv)
     rootNode = generateAST(allTokens);
 #define A new ASTNode
 
+
+    // Insert `#import Builtin.Aliases;` at beginning of AST
+    rootNode->childNodes.insert(rootNode->childNodes.begin(),
+        A(Compile_Time_Directive,
+            {
+                A(Identifier_Node, {}, new asaToken("#import", Identifier)),
+                A(Scope_Body,
+                    {A(Member_Access,
+                        {
+                            A(Identifier_Node, {}, new asaToken("Builtin", Identifier)),
+                            A(Identifier_Node, {}, new asaToken("Aliases", Identifier)),
+                        },
+                        new asaToken(".", Dot))}),
+            }));
     // Insert `#import Builtin.Casts;` at beginning of AST
     rootNode->childNodes.insert(rootNode->childNodes.begin(),
         A(Compile_Time_Directive,

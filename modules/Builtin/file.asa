@@ -8,11 +8,12 @@
 //     ```asa
 //     #import Builtin.File;
 //
-//     f : File = open("hello.txt", "w");
+//     f : File = File("hello.txt", "w");
 //     writeLine(f, "Hello, world!");
 //     close(f);
 //
-//     g : File = open("hello.txt", "r");
+//     g : File = File();
+//     g.open("hello.txt", "r");
 //     contents : string = readAll(g);
 //     close(g);
 //     ```

@@ -16,6 +16,12 @@ Aliases :: module {
     u64  :: uint64;
     u128 :: uint128;
 
+    byte8  :: byte;
+    byte16 :: uint16;
+
+    char  :: byte;
+    uchar :: byte;
+
     f32  :: float32;
     f64  :: float64;
 
