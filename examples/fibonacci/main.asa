@@ -1,9 +1,10 @@
 
+#import Builtin.Print;
 
-fib::uint64(number : uint64){
-    a : uint64 = 1;
-    b : uint64 = 1;
-    next : uint64 = 0;
+fib::uint64(number : uint128){
+    a : uint128 = 1;
+    b : uint128 = 1;
+    next : uint128 = 0;
 
 
     while(number > 0){

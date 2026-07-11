@@ -2905,6 +2905,13 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
                 goto dontAddNode;
             }
 
+            case Initial_Keyword: {
+                node->nodeType = Initial_Initializer_Node;
+                node->codegen = &ASTNode::generateConstant;
+                parentNode->leafNodes.push_back(node);
+                goto dontAddNode;
+            }
+
             case True_Literal:
             case False_Literal: {
                 node->nodeType = Boolean_Node;

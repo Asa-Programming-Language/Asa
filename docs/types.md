@@ -1,5 +1,5 @@
 
-# Builtin Basic Types
+# Basic Types
 Types that are built into the Asa language, including structs from `:::asa Builtin.*` modules.
 
 ```asa
@@ -13,9 +13,9 @@ uint uint8 uint16 uint32 uint64 uint128
 // Floats
 float float32 double float64
 
-// Strings
+// Other
 string
-char
+byte char uchar
 ```
 
 -----

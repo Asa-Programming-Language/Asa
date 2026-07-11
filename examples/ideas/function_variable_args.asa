@@ -1,0 +1,21 @@
+// It is necessary for some functions to have a variable number of arguments. A good example is `printf`:
+printf :: (s : string, ...){
+    // ...
+}
+
+// But the way C/C++ does it is pretty bad. One way I thought initially to do it is by treating it like an
+// implicit array-like object. Like:
+foo :: (s : string, args : ...){
+    // Access like:
+    printl(args[0].value);
+    // With info like:
+    printl(args.length);
+}
+
+// This is very odd though, since it basically borrows runtime syntax for something that is compile-time.
+// And also makes it seem like you can access the arguments arbitrarily, when in reality that would be far
+// more complex of a task to achieve and verify safety of. Also, the `...` syntax doesn't restrict the types
+// you can pass or the number of arguments you can pass, so it is very open, which further would complicate things.
+
+// For now, I think I will leave variadic functions in the FFI only. That way, the language remains compatible
+// with libraries, but it doesnt really need variadic functions due to better alternatives existing in most cases.

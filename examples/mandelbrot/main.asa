@@ -133,10 +133,10 @@ main :: () {
         }
 
         if (IsKeyPressed(KEY_R)) {
-            centerX = -0.5;
-            centerY = 0.0;
-            viewWidth = 3.6;
-            maxIterations = DEFAULT_ITERATIONS;
+            centerX = initial;
+            centerY = initial;
+            viewWidth = initial;
+            maxIterations = initial;
             changed = true;
         }
 

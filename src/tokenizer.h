@@ -111,6 +111,7 @@ enum TokenType {
 
     Operator_Keyword,
     Default_Keyword,
+    Initial_Keyword,
 
     True_Literal,
     False_Literal,
@@ -239,6 +240,7 @@ const std::string tokenTypeStrings[] = {
 
     "Operator_Keyword",
     "Default_Keyword",
+    "Initial_Keyword",
 
     "True_Literal",
     "False_Literal",

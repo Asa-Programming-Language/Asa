@@ -477,24 +477,6 @@ String :: module{
         return !(a == b);
     }
 
-    // Function: print(string)
-    // Description: A function to overload <print(*char)> for strings
-    @public:
-    @inline:
-    print :: (s : const exact string) {
-        print(s.address);
-        return;
-    }
-
-    // Function: printl(string)
-    // Description: A function to overload <printl(*char)> for strings
-    @public:
-    @inline:
-    printl :: (s : const exact string) {
-        printl(s.address);
-        return;
-    }
-
     // Function: padRight(s, ch, targetLen)
     // Description: Returns s with ch appended on the right until length reaches targetLen.
     //              If s is already at or beyond targetLen, returns s unchanged.

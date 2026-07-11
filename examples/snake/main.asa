@@ -14,15 +14,16 @@ BG_COLOR :: Color32(30, 30, 30);
 
 SNAKE_MAX :: 100;
 
+SPAWN_INTERVAL :: 0.15;
+
 snake : *Vector2 = ?;
-snakeLength : int = ?;
+snakeLength : int = 3;
 food : Vector2 = Vector2();
 direction : Vector2 = Vector2(1, 0);
 nextDirection : Vector2 = Vector2(1, 0);
 score : int = 0;
 gameOver : bool = false;
 spawnTime : float = 0.0;
-spawnInterval :: 0.15;
 
 main :: () {
     InitWindow(SCREEN_W, SCREEN_H, "Asa Snake");
@@ -32,7 +33,6 @@ main :: () {
     snake[0] = Vector2(5, 10);
     snake[1] = Vector2(4, 10);
     snake[2] = Vector2(3, 10);
-    snakeLength = 3;
     
     spawnFood();
 
@@ -41,7 +41,8 @@ main :: () {
             if (IsKeyPressed(KEY_SPACE)) {
                 resetGame();
             }
-        } else {
+        }
+        else {
             update(GetFrameTime());
         }
 
@@ -61,7 +62,8 @@ main :: () {
         if (gameOver) {
             DrawText("GAME OVER! Press SPACE to restart", SCREEN_W/2 - 200, SCREEN_H/2 - 20, 24, WHITE);
             DrawText("Final Score: " + score, SCREEN_W/2 - 100, SCREEN_H/2 + 20, 24, WHITE);
-        } else {
+        } 
+        else {
             drawSnake();
             drawFood();
             DrawText("Score: " + score, 10, 10, 20, WHITE);
@@ -77,16 +79,16 @@ resetGame :: () {
     snake[0] = Vector2(5, 10);
     snake[1] = Vector2(4, 10);
     snake[2] = Vector2(3, 10);
-    snakeLength = 3;
+    snakeLength = initial;
     direction = Vector2(1, 0);
     nextDirection = Vector2(1, 0);
-    score = 0;
-    gameOver = false;
+    score = initial;
+    gameOver = initial;
     spawnFood();
 }
 
 spawnFood :: () {
-    valid : bool = false;
+    valid : bool;
     while (valid == false) {
         x : int = GetRandomValue(0, GRID_W - 1);
         y : int = GetRandomValue(0, GRID_H - 1);
@@ -116,7 +118,7 @@ update :: (dT : float) {
     }
     
     spawnTime += dT;
-    if (spawnTime >= spawnInterval) {
+    if (spawnTime >= SPAWN_INTERVAL) {
         spawnTime = 0.0;
         direction = nextDirection;
         
@@ -146,7 +148,8 @@ update :: (dT : float) {
         if (newHead.x == food.x && newHead.y == food.y) {
             score += 1;
             spawnFood();
-        } else {
+        }
+        else {
             snakeLength -= 1;
         }
     }

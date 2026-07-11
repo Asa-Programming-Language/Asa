@@ -41,6 +41,7 @@
 #import Tests.LoopEdgeCaseTests;
 #import Tests.IntegerBehaviorTests;
 #import Tests.TrackedCallerTests;
+#import Tests.InitialTests;
 
 @public:
 main :: () {
@@ -83,6 +84,7 @@ main :: () {
     runLoopEdgeCaseTests();
     runIntegerBehaviorTests();
     runTrackedCallerTests();
+    runInitialTests();
     printSummary();
     return;
 }

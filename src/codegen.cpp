@@ -2159,7 +2159,8 @@ void declareModuleScopeVariable(ASTNode* exprStmtNode, ASTNode* ownerNode, bool 
     vt->isConstant = isConst;
     vt->isUndefined = rhsIsUndefined;
     vt->declNode = exprStmtNode;  // the expression statement node that owns the attributes
-
+    vt->initialNode = rhsInitializer; // Store the initial value node for global variables to support 'initial' keyword
+    
     // For root-level vars, store in the expression stmt's own namedValues so
     // findNamedValue (which checks direct children of root) can find it.
     // For module vars, store in the module node's namedValues (accessible only
@@ -2507,6 +2508,10 @@ void* ASTNode::generateConstant(int pass)
     else if (nodeType == Undefined_Initializer_Node) {
         messageSystem::endBlock();
         return ConstantPointerNull::get(PointerType::getUnqual(*llvmCompileContext));
+    }
+    else if (nodeType == Initial_Initializer_Node) {
+        messageSystem::endBlock();
+        return messageSystem::error("'initial' can only be used in assignments to reset a variable");
     }
     else if (nodeType == Void_Node) {
         messageSystem::endBlock();
@@ -3183,6 +3188,7 @@ void* ASTNode::generateExpressionStatement(int pass)
     ASTNode* initializerNode = unwrapSingleExpressionNode(exprNode);
     bool rhsIsUndefined = initializerNode && initializerNode->nodeType == Undefined_Initializer_Node;
     bool rhsIsDefault = initializerNode && initializerNode->nodeType == Default_Initializer_Node;
+    bool rhsIsInitial = initializerNode && initializerNode->nodeType == Initial_Initializer_Node;
 
     messageSystem::startBlock(exprNode, "Generating expression right side", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
 
@@ -3196,7 +3202,7 @@ void* ASTNode::generateExpressionStatement(int pass)
     }
 
     LLVMValue* exprVal = nullptr;
-    if (!rhsIsUndefined && !rhsIsDefault) {
+    if (!rhsIsUndefined && !rhsIsDefault && !rhsIsInitial) {
         // Evaluate right side (rvalue)
         exprVal = (LLVMValue*)(exprNode->*(exprNode->codegen))(pass);
         if (wasError) {
@@ -3284,6 +3290,9 @@ void* ASTNode::generateExpressionStatement(int pass)
                 return nullptr;
         }
     }
+    else if (rhsIsInitial) {
+        // type will be resolved from the target variable during LHS processing
+    }
     // Automatically resolve type from expression if not already set
     else if (type == nullptr) {
         type = exprVal->getType();
@@ -3359,6 +3368,7 @@ void* ASTNode::generateExpressionStatement(int pass)
             namedValues[leftNode->token->tokenStr]->isConstant = isConst;
             namedValues[leftNode->token->tokenStr]->isUndefined = rhsIsUndefined;
             namedValues[leftNode->token->tokenStr]->declNode = declarationNode;
+            namedValues[leftNode->token->tokenStr]->initialNode = initializerNode;
             targetValue = namedValues[leftNode->token->tokenStr];
             trackVariableUsage(declarationNode);
             newConstLocal = isConst;
@@ -3450,6 +3460,27 @@ void* ASTNode::generateExpressionStatement(int pass)
         exprVal = generateDefaultValueForType(targetType, defaultTypeName, defaultPointerLevel, pass, this);
         if (wasError || !exprVal)
             return nullptr;
+    }
+    if (rhsIsInitial && !exprVal) {
+        if (isDeclaration)
+            return messageSystem::error("Cannot use 'initial' in a declaration");
+        if (!targetValue || !targetValue->initialNode)
+            return messageSystem::error("Variable '" + leftNode->token->tokenStr + "' has no initial value");
+        ASTNode* initNode = targetValue->initialNode;
+        if (initNode->nodeType == Undefined_Initializer_Node)
+            return messageSystem::error("'" + leftNode->token->tokenStr + "' was declared with '?', which has no defined initial value");
+        if (initNode->nodeType == Default_Initializer_Node) {
+            if (!targetType)
+                return messageSystem::error("Cannot infer type from 'default'. Use an explicit type annotation.");
+            exprVal = generateDefaultValueForType(targetType, defaultTypeName, defaultPointerLevel, pass, this);
+        }
+        else {
+            exprVal = (LLVMValue*)(initNode->*(initNode->codegen))(pass);
+        }
+        if (wasError || !exprVal)
+            return nullptr;
+        if (!llvm::dyn_cast<llvm::Constant>((LLVMValue*)exprVal))
+            return messageSystem::error("Initial value of '" + leftNode->token->tokenStr + "' is not a compile-time constant");
     }
 
     messageSystem::startBlock(this, "Generating compound assignment operation", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);

@@ -11,11 +11,9 @@ Print :: module {
 
     #import Builtin.String;
 
-    //#library "libc";
-    //print :: {#foreign "printf"};
-    #extern printf :: int32 (s : const *char, ...);
-    #extern puts :: int32 (str : const *char);
-    #extern putchar::(c : char);
+    #extern printf as __printf_c_extern   :: int32 (s : const *char, ...);
+    #extern puts as __puts_c_extern       :: int32 (str : const *char);
+    #extern putchar as __putchar_c_extern :: (c : char);
 
     // Function: print(*char)
     // Description: A function for printing a character array to the terminal
@@ -24,8 +22,8 @@ Print :: module {
     //     s: The `:::asa *char` to print.
     @public:
     @inline:
-    print :: (s : exact *char, ...) {
-        printf(s);
+    print :: (s : exact *char) {
+        __printf_c_extern(s);
         return;
     }
 
@@ -36,9 +34,27 @@ Print :: module {
     //     s: The character array to print.
     @public:
     @inline:
-    printl :: (s : exact *char, ...) {
-        printf(s);
-        puts("");
+    printl :: (s : exact *char) {
+        __printf_c_extern(s);
+        __puts_c_extern("");
+        return;
+    }
+
+    // Function: print(string)
+    // Description: A function for printing a string to the terminal
+    @public:
+    @inline:
+    print :: (s : const exact string) {
+        print(s.address);
+        return;
+    }
+
+    // Function: printl(string)
+    // Description: A function for printing a string to the terminal with a newline
+    @public:
+    @inline:
+    printl :: (s : const exact string) {
+        printl(s.address);
         return;
     }
 
@@ -51,7 +67,7 @@ Print :: module {
     @public:
     @inline:
     printl :: () {
-        puts("");
+        __puts_c_extern("");
         return;
     }
 
@@ -60,7 +76,7 @@ Print :: module {
     @public:
     @inline:
     newline :: () {
-        putchar(10);
+        __putchar_c_extern(10);
     }
 
     // Function: print(int)

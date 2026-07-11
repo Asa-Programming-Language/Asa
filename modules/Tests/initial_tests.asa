@@ -1,0 +1,83 @@
+
+// InitialTests
+// Tests for the `initial` keyword: resetting a variable to its original
+// compile-time constant value from its declaration.
+
+@public:
+InitialTests :: module {
+
+	#import Tests.Testing;
+
+	// Global variable test cases
+	g1 : int = 42;
+	g2 : string = "hello";
+
+	@public:
+	runInitialTests :: () {
+		beginSection("Initial keyword");
+
+		// Integer
+		{
+			x : int = 42;
+			x = 7;
+			x = initial;
+			test(x == 42,                    "initial int: resets to declared value");
+		}
+
+		// Float
+		{
+			x : float = 1.5;
+			x = 0.0;
+			x = initial;
+			test(x == 1.5,                   "initial float: resets to declared value");
+		}
+
+		// Bool
+		{
+			x : bool = true;
+			x = false;
+			x = initial;
+			test(x == true,                  "initial bool: resets to declared value");
+		}
+
+		// String
+		{
+			x : string = "hello";
+			x = "world";
+			x = initial;
+			test(x == "hello",               "initial string: resets to declared value");
+		}
+
+		// Multiple resets
+		{
+			x : int = 100;
+			x = 1;
+			x = initial;
+			x = 2;
+			x = initial;
+			test(x == 100,                   "initial int: works after repeated resets");
+		}
+
+		// Pointer (null)
+		{
+			d : int = 0;
+			p : *int = default;
+			p = &d;
+			p = initial;
+			test(p == ?,                     "initial ptr: resets to null");
+		}
+
+		// Global variable tests
+		{
+			g1 = 7;
+			g1 = initial;
+			test(g1 == 42, "Global int should reset to initial");
+		}
+		
+		{
+			g2 = "world";
+			g2 = initial;
+			test(g2 == "hello", "Global string should reset to initial");
+		}
+	}
+}

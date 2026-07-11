@@ -47,6 +47,7 @@ enum ASTNodeType {
     Character_Constant_Node,
     Undefined_Initializer_Node,
     Default_Initializer_Node,
+    Initial_Initializer_Node,
     Type_Node,
     Void_Node,
     Any_Type,
@@ -182,6 +183,7 @@ const std::string ASTNodeTypeStrings[] = {
     "Character_Constant_Node",
     "Undefined_Initializer_Node",
     "Default_Initializer_Node",
+    "Initial_Initializer_Node",
     "Type_Node",
     "Void_Node",
     "Any_Type",
@@ -297,6 +299,7 @@ struct valueType {
     bool isUndefined = false;
     Value* val;
     ASTNode* declNode = nullptr;
+    ASTNode* initialNode = nullptr;  // compile-time constant initializer, for `initial`
     valueType(std::string n, std::string t, Value* v, bool arg = false, bool ref = false)
         : name(n), type(t), val(v), isFunctionArgument(arg), isReference(ref) {};
 };

@@ -16,7 +16,7 @@ x : int = 5.283;  // This casts the float `5.283` to an int32
 -----
 
 ## Blank initialization
-If there is no `:::asa =` set operator, then the variable will be zero-initialized. This means something different depending on what the datatype is, see [link](#zero-values).
+If there is no `:::asa =` set operator, then the variable will be zero-initialized. This means something different depending on what the datatype is, see [zero values](#zero-values).
 ```asa
 y : int;
 printl(y);
@@ -89,5 +89,26 @@ s : string = "";
 
 if(s == default)
     printl("String is empty");
+```
+
+-----
+
+## The `:::asa initial` value
+There is another special value which acts as shorthand for the first "initial" value of a variable from its declaration.
+```asa
+x : int = 512;
+printl(x);    // Prints 512
+
+x = 29;
+printl(x);    // Prints 29
+
+x = initial;
+printl(x);    // Prints 512
+```
+Basically, `:::asa initial` holds the value the variable was set to in its declaration. If the declaration does not have an initial value, then it will throw an error. For example:
+```asa
+x : int;
+
+x = initial;  // Throws a compilation error
 ```
 

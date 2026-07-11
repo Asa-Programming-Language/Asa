@@ -171,6 +171,7 @@ std::map<const std::string, const TokenType> subTokenTypes = {
     {"enum", Enum_Define},
     {"operator", Operator_Keyword},
     {"default", Default_Keyword},
+    {"initial", Initial_Keyword},
     {"ref", Ref},
     {"const", Const},
     {"exact", Exact},
