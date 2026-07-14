@@ -206,6 +206,64 @@ StructTests :: module {
 		return p.a + p.b;
 	}
 
+	// Const struct members - defined at module scope so they are registered
+	// in passes 0/1 (structs inside function bodies never see pass 0/1).
+	ConstPoint :: struct {
+		id : const int;
+		x  : const int;
+		y  : const int;
+	}
+
+	create :: ConstPoint(xVal : int, yVal : int) {
+		p : ConstPoint = ConstPoint();
+		p.id = 0;
+		p.x  = xVal;
+		p.y  = yVal;
+		return p;
+	}
+
+	copyPoint :: ConstPoint(src : ConstPoint) {
+		return src;
+	}
+
+	LabeledId :: struct {
+		id    : const int;
+		label : string;
+	}
+
+	create :: LabeledId(idVal : int) {
+		p : LabeledId = LabeledId();
+		p.id    = idVal;
+		p.label = "default";
+		return p;
+	}
+
+	// Member create can also set const members
+	Sprite :: struct {
+		id   : const int;
+		path : string;
+
+		create :: Sprite(idVal : int) {
+			s : Sprite = Sprite();
+			s.id   = idVal;
+			s.path = "default.png";
+			return s;
+		}
+	}
+
+	// Const pointer member - pointer itself is const, but data can be indexed
+	ConstPtrBuf :: struct {
+		data : const *char = ?;
+		len  : const int  = 0;
+	}
+
+	create :: ConstPtrBuf(ptr : *char, length : int) {
+		b : ConstPtrBuf = ConstPtrBuf();
+		b.data = ptr;
+		b.len  = length;
+		return b;
+	}
+
 	@public:
 	runStructTests :: () {
 		beginSection("Structs");
@@ -534,5 +592,70 @@ StructTests :: module {
 		triple : Range = rngA.shift(2).clampHi(8).shift(1);
 		test(triple.lo == 3,                  "self-return chaining x3: lo");
 		test(triple.hi == 9,                  "self-return chaining x3: hi");
+
+		//////////////////////////////////////////////////
+		// Const struct members in create functions     //
+		//////////////////////////////////////////////////
+
+		beginSection("Const struct members");
+
+		cp : ConstPoint = ConstPoint(10, 20);
+		test(cp.id == 0,                      "const member: id set by constructor");
+		test(cp.x  == 10,                     "const member: x set by constructor");
+		test(cp.y  == 20,                     "const member: y set by constructor");
+
+		cp2 : ConstPoint = copyPoint(cp);
+		test(cp2.x == 10,                     "const member: value preserved through pass-by-value");
+
+		// #compiles: setting a const member outside a constructor must fail
+		test(#compiles({
+			inner : ConstPoint = ConstPoint();
+			inner.id = 1;
+		}) == false, "#compiles: set const member in non-create function fails");
+
+		test(#compiles({
+			tmp : ConstPoint = ConstPoint();
+			tmp.x = 99;
+		}) == false, "#compiles: set const member at module scope fails");
+
+		li : LabeledId = LabeledId(42);
+		test(li.id    == 42,                  "partial const: id set by constructor");
+		test(li.label == "default",           "partial const: mutable member set by constructor");
+		li.label = "updated";
+		test(li.label == "updated",           "partial const: mutable member changed after construction");
+
+		sp : Sprite = Sprite(7);
+		test(sp.id   == 7,                    "member create: id set");
+		test(sp.path == "default.png",        "member create: mutable member set");
+
+		//////////////////////////////////////////////////
+		// Const pointer members                       //
+		//////////////////////////////////////////////////
+
+		buf : *char = malloc(4);
+		buf[0] = 'A';
+		buf[1] = 'B';
+		buf[2] = 'C';
+		buf[3] = char(0);
+		cpb : ConstPtrBuf = ConstPtrBuf(buf, 3);
+		test(cpb.len == 3,                    "const ptr: len set by constructor");
+		test(cpb.data[0] == 'A',              "const ptr: indexing through const pointer works");
+		test(cpb.data[1] == 'B',              "const ptr: indexing element 1");
+		test(cpb.data[2] == 'C',              "const ptr: indexing element 2");
+
+		// Indexing through const pointer
+		ch : char = cpb.data[1];
+		test(ch == 'B',                       "const ptr: read through const pointer");
+
+		// Reassignment of const members must fail
+		test(#compiles({
+			inner : ConstPtrBuf = ConstPtrBuf(buf, 3);
+			inner.data = buf;
+		}) == false, "#compiles: reassign const pointer member fails");
+
+		test(#compiles({
+			tmp : ConstPtrBuf = ConstPtrBuf(buf, 3);
+			tmp.len = 99;
+		}) == false, "#compiles: reassign const int member fails");
 	}
 }

@@ -12,6 +12,21 @@ InitialTests :: module {
 	g1 : int = 42;
 	g2 : string = "hello";
 
+	// Struct for testing function-call initializers
+	IntPoint :: struct {
+		x : int;
+		y : int;
+	}
+
+	makeIntPoint :: IntPoint(x: int, y: int) {
+		p : IntPoint = IntPoint();
+		p.x = x;
+		p.y = y;
+		return p;
+	}
+
+	g3 : IntPoint = makeIntPoint(10, 20);
+
 	@public:
 	runInitialTests :: () {
 		beginSection("Initial keyword");
@@ -78,6 +93,23 @@ InitialTests :: module {
 			g2 = "world";
 			g2 = initial;
 			test(g2 == "hello", "Global string should reset to initial");
+		}
+
+		// Function call initializer (constructor-like)
+		{
+			g3 = makeIntPoint(99, 88);
+			g3 = initial;
+			test(g3.x == 10, "Global struct from func call: x resets to initial");
+			test(g3.y == 20, "Global struct from func call: y resets to initial");
+		}
+
+		// Local variable with function-call initializer
+		{
+			p : IntPoint = makeIntPoint(5, 15);
+			p = makeIntPoint(99, 88);
+			p = initial;
+			test(p.x == 5,  "Local struct from func call: x resets to initial");
+			test(p.y == 15, "Local struct from func call: y resets to initial");
 		}
 	}
 }

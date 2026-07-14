@@ -31,9 +31,9 @@ String :: module{
     @version(1):
     string :: struct {
 
-        address : *char = ?;
+        address : const *char = ?;
 
-        length : uint32 = 0;
+        length : const uint32 = 0;
 
         // Function: size()
         // Returns: The length in characters of the string
@@ -234,19 +234,16 @@ String :: module{
     // Returns: A new string containing the concatenation of both strings
     @public:
     operator(+) :: string(thisStr : const exact string, otherStr : const exact string){
-        newStr : string = default;
-
         len : const uint32 = thisStr.length + otherStr.length;
-        newStr.address = malloc(len*2 + 1);
-        newStr.length = len;
+        buf : *char = malloc(len*2 + 1);
         for(i in 0..thisStr.length){
-            newStr.address[i] = thisStr.address[i];
+            buf[i] = thisStr.address[i];
         }
         for(i in 0..otherStr.length){
-            newStr.address[i + thisStr.length] = otherStr.address[i];
+            buf[i + thisStr.length] = otherStr.address[i];
         }
-        newStr.address[len] = 0;
-        return newStr;
+        buf[len] = 0;
+        return string(buf, len);
     }
 
     // Operator: +(string, char)
@@ -259,17 +256,14 @@ String :: module{
     // Returns: A new string containing the concatenation of the string and character
     @public:
     operator(+) :: string(thisStr : const exact string, ch : const exact char){
-        newStr : string = default;
-
         len : const uint32 = thisStr.length + 1;
-        newStr.address = malloc(len*2 + 1);
-        newStr.length = len;
+        buf : *char = malloc(len*2 + 1);
         for(i in 0..thisStr.length){
-            newStr.address[i] = thisStr.address[i];
+            buf[i] = thisStr.address[i];
         }
-        newStr.address[thisStr.length] = ch;
-        newStr.address[len] = 0;
-        return newStr;
+        buf[thisStr.length] = ch;
+        buf[len] = 0;
+        return string(buf, len);
     }
 
     // Operator: +(string, uint8)
@@ -410,12 +404,10 @@ String :: module{
     // Description: Converts a char to a single-character string
     @public:
     cast :: string(c : const exact char) {
-        s : string = default;
-        s.address = malloc(2);
-        s.length = 1;
-        s.address[0] = c;
-        s.address[1] = char(0);
-        return s;
+        buf : *char = malloc(2);
+        buf[0] = c;
+        buf[1] = char(0);
+        return string(buf, 1);
     }
 
     // Constructor: string(uint8)

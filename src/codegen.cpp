@@ -1588,7 +1588,7 @@ void resetCodeGenerator()
     resultContextStack = std::stack<ResultContext>();
     currentStructName = std::stack<std::string>();
 
-    // Reset dynamic equivalence groups (typeAliasMap is preserved — aliases are
+    // Reset dynamic equivalence groups (typeAliasMap is preserved - aliases are
     // registered during parsing, before initializeCodeGenerator is called).
     typeEquivGroup = {
         {"int", 0},
@@ -2158,9 +2158,9 @@ void declareModuleScopeVariable(ASTNode* exprStmtNode, ASTNode* ownerNode, bool 
     valueType* vt = new valueType(varName, actualType, gv);
     vt->isConstant = isConst;
     vt->isUndefined = rhsIsUndefined;
-    vt->declNode = exprStmtNode;  // the expression statement node that owns the attributes
-    vt->initialNode = rhsInitializer; // Store the initial value node for global variables to support 'initial' keyword
-    
+    vt->declNode = exprStmtNode;       // the expression statement node that owns the attributes
+    vt->initialNode = rhsInitializer;  // Store the initial value node for global variables to support 'initial' keyword
+
     // For root-level vars, store in the expression stmt's own namedValues so
     // findNamedValue (which checks direct children of root) can find it.
     // For module vars, store in the module node's namedValues (accessible only
@@ -3175,6 +3175,69 @@ void* ASTNode::generateIncDecrement(int pass)
     return isPostfix ? current : updated;
 }
 
+// Check if an AST expression is a compile-time constant expression.
+// Handles literals, constant binary/unary expressions, and function calls
+// where all arguments are themselves constant expressions.
+static bool isConstantExpression(ASTNode* node)
+{
+    if (!node)
+        return false;
+    switch (node->nodeType) {
+        case Integer_Node:
+        case Float_Node:
+        case Boolean_Node:
+        case String_Constant_Node:
+        case Character_Constant_Node:
+        case Default_Initializer_Node:
+        case Undefined_Initializer_Node:
+            return true;
+        case Function_Call: {
+            if (node->childNodes.empty())
+                return false;
+            ASTNode* argsNode = node->childNodes[0];
+            if (argsNode->nodeType != Arguments)
+                return false;
+            for (auto* arg : argsNode->childNodes) {
+                ASTNode* argExpr = arg;
+                if (arg->childNodes.size() == 1)
+                    argExpr = arg->childNodes[0];
+                if (!isConstantExpression(argExpr))
+                    return false;
+            }
+            return true;
+        }
+        case Address_Of_Operation:
+            if (!node->childNodes.empty())
+                return isConstantExpression(node->childNodes[0]);
+            return false;
+        case Expression_Plus:
+        case Expression_Minus:
+        case Expression_Times:
+        case Expression_Divide:
+        case Expression_Modulo:
+        case Bitwise_And:
+        case Bitwise_Or:
+        case Bitwise_Xor:
+        case Bitwise_Not:
+        case Bitwise_Shift_Left:
+        case Bitwise_Shift_Right:
+        case Logical_And:
+        case Logical_Or:
+        case Compare_Equal:
+        case Compare_Not:
+        case Compare_Less:
+        case Compare_Greater:
+        case Compare_LessEqual:
+        case Compare_GreaterEqual:
+            for (auto* child : node->childNodes)
+                if (!isConstantExpression(child))
+                    return false;
+            return true;
+        default:
+            return false;
+    }
+}
+
 // LLVMValue*
 void* ASTNode::generateExpressionStatement(int pass)
 {
@@ -3479,7 +3542,7 @@ void* ASTNode::generateExpressionStatement(int pass)
         }
         if (wasError || !exprVal)
             return nullptr;
-        if (!llvm::dyn_cast<llvm::Constant>((LLVMValue*)exprVal))
+        if (!llvm::dyn_cast<llvm::Constant>((LLVMValue*)exprVal) && !isConstantExpression(initNode))
             return messageSystem::error("Initial value of '" + leftNode->token->tokenStr + "' is not a compile-time constant");
     }
 
@@ -4733,7 +4796,30 @@ void* ASTNode::generateMemberAccess(int pass)
             }
 
             if (structDefinition->members[memberIndex].isConstant && lvalue) {
-                return messageSystem::error("Cannot modify const member '" + memberName + "'");
+                // Allow indexing through a const pointer member but block
+                // direct reassignment of the pointer itself.  When used as a
+                // subscript base, the parent node is Access_Operation.
+                bool isSubscriptBase = parentNode && parentNode->nodeType == Access_Operation;
+                if (!isSubscriptBase) {
+                    // Allow const member writes inside create constructors and member
+                    // functions of this struct when writing to a local variable (not `this`).
+                    bool allowed = false;
+                    if (v && v->val && isa<AllocaInst>(v->val)) {
+                        LLVMValue* currentFn = llvmIRBuilder->GetInsertBlock()->getParent();
+                        for (auto* fid : functionIDs) {
+                            if (fid->fnValue == currentFn) {
+                                std::string fnName = fid->name;
+                                std::string prefix = AsaStructName + ".";
+                                if (fnName == AsaStructName ||
+                                    fnName.substr(0, prefix.size()) == prefix)
+                                    allowed = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (!allowed)
+                        return messageSystem::error("Cannot modify const member '" + memberName + "'");
+                }
             }
 
 
@@ -5477,7 +5563,14 @@ void* ASTNode::generateTypeInstance(int pass)
             continue;
         uint16_t idx = idxIt->second;
         LLVMValue* memberPtr = llvmIRBuilder->CreateStructGEP(typeVal->structVal, var, idx, memberName + "_init");
-        LLVMValue* defaultVal = (LLVMValue*)(defaultNode->*(defaultNode->codegen))(pass);
+        LLVMValue* defaultVal = nullptr;
+        ASTNode* unwrappedDefault = unwrapSingleExpressionNode(defaultNode);
+        if (unwrappedDefault && unwrappedDefault->nodeType == Undefined_Initializer_Node)
+            defaultVal = UndefValue::get(typeVal->structVal->getElementType(idx));
+        else if (unwrappedDefault && unwrappedDefault->nodeType == Default_Initializer_Node)
+            defaultVal = generateDefaultValueForType(typeVal->structVal->getElementType(idx), typeVal->members[idx].typeString, typeVal->members[idx].pointerLevel, pass, this);
+        else
+            defaultVal = (LLVMValue*)(defaultNode->*(defaultNode->codegen))(pass);
         if (wasError)
             return nullptr;
         if (!defaultVal)
@@ -6462,7 +6555,9 @@ void* ASTNode::generateStruct(int pass)
     // Do not create a struct with the same name
     if (structDefinitions.find(structName) != structDefinitions.end()) {
         if (structDefinitions[structName]->token != token) {
-            return messageSystem::error("Struct cannot be redefined");
+            if (structDefinitions[structName]->sourceNode)
+                messageSystem::addAttribute(structDefinitions[structName]->sourceNode, "previously defined here");
+            return messageSystem::error("Struct cannot be redefined", messageSystem::Redefined_Error);
         }
     }
 
@@ -6506,6 +6601,9 @@ void* ASTNode::generateStruct(int pass)
                         }
                         continue;
                     }
+                    bool isCreate = fieldNode->token && fieldNode->token->tokenStr == structName;
+                    if (isCreate)
+                        continue;
                     std::string qualifiedName = structName + "." + fieldNode->token->tokenStr;
                     bool found = false;
                     for (auto& fid : functionIDs) {
@@ -6526,6 +6624,9 @@ void* ASTNode::generateStruct(int pass)
                                               (fieldNode->token->tokenStr == "operator" || fieldNode->token->tokenStr.rfind("operator.", 0) == 0);
                     if (isOperatorOverload)
                         continue;
+                    bool isCreate = fieldNode->token && fieldNode->token->tokenStr == structName;
+                    if (isCreate)
+                        continue;
                     std::string qualifiedName = structName + "." + fieldNode->token->tokenStr;
                     for (auto& fid : functionIDs) {
                         if (fid->name == qualifiedName) {
@@ -6535,7 +6636,8 @@ void* ASTNode::generateStruct(int pass)
                     }
                 }
             }
-            structDefinitions[structName]->memberFunctions = memberFunctions;
+            if (structDefinitions.count(structName))
+                structDefinitions[structName]->memberFunctions = memberFunctions;
         }
         for (auto fieldNode : structBodyNodes) {
 
@@ -6643,7 +6745,14 @@ void* ASTNode::generateStruct(int pass)
                         continue;
                     uint16_t idx = idxIt->second;
                     LLVMValue* memberPtr = llvmIRBuilder->CreateStructGEP(sTy, sretPtr, idx, memberName + "_init");
-                    LLVMValue* defaultVal = (LLVMValue*)(defaultNode->*(defaultNode->codegen))(pass);
+                    LLVMValue* defaultVal = nullptr;
+                    ASTNode* unwrappedDefault = unwrapSingleExpressionNode(defaultNode);
+                    if (unwrappedDefault && unwrappedDefault->nodeType == Undefined_Initializer_Node)
+                        defaultVal = UndefValue::get(sTy->getElementType(idx));
+                    else if (unwrappedDefault && unwrappedDefault->nodeType == Default_Initializer_Node)
+                        defaultVal = generateDefaultValueForType(sTy->getElementType(idx), members[idx].typeString, members[idx].pointerLevel, pass, this);
+                    else
+                        defaultVal = (LLVMValue*)(defaultNode->*(defaultNode->codegen))(pass);
                     if (wasError) {
                         messageSystem::endBlock();
                         return nullptr;
@@ -6699,6 +6808,7 @@ void* ASTNode::generateStruct(int pass)
 
     currentStructName.pop();
     auto newStructDef = new AsaStruct(structName, token, structTy, members, memberFunctions, memberNameIndexes);
+    newStructDef->sourceNode = this;
     newStructDef->memberDefaultNodes = memberDefaultNodes;
     newStructDef->memberNameTypeNodes = memberNameTypeNodes;
     structDefinitions[structName] = newStructDef;
@@ -7282,6 +7392,7 @@ void* ASTNode::generatePrototype(int pass)
     bool isStruct = false;
     bool isSpecial = false;
     bool isOperatorOverload = fnName == "operator" || fnName.rfind("operator.", 0) == 0;
+    bool isCreateConstructor = currentStructName.size() > 0 && fnName == currentStructName.top();
 
     if (fnName == "operator") {
         isSpecial = true;
@@ -7296,7 +7407,7 @@ void* ASTNode::generatePrototype(int pass)
         fnName = fnName + "." + tokenAsString(childNodes[0]->childNodes[0]->token->tokenType);
         mangledName = fnName + "." + tokenAsString(childNodes[0]->childNodes[0]->token->tokenType);
     }
-    else if (currentStructName.size() != 0) {
+    else if (currentStructName.size() != 0 && fnName != currentStructName.top()) {
         fnName = currentStructName.top() + "." + fnName;
         mangledName = currentStructName.top() + "." + mangledName;
         isStruct = true;
@@ -7407,7 +7518,7 @@ void* ASTNode::generatePrototype(int pass)
 
     // Get function arguments
     // If it is a struct member function, first add a "this" argument like: (this : ref structName, ...)
-    if (currentStructName.size() > 0 && !isOperatorOverload) {
+    if (currentStructName.size() > 0 && !isOperatorOverload && !isCreateConstructor) {
         std::string typeStr = currentStructName.top();
         bool isReference = true;
         int pointerLevel = 0;  // References don't count as pointer level
@@ -7745,8 +7856,9 @@ void* ASTNode::generateFunction(int pass)
     std::string functionName = token->tokenStr;
     bool isStruct = false;
     bool isOperatorOverload = functionName == "operator" || functionName.rfind("operator.", 0) == 0;
+    bool isCreateConstructor = currentStructName.size() > 0 && functionName == currentStructName.top();
 
-    if (currentStructName.size() > 0 && !isOperatorOverload) {
+    if (currentStructName.size() > 0 && !isOperatorOverload && !isCreateConstructor) {
         functionName = currentStructName.top() + "." + functionName;
         isStruct = true;
     }

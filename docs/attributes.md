@@ -58,6 +58,11 @@ Tells the compiler to not show this object in the printed AST.
 
 -----
 
+## `@effectless`
+Tells the compiler that this function will not modify global state, no side effects.
+
+-----
+
 ## `@internal`
 Tells the compiler that this object will not be referenced from outside this binary. Allows for better optimization. Most symbols are marked `@internal` by default.
 
