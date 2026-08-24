@@ -31,22 +31,23 @@ File :: module {
 
     // C standard file I/O - FILE* is represented as *any (opaque pointer)
     #extern fopen  as _fopen_c_extern   :: *any(path : *char, mode : *char);
-    #extern fclose as _fclose_c_extern  :: int(handle : *char);
-    #extern fread  as _fread_c_extern   :: uint64(buf : *char, size : uint64, count : uint64, handle : *char);
-    #extern fwrite as _fwrite_c_extern  :: uint64(buf : *char, size : uint64, count : uint64, handle : *char);
-    #extern fgets  as _fgets_c_extern   :: *char(buf : *char, n : int, handle : *char);
-    #extern fseek  as _fseek_c_extern   :: int(handle : *char, offset : int64, whence : int);
-    #extern ftell  as _ftell_c_extern   :: int64(handle : *char);
-    #extern rewind as _rewind_c_extern  :: (handle : *char);
-    #extern feof   as _feof_c_extern    :: int(handle : *char);
+    #extern fclose as _fclose_c_extern  :: int(handle : *any);
+    #extern fread  as _fread_c_extern   :: uint64(buf : *char, size : uint64, count : uint64, handle : *any);
+    #extern fwrite as _fwrite_c_extern  :: uint64(buf : *char, size : uint64, count : uint64, handle : *any);
+    #extern fgets  as _fgets_c_extern   :: *char(buf : *char, n : int, handle : *any);
+    #extern fseek  as _fseek_c_extern   :: int(handle : *any, offset : int64, whence : int);
+    #extern ftell  as _ftell_c_extern   :: int64(handle : *any);
+    #extern rewind as _rewind_c_extern  :: (handle : *any);
+    #extern feof   as _feof_c_extern    :: int(handle : *any);
     #extern unlink as _unlink_c_extern  :: int(path : *char);
 
     // Struct: File
     // Description: A handle to an open file on disk.
     @public:
     File :: struct {
-        handle : *char = ?;
+        handle : *any = ?;
         isOpen : bool = false;
+        path : string = ?;  // TODO: Implement better path object
 
         // Function: open(path, mode)
         // Description: |
@@ -61,6 +62,7 @@ File :: module {
             if (h != ?) {
                 this.handle = h;
                 this.isOpen = true;
+                this.path = path;
             }
             return this;
         }
@@ -71,6 +73,8 @@ File :: module {
         close :: () {
             if (this.isOpen)
                 _fclose_c_extern(this.handle);
+            this.isOpen = false;
+            this.path = "";
         }
 
         // Function: readAll()

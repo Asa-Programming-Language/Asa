@@ -1,103 +1,23 @@
 
 #import Builtin.*;
 
-local :: module{
-    DEF :: 182;
-}
+#import Builtin.List;
 
-i32 :: int32;
-someAlias :: "aliased string";
+csv :: struct{
+    columns : list<string> = list<string>();
+    rowData : list<string> = list<string>();
 
-ABC :: 40;
+    load :: bool(path : const string){
+        f : File = File(path, "r");
 
-TEST_MACRO_1 :: {printl("Macro works!");};
-
-TEST_MACRO_2 :: (){ printl("Macro 2 works!") };
-
-RENAMED_MACRO :: > TEST_MACRO_1; 
-
-#import Rendering.Raylib;
-
-custom :: struct{
-    x : int = 5;
-}
-
-operator([]) :: ref custom(l : const ref custom, i : int){
-    l.x += i;
-    return l;
+        if(f.isOpen){
+            printl(f"File path: {f.path}");
+        }
+    }
 }
 
 main :: (){
-
-    x :: 6;
-
-    y : int = default;
-    z : int = ?;
-
-    someStr : string = "hello world";
-
-    z = 5;
-
-    printl(f"str index: {someStr[3]}");
-
-    c : custom = default;
-
-    printl("y: " + y);
-    printl("z: " + z);
-    printl("someStr: \"" + someStr + "\"");
-    printl(f"fstring: \"{1 + 5}\"");
-    printl(f"fstring: \"{someAlias}\"");
-    printl(f"fstring: \"{#typeof int32}\"");
-    printl(f"fstring: \"{#typeof i32}\"");
-    printl(f"operator[]: {c[4].x}");
-
-    #if(#getflag(COMPILERDEBUG) == false, {
-        //#error("This program must be run in compiler debug mode (-fcompilerdebug)", {});
-    });
-
-    l : list<int> = list<int>();
-    l.append(5);
-    l.append(912389);
-    l.append(32);
-    l.append(0);
-    printl(l.at(0));
-    printl(l.at(1));
-
-
-    //a : array<int> = default;
-
-    //a[9] = 5;
-
-    //unistring : string = "some string ❌";
-    //printl(unistring);
-    //for(x in 0..unistring.size()){
-    //    printl(char(unistring[x]));
-    //}
-
-
-    //#stack_push("a", { printl("hi!"); });
-
-    //#warning("This is a warning", #stack_last("a"));
-
-    //#warning("This is a warning", x);
-    //#warning("This is a warning of the definition", #parent(x));
-
-    //printl("This should print first");
-
-    //#print_ast(#parent(0));
-
-    //#print_ast(local);
-
-    #if(x == 5, {
-        #printl("it was true!");
-    });
-    #else_if(true, {
-        #printl("else worked");
-    });
-
-    printl(local.DEF);
-
-    //#stack_last("a");
+    c : csv = csv("sample.csv");
 }
 
 
