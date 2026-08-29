@@ -1,6 +1,8 @@
 
 # Todo:
 
+- [ ] Implement `#defined()` compiler directive
+
 - [ ] Make enum names act as type name
 
 - [ ] Disallow constructors from modifying global state

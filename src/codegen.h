@@ -9,20 +9,17 @@
 #include "settings.h"
 
 
-using namespace llvm;
-using namespace llvm::sys;
-
 struct ASTNode;
 struct argType;
 typedef std::vector<argType> argumentList;
 struct functionID;
 
 
-extern std::unique_ptr<LLVMContext> llvmCompileContext;
-extern std::unique_ptr<Module> llvmCompileModule;
-extern std::unique_ptr<DIBuilder> llvmDebugBuilder;
-extern std::unique_ptr<IRBuilder<>> llvmIRBuilder;
-extern std::unordered_map<std::string, Value*> NamedValues;
+extern std::unique_ptr<llvm::LLVMContext> llvmCompileContext;
+extern std::unique_ptr<llvm::Module> llvmCompileModule;
+extern std::unique_ptr<llvm::DIBuilder> llvmDebugBuilder;
+extern std::unique_ptr<llvm::IRBuilder<>> llvmIRBuilder;
+extern std::unordered_map<std::string, llvm::Value*> NamedValues;
 extern std::unordered_map<std::string, bool> compilerDirectiveFlags;
 extern std::unordered_map<std::string, bool> commandLineCompilerDirectiveFlags;
 extern std::unordered_map<std::string, std::stack<ASTNode*>> compilerStacks;
@@ -46,7 +43,7 @@ bool areTypesEquivalent(const std::string& type1, const std::string& type2);
 extern std::vector<std::string> linkedLibraries;
 extern std::vector<std::string> linkedStaticLibraries;
 
-extern Function* globalInitFn;
+extern llvm::Function* globalInitFn;
 void declareModuleScopeVariable(ASTNode* exprStmtNode, ASTNode* ownerNode, bool isModuleVar);
 void declareModuleScopeVariableFromColon(ASTNode* colonNode, ASTNode* ownerNode);
 void processModuleForDeclarations(ASTNode* moduleCompilerDefineNode, std::string parentName = "");

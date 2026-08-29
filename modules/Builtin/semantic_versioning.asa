@@ -1,0 +1,10 @@
+
+// Module: Versioning
+// Description: Allows for the version datatype and literal format to be used
+@hideast:
+@public:
+Versioning :: module {
+    version :: struct {
+        uint64 ver = ?;
+    }
+}

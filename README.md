@@ -9,6 +9,13 @@
 [![Badge License]][License]   ![Relative date](https://img.shields.io/date/1920814400?label=release%20timeline&color=purple)   ![GitHub commits difference between two branches/tags/commits](https://img.shields.io/github/commits-difference/sam-astro/Asa?base=main&head=dev&label=commits%20behind%20dev&color=orange)  ![Dynamic Regex Badge](https://img.shields.io/badge/dynamic/regex?url=https%3A%2F%2Fraw.githubusercontent.com%2FAsa-Programming-Language%2FAsa%2Frefs%2Fheads%2Fdev%2Fbuild_num&search=.*&label=build%20num)
    [![Button Discord]][Discord Server] 
 
+<div align="center">
+[Website][Asa Site] | [Documentation]
+</div>
+
+[Asa Site]: https://asalang.com
+[Documentation]: https://asalang.com/introduction.html
+
 ---
 
 This repository contains all of the source code for the Asa programming language compiler and standard libraries.

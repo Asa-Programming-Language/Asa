@@ -7,6 +7,7 @@
 #include "strops.h"
 #include "tokenizer.h"
 
+
 #define MAX_AST_DEPTH 100
 
 #define PRINT_SUBTOKENS(subTokens)                     \
@@ -290,18 +291,18 @@ const std::string ASTNodeTypeStrings[] = {
 
 struct ASTNode;
 
-struct valueType {
+struct ASAValue {
     std::string name;
-    std::string type;
+    std::string typeString;
     bool isFunctionArgument = false;
     bool isConstant = false;
     bool isReference = false;
     bool isUndefined = false;
-    Value* val;
+    llvm::Value* val;
     ASTNode* declNode = nullptr;
-    ASTNode* initialNode = nullptr;  // compile-time constant initializer, for `initial`
-    valueType(std::string n, std::string t, Value* v, bool arg = false, bool ref = false)
-        : name(n), type(t), val(v), isFunctionArgument(arg), isReference(ref) {};
+    ASTNode* initialValueNode = nullptr;  // compile-time constant initializer, for `initial`
+    ASAValue(std::string n, std::string t, llvm::Value* v, bool arg = false, bool ref = false)
+        : name(n), typeString(t), val(v), isFunctionArgument(arg), isReference(ref) {};
 };
 
 struct ASAType {
@@ -355,7 +356,7 @@ struct ASTNode {
 
     std::unordered_map<std::string, ASTNode*> interpreterScopeValues = std::unordered_map<std::string, ASTNode*>();
 
-    std::map<std::string, valueType*> namedValues = std::map<std::string, valueType*>();
+    std::map<std::string, ASAValue*> namedValues = std::map<std::string, ASAValue*>();
     std::map<std::string, ASTNode*> compilerDefinitions = std::map<std::string, ASTNode*>();
 
     bool compareTokens = false;
@@ -425,11 +426,11 @@ struct ASTNode {
 
     // Helper functions:
 
-    Value* generateOperatorOverloadCall(Value* L, Value* R);
-    bool checkForOperatorOverload(Value* L, Value* R);
-    Value* generatePointerBinaryOp(Value* L, Value* R);
-    Value* generateFloatBinaryOp(Value* L, Value* R);
-    Value* generateIntegerBinaryOp(Value* L, Value* R);
+    llvm::Value* generateOperatorOverloadCall(llvm::Value* L, llvm::Value* R);
+    bool checkForOperatorOverload(llvm::Value* L, llvm::Value* R);
+    llvm::Value* generatePointerBinaryOp(llvm::Value* L, llvm::Value* R);
+    llvm::Value* generateFloatBinaryOp(llvm::Value* L, llvm::Value* R);
+    llvm::Value* generateIntegerBinaryOp(llvm::Value* L, llvm::Value* R);
 
     //std::unique_ptr<PrototypeAST> Proto;
     //std::unique_ptr<ExprAST> Body;

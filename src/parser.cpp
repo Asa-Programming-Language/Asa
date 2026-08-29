@@ -79,6 +79,10 @@ static bool isLineContinuation(TokenType lastTok, TokenType nextTok)
     return false;
 }
 
+// OPENCODE:
+// Creates a new token with the given text and type, copying source-location
+// info (line, column, file, indent) from sourceToken. Used by f-string
+// desugaring and other places that synthesize tokens not present in the input.
 static asaToken* makeSyntheticToken(const std::string& text, TokenType tokenType, asaToken* sourceToken)
 {
     return new asaToken(text, tokenType,
@@ -89,6 +93,9 @@ static asaToken* makeSyntheticToken(const std::string& text, TokenType tokenType
         sourceToken ? sourceToken->lineIndent : 0);
 }
 
+// OPENCODE:
+// Returns true if prefixToken is the identifier "f" immediately adjacent to
+// stringToken (same line, no gap), indicating an f-string prefix like f"...".
 static bool isAdjacentFStringPrefix(asaToken* prefixToken, asaToken* stringToken)
 {
     return prefixToken &&
@@ -98,6 +105,10 @@ static bool isAdjacentFStringPrefix(asaToken* prefixToken, asaToken* stringToken
            prefixToken->indexInLine + prefixToken->length == stringToken->indexInLine;
 }
 
+// OPENCODE:
+// Tokenizes an embedded f-string expression (the text inside {...}), fixes up
+// source locations to point back at the original f-string token, and appends
+// the resulting tokens to outTokens. Used during f-string desugaring.
 static void appendTokenizedFStringExpression(std::vector<asaToken*>& outTokens, const std::string& expr, asaToken* sourceToken, int exprStartInString)
 {
     std::vector<asaToken*> exprTokens;
@@ -125,6 +136,10 @@ static void appendTokenizedFStringExpression(std::vector<asaToken*>& outTokens, 
     }
 }
 
+// OPENCODE:
+// Desugars an f-string literal (f"...{expr}...") into a concatenation of
+// string literals and string(expr) calls joined by '+', then re-parses the
+// synthetic token stream via generateAST. Returns the resulting AST node.
 static ASTNode* parseFStringLiteral(asaToken* prefixToken, asaToken* stringToken, int depth)
 {
     const std::string& raw = stringToken->tokenStr;
@@ -256,6 +271,9 @@ static ASTNode* parseFStringLiteral(asaToken* prefixToken, asaToken* stringToken
 }
 
 
+// OPENCODE:
+// Advances i past Nothing/EOL/Comment tokens and returns the next meaningful
+// token. Returns an empty token if the end of the stream is reached.
 asaToken* getNextNonNothingToken(const std::vector<asaToken*>& tokens, int& i)
 {
     asaToken* t = new asaToken();
@@ -272,6 +290,9 @@ asaToken* getNextNonNothingToken(const std::vector<asaToken*>& tokens, int& i)
     return t;
 }
 
+// OPENCODE:
+// Recursively marks node and all its children as extern (isExtern = true).
+// Used by #extern directive handling.
 void setChildrenAsExtern(ASTNode*& node)
 {
     for (auto& c : node->childNodes)
@@ -279,6 +300,11 @@ void setChildrenAsExtern(ASTNode*& node)
     node->isExtern = true;
 }
 
+// OPENCODE:
+// Collects tokens from the stream into subTokens until braces balance at
+// brLevel. Used to gather { ... } scope bodies for functions, structs,
+// modules, if/while/for blocks, etc. Returns true on success, false on
+// unmatched braces.
 bool GATHER_SCOPE_BODY(const std::vector<asaToken*>& tokens, std::vector<asaToken*>& subTokens, int brLevel, int& i, bool preserveBraces = false, bool append = false)
 {
     int braceLevel = brLevel;
@@ -325,6 +351,11 @@ bool GATHER_SCOPE_BODY(const std::vector<asaToken*>& tokens, std::vector<asaToke
 }
 
 
+// OPENCODE:
+// Collects tokens from the stream into subTokens until parentheses balance at
+// pLevel. Tracks brace depth so { } inside ( ) is handled correctly. Used to
+// gather parenthesized expressions like if/for/while conditions and argument
+// lists.
 void GATHER_PAREN_EXPRESSION(const std::vector<asaToken*>& tokens, std::vector<asaToken*>& subTokens, int pLevel, int& i, bool preserveBraces = false)
 {
     int parenLevel = pLevel;
@@ -369,6 +400,11 @@ void GATHER_PAREN_EXPRESSION(const std::vector<asaToken*>& tokens, std::vector<a
     }
 }
 
+// OPENCODE:
+// Splits a parenthesized token list by top-level commas into a vector of
+// ASTNode expression nodes. Variant-aware: tracks <...> depth so commas inside
+// generic arguments don't split. Used for function call arguments and
+// directive argument lists.
 static std::vector<ASTNode*> parseParenthesizedArgumentNodes(const std::vector<asaToken*>& tokens, int& i, int depth, bool& isLeaf)
 {
     std::vector<ASTNode*> insideNodes;
@@ -443,6 +479,11 @@ static std::vector<ASTNode*> parseParenthesizedArgumentNodes(const std::vector<a
     return insideNodes;
 }
 
+// OPENCODE:
+// Collects tokens from the stream into subTokens up to a semicolon, with
+// implicit line-continuation awareness (via isLineContinuation) and brace-
+// depth tracking. The primary statement-gathering helper. Returns true on
+// success, false if the stream runs out unexpectedly.
 bool GATHER_TO_SEMICOLON(const std::vector<asaToken*>& tokens, std::vector<asaToken*>& subTokens, int& i, bool includeLast = false, bool allowRunOut = false)
 {
     asaToken* firstToken;
@@ -501,6 +542,9 @@ bool GATHER_TO_SEMICOLON(const std::vector<asaToken*>& tokens, std::vector<asaTo
     return false;
 }
 
+// OPENCODE:
+// Like GATHER_TO_SEMICOLON but ignores EOL tokens entirely, allowing
+// multi-line statements without line-continuation checks. Simpler variant.
 bool GATHER_TO_SEMICOLON_MULTI_LINE(const std::vector<asaToken*>& tokens, std::vector<asaToken*>& subTokens, int& i, bool includeLast = false, bool allowRunOut = false)
 {
     asaToken* firstToken;
@@ -537,6 +581,10 @@ bool GATHER_TO_SEMICOLON_MULTI_LINE(const std::vector<asaToken*>& tokens, std::v
     return false;
 }
 
+// OPENCODE:
+// Collects tokens into subTokens up to either a semicolon or the specified
+// 'other' token type. Used when a statement can be terminated by more than
+// just ';' (e.g. by a closing brace or keyword).
 bool GATHER_TO_SEMICOLON_OR_OTHER(const std::vector<asaToken*>& tokens, std::vector<asaToken*>& subTokens, int& i, TokenType other, bool includeLast = false, bool allowRunOut = false)
 {
     asaToken* firstToken;
@@ -585,6 +633,9 @@ bool GATHER_TO_SEMICOLON_OR_OTHER(const std::vector<asaToken*>& tokens, std::vec
     return false;
 }
 
+// OPENCODE:
+// Collects tokens into subTokens until encountering token type 'a' or 'b'
+// at the given paren/brace depth level. Generic stop-on-either-token gatherer.
 bool GATHER_TO_A_OR_B(const std::vector<asaToken*>& tokens, std::vector<asaToken*>& subTokens, int pLevel, int& i, TokenType a, TokenType b, bool includeLast)
 {
     asaToken* firstToken;
@@ -619,6 +670,9 @@ bool GATHER_TO_A_OR_B(const std::vector<asaToken*>& tokens, std::vector<asaToken
     return false;
 }
 
+// OPENCODE:
+// Collects tokens into subTokens until encountering the single token type 'a'
+// at the given paren/brace depth level. Generic stop-on-token gatherer.
 bool GATHER_TO_TOKEN(const std::vector<asaToken*>& tokens, std::vector<asaToken*>& subTokens, int pLevel, int& i, TokenType a, bool includeLast = false, bool allowRunOut = false)
 {
     asaToken* firstToken;
@@ -713,6 +767,9 @@ static bool tryConsumeVariantParams(const std::vector<asaToken*>& tokens, int& i
     return false;
 }
 
+// OPENCODE:
+// Expands the [start, end] token range to include tok, comparing by line
+// number then column. Used to compute the source span of an AST subtree.
 static void updateTokenRange(asaToken* tok, asaToken*& start, asaToken*& end)
 {
     if (!tok || !tok->filePath || !tok->lineValue)
@@ -723,6 +780,9 @@ static void updateTokenRange(asaToken* tok, asaToken*& start, asaToken*& end)
         end = tok;
 }
 
+// OPENCODE:
+// Recursive helper for getASTTokenRange: walks the subtree and updates the
+// min/max token range using updateTokenRange, including closingToken.
 static void getASTTokenRangeHelper(ASTNode* node, asaToken*& start, asaToken*& end)
 {
     updateTokenRange(node->token, start, end);
@@ -732,6 +792,9 @@ static void getASTTokenRangeHelper(ASTNode* node, asaToken*& start, asaToken*& e
         getASTTokenRangeHelper(c, start, end);
 }
 
+// OPENCODE:
+// Computes the min/max source token (start/end) of an AST subtree for
+// diagnostic rendering. Returns a tokenRange pair.
 tokenRange getASTTokenRange(ASTNode* node)
 {
     asaToken* start = nullptr;
@@ -886,6 +949,10 @@ void printSourceLines(asaToken* startToken, asaToken* endToken, std::string unde
     }
 }
 
+// OPENCODE:
+// Prints a source location marker (file path + underlined source lines) with
+// the given message. A lighter diagnostic used for "here" annotations, not
+// errors or warnings.
 void printTokenMarked(tokenRange tokRange, std::string msgString, int sourceLineNumber, const char* fileName)
 {
     asaToken* startToken = tokRange.first;
@@ -905,6 +972,10 @@ void printTokenMarked(tokenRange tokRange, std::string msgString, int sourceLine
     printSourceLines(startToken, endToken, console::blueFGColor, "here");
 }
 
+// OPENCODE:
+// Prints an error message with the file path and underlined source lines
+// (red). Respects suppressErrors. In compiler-debug mode, throws after
+// printing so the call stack is traceable.
 void printTokenError(tokenRange tokRange, std::string errorString, int sourceLineNumber, const char* fileName)
 {
     asaToken* startToken = tokRange.first;
@@ -934,6 +1005,10 @@ void printTokenError(tokenRange tokRange, std::string errorString, int sourceLin
     //exit(1);
 }
 
+// OPENCODE:
+// Prints a warning message with the file path and underlined source lines
+// (red). Respects suppressErrors. Unlike printTokenError, does not set
+// wasError or throw.
 void printTokenWarning(tokenRange tokRange, std::string errorString, int sourceLineNumber, const char* fileName)
 {
     asaToken* startToken = tokRange.first;
@@ -955,6 +1030,9 @@ void printTokenWarning(tokenRange tokRange, std::string errorString, int sourceL
     //throw;
 }
 
+// OPENCODE:
+// Prints a verbose message that a module was imported, including its path
+// at verbosity >= 3.
 void printModuleLoaded(std::string& moduleName, std::string& modulePath)
 {
     std::cout << "Module \"" << moduleName << "\" imported";
@@ -963,6 +1041,10 @@ void printModuleLoaded(std::string& moduleName, std::string& modulePath)
     std::cout << std::endl;
 }
 
+// OPENCODE:
+// The final parser validation gate: recurses the entire AST and reports a
+// "Failed to compile" error for any token left in leafNodes (tokens that were
+// never incorporated into a construct). Short-circuits once wasError is set.
 void findUnusedLeafNodes(ASTNode*& node)
 {
     for (auto& l : node->leafNodes) {
@@ -1251,6 +1333,11 @@ static ASTNode* makeScopeBodyNode(
 // the result to arguments / argumentDefaults.
 static void collapseVariantTypeTokens(std::vector<asaToken*>& tokens);
 
+// OPENCODE:
+// Parses a function parameter from a token sub-list. Splits on top-level '='
+// to separate the type/name portion from the default expression, stores the
+// raw default tokens in defaultRawTokens for call-site re-parsing, and appends
+// parsed argument nodes to arguments and default nodes to argumentDefaults.
 static void parseParamWithDefault(
     const std::vector<asaToken*>& subTokens,
     int depth,
@@ -1294,6 +1381,14 @@ static void parseParamWithDefault(
 static ASTNode* getQualifiedLocalNameNode(ASTNode* node);
 static ASTNode* makeQualifiedNameMarker(ASTNode* qualifiedName);
 
+// OPENCODE:
+// The core recursive-descent parser. Consumes a flat token list and builds a
+// tree of ASTNode children under parentNodePtr. Uses a two-phase approach:
+// operands accumulate in parentNode->leafNodes, operators combine them, and at
+// statement boundaries (;) or block ends remaining leaves are flushed into
+// childNodes. The resulting tree is naively left-to-right; fixPrecedence
+// rotates it later. Dispatches on tokenType via a large switch. Each case
+// assigns the node's codegen member-function pointer for later LLVM lowering.
 ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* parentNodePtr, bool isScopeBody)
 {
     if (depth == MAX_AST_DEPTH) {
@@ -3159,6 +3254,13 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
 }
 
 
+// OPENCODE:
+// Post-order tree rotation to respect operator precedence and associativity.
+// Recurses children first, then rotates binary nodes: left-associative ops
+// get left-rotated; general rotation checks left child (rotate right if
+// currPrec > leftPrec) and right child (rotate left if currPrec >= rightPrec).
+// Access_Operation is excluded from right-child rotation so a[i][j] stays
+// nested. After each rotation, recurses on the new sub-node to cascade.
 void fixPrecedence(ASTNode*& node)
 {
     if (!node)
@@ -3258,6 +3360,12 @@ void fixPrecedence(ASTNode*& node)
 }
 
 
+// OPENCODE:
+// Collapses redundant single-child wrapper nodes: if a node's parent has only
+// this one child and the same nodeType (and the child isn't a unary expression
+// generator, to avoid merging *ptr dereference chains), the child replaces the
+// parent in the grandparent's child list. Flattens chains like nested
+// Scope_Body / Expression_Term wrappers produced by the greedy parse.
 void unifyNodes(ASTNode*& node)
 {
     if (node->parentNode != nullptr) {
@@ -3281,7 +3389,14 @@ void unifyNodes(ASTNode*& node)
 
 static void buildDeclMap(ASTNode* node, std::map<std::string, ASTNode*>& map);
 
-// Function to convert value-returning compiler directives into their value  TODO: This should not be its own pass in the future
+// OPENCODE:
+// Walks the AST propagating module/function context (for #modulename /
+// #funcname). Rewrites compile-time directive nodes in-place into literal
+// nodes: #linenum -> Integer_Node, #line -> String_Constant_Node, #filepath,
+// #linecol, #funcname, #modulename, #asaversion, #counter. Also sets codegen
+// or resolveASTNode pointers for #typeof, #sizeof, #compiles, #nameof,
+// #parent, #func_ast, #context, #caller_*.
+// TODO: This should not be its own pass in the future.
 void resolveCompileTimeDirectives(ASTNode*& node, std::string moduleCtx, std::string funcCtx)
 {
     // Propagate context downward: update for children before recursing
@@ -3399,6 +3514,11 @@ void resolveCompileTimeDirectives(ASTNode*& node, std::string moduleCtx, std::st
     }
 }
 
+// OPENCODE:
+// Recursively builds a name -> ASTNode* map of all declarations
+// (Compiler_Define, Compiler_Define_Function, Module_Define_Node,
+// Struct_Define_Node, Compiler_Define_Enum) in the subtree. Used by
+// resolveAttributeAccessImpl to look up symbols for .@ attribute access.
 static void buildDeclMap(ASTNode* node, std::map<std::string, ASTNode*>& map)
 {
     if (node->token && !node->token->tokenStr.empty()) {
@@ -3413,6 +3533,11 @@ static void buildDeclMap(ASTNode* node, std::map<std::string, ASTNode*>& map)
         buildDeclMap(child, map);
 }
 
+// OPENCODE:
+// Recursive implementation of attribute-access resolution. For each
+// Attribute_Access (.@) node with identifier.@identifier, looks up the symbol
+// in declMap, finds the attribute on it, and rewrites the node to false
+// (absent), true (present, no arg), or the constant argument value.
 static void resolveAttributeAccessImpl(ASTNode*& node, const std::map<std::string, ASTNode*>& declMap)
 {
     for (int i = 0; i < (int)node->childNodes.size(); i++)
@@ -3479,6 +3604,10 @@ static void resolveAttributeAccessImpl(ASTNode*& node, const std::map<std::strin
     node->codegen = &ASTNode::generateConstant;
 }
 
+// OPENCODE:
+// Entry point for attribute-access resolution: builds a declaration map from
+// the root, then runs resolveAttributeAccessImpl to rewrite all sym.@attr
+// nodes to their constant values.
 void resolveAttributeAccess(ASTNode*& node)
 {
     std::map<std::string, ASTNode*> declMap;
@@ -3496,6 +3625,9 @@ static const std::vector<std::vector<std::string>> incompatibleAttributeSets = {
     {"external", "internal"},
 };
 
+// OPENCODE:
+// Returns true if two attribute names conflict — either they're the same, or
+// they belong to the same incompatible set (e.g. public/private).
 static bool attributeNamesConflict(const std::string& left, const std::string& right)
 {
     if (left == right)
@@ -3515,6 +3647,9 @@ static bool attributeNamesConflict(const std::string& left, const std::string& r
     return false;
 }
 
+// OPENCODE:
+// Returns true if node can accept attr without conflict — checks against all
+// existing attributes on the node using attributeNamesConflict.
 static bool canInheritAttribute(ASTNode* node, ASTNode* attr)
 {
     if (!node || !attr || !attr->token)
@@ -3530,12 +3665,19 @@ static bool canInheritAttribute(ASTNode* node, ASTNode* attr)
     return true;
 }
 
+// OPENCODE:
+// Adds attr to node's attributes list if canInheritAttribute says it's
+// compatible. Used when distributing pending attributes across scope-body
+// children.
 static void inheritAttributeIfCompatible(ASTNode* node, ASTNode* attr)
 {
     if (canInheritAttribute(node, attr))
         node->attributes.push_back(attr);
 }
 
+// OPENCODE:
+// Extracts the rightmost (local) identifier from a Member_Access chain
+// (e.g. Owner.member -> member). Used during qualified-definition parsing.
 static ASTNode* getQualifiedLocalNameNode(ASTNode* node)
 {
     if (!node || node->nodeType != Member_Access || node->childNodes.size() != 2)
@@ -3547,6 +3689,10 @@ static ASTNode* getQualifiedLocalNameNode(ASTNode* node)
     return localName;
 }
 
+// OPENCODE:
+// Creates a __qualified_define_name marker node that tags a qualified
+// definition (Owner.member :: ...) so normalizeQualifiedCompilerDefinitions
+// can later relocate it into the owner's scope.
 static ASTNode* makeQualifiedNameMarker(ASTNode* qualifiedName)
 {
     ASTNode* marker = new ASTNode();
@@ -3557,6 +3703,10 @@ static ASTNode* makeQualifiedNameMarker(ASTNode* qualifiedName)
     return marker;
 }
 
+// OPENCODE:
+// Navigates the module nesting: Compiler_Define -> Scope_Body ->
+// Module_Define_Node -> inner Scope_Body. Returns the inner scope body of a
+// named module, or nullptr if the structure doesn't match.
 static ASTNode* getModuleInnerScope(ASTNode* node)
 {
     if (!node || !node->isModuleScope || node->childNodes.empty())
@@ -3574,6 +3724,10 @@ static ASTNode* getModuleInnerScope(ASTNode* node)
     return innerScope && innerScope->nodeType == Scope_Body ? innerScope : nullptr;
 }
 
+// OPENCODE:
+// Gets the inner Scope_Body of a struct or module node. Handles
+// Compiler_Define_Struct, Compiler_Define (module), and Module_Define_Node.
+// Returns nullptr if the node is neither or has no body.
 static ASTNode* getContainerScope(ASTNode* node)
 {
     if (!node)
@@ -3594,6 +3748,10 @@ static ASTNode* getContainerScope(ASTNode* node)
     return nullptr;
 }
 
+// OPENCODE:
+// Searches scope's childNodes (up to beforeNode) for an earlier definition
+// matching name. Used by resolveQualifiedOwnerInContainer to find the owner
+// of a qualified definition.
 static ASTNode* findEarlierContainedDefinition(ASTNode* scope, ASTNode* beforeNode, const std::string& name)
 {
     if (!scope)
@@ -3614,6 +3772,10 @@ static ASTNode* findEarlierContainedDefinition(ASTNode* scope, ASTNode* beforeNo
     return nullptr;
 }
 
+// OPENCODE:
+// Recursively resolves an owner expression (Identifier or Member_Access chain)
+// within a container scope, descending into sub-scopes via getContainerScope.
+// Returns the ASTNode of the owner definition, or nullptr if not found.
 static ASTNode* resolveQualifiedOwnerInContainer(ASTNode* container, ASTNode* ownerExpr)
 {
     if (!container || !ownerExpr)
@@ -3637,6 +3799,10 @@ static ASTNode* resolveQualifiedOwnerInContainer(ASTNode* container, ASTNode* ow
     return findEarlierContainedDefinition(leftScope, nullptr, right->token->tokenStr);
 }
 
+// OPENCODE:
+// Walks up the scope chain from definitionNode searching for the owner of a
+// qualified definition (Owner.member :: ...). Tries each enclosing scope
+// until the owner is found or the root is reached.
 static ASTNode* resolveQualifiedOwner(ASTNode* definitionNode, ASTNode* ownerExpr)
 {
     if (!definitionNode || !ownerExpr)
@@ -3667,6 +3833,9 @@ static ASTNode* resolveQualifiedOwner(ASTNode* definitionNode, ASTNode* ownerExp
     return nullptr;
 }
 
+// OPENCODE:
+// Recursively builds a dotted path string from an Identifier or Member_Access
+// chain (e.g. A.B.C -> "A.B.C"). Returns true on success.
 static bool getQualifiedPathString(ASTNode* node, std::string& out)
 {
     if (!node || !node->token)
@@ -3690,6 +3859,10 @@ static bool getQualifiedPathString(ASTNode* node, std::string& out)
     return true;
 }
 
+// OPENCODE:
+// Finds and removes the __qualified_define_name marker from node's children,
+// returning it. Used by normalizeQualifiedCompilerDefinitions to extract the
+// owner expression from a qualified definition.
 static ASTNode* takeQualifiedNameMarker(ASTNode* node)
 {
     if (!node)
@@ -3706,6 +3879,9 @@ static ASTNode* takeQualifiedNameMarker(ASTNode* node)
     return nullptr;
 }
 
+// OPENCODE:
+// Re-registers a moved definition in the target scope's compilerDefinitions
+// map so compile-time name resolution finds it at its new location.
 static void registerMovedCompilerDefinition(ASTNode* targetScope, ASTNode* definitionNode)
 {
     if (!targetScope || !definitionNode || !definitionNode->token)
@@ -3715,6 +3891,13 @@ static void registerMovedCompilerDefinition(ASTNode* targetScope, ASTNode* defin
         targetScope->compilerDefinitions[definitionNode->token->tokenStr] = definitionNode->childNodes[0];
 }
 
+// OPENCODE:
+// Relocates qualified definitions (Owner.member :: ...) into their owner's
+// scope. For each child, checks for a __qualified_define_name marker; if
+// found, resolves the owner via resolveQualifiedOwner, moves the definition
+// node from its current parent into the owner's inner scope, sets
+// enclosingModule for module members, and re-registers it via
+// registerMovedCompilerDefinition.
 void normalizeQualifiedCompilerDefinitions(ASTNode*& node)
 {
     if (!node)
@@ -3769,6 +3952,11 @@ static const std::unordered_set<ASTNodeType> literalNodeTypes = {
     String_Constant_Node,
 };
 
+// OPENCODE:
+// Validates attributes on every node in the tree: (1) attribute arguments
+// must be literal constants, (2) no two attributes from the same incompatible
+// set (public/private, inline/noinline, etc.), (3) no duplicate attributes.
+// Run twice from main.cpp — before and after processCompilerDirectives.
 void checkAttributeCompatibility(ASTNode* node)
 {
     messageSystem::startBlock(node, "Checking attribute compatability", __func__, __LINE__, __FILE__, messageSystem::Parser_Block);
@@ -3847,6 +4035,11 @@ void checkAttributeCompatibility(ASTNode* node)
     return;
 }
 
+// OPENCODE:
+// Constant-folding pass: if both children of a binary op are literals
+// (Integer/Float/Boolean), folds +, -, *, / into a single literal node.
+// Unwraps single-child paren terms wrapping literals. Currently disabled
+// (commented out in main.cpp).
 void optimizeASTNode(ASTNode*& node)
 {
     for (int i = 0; i < node->childNodes.size(); i++) {
@@ -4047,6 +4240,10 @@ void optimizeASTNode(ASTNode*& node)
     }
 }
 
+// OPENCODE:
+// Processes #embed "file" directives: loads the file, tokenizes and parses it,
+// and pushes its top-level child nodes into the importedNodes accumulator.
+// Dedups via importedFileNames. Recurses into children first.
 void addFileIncludes(ASTNode*& node)
 {
     for (int i = 0; i < node->childNodes.size(); i++)
@@ -4183,6 +4380,12 @@ void loadAllModulesInDir(const std::string& modulePath)
     }
 }
 
+// OPENCODE:
+// Loads a single module by name from the given directory path. Tokenizes and
+// parses each file in the directory, looking for a Compiler_Define whose name
+// matches moduleName and whose body is a Module_Define_Node. On match, marks
+// importedChildren = true (unqualified access), pushes to importedNodes.
+// Returns true on success.
 bool loadModule(std::string& modulePath, std::string& moduleName)
 {
     for (const auto& p : std::filesystem::directory_iterator(modulePath)) {
@@ -4239,6 +4442,9 @@ bool loadModule(std::string& modulePath, std::string& moduleName)
     return false;
 }
 
+// OPENCODE:
+// Converts a Member_Access chain (A.B.C) into a filesystem path (A/B/C) and
+// the final module name (C). Used by loadModule / loadModuleQualified.
 void getModuleNameAndPath(ASTNode*& node, std::string& modulePath, std::string& moduleName)
 {
     if (node->nodeType == Member_Access) {
@@ -4320,6 +4526,12 @@ bool loadModuleQualified(std::string& modulePath, std::string& moduleName)
     return false;
 }
 
+// OPENCODE:
+// Processes #import / #import_qualified directives: resolves the module path
+// (searching projectDirectory then executableDirectory/modules/), delegates to
+// loadModule (flat) or loadModuleQualified, and handles wildcard .* imports
+// via loadAllModulesInDir. Dedups via importedModuleNames. Recurses children
+// first.
 void addModuleImports(ASTNode*& node)
 {
     for (int i = 0; i < node->childNodes.size(); i++)
@@ -4413,6 +4625,10 @@ void addModuleImports(ASTNode*& node)
         }
 }
 
+// OPENCODE:
+// Pre-order walk setting parentNode and depth on every child. Called twice
+// from main.cpp — before and after normalizeQualifiedCompilerDefinitions
+// (which physically relocates nodes).
 void assignParentNodes(ASTNode*& node, int depth)
 {
     for (int i = 0; i < node->childNodes.size(); i++) {
@@ -4423,6 +4639,9 @@ void assignParentNodes(ASTNode*& node, int depth)
 }
 
 
+// OPENCODE:
+// Returns the string name of an ASTNodeType enum value via the
+// ASTNodeTypeStrings array, with bounds checking.
 const std::string ASTNodeTypeAsString(ASTNodeType t)
 {
     if (t < LastASTNodeType)
@@ -4433,6 +4652,10 @@ const std::string ASTNodeTypeAsString(ASTNodeType t)
     }
 }
 
+// OPENCODE:
+// Prints an indented tree dump of the AST from startNode. Shows token text,
+// node type, attributes, doc comments, and child nodes. Respects @hideast
+// to elide subtrees (unless --printast). Also prints leftover !unusedLeafNodes!.
 int printAST(ASTNode* startNode, int depth)
 {
     // Print each node
@@ -4498,6 +4721,12 @@ int printAST(ASTNode* startNode, int depth)
     return 0;
 }
 
+// OPENCODE:
+// The codegen dispatch driver: switches on nodeType and invokes each node's
+// codegen member-function pointer (node->*(node->codegen))(pass). Called 3
+// times from main.cpp (pass 0: struct/enum types, pass 1: prototypes + struct
+// bodies + globals, pass 2: function bodies + variable contents). Checks
+// wasError after each node and jumps to errorDuringCodegen on failure.
 int generateOutputCode(ASTNode*& node, int depth, int pass)
 {
     switch (node->nodeType) {

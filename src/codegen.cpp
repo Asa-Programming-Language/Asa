@@ -2,13 +2,14 @@
 
 #include "compiler_directives.h"
 
+// OPENCODE:
+// Returns true if optimization is enabled (optimizationLevel is not "0" or
+// empty). Used to gate optimization passes and the opt/llc/clang pipeline.
 bool isOptimizing()
 {
     return optimizationLevel != "0" && !optimizationLevel.empty();
 }
 
-typedef Type LLVMType;
-typedef Value LLVMValue;
 
 std::unique_ptr<LLVMContext> llvmCompileContext;
 std::unique_ptr<Module> llvmCompileModule;
@@ -39,6 +40,12 @@ struct CallerLocationParams {
 static std::stack<CallerLocationParams> callerLocationParamStack;
 std::vector<std::string> linkedStaticLibraries;
 
+
+// OPENCODE:
+// Resolves a node that has returnsASTNode set: calls its resolveASTNode
+// member-function pointer to get the AST node it resolves to at compile time
+// (e.g. #stack_last, #parent, #context, identifiers). Returns the resolved
+// node, or the original node if it doesn't resolve.
 static ASTNode* resolveASTNodeValue(ASTNode* node, int pass)
 {
     if (!node || !node->returnsASTNode || !node->resolveASTNode)
@@ -50,6 +57,10 @@ static ASTNode* resolveASTNodeValue(ASTNode* node, int pass)
     return resolvedNode ? resolvedNode : node;
 }
 
+// OPENCODE:
+// Navigates the module nesting: Compiler_Define -> Scope_Body ->
+// Module_Define_Node -> inner Scope_Body. Returns the inner scope body of a
+// named module, or nullptr if the structure doesn't match.
 static ASTNode* getModuleInnerScope(ASTNode* moduleCompilerDefineNode)
 {
     if (!moduleCompilerDefineNode || !moduleCompilerDefineNode->isModuleScope || moduleCompilerDefineNode->childNodes.empty())
@@ -67,7 +78,11 @@ static ASTNode* getModuleInnerScope(ASTNode* moduleCompilerDefineNode)
     return innerScope && innerScope->nodeType == Scope_Body ? innerScope : nullptr;
 }
 
-static bool getConstantTruthValue(LLVMValue* value, bool& resolved)
+// OPENCODE:
+// Attempts to extract a boolean truth value from an LLVM constant. Sets
+// resolved=true if value is a non-undef Constant, and returns !isNullValue().
+// Used by #if condition evaluation.
+static bool getConstantTruthValue(llvm::Value* value, bool& resolved)
 {
     resolved = false;
     if (!value)
@@ -81,6 +96,11 @@ static bool getConstantTruthValue(LLVMValue* value, bool& resolved)
     return !constantValue->isNullValue();
 }
 
+// OPENCODE:
+// Evaluates a compile-time #if condition by speculatively codegen'ing it in a
+// throwaway __if_condition_probe__ function with suppressErrors on and
+// wasError/errorDepth saved/restored. Returns the boolean result and sets
+// resolved=true if the condition evaluated to a constant.
 static bool evaluateCompilerDirectiveCondition(ASTNode* conditionNode, int pass, bool& resolved)
 {
     resolved = false;
@@ -92,13 +112,13 @@ static bool evaluateCompilerDirectiveCondition(ASTNode* conditionNode, int pass,
     bool savedWasError = wasError;
     uint8_t savedErrorDepth = errorDepth;
 
-    FunctionType* dummyFnType = FunctionType::get(LLVMType::getVoidTy(*llvmCompileContext), false);
+    FunctionType* dummyFnType = FunctionType::get(llvm::Type::getVoidTy(*llvmCompileContext), false);
     Function* dummyFn = Function::Create(dummyFnType, Function::PrivateLinkage, "__if_condition_probe__", llvmCompileModule.get());
     BasicBlock* tempBB = BasicBlock::Create(*llvmCompileContext, "probe", dummyFn);
     llvmIRBuilder->SetInsertPoint(tempBB);
 
     wasError = false;
-    LLVMValue* conditionValue = (LLVMValue*)(conditionNode->*(conditionNode->codegen))(pass);
+    llvm::Value* conditionValue = (llvm::Value*)(conditionNode->*(conditionNode->codegen))(pass);
     bool generatedError = wasError;
     bool conditionResult = getConstantTruthValue(conditionValue, resolved);
 
@@ -117,6 +137,9 @@ static bool evaluateCompilerDirectiveCondition(ASTNode* conditionNode, int pass,
     return conditionResult;
 }
 
+// OPENCODE:
+// Returns true if node has an attribute with the given name (e.g. "inline",
+// "external", "deprecated"). Checks the node's attributes list directly.
 bool hasAttribute(ASTNode* node, std::string attributeName)
 {
     for (auto* attr : node->attributes) {
@@ -130,6 +153,10 @@ bool hasAttribute(ASTNode* node, std::string attributeName)
     return false;
 }
 
+// OPENCODE:
+// Peels single-child Expression_Term wrappers from node. Used everywhere to
+// get at the real node underneath (e.g. for ?/default detection and argument
+// gathering).
 static ASTNode* unwrapSingleExpressionNode(ASTNode* node)
 {
     while (node && node->nodeType == Expression_Term && node->childNodes.size() == 1)
@@ -137,6 +164,10 @@ static ASTNode* unwrapSingleExpressionNode(ASTNode* node)
     return node;
 }
 
+// OPENCODE:
+// Recursively flattens a Comma_Node tree into a flat vector of argument
+// AST nodes, unwrapping Expression_Term wrappers. Used to extract directive
+// arguments.
 static void collectCompilerDirectiveArgs(ASTNode* arg, std::vector<ASTNode*>& args)
 {
     arg = unwrapSingleExpressionNode(arg);
@@ -150,6 +181,10 @@ static void collectCompilerDirectiveArgs(ASTNode* arg, std::vector<ASTNode*>& ar
     args.push_back(arg);
 }
 
+// OPENCODE:
+// Extracts the argument list from a Compile_Time_Directive node. The args may
+// be in a Scope_Body, Arguments, or a single expression; collects them into
+// a flat vector via collectCompilerDirectiveArgs.
 static std::vector<ASTNode*> getCompilerDirectiveArgs(ASTNode* directiveNode)
 {
     std::vector<ASTNode*> args;
@@ -171,47 +206,69 @@ static std::vector<ASTNode*> getCompilerDirectiveArgs(ASTNode* directiveNode)
     return args;
 }
 
+// OPENCODE:
+// Returns true if node (after unwrapping Expression_Term) is an
+// Undefined_Initializer_Node — the `---` placeholder.
 static bool isUndefinedInitializer(ASTNode* node)
 {
     node = unwrapSingleExpressionNode(node);
     return node && node->nodeType == Undefined_Initializer_Node;
 }
 
+// OPENCODE:
+// Returns true if node (after unwrapping Expression_Term) is a
+// Default_Initializer_Node — the `default` keyword placeholder.
 static bool isDefaultInitializer(ASTNode* node)
 {
     node = unwrapSingleExpressionNode(node);
     return node && node->nodeType == Default_Initializer_Node;
 }
 
-valueType* findNamedValue(ASTNode* node, ASTNode* childNode, std::string& identifier, asaToken*& token);
+ASAValue* findNamedValue(ASTNode* node, ASTNode* childNode, std::string& identifier, asaToken*& token);
 
-static bool isPointerValue(valueType* val)
+// OPENCODE:
+// Returns true if val's typeString starts with '*' (i.e. it's a pointer type
+// in ASA's type system).
+static bool isPointerValue(ASAValue* val)
 {
-    return val && !val->type.empty() && val->type[0] == '*';
+    return val && !val->typeString.empty() && val->typeString[0] == '*';
 }
 
-static void markVariableRead(valueType* val)
+// OPENCODE:
+// Increments variableReads on the declaration node associated with val. Used
+// for unused-variable warnings.
+static void markVariableRead(ASAValue* val)
 {
     if (val && val->declNode)
         val->declNode->variableReads++;
 }
 
-static void markVariableWrite(valueType* val)
+// OPENCODE:
+// Increments variableWrites on the declaration node associated with val. Used
+// for unused-variable warnings (a variable written but never read is flagged).
+static void markVariableWrite(ASAValue* val)
 {
     if (val && val->declNode)
         val->declNode->variableWrites++;
 }
 
+// OPENCODE:
+// Sets tracksVariableUsage=true on declNode so the unused-variable checker
+// will count reads/writes for this declaration.
 static void trackVariableUsage(ASTNode* declNode)
 {
     if (declNode)
         declNode->tracksVariableUsage = true;
 }
 
-static LLVMValue* generateDefaultValueForType(LLVMType* type, const std::string& typeName, int pointerLevel, int pass, ASTNode* node);
-static bool getDeclaredTypeFromColonNode(ASTNode* colonNode, LLVMType*& outType, std::string& outTypeName, int& outPointerLevel, bool& outIsConst, int pass);
-static LLVMValue* makeStringConstant(const std::string& str);
+static llvm::Value* generateDefaultValueForType(llvm::Type* type, const std::string& typeName, int pointerLevel, int pass, ASTNode* node);
+static bool getDeclaredTypeFromColonNode(ASTNode* colonNode, llvm::Type*& outType, std::string& outTypeName, int& outPointerLevel, bool& outIsConst, int pass);
+static llvm::Value* createStringConstantLiteral(const std::string& str);
 
+// OPENCODE:
+// Returns the string value of a named attribute on node. If the attribute has
+// a Scope_Body child with a string/identifier token, returns that value;
+// otherwise defaults to "true". Returns "false" if the attribute is absent.
 std::string getAttributeValue(ASTNode* node, std::string attributeName)
 {
     for (auto* attr : node->attributes) {
@@ -238,6 +295,9 @@ std::string getAttributeValue(ASTNode* node, std::string attributeName)
     return "false";
 }
 
+// OPENCODE:
+// Like getAttributeValue but walks up parentNode ancestors until the
+// attribute is found. Used for inherited properties like @hideast, @external.
 std::string getInheritedAttributeValue(ASTNode* node, std::string attributeName)
 {
     while (node) {
@@ -318,7 +378,7 @@ std::unordered_map<std::string, ASTNode*> variantStructTemplates;
 std::unordered_set<std::string> instantiatedVariantStructs;
 
 // Returns the allocated element type for either an AllocaInst or GlobalVariable.
-inline LLVMType* getValueStoredType(LLVMValue* ptr)
+inline llvm::Type* getValueStoredType(llvm::Value* ptr)
 {
     if (auto* A = dyn_cast<AllocaInst>(ptr))
         return A->getAllocatedType();
@@ -328,9 +388,9 @@ inline LLVMType* getValueStoredType(LLVMValue* ptr)
 }
 
 
-std::unordered_map<std::string, LLVMType*> unresolvedTypes;
+std::unordered_map<std::string, llvm::Type*> unresolvedTypes;
 std::stack<ASAType*> lastRetrievedElementType;
-std::stack<LLVMValue*> pipeOperationValue;
+std::stack<llvm::Value*> pipeOperationValue;
 
 // Stack to track loop contexts (for break/continue)
 struct LoopContext {
@@ -385,6 +445,9 @@ static int nextTypeEquivGroup = 4;
 // User-defined type aliases (e.g., from `i32 :: int32;`)
 std::unordered_map<std::string, std::string> typeAliasMap;  // TODO: Keep in scope
 
+// OPENCODE:
+// Resolves a chain of type aliases (e.g. `i32 -> int32 -> int32`) to the
+// ultimate target type name. Depth-limited to 100 to prevent infinite loops.
 std::string resolveTypeAlias(const std::string& name, int depth)
 {
     if (depth > 100)
@@ -395,6 +458,10 @@ std::string resolveTypeAlias(const std::string& name, int depth)
     return name;
 }
 
+// OPENCODE:
+// Registers a user-defined type alias (from `Alias :: Target;`) in
+// typeAliasMap. Also copies the resolved target's equivalence group and sign
+// so type-compatibility checks treat the alias as equivalent to its target.
 void registerTypeAlias(const std::string& aliasName, const std::string& targetName)
 {
     typeAliasMap[aliasName] = targetName;
@@ -412,6 +479,10 @@ void registerTypeAlias(const std::string& aliasName, const std::string& targetNa
         typeSigns[aliasName] = sIt->second;
 }
 
+// OPENCODE:
+// Checks type equivalence: direct name match, alias-resolved match, or same
+// equivalence group (e.g. int == int32, byte == int8). Used throughout
+// codegen for type-compatibility checks.
 bool areTypesEquivalent(const std::string& type1, const std::string& type2)
 {
     if (type1 == type2)
@@ -538,6 +609,10 @@ struct functionID {
     //    }
     //    console::writeLine();
     //}
+    // OPENCODE:
+    // Compares two ASTNodeType enums for equality, with a special case for
+    // sign-flipped integer types when types were inferred from LLVM IR (LLVM
+    // drops signedness, so int32 == uint32 after inference).
     bool compareASTNodeTypes(ASTNodeType& a, ASTNodeType& b, bool wereTypesInferred = false)
     {
         if (a == b)
@@ -559,6 +634,11 @@ struct functionID {
         }
         return false;
     }
+    // OPENCODE:
+    // Overload-resolution scoring: compares a call's argument list against
+    // this functionID's parameter list. Returns 0 for a perfect match, small
+    // numbers for near matches (sign differences), and 1000+ for rejects
+    // (wrong name, too many args, type mismatch). Lower = better.
     uint16_t compareMatch(std::string n, argumentList a, bool wereTypesInferred = false)
     {
         uint16_t differences = 0;
@@ -674,6 +754,10 @@ struct functionID {
         console::indentation--;
         return differences;
     }
+    // OPENCODE:
+    // Overload-resolution variant that compares against raw ASTNode argument
+    // nodes (pre-type-resolution). Used during candidate filtering before
+    // argument values are fully evaluated.
     uint16_t compareMatch(std::string n, std::vector<ASTNode*> a)
     {
         uint16_t differences = 0;
@@ -719,6 +803,10 @@ struct functionID {
         }
         return differences;
     }
+    // OPENCODE:
+    // Name-only overload check: returns 1000-1 if name matches (so the caller
+    // knows a function with this name exists) but doesn't attempt argument
+    // matching. Used for error messages.
     uint16_t compareMatch(std::string n)
     {
         uint16_t differences = 0;
@@ -764,7 +852,12 @@ std::vector<functionID*> functionIDs = std::vector<functionID*>();
 std::unordered_map<std::string, AsaStruct*> structDefinitions = std::unordered_map<std::string, AsaStruct*>();
 std::stack<std::string> currentStructName = std::stack<std::string>();
 
-static LLVMValue* createMutableStringCopy(ASTNode* literalNode, LLVMValue* literalStringValue, int pass)
+// OPENCODE:
+// When a string literal is used in a mutable context (e.g. passed to a ref
+// or *char parameter), mallocs a copy and wraps it in a string struct so the
+// original constant isn't mutated. No-op inside the string module or when the
+// string struct type isn't available.
+static llvm::Value* createMutableStringCopy(ASTNode* literalNode, llvm::Value* literalStringValue, int pass)
 {
     if (!literalNode || literalNode->nodeType != String_Constant_Node || !literalStringValue ||
         compilerDirectiveFlags["IN_STRING_MODULE"] ||
@@ -776,29 +869,33 @@ static LLVMValue* createMutableStringCopy(ASTNode* literalNode, LLVMValue* liter
 
     FunctionCallee mallocFn = llvmCompileModule->getOrInsertFunction(
         "malloc",
-        FunctionType::get(PointerType::getUnqual(*llvmCompileContext), {LLVMType::getInt64Ty(*llvmCompileContext)}, false));
-    LLVMValue* dst = llvmIRBuilder->CreateCall(
+        FunctionType::get(PointerType::getUnqual(*llvmCompileContext), {llvm::Type::getInt64Ty(*llvmCompileContext)}, false));
+    llvm::Value* dst = llvmIRBuilder->CreateCall(
         mallocFn,
-        {ConstantInt::get(LLVMType::getInt64Ty(*llvmCompileContext), byteCount)},
+        {ConstantInt::get(llvm::Type::getInt64Ty(*llvmCompileContext), byteCount)},
         "str_literal_copy");
 
-    LLVMValue* src = llvmIRBuilder->CreateExtractValue(literalStringValue, {0}, "str_literal_src");
+    llvm::Value* src = llvmIRBuilder->CreateExtractValue(literalStringValue, {0}, "str_literal_src");
     Function* memcpyFunc = Intrinsic::getOrInsertDeclaration(
         llvmCompileModule.get(),
         Intrinsic::memcpy,
-        {PointerType::getUnqual(*llvmCompileContext), PointerType::getUnqual(*llvmCompileContext), LLVMType::getInt64Ty(*llvmCompileContext)});
+        {PointerType::getUnqual(*llvmCompileContext), PointerType::getUnqual(*llvmCompileContext), llvm::Type::getInt64Ty(*llvmCompileContext)});
     llvmIRBuilder->CreateCall(
         memcpyFunc,
-        {dst, src, ConstantInt::get(LLVMType::getInt64Ty(*llvmCompileContext), byteCount), ConstantInt::get(LLVMType::getInt1Ty(*llvmCompileContext), 0)});
+        {dst, src, ConstantInt::get(llvm::Type::getInt64Ty(*llvmCompileContext), byteCount), ConstantInt::get(llvm::Type::getInt1Ty(*llvmCompileContext), 0)});
 
-    StructType* strTy = cast<StructType>((LLVMType*)structDefinitions["string"]->structVal);
-    LLVMValue* mutableString = UndefValue::get(strTy);
+    StructType* strTy = cast<StructType>((llvm::Type*)structDefinitions["string"]->structVal);
+    llvm::Value* mutableString = UndefValue::get(strTy);
     mutableString = llvmIRBuilder->CreateInsertValue(mutableString, dst, {0});
-    mutableString = llvmIRBuilder->CreateInsertValue(mutableString, ConstantInt::get(LLVMType::getInt32Ty(*llvmCompileContext), (uint32_t)strValue.size()), {1});
+    mutableString = llvmIRBuilder->CreateInsertValue(mutableString, ConstantInt::get(llvm::Type::getInt32Ty(*llvmCompileContext), (uint32_t)strValue.size()), {1});
     return mutableString;
 }
 
-DIType* createDIType(LLVMType* llvmType, const std::string& typeString)
+// OPENCODE:
+// Creates a LLVM debug-info type (DIType) from an LLVM type and ASA type
+// string. Handles integers (signed/unsigned via typeString), floats, doubles,
+// and pointers. Used by local variable and parameter debug declarations.
+DIType* createDIType(llvm::Type* llvmType, const std::string& typeString)
 {
     if (!llvmType || !llvmDebugBuilder)
         return nullptr;
@@ -833,27 +930,25 @@ DIType* createDIType(LLVMType* llvmType, const std::string& typeString)
     return nullptr;
 }
 
-AsaStruct* getStructTypeFromLLVMType(LLVMType*& t)
+// OPENCODE:
+// Reverse-looks-up a struct definition by its LLVM StructType pointer. Used
+// to recover the AsaStruct* from an llvm::Type* during codegen (e.g. member
+// access, struct return).
+AsaStruct* getStructTypeFromLLVMType(llvm::Type*& t)
 {
     for (const auto& [key, value] : structDefinitions) {
-        if ((LLVMType*)(value->structVal) == (LLVMType*)t) {
+        if ((llvm::Type*)(value->structVal) == (llvm::Type*)t) {
             return value;
         }
     }
     return nullptr;
 }
 
-//void printFunctionPrototypes()
-//{
-//    console::writeLine("\nFunction Prototypes:", console::greenFGColor);
-//    console::indentation++;
-//    for (const auto& f : functionIDs) {
-//        console::write("> ");
-//        f->print();
-//    }
-//    console::indentation--;
-//}
-
+// OPENCODE:
+// Checks whether a #cast is valid between two types. Always true between two
+// numeric types. For user-defined types, looks for a `cast` function with a
+// matching single-parameter signature. Returns false if either side is a
+// pointer.
 static bool hasCastBetween(const std::string& fromType, uint8_t fromPtrLevel, const std::string& toType, uint8_t toPtrLevel)
 {
     // Only consider non-pointer casts
@@ -874,6 +969,9 @@ static bool hasCastBetween(const std::string& fromType, uint8_t fromPtrLevel, co
     return false;
 }
 
+// OPENCODE:
+// Formats a function call signature string like `name(<*type>, <*type>)` for
+// error messages and diagnostics.
 std::string formatCallSignature(const std::string& name, const argumentList& args)
 {
     std::string s = name + "(";
@@ -886,6 +984,10 @@ std::string formatCallSignature(const std::string& name, const argumentList& arg
     return s;
 }
 
+// OPENCODE:
+// Prints a color-coded diff between the caller's argument list and the
+// candidate function's parameter list: green=exact, yellow=castable,
+// red=mismatch. Used in overload-resolution error messages.
 void printFunctionDifferences(argumentList* arguments, functionID* other)
 {
     console::write(other->name + " :: (");
@@ -906,6 +1008,10 @@ void printFunctionDifferences(argumentList* arguments, functionID* other)
     console::write(")\n");
 }
 
+// OPENCODE:
+// Prints a function candidate's full signature with type annotations for
+// overload-resolution error output. Strips the `StructName.` prefix from
+// member functions for readability.
 void printFunctionCandidate(functionID* fn)
 {
     if (!fn)
@@ -941,6 +1047,11 @@ void printFunctionCandidate(functionID* fn)
     console::write(")\n");
 }
 
+// OPENCODE:
+// Overload resolution: finds the best-matching functionID from fnIDs by
+// scoring each candidate via compareMatch. Picks lowest score; errors if the
+// best requires exact types (score 500) or no match under 500. Optionally
+// throws with candidate listing if throwIfNotFound.
 functionID* getFunctionFromID(std::vector<functionID*>& fnIDs, std::string& name, argumentList& arguments, bool wereTypesInferred = false, bool isMemberFunction = false, bool throwIfNotFound = false)
 {
     functionID* best;
@@ -981,6 +1092,10 @@ undefinedFunction:
     }
     return nullptr;
 }
+// OPENCODE:
+// Strict overload resolution: like getFunctionFromID but only accepts a
+// perfect match (score 0). Used for exact-lookup scenarios like variant
+// instantiation dedup and operator dispatch.
 functionID* getExactFunctionFromID(std::vector<functionID*>& fnIDs, std::string& name, argumentList& arguments, bool wereTypesInferred = false, bool throwIfNotFound = false)
 {
     functionID* best;
@@ -1019,6 +1134,9 @@ exactFnNotFound:
     }
     return nullptr;
 }
+// OPENCODE:
+// Overload resolution variant that takes raw ASTNode argument values (pre-
+// type-resolution). Uses the ASTNode-based compareMatch overload for scoring.
 functionID* getFunctionFromID(std::vector<functionID*>& fnIDs, std::string& name, std::vector<ASTNode*>& argValues, bool throwIfNotFound = false)
 {
     functionID* best;
@@ -1053,6 +1171,9 @@ undefinedFunction:
     }
     return nullptr;
 }
+// OPENCODE:
+// Name-only overload resolution: finds any functionID with a matching name.
+// Used for error reporting and existence checks.
 functionID* getFunctionFromID(std::vector<functionID*>& fnIDs, std::string& name, bool throwIfNotFound = false)
 {
     functionID* best;
@@ -1087,6 +1208,10 @@ undefinedFunction:
     }
     return nullptr;
 }
+// OPENCODE:
+// Reverse-looks up a functionID from its LLVM Function* pointer. Used when
+// codegen has only the Function* (e.g. from a call instruction) and needs
+// metadata like return type or argument list.
 functionID* getFunctionIDFromFunctionPointer(std::vector<functionID*>& fnIDs, Function*& fnPtr)
 {
     for (auto& f : fnIDs) {
@@ -1101,21 +1226,31 @@ functionID* getFunctionIDFromFunctionPointer(std::vector<functionID*>& fnIDs, Fu
     return nullptr;
 }
 
-LLVMValue* LogErrorV(const char* Str)
+// OPENCODE:
+// Simple error helper: prints a string to stderr and returns nullptr as
+// llvm::Value*. Used as a shorthand in codegen paths that can't recover.
+llvm::Value* LogErrorV(const char* Str)
 {
     console::printError(Str);
     return nullptr;
 }
 
-/// CreateEntryBlockAlloca - Create an alloca instruction in the entry block of
-/// the function.  This is used for mutable variables etc.
-static AllocaInst* CreateEntryBlockAlloca(Function* TheFunction, LLVMType* t, StringRef VarName)
+// OPENCODE:
+// Create an alloca instruction in the entry block of the function. This is
+// used for mutable variables etc. (AllocaInst is placed at entry for mem2reg
+// optimization to promote it to registers.)
+static AllocaInst* CreateEntryBlockAlloca(Function* TheFunction, llvm::Type* t, StringRef VarName)
 {
     IRBuilder<> TmpB(&TheFunction->getEntryBlock(), TheFunction->getEntryBlock().begin());
     return TmpB.CreateAlloca(t, nullptr, VarName);
 }
 
-static LLVMValue* generateDefaultValueForType(LLVMType* type, const std::string& typeName, int pointerLevel, int pass, ASTNode* node)
+// OPENCODE:
+// Generates a zero-initialized or default-valued LLVM value for a given type.
+// For structs: allocas, memsets to 0, then fills in any member default values
+// from structDef->memberDefaultNodes. For primitives: returns 0/0.0/null.
+// Recursively handles default initializers and undefined initializers.
+static llvm::Value* generateDefaultValueForType(llvm::Type* type, const std::string& typeName, int pointerLevel, int pass, ASTNode* node)
 {
     if (!type)
         return nullptr;
@@ -1131,13 +1266,13 @@ static LLVMValue* generateDefaultValueForType(LLVMType* type, const std::string&
         Function* fn = llvmIRBuilder->GetInsertBlock()->getParent();
         AllocaInst* defaultPtr = CreateEntryBlockAlloca(fn, type, "default_" + resolvedTypeName);
 
-        LLVMValue* structSize = ConstantInt::get(LLVMType::getInt64Ty(*llvmCompileContext),
+        llvm::Value* structSize = ConstantInt::get(llvm::Type::getInt64Ty(*llvmCompileContext),
             llvmCompileModule->getDataLayout().getTypeAllocSize(type));
-        Function* memsetFunc = Intrinsic::getOrInsertDeclaration(llvmCompileModule.get(), Intrinsic::memset, {defaultPtr->getType(), LLVMType::getInt64Ty(*llvmCompileContext)});
+        Function* memsetFunc = Intrinsic::getOrInsertDeclaration(llvmCompileModule.get(), Intrinsic::memset, {defaultPtr->getType(), llvm::Type::getInt64Ty(*llvmCompileContext)});
         llvmIRBuilder->CreateCall(memsetFunc, {defaultPtr,
-                                                  ConstantInt::get(LLVMType::getInt8Ty(*llvmCompileContext), 0),
+                                                  ConstantInt::get(llvm::Type::getInt8Ty(*llvmCompileContext), 0),
                                                   structSize,
-                                                  ConstantInt::get(LLVMType::getInt1Ty(*llvmCompileContext), 0)});
+                                                  ConstantInt::get(llvm::Type::getInt1Ty(*llvmCompileContext), 0)});
 
         StructType* structType = cast<StructType>(type);
         for (auto& [memberName, defaultNode] : structDef->memberDefaultNodes) {
@@ -1146,15 +1281,15 @@ static LLVMValue* generateDefaultValueForType(LLVMType* type, const std::string&
                 continue;
 
             uint16_t idx = idxIt->second;
-            LLVMType* memberType = structType->getElementType(idx);
-            LLVMValue* defaultVal = nullptr;
+            llvm::Type* memberType = structType->getElementType(idx);
+            llvm::Value* defaultVal = nullptr;
             ASTNode* unwrappedDefault = unwrapSingleExpressionNode(defaultNode);
             if (unwrappedDefault && unwrappedDefault->nodeType == Undefined_Initializer_Node)
                 defaultVal = UndefValue::get(memberType);
             else if (unwrappedDefault && unwrappedDefault->nodeType == Default_Initializer_Node)
                 defaultVal = generateDefaultValueForType(memberType, structDef->members[idx].typeString, structDef->members[idx].pointerLevel, pass, node);
             else
-                defaultVal = (LLVMValue*)(defaultNode->*(defaultNode->codegen))(pass);
+                defaultVal = (llvm::Value*)(defaultNode->*(defaultNode->codegen))(pass);
 
             if (wasError)
                 return nullptr;
@@ -1166,7 +1301,7 @@ static LLVMValue* generateDefaultValueForType(LLVMType* type, const std::string&
             if (wasError)
                 return nullptr;
 
-            LLVMValue* memberPtr = llvmIRBuilder->CreateStructGEP(structType, defaultPtr, idx, memberName + "_default");
+            llvm::Value* memberPtr = llvmIRBuilder->CreateStructGEP(structType, defaultPtr, idx, memberName + "_default");
             llvmIRBuilder->CreateStore(defaultVal, memberPtr);
         }
 
@@ -1178,6 +1313,10 @@ static LLVMValue* generateDefaultValueForType(LLVMType* type, const std::string&
 
 static void instantiateVariantStruct(const std::string&, const std::string&, const std::string&, std::vector<std::pair<std::string, std::string>> = {});
 
+// OPENCODE:
+// Validates that a variant struct/function call has the correct number of
+// type arguments. Emits a contextual error block if the count doesn't match
+// the variant definition's Variants_Node child count.
 static bool validateVariantArgumentCount(ASTNode* useNode, ASTNode* defVariantsNode, int actualCount, const std::string& name)
 {
     int expectedCount = defVariantsNode ? (int)defVariantsNode->childNodes.size() : 0;
@@ -1192,9 +1331,14 @@ static bool validateVariantArgumentCount(ASTNode* useNode, ASTNode* defVariantsN
     return false;
 }
 
-LLVMType* getLLVMTypeFromString(std::string typeName, int pointerLevelOffset, ASTNode* contextNode, bool& wasDefined, int& pass)
+// OPENCODE:
+// Maps an ASA type name string to its LLVM type. Handles all primitive types
+// (int/uint/float/double/bool/byte/half/any), struct types (lazy-generates
+// the struct body if not yet emitted), void, and pointer levels via
+// pointerLevelOffset. Sets wasDefined if the type was resolved to a struct.
+llvm::Type* getLLVMTypeFromString(std::string typeName, int pointerLevelOffset, ASTNode* contextNode, bool& wasDefined, int& pass)
 {
-    LLVMType* aType;
+    llvm::Type* aType;
     uint16_t pointerLevel = 0;
     while (typeName[0] == '*') {
         typeName = typeName.substr(1);
@@ -1203,38 +1347,38 @@ LLVMType* getLLVMTypeFromString(std::string typeName, int pointerLevelOffset, AS
     typeName = resolveTypeAlias(typeName);
     // Integer types
     if (typeName == "int" || typeName == "int32" || typeName == "uint" || typeName == "uint32")
-        aType = LLVMType::getInt32Ty(*llvmCompileContext);
+        aType = llvm::Type::getInt32Ty(*llvmCompileContext);
     else if (typeName == "int16" || typeName == "uint16")
-        aType = LLVMType::getInt16Ty(*llvmCompileContext);
+        aType = llvm::Type::getInt16Ty(*llvmCompileContext);
     else if (typeName == "int8" || typeName == "uint8" || typeName == "byte")
-        aType = LLVMType::getInt8Ty(*llvmCompileContext);
+        aType = llvm::Type::getInt8Ty(*llvmCompileContext);
     else if (typeName == "int64" || typeName == "uint64")
-        aType = LLVMType::getInt64Ty(*llvmCompileContext);
+        aType = llvm::Type::getInt64Ty(*llvmCompileContext);
     else if (typeName == "int128" || typeName == "uint128")
-        aType = LLVMType::getInt128Ty(*llvmCompileContext);
+        aType = llvm::Type::getInt128Ty(*llvmCompileContext);
 
     // Floats
     else if (typeName == "float")
-        aType = LLVMType::getFloatTy(*llvmCompileContext);
+        aType = llvm::Type::getFloatTy(*llvmCompileContext);
     else if (typeName == "half")
-        aType = LLVMType::getHalfTy(*llvmCompileContext);
+        aType = llvm::Type::getHalfTy(*llvmCompileContext);
     else if (typeName == "double")
-        aType = LLVMType::getDoubleTy(*llvmCompileContext);
+        aType = llvm::Type::getDoubleTy(*llvmCompileContext);
 
     // Bool
     else if (typeName == "bool")
-        aType = LLVMType::getInt1Ty(*llvmCompileContext);
+        aType = llvm::Type::getInt1Ty(*llvmCompileContext);
 
     // Any (void pointer base type)
     else if (typeName == "any")
-        aType = LLVMType::getInt8Ty(*llvmCompileContext);
+        aType = llvm::Type::getInt8Ty(*llvmCompileContext);
 
     // Otherwise, look in struct definitions
     else if (structDefinitions.find(typeName) != structDefinitions.end()) {
         // If the struct body hasn't been generated yet, generate it
         if (structDefinitions[typeName]->structVal == nullptr) {
             if (currentStructName.size() == 0 || currentStructName.top() != typeName) {
-                aType = (LLVMType*)(structDefinitions[typeName]->sourceNode->*(structDefinitions[typeName]->sourceNode->codegen))(pass);
+                aType = (llvm::Type*)(structDefinitions[typeName]->sourceNode->*(structDefinitions[typeName]->sourceNode->codegen))(pass);
                 if (wasError) {
                     return nullptr;
                 }
@@ -1253,7 +1397,7 @@ LLVMType* getLLVMTypeFromString(std::string typeName, int pointerLevelOffset, AS
             }
         }
         else
-            aType = (LLVMType*)(structDefinitions[typeName]->structVal);
+            aType = (llvm::Type*)(structDefinitions[typeName]->structVal);
     }
 
     // If still not found, check for variant struct instantiation (e.g. "array.int")
@@ -1282,7 +1426,7 @@ LLVMType* getLLVMTypeFromString(std::string typeName, int pointerLevelOffset, AS
                 }
                 auto sIt = structDefinitions.find(typeName);
                 if (sIt != structDefinitions.end() && sIt->second && sIt->second->structVal) {
-                    aType = (LLVMType*)sIt->second->structVal;
+                    aType = (llvm::Type*)sIt->second->structVal;
                     for (int i = 0; i < pointerLevel + pointerLevelOffset; i++)
                         aType = PointerType::get(*llvmCompileContext, 0);
                     //aType = PointerType::get(*llvmCompileContext, 0);
@@ -1300,6 +1444,10 @@ LLVMType* getLLVMTypeFromString(std::string typeName, int pointerLevelOffset, AS
 }
 
 
+// OPENCODE:
+// Reverse-maps an LLVM type back to an ASA type string (e.g. i32 -> "int32",
+// struct.X -> "X"). Pointer levels are prefixed as asterisks. Used when type
+// info is only available from LLVM IR (e.g. inferred operand types).
 std::string getStringTypeFromLLVMType(llvm::Type* type)
 {
     // Count pointer indirections
@@ -1372,6 +1520,9 @@ std::string getStringTypeFromLLVMType(llvm::Type* type)
     return pointerPrefix + baseTypeName;
 }
 
+// OPENCODE:
+// Maps an ASA type name string to its ASTNodeType enum (e.g. "int32" ->
+// SInt32_Type). Returns Identifier_Node for unknown/user-defined types.
 ASTNodeType getASTNodeTypeFromString(const std::string& typeNameIn)
 {
     std::string typeName = resolveTypeAlias(typeNameIn);
@@ -1415,7 +1566,12 @@ ASTNodeType getASTNodeTypeFromString(const std::string& typeNameIn)
     return Identifier_Node;
 }
 
-void castToHighestAccuracy(LLVMValue*& L, LLVMValue*& R, ASTNode* node)
+// OPENCODE:
+// Promotes both operands of a binary op to the same (highest-precision) type.
+// Compares ASTNodeType ranks, casts the lower-precision side to the higher,
+// handling signed/unsigned/float promotions. Prefers asaType tracking over
+// LLVM type introspection for sign information.
+void castToHighestAccuracy(llvm::Value*& L, llvm::Value*& R, ASTNode* node)
 {
     messageSystem::startBlock(node, "Generating automatic type cast", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
     defer(messageSystem::endBlock());
@@ -1511,6 +1667,10 @@ wasCastError:
     return;
 }
 
+// OPENCODE:
+// One-time setup: creates the LLVMContext, Module, IRBuilder, and DIBuilder
+// with a compile unit for debug info. Seeds compilerDirectiveFlags from
+// command-line flags. Called once from main.cpp before codegen passes.
 void initializeCodeGenerator()
 {
     for (const auto& flag : commandLineCompilerDirectiveFlags)
@@ -1542,6 +1702,10 @@ void initializeCodeGenerator()
     llvmIRBuilder = std::make_unique<IRBuilder<>>(*llvmCompileContext);
 }
 
+// OPENCODE:
+// Tears down all codegen state: deletes functionIDs and structDefinitions,
+// resets LLVM unique_ptrs (builder, module, context), clears all global
+// maps/stacks. Called from main.cpp after compilation completes or on error.
 void resetCodeGenerator()
 {
     // Free heap-allocated codegen objects
@@ -1583,7 +1747,7 @@ void resetCodeGenerator()
     instantiatedVariantStructs.clear();
     unresolvedTypes.clear();
     lastRetrievedElementType = std::stack<ASAType*>();
-    pipeOperationValue = std::stack<LLVMValue*>();
+    pipeOperationValue = std::stack<llvm::Value*>();
     loopContextStack = std::stack<LoopContext>();
     resultContextStack = std::stack<ResultContext>();
     currentStructName = std::stack<std::string>();
@@ -1623,6 +1787,9 @@ void resetCodeGenerator()
     };
 }
 
+// OPENCODE:
+// Returns or creates a DIFile debug-info node for a source file path, using
+// a cache to avoid duplicates. Splits the path into directory + filename.
 static DIFile* getDIFile(const std::string& fullPath)
 {
     auto it = llvmDebugFileCache.find(fullPath);
@@ -1635,7 +1802,13 @@ static DIFile* getDIFile(const std::string& fullPath)
     return f;
 }
 
-valueType* findNamedValue(ASTNode* node, ASTNode* childNode, std::string& identifier, asaToken*& token)
+// OPENCODE:
+// The core variable/symbol lookup: searches for an identifier in the current
+// scope's namedValues, then walks up parent scopes respecting shadowing,
+// module-scope privacy, and function-local visibility. At global scope only
+// top-level declarations are visible; nested scopes see expression-statement
+// declarations. Also suggests `this.member` if inside a struct member function.
+ASAValue* findNamedValue(ASTNode* node, ASTNode* childNode, std::string& identifier, asaToken*& token)
 {
     // First look in self
     if (node->namedValues.find(identifier) != node->namedValues.end()) {
@@ -1644,7 +1817,7 @@ valueType* findNamedValue(ASTNode* node, ASTNode* childNode, std::string& identi
 
     // Search through child nodes, but with proper scoping rules. Keep the
     // latest matching declaration before the use so shadowing works correctly.
-    valueType* foundValue = nullptr;
+    ASAValue* foundValue = nullptr;
     for (auto& c : node->childNodes) {
         // At nested scopes (depth > 0), only search up to the point where it's used
         if (node->depth > 0 && c == childNode) {
@@ -1723,6 +1896,11 @@ valueType* findNamedValue(ASTNode* node, ASTNode* childNode, std::string& identi
 
 static bool isCompileTimeDefinitionNode(ASTNode* node);
 
+// OPENCODE:
+// Searches scope and ancestor scopes for a named compiler definition
+// (struct, function, enum, module, cast). Also checks imported module children
+// (importedChildren flag) by navigating into their inner scope. Returns the
+// ASTNode* or nullptr.
 static ASTNode* findCompilerDefinition(ASTNode* scope, const std::string& identifier)
 {
     while (scope) {
@@ -1751,6 +1929,10 @@ static ASTNode* findCompilerDefinition(ASTNode* scope, const std::string& identi
     return nullptr;
 }
 
+// OPENCODE:
+// Returns true if node is a compile-time definition (Compiler_Define,
+// Compiler_Define_Function, Compiler_Define_Cast, Compiler_Define_Struct, or
+// Compiler_Define_Enum).
 static bool isCompileTimeDefinitionNode(ASTNode* node)
 {
     if (!node)
@@ -1763,6 +1945,10 @@ static bool isCompileTimeDefinitionNode(ASTNode* node)
            node->nodeType == Compiler_Define_Enum;
 }
 
+// OPENCODE:
+// Like findCompilerDefinition but also scans child nodes of each scope for
+// matching token names that are compile-time definitions. Used as a fallback
+// when compilerDefinitions map doesn't contain the entry.
 static ASTNode* findCompileTimeDefinitionNode(ASTNode* scope, const std::string& identifier)
 {
     ASTNode* compilerDefinition = findCompilerDefinition(scope, identifier);
@@ -1780,6 +1966,9 @@ static ASTNode* findCompileTimeDefinitionNode(ASTNode* scope, const std::string&
     return nullptr;
 }
 
+// OPENCODE:
+// resolveASTNode callback: resolves an identifier AST node to its compile-time
+// definition (struct, function, enum, etc.) by searching parent scopes.
 ASTNode* ASTNode::resolveCompilerDefinitionASTNode(int pass)
 {
     if (!token)
@@ -1788,8 +1977,10 @@ ASTNode* ASTNode::resolveCompilerDefinitionASTNode(int pass)
     return findCompileTimeDefinitionNode(parentNode, token->tokenStr);
 }
 
-// Infer the ASA type string for a compile-time define body node (an Expression_Term).
-// Used when a compiler define is accessed via module member access (e.g. Mod.ABC).
+// OPENCODE:
+// Infer the ASA type string for a compile-time define body node (an
+// Expression_Term). Used when a compiler define is accessed via module member
+// access (e.g. Mod.ABC).
 static std::string getDefineTypeString(ASTNode* defineBody)
 {
     ASTNode* child = defineBody;
@@ -1812,6 +2003,7 @@ static std::string getDefineTypeString(ASTNode* defineBody)
     }
 }
 
+// OPENCODE:
 // Search the module's scope body tree for a compilerDefinitions entry.
 static ASTNode* findModuleCompilerDefine(ASTNode* node, const std::string& name)
 {
@@ -1828,6 +2020,12 @@ static ASTNode* findModuleCompilerDefine(ASTNode* node, const std::string& name)
     return nullptr;
 }
 
+// OPENCODE:
+// Recursively resolves the type string of a member-access expression
+// (e.g. `a.b.c` or `arr[i]`). Handles identifiers (variable lookup via
+// findNamedValue), Access_Operation (strips one pointer level for array
+// indexing), Member_Access (resolves left type, then looks up right member
+// in struct definitions or module registry), and dereference operators.
 std::string getMemberAccessTypeString(ASTNode* node, ASTNode* parentNode, asaToken*& token)
 {
     // Base case: if it's just an identifier, look it up normally
@@ -1837,7 +2035,7 @@ std::string getMemberAccessTypeString(ASTNode* node, ASTNode* parentNode, asaTok
         if (modIt != moduleRegistry.end())
             return "__module__:" + node->token->tokenStr;
 
-        valueType* val = findNamedValue(parentNode, nullptr, node->token->tokenStr, token);
+        ASAValue* val = findNamedValue(parentNode, nullptr, node->token->tokenStr, token);
         if (!val && !wasError) {
             console::indentation = errorDepth;
             if (errorDepth < maxErrorTraceDepth)
@@ -1846,7 +2044,7 @@ std::string getMemberAccessTypeString(ASTNode* node, ASTNode* parentNode, asaTok
             errorDepth++;
             return "";
         }
-        return val ? val->type : "";
+        return val ? val->typeString : "";
     }
 
     // Handle array indexing: arr[i], element type is array type with one pointer stripped
@@ -1888,7 +2086,7 @@ std::string getMemberAccessTypeString(ASTNode* node, ASTNode* parentNode, asaTok
                 std::string memberName = rightNode->token->tokenStr;
                 auto varIt = modIt->second->namedValues.find(memberName);
                 if (varIt != modIt->second->namedValues.end())
-                    return varIt->second->type;
+                    return varIt->second->typeString;
                 // Also check nested sub-modules
                 auto subModIt = moduleRegistry.find(modName + "." + memberName);
                 if (subModIt != moduleRegistry.end())
@@ -1995,9 +2193,9 @@ std::string getMemberAccessTypeString(ASTNode* node, ASTNode* parentNode, asaTok
 }
 
 
-// Declare one Expression_Statement as an LLVM global.
-// ownerNode: the node in whose namedValues the valueType is stored.
-//   Root-level vars: ownerNode == exprStmtNode (so findNamedValue can find it).
+// OPENCODE:
+// Emits a "variable already declared in this scope" error with a contextual
+// block pointing to the previous declaration. Returns true (always reports).
 //   Module vars: ownerNode == the Compiler_Define module node.
 static bool reportSameScopeRedeclaration(ASTNode* declarationNode, ASTNode* previousDeclarationNode, const std::string& varName)
 {
@@ -2009,6 +2207,10 @@ static bool reportSameScopeRedeclaration(ASTNode* declarationNode, ASTNode* prev
     return true;
 }
 
+// OPENCODE:
+// Checks if varName is already declared in ownerNode's namedValues or
+// compilerDefinitions. If so, calls reportSameScopeRedeclaration and returns
+// true. Used to prevent duplicate variable declarations in the same scope.
 static bool checkSameScopeRedeclaration(ASTNode* ownerNode, ASTNode* declarationNode, const std::string& varName)
 {
     if (!ownerNode)
@@ -2035,6 +2237,13 @@ static bool checkSameScopeRedeclaration(ASTNode* ownerNode, ASTNode* declaration
     return false;
 }
 
+// OPENCODE:
+// Declares a module-scope or global variable as an LLVM GlobalVariable.
+// Handles both typed declarations (`x : int = 5`) and inferred declarations
+// (`x := 5` — probes the RHS in a throwaway function to discover its type).
+// Registers the ASAValue in ownerNode->namedValues, checks for redeclaration,
+// and queues non-trivial initializers into globalInitList for deferred
+// initialization in __asa_global_init.
 void declareModuleScopeVariable(ASTNode* exprStmtNode, ASTNode* ownerNode, bool isModuleVar)
 {
     if (exprStmtNode->childNodes.empty())
@@ -2055,7 +2264,7 @@ void declareModuleScopeVariable(ASTNode* exprStmtNode, ASTNode* ownerNode, bool 
     std::string typeName;
     int pointerLevel = 0;
     bool isConst = false;
-    LLVMType* llvmType = nullptr;
+    llvm::Type* llvmType = nullptr;
 
     if (leftNode->nodeType == Colon_Separator_Node) {
         // Typed declaration: x : int = 5  OR  x : int  (no initializer)
@@ -2115,14 +2324,14 @@ void declareModuleScopeVariable(ASTNode* exprStmtNode, ASTNode* ownerNode, bool 
         bool savedError = wasError;
 
         // Create a temporary function+block to probe the expression's type
-        FunctionType* ft = FunctionType::get(LLVMType::getVoidTy(*llvmCompileContext), false);
+        FunctionType* ft = FunctionType::get(llvm::Type::getVoidTy(*llvmCompileContext), false);
         Function* probeF = Function::Create(ft, Function::PrivateLinkage, "__type_probe__", llvmCompileModule.get());
         BasicBlock* probeBB = BasicBlock::Create(*llvmCompileContext, "probe", probeF);
         llvmIRBuilder->SetInsertPoint(probeBB);
 
         wasError = false;
         messageSystem::suppressErrors = true;
-        LLVMValue* probeVal = (LLVMValue*)(exprNode->*(exprNode->codegen))(1);
+        llvm::Value* probeVal = (llvm::Value*)(exprNode->*(exprNode->codegen))(1);
         messageSystem::suppressErrors = false;
 
         if (!wasError && probeVal)
@@ -2155,11 +2364,11 @@ void declareModuleScopeVariable(ASTNode* exprStmtNode, ASTNode* ownerNode, bool 
         globalName);
 
     std::string actualType = std::string(pointerLevel, '*') + typeName;
-    valueType* vt = new valueType(varName, actualType, gv);
+    ASAValue* vt = new ASAValue(varName, actualType, gv);
     vt->isConstant = isConst;
     vt->isUndefined = rhsIsUndefined;
     vt->declNode = exprStmtNode;       // the expression statement node that owns the attributes
-    vt->initialNode = rhsInitializer;  // Store the initial value node for global variables to support 'initial' keyword
+    vt->initialValueNode = rhsInitializer;  // Store the initial value node for global variables to support 'initial' keyword
 
     // For root-level vars, store in the expression stmt's own namedValues so
     // findNamedValue (which checks direct children of root) can find it.
@@ -2177,13 +2386,16 @@ void declareModuleScopeVariable(ASTNode* exprStmtNode, ASTNode* ownerNode, bool 
     globalInitList.push_back({gv, exprStmtNode});
 
     if (!globalInitFn) {
-        FunctionType* ft = FunctionType::get(LLVMType::getVoidTy(*llvmCompileContext), false);
+        FunctionType* ft = FunctionType::get(llvm::Type::getVoidTy(*llvmCompileContext), false);
         globalInitFn = Function::Create(
             ft, Function::InternalLinkage, "__asa_global_init", *llvmCompileModule);
     }
 }
 
-// Register a Compiler_Define (module) node and declare all its variable globals.
+// OPENCODE:
+// Register a Compiler_Define (module) node and declare all its variable
+// globals. Recursively registers nested sub-modules with compound
+// dot-separated names (e.g. "Parent.Child").
 static void registerImportedModuleAliases(ASTNode* moduleCompilerDefineNode, const std::string& parentName = "")
 {
     if (!moduleCompilerDefineNode || !moduleCompilerDefineNode->isModuleScope || !moduleCompilerDefineNode->token)
@@ -2203,6 +2415,9 @@ static void registerImportedModuleAliases(ASTNode* moduleCompilerDefineNode, con
     }
 }
 
+// OPENCODE:
+// Recursively sets enclosingModule on node and all descendants so member-
+// access codegen knows which module a declaration belongs to.
 static void setModuleMemberContext(ASTNode* node, const std::string& moduleName)
 {
     if (!node)
@@ -2213,6 +2428,12 @@ static void setModuleMemberContext(ASTNode* node, const std::string& moduleName)
         setModuleMemberContext(child, moduleName);
 }
 
+// OPENCODE:
+// Processes a module Compiler_Define node: navigates to its inner scope,
+// declares all module-scope variables as LLVM globals via
+// declareModuleScopeVariable, and recurses into nested sub-modules. Sets
+// isModuleScope, registers in moduleRegistry, and sets enclosingModule on
+// all children. Called during pass 0/1 for each imported or inline module.
 void processModuleForDeclarations(ASTNode* moduleCompilerDefineNode, std::string parentName)
 {
     std::string moduleName = moduleCompilerDefineNode->token->tokenStr;
@@ -2286,13 +2507,13 @@ bool finalizeGlobalInit()
         ASTNode* node = gi.exprStmtNode;
         GlobalVariable* gv = gi.gv;
 
-        LLVMType* gvType = gv->getValueType();
+        llvm::Type* gvType = gv->getValueType();
         ASTNode* exprTerm = node->nodeType == Colon_Separator_Node ? nullptr : (node->childNodes.size() >= 2 ? node->childNodes[1] : nullptr);
         ASTNode* initializerNode = unwrapSingleExpressionNode(exprTerm);
         if (initializerNode && initializerNode->nodeType == Undefined_Initializer_Node)
             continue;
 
-        LLVMValue* initVal = nullptr;
+        llvm::Value* initVal = nullptr;
         if (!exprTerm || (initializerNode && initializerNode->nodeType == Default_Initializer_Node)) {
             ASTNode* declarationNode = node->nodeType == Colon_Separator_Node ? node : node->childNodes[0];
             if (declarationNode->nodeType != Colon_Separator_Node || declarationNode->childNodes.size() < 2)
@@ -2313,7 +2534,7 @@ bool finalizeGlobalInit()
             initVal = generateDefaultValueForType(gvType, typeNode->token->tokenStr, pointerLevel, 2, node);
         }
         else {
-            initVal = (LLVMValue*)(exprTerm->*(exprTerm->codegen))(2);
+            initVal = (llvm::Value*)(exprTerm->*(exprTerm->codegen))(2);
         }
         if (wasError || !initVal) {
             return false;
@@ -2336,11 +2557,11 @@ bool finalizeGlobalInit()
                     st->getElementType(0)->isPointerTy() &&
                     st->getElementType(1)->isIntegerTy(32)) {
                     FunctionCallee strlenFn = llvmCompileModule->getOrInsertFunction("strlen",
-                        FunctionType::get(LLVMType::getInt64Ty(*llvmCompileContext),
+                        FunctionType::get(llvm::Type::getInt64Ty(*llvmCompileContext),
                             {PointerType::getUnqual(*llvmCompileContext)}, false));
-                    LLVMValue* lenVal = llvmIRBuilder->CreateCall(strlenFn, {initVal}, "strlen");
-                    LLVMValue* lenTrunc = llvmIRBuilder->CreateTrunc(lenVal, LLVMType::getInt32Ty(*llvmCompileContext), "len");
-                    LLVMValue* strStruct = UndefValue::get(gvType);
+                    llvm::Value* lenVal = llvmIRBuilder->CreateCall(strlenFn, {initVal}, "strlen");
+                    llvm::Value* lenTrunc = llvmIRBuilder->CreateTrunc(lenVal, llvm::Type::getInt32Ty(*llvmCompileContext), "len");
+                    llvm::Value* strStruct = UndefValue::get(gvType);
                     strStruct = llvmIRBuilder->CreateInsertValue(strStruct, initVal, {0});
                     strStruct = llvmIRBuilder->CreateInsertValue(strStruct, lenTrunc, {1});
                     initVal = strStruct;
@@ -2379,6 +2600,9 @@ bool finalizeGlobalInit()
     return true;
 }
 
+// OPENCODE:
+// Recursively walks the AST and emits an "unused variable" warning for every
+// declaration node where tracksVariableUsage is set and variableReads == 0.
 static void warnAboutUnusedVariablesRecursive(ASTNode* node)
 {
     if (!node)
@@ -2403,6 +2627,9 @@ static void warnAboutUnusedVariablesRecursive(ASTNode* node)
         warnAboutUnusedVariablesRecursive(child);
 }
 
+// OPENCODE:
+// Entry point for unused-variable warnings. Only runs if the Unused or All
+// warning flag is set. Delegates to the recursive walker.
 void warnAboutUnusedVariables(ASTNode* rootNode)
 {
     if (!(warningFlags == W_Unused || warningFlags == W_All))
@@ -2412,7 +2639,12 @@ void warnAboutUnusedVariables(ASTNode* rootNode)
 }
 
 
-LLVMValue* castValue(LLVMValue* value, llvm::Type* destType, bool isSrcSigned, bool isToSigned, ASTNode* node, bool destTypeIsStruct)
+// OPENCODE:
+// The central type-cast dispatcher: converts value to destType using the
+// appropriate LLVM cast instruction (IntCast, SIToFP/UIToFP, FPToSI/FPToUI,
+// FPCast, pointer casts, struct handling). Honors signedness and skips
+// no-op casts. Errors on incompatible types.
+llvm::Value* castValue(llvm::Value* value, llvm::Type* destType, bool isSrcSigned, bool isToSigned, ASTNode* node, bool destTypeIsStruct)
 {
     messageSystem::startBlock(node, "Generating type cast", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
     defer(messageSystem::endBlock());
@@ -2464,23 +2696,7 @@ LLVMValue* castValue(LLVMValue* value, llvm::Type* destType, bool isSrcSigned, b
     return nullptr;
 }
 
-//bool findVariableDeclaration(ASTNode*& node, ASTNode*& childNode, std::string& identifier)
-//{
-//  for (auto& c : node->childNodes) {
-//      if (node->depth > 0)     // only go past use if in global scope
-//          if (c == childNode)  // dont go past the node where it is used
-//              break;
-//      if (c->nodeType == Expression_Statement && c->childNodes.size() > 0)
-//          if (c->childNodes[0]->token->tokenStr == identifier)
-//              return true;
-//  }
-//  if (node->depth > 0)  // search the parent recursively until found or end of global scope is reached
-//      return findVariableDeclaration(node->parentNode, node, identifier);
-//
-//  return false;
-//}
-
-// LLVMValue*
+// llvm::Value*
 void* ASTNode::generateConstant(int pass)
 {
     messageSystem::startBlock(this, "Generating constant", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
@@ -2543,7 +2759,7 @@ void* ASTNode::generateConstant(int pass)
         }
 
         // Get pointer to the tokenStr element (i8*)
-        Constant* zero = ConstantInt::get(LLVMType::getInt32Ty(*llvmCompileContext), 0);
+        Constant* zero = ConstantInt::get(llvm::Type::getInt32Ty(*llvmCompileContext), 0);
         std::vector<Constant*> indices = {zero, zero};
         Constant* strPtr = ConstantExpr::getGetElementPtr(
             globalStr->getValueType(),
@@ -2554,8 +2770,8 @@ void* ASTNode::generateConstant(int pass)
         // module itself (where raw *char is needed for bootstrapping).
         if (!compilerDirectiveFlags["IN_STRING_MODULE"] &&
             structDefinitions.count("string") && structDefinitions["string"]->structVal) {
-            StructType* strTy = cast<StructType>((LLVMType*)structDefinitions["string"]->structVal);
-            Constant* lenConst = ConstantInt::get(LLVMType::getInt32Ty(*llvmCompileContext), (uint32_t)strValue.size());
+            StructType* strTy = cast<StructType>((llvm::Type*)structDefinitions["string"]->structVal);
+            Constant* lenConst = ConstantInt::get(llvm::Type::getInt32Ty(*llvmCompileContext), (uint32_t)strValue.size());
             messageSystem::endBlock();
             return ConstantStruct::get(strTy, {strPtr, lenConst});
         }
@@ -2577,20 +2793,20 @@ void* ASTNode::generateConstant(int pass)
     return messageSystem::error("Value could not be parsed as constant");
 }
 
-// LLVMValue*
+// llvm::Value*
 void* ASTNode::generateVariableExpression(int pass)
 {
     messageSystem::startBlock(this, "Generating variable expression", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
 
     // Look this variable up in the function.
-    valueType* val = findNamedValue(parentNode, this, token->tokenStr, token);
+    ASAValue* val = findNamedValue(parentNode, this, token->tokenStr, token);
     if (wasError) {
         messageSystem::endBlock();
         return nullptr;
     }
     if (!val) {
-        LLVMValue* exprVal = ConstantInt::get(LLVMType::getInt32Ty(*llvmCompileContext), 0);
-        LLVMType* llvmType = nullptr;
+        llvm::Value* exprVal = ConstantInt::get(llvm::Type::getInt32Ty(*llvmCompileContext), 0);
+        llvm::Type* llvmType = nullptr;
         Function* theFunction = llvmIRBuilder->GetInsertBlock()->getParent();
         uint16_t pointerLevel = 0;
         std::string typeName = "";
@@ -2646,7 +2862,7 @@ void* ASTNode::generateVariableExpression(int pass)
             asaType->baseLLVMType = llvmType;
         AllocaInst* targetPtr = CreateEntryBlockAlloca(theFunction, llvmType, token->tokenStr);
         std::string actualType = (pointerLevel > 0 ? std::string(pointerLevel, '*') : "") + typeName;
-        namedValues[token->tokenStr] = new valueType(token->tokenStr, actualType, targetPtr);
+        namedValues[token->tokenStr] = new ASAValue(token->tokenStr, actualType, targetPtr);
         namedValues[token->tokenStr]->declNode = this;
         namedValues[token->tokenStr]->isUndefined = false;
         trackVariableUsage(this);
@@ -2668,14 +2884,14 @@ void* ASTNode::generateVariableExpression(int pass)
             return nullptr;
         }
 
-    LLVMValue* A = val->val;
-    LLVMType* valType = getValueStoredType(A);
+    llvm::Value* A = val->val;
+    llvm::Type* valType = getValueStoredType(A);
     if (!asaType)
         asaType = new ASAType(valType);
     else
         asaType->baseLLVMType = valType;
     // Store the type string so pointer element types can be resolved later for array subscripts
-    asaType->strVal = val->type;
+    asaType->strVal = val->typeString;
     asaType->isRef = val->isReference;
 
     if (!isRef && !lvalue && val->isUndefined) {
@@ -2690,9 +2906,9 @@ void* ASTNode::generateVariableExpression(int pass)
         messageSystem::startBlock(this, "Generating reference usage", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
 
         // valType is the pointer type; load the pointer, then deref through it using the base type
-        LLVMValue* ptr = llvmIRBuilder->CreateLoad(valType, A, token->tokenStr + "_ref_ptr");
+        llvm::Value* ptr = llvmIRBuilder->CreateLoad(valType, A, token->tokenStr + "_ref_ptr");
         bool wasDefined = true;
-        LLVMType* baseType = getLLVMTypeFromString(val->type, 0, this, wasDefined, pass);
+        llvm::Type* baseType = getLLVMTypeFromString(val->typeString, 0, this, wasDefined, pass);
         if (!baseType || !wasDefined) {
             return messageSystem::error("Cannot resolve ref base type for dereference");
         }
@@ -2713,6 +2929,10 @@ void* ASTNode::generateVariableExpression(int pass)
         return llvmIRBuilder->CreateLoad(valType, A, token->tokenStr + "_load");
 }
 
+// OPENCODE:
+// Codegen for #caller_filepath: returns the filepath string passed by the
+// caller via @tracked_caller. Errors if used outside a @tracked_caller
+// function. Returns a string struct or raw *char in the string module.
 void* ASTNode::generateCallerFilepathDirective(int pass)
 {
     if (callerLocationParamStack.empty())
@@ -2721,19 +2941,22 @@ void* ASTNode::generateCallerFilepathDirective(int pass)
     if (!compilerDirectiveFlags["IN_STRING_MODULE"] &&
         structDefinitions.count("string") && structDefinitions["string"]->structVal) {
         llvm::Argument* rawPtr = callerLocationParamStack.top().filepath;
-        StructType* strTy = cast<StructType>((LLVMType*)structDefinitions["string"]->structVal);
-        LLVMValue* undef = UndefValue::get(strTy);
-        LLVMValue* addr = llvmIRBuilder->CreateInsertValue(undef, rawPtr, {0});
-        FunctionType* strlenFuncType = FunctionType::get(LLVMType::getInt64Ty(*llvmCompileContext), {PointerType::getUnqual(*llvmCompileContext)}, false);
+        StructType* strTy = cast<StructType>((llvm::Type*)structDefinitions["string"]->structVal);
+        llvm::Value* undef = UndefValue::get(strTy);
+        llvm::Value* addr = llvmIRBuilder->CreateInsertValue(undef, rawPtr, {0});
+        FunctionType* strlenFuncType = FunctionType::get(llvm::Type::getInt64Ty(*llvmCompileContext), {PointerType::getUnqual(*llvmCompileContext)}, false);
         FunctionCallee strlenFn = llvmCompileModule->getOrInsertFunction("strlen", strlenFuncType);
-        LLVMValue* lenVal = llvmIRBuilder->CreateCall(strlenFn, {rawPtr}, "caller_strlen");
-        LLVMValue* lenTrunc = llvmIRBuilder->CreateTrunc(lenVal, Type::getInt32Ty(*llvmCompileContext), "caller_len");
+        llvm::Value* lenVal = llvmIRBuilder->CreateCall(strlenFn, {rawPtr}, "caller_strlen");
+        llvm::Value* lenTrunc = llvmIRBuilder->CreateTrunc(lenVal, Type::getInt32Ty(*llvmCompileContext), "caller_len");
         return llvmIRBuilder->CreateInsertValue(addr, lenTrunc, {1});
     }
 
     return callerLocationParamStack.top().filepath;
 }
 
+// OPENCODE:
+// Codegen for #caller_linenum: returns the line number i64 passed by the
+// caller via @tracked_caller. Errors if used outside a @tracked_caller function.
 void* ASTNode::generateCallerLineNumDirective(int pass)
 {
     if (callerLocationParamStack.empty())
@@ -2741,6 +2964,10 @@ void* ASTNode::generateCallerLineNumDirective(int pass)
     return callerLocationParamStack.top().lineNum;
 }
 
+// OPENCODE:
+// Codegen for #caller_line: returns the source line content string passed by
+// the caller via @tracked_caller. Errors if used outside a @tracked_caller
+// function. Returns a string struct or raw *char in the string module.
 void* ASTNode::generateCallerLineDirective(int pass)
 {
     if (callerLocationParamStack.empty())
@@ -2749,32 +2976,36 @@ void* ASTNode::generateCallerLineDirective(int pass)
     if (!compilerDirectiveFlags["IN_STRING_MODULE"] &&
         structDefinitions.count("string") && structDefinitions["string"]->structVal) {
         llvm::Argument* rawPtr = callerLocationParamStack.top().lineContent;
-        StructType* strTy = cast<StructType>((LLVMType*)structDefinitions["string"]->structVal);
-        LLVMValue* undef = UndefValue::get(strTy);
-        LLVMValue* addr = llvmIRBuilder->CreateInsertValue(undef, rawPtr, {0});
-        FunctionType* strlenFuncType = FunctionType::get(LLVMType::getInt64Ty(*llvmCompileContext), {PointerType::getUnqual(*llvmCompileContext)}, false);
+        StructType* strTy = cast<StructType>((llvm::Type*)structDefinitions["string"]->structVal);
+        llvm::Value* undef = UndefValue::get(strTy);
+        llvm::Value* addr = llvmIRBuilder->CreateInsertValue(undef, rawPtr, {0});
+        FunctionType* strlenFuncType = FunctionType::get(llvm::Type::getInt64Ty(*llvmCompileContext), {PointerType::getUnqual(*llvmCompileContext)}, false);
         FunctionCallee strlenFn = llvmCompileModule->getOrInsertFunction("strlen", strlenFuncType);
-        LLVMValue* lenVal = llvmIRBuilder->CreateCall(strlenFn, {rawPtr}, "caller_strlen");
-        LLVMValue* lenTrunc = llvmIRBuilder->CreateTrunc(lenVal, Type::getInt32Ty(*llvmCompileContext), "caller_len");
+        llvm::Value* lenVal = llvmIRBuilder->CreateCall(strlenFn, {rawPtr}, "caller_strlen");
+        llvm::Value* lenTrunc = llvmIRBuilder->CreateTrunc(lenVal, Type::getInt32Ty(*llvmCompileContext), "caller_len");
         return llvmIRBuilder->CreateInsertValue(addr, lenTrunc, {1});
     }
 
     return callerLocationParamStack.top().lineContent;
 }
 
+// OPENCODE:
+// Codegen for `throw`: evaluates the optional expression argument, prints
+// "Exception: file: ... line: ..." with the expression value via printf,
+// then calls exit(1). Used for runtime error reporting.
 void* ASTNode::generateThrow(int pass)
 {
     messageSystem::startBlock(this, "Generating throw statement", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
 
     // If it has a child node, we will output it's value as a string
     ASTNode* exprNode = nullptr;
-    LLVMValue* outVal = nullptr;
+    llvm::Value* outVal = nullptr;
     if (childNodes.size() > 0) {
         exprNode = childNodes[0]->childNodes[0];
         if (exprNode->codegen == nullptr) {
             return messageSystem::error("Node `" + ASTNodeTypeAsString(exprNode->nodeType) + "` does not have a code generator");
         }
-        outVal = (LLVMValue*)(exprNode->*(exprNode->codegen))(pass);
+        outVal = (llvm::Value*)(exprNode->*(exprNode->codegen))(pass);
     }
     if (wasError) {
         messageSystem::endBlock();
@@ -2783,7 +3014,7 @@ void* ASTNode::generateThrow(int pass)
 
     // Create and print the prefix message first
     std::string throwPrefix = "Exception:  file: \"" + *(token->filePath) + "\"   line: " + std::to_string(token->lineNumber) + "\n    ";
-    LLVMValue* prefixStr = llvmIRBuilder->CreateGlobalString(throwPrefix);
+    llvm::Value* prefixStr = llvmIRBuilder->CreateGlobalString(throwPrefix);
 
     // Look up print function for the prefix (char* type)
     argumentList prefixArgList;
@@ -2792,7 +3023,7 @@ void* ASTNode::generateThrow(int pass)
     functionID* prefixPrintFnID = getFunctionFromID(functionIDs, printFnName, prefixArgList, true, false);
 
     if (prefixPrintFnID) {
-        std::vector<LLVMValue*> prefixArgs;
+        std::vector<llvm::Value*> prefixArgs;
         prefixArgs.push_back(prefixStr);
         llvmIRBuilder->CreateCall(prefixPrintFnID->fnValue, prefixArgs);
         prefixPrintFnID->uses++;
@@ -2832,7 +3063,7 @@ void* ASTNode::generateThrow(int pass)
 
         if (printFnID) {
             // Call the print function
-            std::vector<LLVMValue*> printArgs;
+            std::vector<llvm::Value*> printArgs;
             printArgs.push_back(outVal);
             llvmIRBuilder->CreateCall(printFnID->fnValue, printArgs);
             printFnID->uses++;
@@ -2841,13 +3072,13 @@ void* ASTNode::generateThrow(int pass)
 
     // Declare exit function if not already declared
     FunctionType* exitFuncType = FunctionType::get(
-        LLVMType::getVoidTy(*llvmCompileContext),
+        llvm::Type::getVoidTy(*llvmCompileContext),
         {Type::getInt32Ty(*llvmCompileContext)},
         false);
     FunctionCallee exitFunc = llvmCompileModule->getOrInsertFunction("exit", exitFuncType);
 
     // Call exit(1) to terminate the program
-    llvmIRBuilder->CreateCall(exitFunc, {ConstantInt::get(LLVMType::getInt32Ty(*llvmCompileContext), 1)});
+    llvmIRBuilder->CreateCall(exitFunc, {ConstantInt::get(llvm::Type::getInt32Ty(*llvmCompileContext), 1)});
 
     // Create an unreachable instruction since exit() doesn't return
     llvmIRBuilder->CreateUnreachable();
@@ -2857,6 +3088,10 @@ void* ASTNode::generateThrow(int pass)
     return nullptr;
 }
 
+// OPENCODE:
+// Codegen for `throw_caller`: prints the caller's filepath, line number, and
+// line content via printf, then calls exit(1). Only valid inside @tracked_caller
+// functions.
 void* ASTNode::generateThrowCaller(int pass)
 {
     messageSystem::startBlock(this, "Generating throw_caller statement", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
@@ -2869,12 +3104,12 @@ void* ASTNode::generateThrowCaller(int pass)
     llvm::Argument* callerLineContent = callerLocationParamStack.top().lineContent;
 
     FunctionType* printfFuncType = FunctionType::get(
-        LLVMType::getInt32Ty(*llvmCompileContext),
+        llvm::Type::getInt32Ty(*llvmCompileContext),
         {PointerType::getUnqual(*llvmCompileContext)},
         true);
     FunctionCallee printfFunc = llvmCompileModule->getOrInsertFunction("printf", printfFuncType);
 
-    LLVMValue* formatStr = llvmIRBuilder->CreateGlobalString("Exception at %s\n%d |  %s\n");
+    llvm::Value* formatStr = llvmIRBuilder->CreateGlobalString("Exception at %s\n%d |  %s\n");
     llvmIRBuilder->CreateCall(printfFunc, {formatStr, callerFile, callerLine, callerLineContent});
 
     // Evaluate and print the thrown value if present
@@ -2883,7 +3118,7 @@ void* ASTNode::generateThrowCaller(int pass)
         ASTNode* exprNode = childNodes[childIndex];
 
         void* rawVal = (exprNode->*(exprNode->codegen))(pass);
-        LLVMValue* outVal = (LLVMValue*)rawVal;
+        llvm::Value* outVal = (llvm::Value*)rawVal;
 
         argumentList argList;
         std::string typeStr = "";
@@ -2912,7 +3147,7 @@ void* ASTNode::generateThrowCaller(int pass)
         functionID* printFnID = getFunctionFromID(functionIDs, printFnName, argList, true, false);
 
         if (printFnID) {
-            std::vector<LLVMValue*> printArgs;
+            std::vector<llvm::Value*> printArgs;
             printArgs.push_back(outVal);
             llvmIRBuilder->CreateCall(printFnID->fnValue, printArgs);
             printFnID->uses++;
@@ -2920,12 +3155,12 @@ void* ASTNode::generateThrowCaller(int pass)
     }
 
     FunctionType* exitFuncType = FunctionType::get(
-        LLVMType::getVoidTy(*llvmCompileContext),
+        llvm::Type::getVoidTy(*llvmCompileContext),
         {Type::getInt32Ty(*llvmCompileContext)},
         false);
     FunctionCallee exitFunc = llvmCompileModule->getOrInsertFunction("exit", exitFuncType);
 
-    llvmIRBuilder->CreateCall(exitFunc, {ConstantInt::get(LLVMType::getInt32Ty(*llvmCompileContext), 1)});
+    llvmIRBuilder->CreateCall(exitFunc, {ConstantInt::get(llvm::Type::getInt32Ty(*llvmCompileContext), 1)});
 
     llvmIRBuilder->CreateUnreachable();
 
@@ -2934,6 +3169,11 @@ void* ASTNode::generateThrowCaller(int pass)
     return nullptr;
 }
 
+// OPENCODE:
+// Codegen for `return`: evaluates the return expression, casts it to the
+// function's return type, stores it into the result slot if inside a value
+// block, then creates a branch to the merge block or a direct ret instruction.
+// Handles ref returns by forcing lvalue mode.
 void* ASTNode::generateReturn(int pass)
 {
     messageSystem::startBlock(this, "Generating return", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
@@ -2954,7 +3194,7 @@ void* ASTNode::generateReturn(int pass)
             baseNode = unwrapSingleExpressionNode(baseNode->childNodes[0]);
 
         if (baseNode && baseNode->nodeType == Identifier_Node) {
-            valueType* returnedValue = findNamedValue(parentNode, this, baseNode->token->tokenStr, token);
+            ASAValue* returnedValue = findNamedValue(parentNode, this, baseNode->token->tokenStr, token);
             if (wasError)
                 return nullptr;
             if (returnedValue && isa<AllocaInst>(returnedValue->val) && !returnedValue->isReference) {
@@ -2965,7 +3205,7 @@ void* ASTNode::generateReturn(int pass)
         }
     }
 
-    LLVMValue* RetVal = (LLVMValue*)(exprNode->*(exprNode->codegen))(pass);
+    llvm::Value* RetVal = (llvm::Value*)(exprNode->*(exprNode->codegen))(pass);
     if (wasError) {
         return messageSystem::error("Failed to generate return expression value");
     }
@@ -2975,7 +3215,7 @@ void* ASTNode::generateReturn(int pass)
             baseNode = unwrapSingleExpressionNode(baseNode->childNodes[0]);
 
         if (baseNode && baseNode->nodeType == Identifier_Node) {
-            valueType* returnedValue = findNamedValue(parentNode, this, baseNode->token->tokenStr, token);
+            ASAValue* returnedValue = findNamedValue(parentNode, this, baseNode->token->tokenStr, token);
             if (wasError)
                 return nullptr;
             if (returnedValue && returnedValue->isReference &&
@@ -2986,20 +3226,20 @@ void* ASTNode::generateReturn(int pass)
         }
     }
     // Check if we're returning a struct
-    LLVMType* returnType = llvmIRBuilder->GetInsertBlock()->getParent()->getReturnType();
+    llvm::Type* returnType = llvmIRBuilder->GetInsertBlock()->getParent()->getReturnType();
     if (fnID->isStructReturn) {
         // Get the sret parameter (first parameter)
-        LLVMValue* sretPtr = &*currentFunc->arg_begin();
+        llvm::Value* sretPtr = &*currentFunc->arg_begin();
 
         // Copy the struct value to the sret location
         if (RetVal->getType()->isPointerTy()) {
             // If RetVal is a pointer to struct, memcpy from it
-            LLVMValue* structSize = ConstantInt::get(LLVMType::getInt64Ty(*llvmCompileContext),
+            llvm::Value* structSize = ConstantInt::get(llvm::Type::getInt64Ty(*llvmCompileContext),
                 llvmCompileModule->getDataLayout().getTypeAllocSize(returnType));
 
             // Create memcpy call
-            Function* memcpyFunc = Intrinsic::getOrInsertDeclaration(llvmCompileModule.get(), Intrinsic::memcpy, {sretPtr->getType(), RetVal->getType(), LLVMType::getInt64Ty(*llvmCompileContext)});
-            llvmIRBuilder->CreateCall(memcpyFunc, {sretPtr, RetVal, structSize, ConstantInt::get(LLVMType::getInt1Ty(*llvmCompileContext), 0)});
+            Function* memcpyFunc = Intrinsic::getOrInsertDeclaration(llvmCompileModule.get(), Intrinsic::memcpy, {sretPtr->getType(), RetVal->getType(), llvm::Type::getInt64Ty(*llvmCompileContext)});
+            llvmIRBuilder->CreateCall(memcpyFunc, {sretPtr, RetVal, structSize, ConstantInt::get(llvm::Type::getInt1Ty(*llvmCompileContext), 0)});
         }
         else {
             // If RetVal is a struct value, store it
@@ -3011,7 +3251,7 @@ void* ASTNode::generateReturn(int pass)
     }
     else {
         // Non-struct return, handle normally
-        LLVMType* retType = llvmIRBuilder->GetInsertBlock()->getParent()->getReturnType();
+        llvm::Type* retType = llvmIRBuilder->GetInsertBlock()->getParent()->getReturnType();
         if (!RetVal) {
             if (retType->isVoidTy()) {
                 llvmIRBuilder->CreateRetVoid();
@@ -3046,7 +3286,7 @@ void* ASTNode::generateReturn(int pass)
     return nullptr;
 }
 
-// LLVMValue*
+// llvm::Value*
 void* ASTNode::generateResult(int pass)
 {
     messageSystem::startBlock(this, "Generating result statement", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
@@ -3056,7 +3296,7 @@ void* ASTNode::generateResult(int pass)
     }
 
     ASTNode* exprNode = childNodes[0];
-    LLVMValue* val = (LLVMValue*)(exprNode->*(exprNode->codegen))(pass);
+    llvm::Value* val = (llvm::Value*)(exprNode->*(exprNode->codegen))(pass);
     if (wasError || !val) {
         messageSystem::endBlock();
         return nullptr;
@@ -3084,7 +3324,7 @@ void* ASTNode::generateResult(int pass)
     return nullptr;
 }
 
-// LLVMValue*
+// llvm::Value*
 void* ASTNode::generateExpression(int pass)
 {
     messageSystem::startBlock(this, "Generating expression", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
@@ -3102,7 +3342,7 @@ void* ASTNode::generateExpression(int pass)
 
     if (lvalue)
         exprNode->lvalue = true;
-    LLVMValue* exprVal = (LLVMValue*)(exprNode->*(exprNode->codegen))(pass);
+    llvm::Value* exprVal = (llvm::Value*)(exprNode->*(exprNode->codegen))(pass);
     if (wasError) {
         messageSystem::endBlock();
         return nullptr;
@@ -3118,19 +3358,19 @@ void* ASTNode::generateExpression(int pass)
     return exprVal;
 }
 
-// LLVMValue*
+// llvm::Value*
 void* ASTNode::generateIncDecrement(int pass)
 {
     messageSystem::startBlock(this, "Generating unary increment/decrement operation", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
 
     ASTNode* operand = childNodes[0];
-    LLVMValue* targetPtr = nullptr;
-    LLVMType* targetType = nullptr;
+    llvm::Value* targetPtr = nullptr;
+    llvm::Type* targetType = nullptr;
 
     messageSystem::startBlock(operand, "Generating variable", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
 
     if (operand->nodeType == Identifier_Node) {
-        valueType* val = findNamedValue(parentNode, this, operand->token->tokenStr, token);
+        ASAValue* val = findNamedValue(parentNode, this, operand->token->tokenStr, token);
         if (!val) {
             return messageSystem::error("Unknown variable '" + operand->token->tokenStr + "'");
         }
@@ -3145,7 +3385,7 @@ void* ASTNode::generateIncDecrement(int pass)
     }
     else {
         operand->lvalue = true;
-        targetPtr = (LLVMValue*)(operand->*(operand->codegen))(pass);
+        targetPtr = (llvm::Value*)(operand->*(operand->codegen))(pass);
         if (wasError)
             return nullptr;
         if (!targetPtr || !targetPtr->getType()->isPointerTy()) {
@@ -3157,8 +3397,8 @@ void* ASTNode::generateIncDecrement(int pass)
     messageSystem::endBlock();
 
 
-    LLVMValue* current = llvmIRBuilder->CreateLoad(targetType, targetPtr, "incdec_load");
-    LLVMValue* updated = nullptr;
+    llvm::Value* current = llvmIRBuilder->CreateLoad(targetType, targetPtr, "incdec_load");
+    llvm::Value* updated = nullptr;
     bool isFloat = targetType->isFloatingPointTy();
     if (token->tokenType == Plus_Plus)
         updated = isFloat ? llvmIRBuilder->CreateFAdd(current, ConstantFP::get(targetType, 1.0), "incr")
@@ -3238,7 +3478,7 @@ static bool isConstantExpression(ASTNode* node)
     }
 }
 
-// LLVMValue*
+// llvm::Value*
 void* ASTNode::generateExpressionStatement(int pass)
 {
     messageSystem::startBlock(this, "Generating runtime statement expression", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
@@ -3264,10 +3504,10 @@ void* ASTNode::generateExpressionStatement(int pass)
                 LexicalBlocks.back()));
     }
 
-    LLVMValue* exprVal = nullptr;
+    llvm::Value* exprVal = nullptr;
     if (!rhsIsUndefined && !rhsIsDefault && !rhsIsInitial) {
         // Evaluate right side (rvalue)
-        exprVal = (LLVMValue*)(exprNode->*(exprNode->codegen))(pass);
+        exprVal = (llvm::Value*)(exprNode->*(exprNode->codegen))(pass);
         if (wasError) {
             return nullptr;
         }
@@ -3281,17 +3521,17 @@ void* ASTNode::generateExpressionStatement(int pass)
 
     messageSystem::startBlock(leftNode, "Generating expression left side", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
 
-    LLVMValue* targetPtr = nullptr;
-    LLVMType* targetType = nullptr;
+    llvm::Value* targetPtr = nullptr;
+    llvm::Type* targetType = nullptr;
     bool targetIsSigned = true;
-    valueType* targetValue = nullptr;
+    ASAValue* targetValue = nullptr;
 
     // If the left side is a pointer lvalue
     if (leftNode->nodeType != Identifier_Node && leftNode->nodeType != Colon_Separator_Node) {
         leftNode->lvalue = true;
         // left side is an expression, evaluate to pointer (lvalue address)
         size_t stackDepthBefore = lastRetrievedElementType.size();
-        targetPtr = (LLVMValue*)(leftNode->*(leftNode->codegen))(pass);
+        targetPtr = (llvm::Value*)(leftNode->*(leftNode->codegen))(pass);
         if (wasError) {
             return nullptr;
         }
@@ -3306,7 +3546,7 @@ void* ASTNode::generateExpressionStatement(int pass)
     }
 
     ASTNode* typeNode = nullptr;
-    LLVMType* type = nullptr;
+    llvm::Type* type = nullptr;
     int pointerLevel = 0;
     bool isConst = false;
     std::string defaultTypeName = "";
@@ -3402,7 +3642,7 @@ void* ASTNode::generateExpressionStatement(int pass)
     if (leftNode->nodeType == Identifier_Node) {
         // Simple variable: find alloca and use it as targetPtr.
         // If there is an explicit type annotation, this is always a new declaration
-        valueType* val = typeNode ? nullptr : findNamedValue(parentNode, this, leftNode->token->tokenStr, token);
+        ASAValue* val = typeNode ? nullptr : findNamedValue(parentNode, this, leftNode->token->tokenStr, token);
         if (wasError)
             return nullptr;
         // If this variable name doesnt exist in this context
@@ -3427,11 +3667,11 @@ void* ASTNode::generateExpressionStatement(int pass)
             }
             else
                 actualType = (pointerLevel > 0 ? std::string(pointerLevel, '*') : "") + typeNode->token->tokenStr;
-            namedValues[leftNode->token->tokenStr] = new valueType(leftNode->token->tokenStr, actualType, targetPtr);
+            namedValues[leftNode->token->tokenStr] = new ASAValue(leftNode->token->tokenStr, actualType, targetPtr);
             namedValues[leftNode->token->tokenStr]->isConstant = isConst;
             namedValues[leftNode->token->tokenStr]->isUndefined = rhsIsUndefined;
             namedValues[leftNode->token->tokenStr]->declNode = declarationNode;
-            namedValues[leftNode->token->tokenStr]->initialNode = initializerNode;
+            namedValues[leftNode->token->tokenStr]->initialValueNode = initializerNode;
             targetValue = namedValues[leftNode->token->tokenStr];
             trackVariableUsage(declarationNode);
             newConstLocal = isConst;
@@ -3474,9 +3714,9 @@ void* ASTNode::generateExpressionStatement(int pass)
 
             targetPtr = val->val;
             targetValue = val;
-            std::string resolvedType = resolveTypeAlias(val->type);
+            std::string resolvedType = resolveTypeAlias(val->typeString);
             targetIsSigned = !typeSigns.count(resolvedType) || typeSigns[resolvedType];
-            defaultTypeName = val->type;
+            defaultTypeName = val->typeString;
             defaultPointerLevel = 0;
             while (!defaultTypeName.empty() && defaultTypeName[0] == '*') {
                 defaultTypeName = defaultTypeName.substr(1);
@@ -3487,7 +3727,7 @@ void* ASTNode::generateExpressionStatement(int pass)
             if (val->isReference) {
                 targetPtr = llvmIRBuilder->CreateLoad(getValueStoredType(val->val), targetPtr, leftNode->token->tokenStr + "_ref_store_ptr");
                 // Resolve element type from the type string rather than the alloca type
-                std::string refTypeStr = val->type;
+                std::string refTypeStr = val->typeString;
                 int refPtrLvl = 0;
                 while (!refTypeStr.empty() && refTypeStr[0] == '*') {
                     refTypeStr = refTypeStr.substr(1);
@@ -3527,9 +3767,9 @@ void* ASTNode::generateExpressionStatement(int pass)
     if (rhsIsInitial && !exprVal) {
         if (isDeclaration)
             return messageSystem::error("Cannot use 'initial' in a declaration");
-        if (!targetValue || !targetValue->initialNode)
+        if (!targetValue || !targetValue->initialValueNode)
             return messageSystem::error("Variable '" + leftNode->token->tokenStr + "' has no initial value");
-        ASTNode* initNode = targetValue->initialNode;
+        ASTNode* initNode = targetValue->initialValueNode;
         if (initNode->nodeType == Undefined_Initializer_Node)
             return messageSystem::error("'" + leftNode->token->tokenStr + "' was declared with '?', which has no defined initial value");
         if (initNode->nodeType == Default_Initializer_Node) {
@@ -3538,11 +3778,11 @@ void* ASTNode::generateExpressionStatement(int pass)
             exprVal = generateDefaultValueForType(targetType, defaultTypeName, defaultPointerLevel, pass, this);
         }
         else {
-            exprVal = (LLVMValue*)(initNode->*(initNode->codegen))(pass);
+            exprVal = (llvm::Value*)(initNode->*(initNode->codegen))(pass);
         }
         if (wasError || !exprVal)
             return nullptr;
-        if (!llvm::dyn_cast<llvm::Constant>((LLVMValue*)exprVal) && !isConstantExpression(initNode))
+        if (!llvm::dyn_cast<llvm::Constant>((llvm::Value*)exprVal) && !isConstantExpression(initNode))
             return messageSystem::error("Initial value of '" + leftNode->token->tokenStr + "' is not a compile-time constant");
     }
 
@@ -3555,11 +3795,11 @@ void* ASTNode::generateExpressionStatement(int pass)
         token->tokenType == Caret_Equal || token->tokenType == Shift_Left_Equal ||
         token->tokenType == Shift_Right_Equal) {
         // Use targetType directly; LLVM may fold GEPs, making instruction introspection unreliable.
-        LLVMType* loadType = targetType;
+        llvm::Type* loadType = targetType;
         if (targetValue && targetValue->isUndefined)
             messageSystem::warning("Variable '" + leftNode->token->tokenStr + "' may be undefined", messageSystem::Undefined_Variable_Warning);
         markVariableRead(targetValue);
-        LLVMValue* currentVal = llvmIRBuilder->CreateLoad(loadType, targetPtr, "cmpd_load");
+        llvm::Value* currentVal = llvmIRBuilder->CreateLoad(loadType, targetPtr, "cmpd_load");
 
         bool isFloat = loadType->isFloatingPointTy();
         bool isInt = loadType->isIntegerTy();
@@ -3625,13 +3865,13 @@ void* ASTNode::generateExpressionStatement(int pass)
                 return messageSystem::error("No operator overload '" + operatorName + "' found for compound assignment");
             }
             calleeID->uses++;
-            std::vector<LLVMValue*> ArgsV = {currentVal, exprVal};
+            std::vector<llvm::Value*> ArgsV = {currentVal, exprVal};
 
             // Append tracked_caller hidden parameters if the callee requires them
             if (calleeID->isTrackedCaller && token && token->filePath) {
-                LLVMValue* hiddenFilepath = llvmIRBuilder->CreateGlobalString(*token->filePath);
-                LLVMValue* hiddenLineNum = ConstantInt::get(Type::getInt32Ty(*llvmCompileContext), token->lineNumber);
-                LLVMValue* hiddenLineContent = llvmIRBuilder->CreateGlobalString(
+                llvm::Value* hiddenFilepath = llvmIRBuilder->CreateGlobalString(*token->filePath);
+                llvm::Value* hiddenLineNum = ConstantInt::get(Type::getInt32Ty(*llvmCompileContext), token->lineNumber);
+                llvm::Value* hiddenLineContent = llvmIRBuilder->CreateGlobalString(
                     token->lineValue ? *token->lineValue : "");
                 ArgsV.push_back(hiddenFilepath);
                 ArgsV.push_back(hiddenLineNum);
@@ -3682,11 +3922,11 @@ void* ASTNode::generateExpressionStatement(int pass)
         BasicBlock* curBB = llvmIRBuilder->GetInsertBlock();
         BasicBlock* entryBB = &theFunction->getEntryBlock();
         if (curBB == entryBB) {
-            LLVMType* storedType = exprVal->getType();
+            llvm::Type* storedType = exprVal->getType();
             uint64_t typeSize = llvmCompileModule->getDataLayout().getTypeAllocSize(storedType);
             Function* invariantStartFn = Intrinsic::getOrInsertDeclaration(llvmCompileModule.get(), Intrinsic::invariant_start, {PointerType::getUnqual(*llvmCompileContext)});
             llvmIRBuilder->CreateCall(invariantStartFn,
-                {ConstantInt::get(LLVMType::getInt64Ty(*llvmCompileContext), typeSize), targetPtr});
+                {ConstantInt::get(llvm::Type::getInt64Ty(*llvmCompileContext), typeSize), targetPtr});
         }
     }
 
@@ -3697,20 +3937,20 @@ void* ASTNode::generateExpressionStatement(int pass)
     return exprVal;
 }
 
-// LLVMValue*
+// llvm::Value*
 void* ASTNode::generateIterator(int pass)
 {
     ASTNode* identifierNode = childNodes[0];
-    LLVMValue* var = nullptr;
-    //LLVMValue* var = (LLVMValue*)(findNamedValue(parentNode, this, token->tokenStr)->val);
+    llvm::Value* var = nullptr;
+    //llvm::Value* var = (llvm::Value*)(findNamedValue(parentNode, this, token->tokenStr)->val);
     //if (!var) {
-    LLVMType* type = llvm::Type::getInt32Ty(*llvmCompileContext);
+    llvm::Type* type = llvm::Type::getInt32Ty(*llvmCompileContext);
     var = CreateEntryBlockAlloca(llvmIRBuilder->GetInsertBlock()->getParent(), type, identifierNode->token->tokenStr);
     //}
     return var;
 }
 
-// LLVMValue*
+// llvm::Value*
 void* ASTNode::generateUnaryExpression(int pass)
 {
     messageSystem::startBlock(this, "Generating unary expression", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
@@ -3721,7 +3961,7 @@ void* ASTNode::generateUnaryExpression(int pass)
     if (childNodes[0]->codegen == nullptr) {
         return messageSystem::error("Node `" + ASTNodeTypeAsString(childNodes[0]->nodeType) + "` does not have a code generator");
     }
-    LLVMValue* R = (LLVMValue*)(childNodes[0]->*(childNodes[0]->codegen))(pass);
+    llvm::Value* R = (llvm::Value*)(childNodes[0]->*(childNodes[0]->codegen))(pass);
     if (wasError) {
         messageSystem::endBlock();
         return nullptr;
@@ -3738,16 +3978,16 @@ void* ASTNode::generateUnaryExpression(int pass)
             ASTNode* child = childNodes[0];
             if (child->nodeType == Identifier_Node) {
                 // Plain variable: return the alloca directly without touching asaType
-                valueType* val = findNamedValue(parentNode, this, child->token->tokenStr, token);
+                ASAValue* val = findNamedValue(parentNode, this, child->token->tokenStr, token);
                 if (!val && !wasError) {
                     return messageSystem::error("Unknown variable name for address-of");
                 }
                 messageSystem::endBlock();
-                return (LLVMValue*)(val->val);
+                return (llvm::Value*)(val->val);
             }
             // For member access, array subscript, etc.: evaluate as lvalue to get pointer
             child->lvalue = true;
-            LLVMValue* ptr = (LLVMValue*)(child->*(child->codegen))(pass);
+            llvm::Value* ptr = (llvm::Value*)(child->*(child->codegen))(pass);
             if (wasError) {
                 messageSystem::endBlock();
                 return nullptr;
@@ -3761,7 +4001,7 @@ void* ASTNode::generateUnaryExpression(int pass)
 
         case Dereference_Operation: {
             ASTNode* ptrNode = childNodes[0];
-            LLVMValue* ptrVal = (LLVMValue*)(ptrNode->*(ptrNode->codegen))(pass);
+            llvm::Value* ptrVal = (llvm::Value*)(ptrNode->*(ptrNode->codegen))(pass);
             if (wasError) {
                 messageSystem::endBlock();
                 return nullptr;
@@ -3770,7 +4010,7 @@ void* ASTNode::generateUnaryExpression(int pass)
                 return messageSystem::error("Dereference of null pointer");
             }
             // Determine element type from allocation when available
-            LLVMType* elementType = nullptr;
+            llvm::Type* elementType = nullptr;
             std::string elementTypeStr;
             if (AllocaInst* allocaVal = dyn_cast<AllocaInst>(ptrVal)) {
                 elementType = allocaVal->getAllocatedType();
@@ -3782,7 +4022,7 @@ void* ASTNode::generateUnaryExpression(int pass)
                 elementType = getLLVMTypeFromString(elementTypeStr, 0, this, wasDefined, pass);
             }
             if (!elementType)
-                elementType = LLVMType::getInt32Ty(*llvmCompileContext);
+                elementType = llvm::Type::getInt32Ty(*llvmCompileContext);
 
             // If used as lvalue (*ptr = val), return the pointer so the caller stores through it
             if (lvalue) {
@@ -3802,7 +4042,7 @@ void* ASTNode::generateUnaryExpression(int pass)
 
         case Expression_Minus: {
             ASTNode* valueNode = childNodes[0];
-            LLVMValue* v = (LLVMValue*)(valueNode->*(valueNode->codegen))(pass);
+            llvm::Value* v = (llvm::Value*)(valueNode->*(valueNode->codegen))(pass);
             if (wasError) {
                 messageSystem::endBlock();
                 return nullptr;
@@ -3824,8 +4064,8 @@ void* ASTNode::generateUnaryExpression(int pass)
         }
 
         case Logical_Not: {
-            LLVMValue* boolVal = R->getType()->isIntegerTy(1) ? R : llvmIRBuilder->CreateICmpNE(R, Constant::getNullValue(R->getType()), "tobool");
-            LLVMValue* result = llvmIRBuilder->CreateNot(boolVal, "not_tmp");
+            llvm::Value* boolVal = R->getType()->isIntegerTy(1) ? R : llvmIRBuilder->CreateICmpNE(R, Constant::getNullValue(R->getType()), "tobool");
+            llvm::Value* result = llvmIRBuilder->CreateNot(boolVal, "not_tmp");
             messageSystem::endBlock();
             return result;
         }
@@ -3833,7 +4073,7 @@ void* ASTNode::generateUnaryExpression(int pass)
         case Bitwise_Not: {
             if (!R->getType()->isIntegerTy())
                 return messageSystem::error("Bitwise complement requires an integer operand");
-            LLVMValue* result = llvmIRBuilder->CreateNot(R, "bitnot_tmp");
+            llvm::Value* result = llvmIRBuilder->CreateNot(R, "bitnot_tmp");
             messageSystem::endBlock();
             return result;
         }
@@ -3893,6 +4133,9 @@ enum class ValueCategory {
     Unknown
 };
 
+// OPENCODE:
+// Classifies an LLVM type into Integer, Float, Pointer, or Unknown category.
+// Used by binary-op codegen to dispatch to the correct operation handler.
 ValueCategory getValueCategory(llvm::Type* type)
 {
     if (type->isIntegerTy())
@@ -3904,12 +4147,19 @@ ValueCategory getValueCategory(llvm::Type* type)
     return ValueCategory::Unknown;
 }
 
+// OPENCODE:
+// Returns true if typeStr is a signed type per the typeSigns table.
 bool isSignedType(const std::string& typeStr)
 {
     return typeSigns.count(typeStr) && typeSigns[typeStr];
 }
 
-static bool getDeclaredTypeFromColonNode(ASTNode* colonNode, LLVMType*& outType, std::string& outTypeName, int& outPointerLevel, bool& outIsConst, int pass)
+// OPENCODE:
+// Extracts type info from a Colon_Separator_Node (`name : type`): parses
+// const/ref/exact modifiers and pointer indirections, then resolves the LLVM
+// type via getLLVMTypeFromString. Outputs type, name, pointer level, and
+// const flag. Returns false if the type can't be resolved.
+static bool getDeclaredTypeFromColonNode(ASTNode* colonNode, llvm::Type*& outType, std::string& outTypeName, int& outPointerLevel, bool& outIsConst, int pass)
 {
     if (!colonNode || colonNode->nodeType != Colon_Separator_Node || colonNode->childNodes.size() < 2)
         return false;
@@ -3946,13 +4196,18 @@ getNextPointerLevel:
     return true;
 }
 
-static LLVMValue* generateBareDefaultDeclaration(ASTNode* colonNode, int pass)
+// OPENCODE:
+// Generates a bare default declaration for a Colon_Separator_Node without an
+// initializer: allocas space, creates an ASAValue entry in namedValues, fills
+// it with the type's default value (zero/undef/default-constructed), and
+// returns the default value.
+static llvm::Value* generateBareDefaultDeclaration(ASTNode* colonNode, int pass)
 {
     if (!colonNode || colonNode->childNodes.size() < 2)
         return nullptr;
 
     ASTNode* nameNode = colonNode->childNodes[0];
-    LLVMType* type = nullptr;
+    llvm::Type* type = nullptr;
     std::string typeName;
     int pointerLevel = 0;
     bool isConst = false;
@@ -3962,27 +4217,27 @@ static LLVMValue* generateBareDefaultDeclaration(ASTNode* colonNode, int pass)
     Function* theFunction = llvmIRBuilder->GetInsertBlock()->getParent();
     AllocaInst* targetPtr = CreateEntryBlockAlloca(theFunction, type, nameNode->token->tokenStr);
     std::string actualType = (pointerLevel > 0 ? std::string(pointerLevel, '*') : "") + typeName;
-    colonNode->namedValues[nameNode->token->tokenStr] = new valueType(nameNode->token->tokenStr, actualType, targetPtr);
+    colonNode->namedValues[nameNode->token->tokenStr] = new ASAValue(nameNode->token->tokenStr, actualType, targetPtr);
     colonNode->namedValues[nameNode->token->tokenStr]->isConstant = isConst;
     colonNode->namedValues[nameNode->token->tokenStr]->isUndefined = false;
     colonNode->namedValues[nameNode->token->tokenStr]->declNode = colonNode;
     trackVariableUsage(colonNode);
     markVariableWrite(colonNode->namedValues[nameNode->token->tokenStr]);
 
-    LLVMValue* defaultValue = generateDefaultValueForType(type, typeName, pointerLevel, pass, colonNode);
+    llvm::Value* defaultValue = generateDefaultValueForType(type, typeName, pointerLevel, pass, colonNode);
     if (wasError || !defaultValue)
         return nullptr;
     llvmIRBuilder->CreateStore(defaultValue, targetPtr);
     return defaultValue;
 }
 
-// LLVMValue*
+// llvm::Value*
 void* ASTNode::generateBinaryExpression(int pass)
 {
     messageSystem::startBlock(this, "Generating binary expression", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
 
     if (nodeType == Colon_Separator_Node) {
-        LLVMValue* defaultValue = generateBareDefaultDeclaration(this, pass);
+        llvm::Value* defaultValue = generateBareDefaultDeclaration(this, pass);
         messageSystem::endBlock();
         return defaultValue;
     }
@@ -4000,14 +4255,14 @@ void* ASTNode::generateBinaryExpression(int pass)
     // Check if it is the pipe operator first
     if (nodeType == Pipe_Operation) {
         // add L to stack
-        LLVMValue* L = (LLVMValue*)(childNodes[0]->*(childNodes[0]->codegen))(pass);
+        llvm::Value* L = (llvm::Value*)(childNodes[0]->*(childNodes[0]->codegen))(pass);
         if (wasError) {
             messageSystem::endBlock();
             return nullptr;
         }
         pipeOperationValue.push(L);
         // then process R
-        LLVMValue* R = (LLVMValue*)(childNodes[1]->*(childNodes[1]->codegen))(pass);
+        llvm::Value* R = (llvm::Value*)(childNodes[1]->*(childNodes[1]->codegen))(pass);
         if (wasError) {
             messageSystem::endBlock();
             return nullptr;
@@ -4020,11 +4275,11 @@ void* ASTNode::generateBinaryExpression(int pass)
     }
 
     if (nodeType == Logical_And || nodeType == Logical_Or) {
-        auto toBool = [&](LLVMValue* V, const std::string& name) -> LLVMValue* {
+        auto toBool = [&](llvm::Value* V, const std::string& name) -> llvm::Value* {
             return V->getType()->isIntegerTy(1) ? V : llvmIRBuilder->CreateICmpNE(V, Constant::getNullValue(V->getType()), name);
         };
 
-        LLVMValue* L = (LLVMValue*)(childNodes[0]->*(childNodes[0]->codegen))(pass);
+        llvm::Value* L = (llvm::Value*)(childNodes[0]->*(childNodes[0]->codegen))(pass);
         if (wasError) {
             messageSystem::endBlock();
             return nullptr;
@@ -4033,7 +4288,7 @@ void* ASTNode::generateBinaryExpression(int pass)
             return messageSystem::error("Error generating left side of logical expression");
         }
 
-        LLVMValue* lBool = toBool(L, "tobool_l");
+        llvm::Value* lBool = toBool(L, "tobool_l");
         Function* TheFunction = llvmIRBuilder->GetInsertBlock()->getParent();
         BasicBlock* LhsBB = llvmIRBuilder->GetInsertBlock();
         BasicBlock* RhsBB = BasicBlock::Create(*llvmCompileContext, nodeType == Logical_And ? "land.rhs" : "lor.rhs", TheFunction);
@@ -4045,7 +4300,7 @@ void* ASTNode::generateBinaryExpression(int pass)
             llvmIRBuilder->CreateCondBr(lBool, MergeBB, RhsBB);
 
         llvmIRBuilder->SetInsertPoint(RhsBB);
-        LLVMValue* R = (LLVMValue*)(childNodes[1]->*(childNodes[1]->codegen))(pass);
+        llvm::Value* R = (llvm::Value*)(childNodes[1]->*(childNodes[1]->codegen))(pass);
         if (wasError) {
             messageSystem::endBlock();
             return nullptr;
@@ -4054,14 +4309,14 @@ void* ASTNode::generateBinaryExpression(int pass)
             return messageSystem::error("Error generating right side of logical expression");
         }
 
-        LLVMValue* rBool = toBool(R, "tobool_r");
+        llvm::Value* rBool = toBool(R, "tobool_r");
         llvmIRBuilder->CreateBr(MergeBB);
         BasicBlock* RhsEvalBB = llvmIRBuilder->GetInsertBlock();
 
         TheFunction->insert(TheFunction->end(), MergeBB);
         llvmIRBuilder->SetInsertPoint(MergeBB);
 
-        PHINode* Phi = llvmIRBuilder->CreatePHI(LLVMType::getInt1Ty(*llvmCompileContext), 2, nodeType == Logical_And ? "and_tmp" : "or_tmp");
+        PHINode* Phi = llvmIRBuilder->CreatePHI(llvm::Type::getInt1Ty(*llvmCompileContext), 2, nodeType == Logical_And ? "and_tmp" : "or_tmp");
         if (nodeType == Logical_And) {
             Phi->addIncoming(ConstantInt::getFalse(*llvmCompileContext), LhsBB);
             Phi->addIncoming(rBool, RhsEvalBB);
@@ -4074,8 +4329,8 @@ void* ASTNode::generateBinaryExpression(int pass)
         return Phi;
     }
 
-    LLVMValue* L = (LLVMValue*)(childNodes[0]->*(childNodes[0]->codegen))(pass);
-    LLVMValue* R = (LLVMValue*)(childNodes[1]->*(childNodes[1]->codegen))(pass);
+    llvm::Value* L = (llvm::Value*)(childNodes[0]->*(childNodes[0]->codegen))(pass);
+    llvm::Value* R = (llvm::Value*)(childNodes[1]->*(childNodes[1]->codegen))(pass);
 
     if (wasError) {
         messageSystem::endBlock();
@@ -4141,7 +4396,12 @@ void* ASTNode::generateBinaryExpression(int pass)
     return nullptr;
 }
 
-LLVMValue* ASTNode::generateIntegerBinaryOp(LLVMValue* L, LLVMValue* R)
+// OPENCODE:
+// Generates LLVM IR for an integer binary operation: arithmetic (add/sub/mul/
+// div/rem), bitwise (and/or/xor), shifts (ashr/lshr), and comparisons (icmp).
+// Dispatches via the integerOps/intCompareOps lookup maps. Honors signedness
+// for shift-right via asaType tracking.
+llvm::Value* ASTNode::generateIntegerBinaryOp(llvm::Value* L, llvm::Value* R)
 {
     messageSystem::startBlock(this, "Generating integer binary operation", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
 
@@ -4168,10 +4428,14 @@ LLVMValue* ASTNode::generateIntegerBinaryOp(LLVMValue* L, LLVMValue* R)
                         : llvmIRBuilder->CreateLShr(L, R, "lshr_tmp");
     }
 
-    return (LLVMValue*)messageSystem::error("Unknown integer binary operator");
+    return (llvm::Value*)messageSystem::error("Unknown integer binary operator");
 }
 
-LLVMValue* ASTNode::generateFloatBinaryOp(LLVMValue* L, LLVMValue* R)
+// OPENCODE:
+// Generates LLVM IR for a float binary operation: arithmetic (fadd/fsub/fmul/
+// fdiv) and comparisons (fcmp). Dispatches via the floatOps/floatCompareOps
+// lookup maps.
+llvm::Value* ASTNode::generateFloatBinaryOp(llvm::Value* L, llvm::Value* R)
 {
     messageSystem::startBlock(this, "Generating float binary operation", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
 
@@ -4189,10 +4453,13 @@ LLVMValue* ASTNode::generateFloatBinaryOp(LLVMValue* L, LLVMValue* R)
         return llvmIRBuilder->CreateBinOp(opIt->second, L, R, "float_op");
     }
 
-    return (LLVMValue*)messageSystem::error("Unknown float binary operator");
+    return (llvm::Value*)messageSystem::error("Unknown float binary operator");
 }
 
-LLVMValue* ASTNode::generatePointerBinaryOp(LLVMValue* L, LLVMValue* R)
+// OPENCODE:
+// Generates LLVM IR for a pointer binary operation: only equality/inequality
+// comparisons are valid (ptr == ? / ptr != ?). Dispatches via intCompareOps.
+llvm::Value* ASTNode::generatePointerBinaryOp(llvm::Value* L, llvm::Value* R)
 {
     messageSystem::startBlock(this, "Generating pointer binary operation", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
 
@@ -4203,9 +4470,13 @@ LLVMValue* ASTNode::generatePointerBinaryOp(LLVMValue* L, LLVMValue* R)
         return llvmIRBuilder->CreateICmp(compIt->second, L, R, "ptr_cmp");
     }
 
-    return (LLVMValue*)messageSystem::error("Invalid pointer operation");
+    return (llvm::Value*)messageSystem::error("Invalid pointer operation");
 }
 
+// OPENCODE:
+// Codegen for the pipe placeholder `$` in a pipe expression (`x |> f($)`):
+// returns the top value from pipeOperationValue stack, which was pushed by
+// the pipe operator codegen before evaluating the right-hand call.
 void* ASTNode::generatePipePlaceholder(int pass)
 {
     messageSystem::startBlock(this, "Generating pipe operation placeholder", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
@@ -4221,7 +4492,7 @@ void* ASTNode::generatePipePlaceholder(int pass)
 // Get the type string for one operand of a binary expression.
 // Uses AST identifier/member-access info when available, so that types like
 // char vs uint8 (both i8 in LLVM) are resolved correctly.
-static std::string getOperandTypeString(ASTNode* binaryNode, int childIdx, LLVMValue* llvmVal)
+static std::string getOperandTypeString(ASTNode* binaryNode, int childIdx, llvm::Value* llvmVal)
 {
     if (binaryNode && binaryNode->parentNode && (int)binaryNode->childNodes.size() > childIdx) {
         ASTNode* child = binaryNode->childNodes[childIdx];
@@ -4241,16 +4512,16 @@ static std::string getOperandTypeString(ASTNode* binaryNode, int childIdx, LLVMV
                 inner = c0;
         }
         if (inner) {
-            valueType* val = findNamedValue(binaryNode->parentNode, binaryNode, inner->token->tokenStr, binaryNode->token);
-            if (val && !val->type.empty())
-                return val->type;
+            ASAValue* val = findNamedValue(binaryNode->parentNode, binaryNode, inner->token->tokenStr, binaryNode->token);
+            if (val && !val->typeString.empty())
+                return val->typeString;
         }
     }
     return getStringTypeFromLLVMType(llvmVal->getType());
 }
 
 // TODO: Broken operator overload
-bool ASTNode::checkForOperatorOverload(LLVMValue* L, LLVMValue* R)
+bool ASTNode::checkForOperatorOverload(llvm::Value* L, llvm::Value* R)
 {
     // Operator overloads have the format: operator.<OperatorName>
     //                             like: operator.Add(string, string)
@@ -4293,7 +4564,12 @@ bool ASTNode::checkForOperatorOverload(LLVMValue* L, LLVMValue* R)
     }
 }
 
-LLVMValue* ASTNode::generateOperatorOverloadCall(LLVMValue* L, LLVMValue* R)
+// OPENCODE:
+// Resolves and calls a user-defined operator overload function for a binary
+// expression. Builds an argumentList from the operand types, looks up
+// `operator.<op>` (e.g. `operator.+`), and emits the call. Returns the call's
+// return value or nullptr if no overload exists.
+llvm::Value* ASTNode::generateOperatorOverloadCall(llvm::Value* L, llvm::Value* R)
 {
     messageSystem::startBlock(this, "Generating operator overload call", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
 
@@ -4322,17 +4598,17 @@ LLVMValue* ASTNode::generateOperatorOverloadCall(LLVMValue* L, LLVMValue* R)
     functionID* calleeID = getFunctionFromID(functionIDs, operatorName, argList, true);
 
     if (!calleeID || !calleeID->fnValue) {
-        return (LLVMValue*)messageSystem::error("Expected operator overload for undefined operator `" + tokenAsString(token->tokenType) + "`, but none were not found");
+        return (llvm::Value*)messageSystem::error("Expected operator overload for undefined operator `" + tokenAsString(token->tokenType) + "`, but none were not found");
     }
 
     calleeID->uses++;
 
     // Implicit numeric coercion: cast each argument to the formal parameter type
-    std::vector<LLVMValue*> ArgsV = {L, R};
+    std::vector<llvm::Value*> ArgsV = {L, R};
     for (int i = 0; i < 2; i++) {
         int formalIdx = i + (calleeID->isStructReturn ? 1 : 0);
         if (formalIdx < (int)calleeID->fnValue->getFunctionType()->getNumParams()) {
-            LLVMType* formalType = calleeID->fnValue->getFunctionType()->getParamType(formalIdx);
+            llvm::Type* formalType = calleeID->fnValue->getFunctionType()->getParamType(formalIdx);
             if (formalType && ArgsV[i]->getType() != formalType &&
                 !ArgsV[i]->getType()->isStructTy() && !ArgsV[i]->getType()->isPointerTy() &&
                 !formalType->isStructTy() && !formalType->isPointerTy()) {
@@ -4347,9 +4623,9 @@ LLVMValue* ASTNode::generateOperatorOverloadCall(LLVMValue* L, LLVMValue* R)
 
     // Append tracked_caller hidden parameters if the callee requires them
     if (calleeID->isTrackedCaller && token && token->filePath) {
-        LLVMValue* hiddenFilepath = llvmIRBuilder->CreateGlobalString(*token->filePath);
-        LLVMValue* hiddenLineNum = ConstantInt::get(Type::getInt32Ty(*llvmCompileContext), token->lineNumber);
-        LLVMValue* hiddenLineContent = llvmIRBuilder->CreateGlobalString(
+        llvm::Value* hiddenFilepath = llvmIRBuilder->CreateGlobalString(*token->filePath);
+        llvm::Value* hiddenLineNum = ConstantInt::get(Type::getInt32Ty(*llvmCompileContext), token->lineNumber);
+        llvm::Value* hiddenLineContent = llvmIRBuilder->CreateGlobalString(
             token->lineValue ? *token->lineValue : "");
         ArgsV.push_back(hiddenFilepath);
         ArgsV.push_back(hiddenLineNum);
@@ -4360,7 +4636,7 @@ LLVMValue* ASTNode::generateOperatorOverloadCall(LLVMValue* L, LLVMValue* R)
     if (calleeID->isStructReturn) {
         auto structIt = structDefinitions.find(calleeID->returnType);
         if (structIt == structDefinitions.end() || !structIt->second->structVal) {
-            return (LLVMValue*)messageSystem::error("Struct return type not defined for operator overload");
+            return (llvm::Value*)messageSystem::error("Struct return type not defined for operator overload");
         }
         AllocaInst* sretAlloc = CreateEntryBlockAlloca(llvmIRBuilder->GetInsertBlock()->getParent(), structIt->second->structVal, "op_sret");
         ArgsV.insert(ArgsV.begin(), sretAlloc);
@@ -4370,14 +4646,14 @@ LLVMValue* ASTNode::generateOperatorOverloadCall(LLVMValue* L, LLVMValue* R)
         return llvmIRBuilder->CreateLoad(structIt->second->structVal, sretAlloc, "op_overload");
     }
 
-    LLVMValue* callValue = llvmIRBuilder->CreateCall(calleeID->fnValue, ArgsV, "op_overload");
+    llvm::Value* callValue = llvmIRBuilder->CreateCall(calleeID->fnValue, ArgsV, "op_overload");
     if (calleeID->returnIsReference) {
         bool wasDefined = true;
         int resolvePass = 2;
-        LLVMType* refType = getLLVMTypeFromString(calleeID->returnType, 0, this, wasDefined, resolvePass);
+        llvm::Type* refType = getLLVMTypeFromString(calleeID->returnType, 0, this, wasDefined, resolvePass);
         if (!refType || !wasDefined) {
             messageSystem::endBlock();
-            return (LLVMValue*)messageSystem::error("Cannot resolve ref return type: " + calleeID->returnType);
+            return (llvm::Value*)messageSystem::error("Cannot resolve ref return type: " + calleeID->returnType);
         }
         if (!asaType)
             asaType = new ASAType(refType);
@@ -4395,7 +4671,7 @@ LLVMValue* ASTNode::generateOperatorOverloadCall(LLVMValue* L, LLVMValue* R)
     return callValue;
 }
 
-// LLVMValue*
+// llvm::Value*
 void* ASTNode::generateAccessOperation(int pass)
 {
     messageSystem::startBlock(this, "Generating access operation", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
@@ -4405,12 +4681,12 @@ void* ASTNode::generateAccessOperation(int pass)
     }
 
     childNodes[0]->lvalue = true;  // Set flag for base to return address if needed
-    LLVMValue* L = (LLVMValue*)(childNodes[0]->*(childNodes[0]->codegen))(pass);
+    llvm::Value* L = (llvm::Value*)(childNodes[0]->*(childNodes[0]->codegen))(pass);
     if (wasError) {
         messageSystem::endBlock();
         return nullptr;
     }
-    LLVMValue* R = (LLVMValue*)(childNodes[1]->*(childNodes[1]->codegen))(pass);
+    llvm::Value* R = (llvm::Value*)(childNodes[1]->*(childNodes[1]->codegen))(pass);
     if (wasError) {
         messageSystem::endBlock();
         return nullptr;
@@ -4448,7 +4724,7 @@ void* ASTNode::generateAccessOperation(int pass)
     }
 
     // Get the element type from baseType (set by member access or previous operations)
-    LLVMType* elementType = asaType->baseLLVMType;
+    llvm::Type* elementType = asaType->baseLLVMType;
     std::string resolvedElementTypeStr;
 
     // If baseType is a pointer, we need to determine what it points to
@@ -4464,7 +4740,7 @@ void* ASTNode::generateAccessOperation(int pass)
         else if (!elementTypeStr.empty()) {
             bool wd = true;
             int resolvePass = 2;
-            LLVMType* resolved = getLLVMTypeFromString(elementTypeStr, 0, this, wd, resolvePass);
+            llvm::Type* resolved = getLLVMTypeFromString(elementTypeStr, 0, this, wd, resolvePass);
             if (resolved)
                 elementType = resolved;
         }
@@ -4496,19 +4772,19 @@ void* ASTNode::generateAccessOperation(int pass)
             opCalleeID->uses++;
             // Pass struct by value or by pointer depending on the formal parameter type
             int firstArgIdx = opCalleeID->isStructReturn ? 1 : 0;
-            LLVMValue* lArg = L;
+            llvm::Value* lArg = L;
             if (firstArgIdx < (int)opCalleeID->fnValue->getFunctionType()->getNumParams()) {
-                LLVMType* formalType0 = opCalleeID->fnValue->getFunctionType()->getParamType(firstArgIdx);
+                llvm::Type* formalType0 = opCalleeID->fnValue->getFunctionType()->getParamType(firstArgIdx);
                 if (formalType0 && formalType0->isStructTy())
                     lArg = llvmIRBuilder->CreateLoad(asaType->baseLLVMType, L, "struct_load");
             }
-            std::vector<LLVMValue*> ArgsV = {lArg, R};
+            std::vector<llvm::Value*> ArgsV = {lArg, R};
 
             // Append tracked_caller hidden parameters if the callee requires them
             if (opCalleeID->isTrackedCaller && token && token->filePath) {
-                LLVMValue* hiddenFilepath = llvmIRBuilder->CreateGlobalString(*token->filePath);
-                LLVMValue* hiddenLineNum = ConstantInt::get(Type::getInt32Ty(*llvmCompileContext), token->lineNumber);
-                LLVMValue* hiddenLineContent = llvmIRBuilder->CreateGlobalString(
+                llvm::Value* hiddenFilepath = llvmIRBuilder->CreateGlobalString(*token->filePath);
+                llvm::Value* hiddenLineNum = ConstantInt::get(Type::getInt32Ty(*llvmCompileContext), token->lineNumber);
+                llvm::Value* hiddenLineContent = llvmIRBuilder->CreateGlobalString(
                     token->lineValue ? *token->lineValue : "");
                 ArgsV.push_back(hiddenFilepath);
                 ArgsV.push_back(hiddenLineNum);
@@ -4526,10 +4802,10 @@ void* ASTNode::generateAccessOperation(int pass)
                 messageSystem::endBlock();
                 return llvmIRBuilder->CreateLoad(sIt->second->structVal, sretAlloc, "idx_overload");
             }
-            LLVMValue* callValue = llvmIRBuilder->CreateCall(opCalleeID->fnValue, ArgsV, "idx_overload");
+            llvm::Value* callValue = llvmIRBuilder->CreateCall(opCalleeID->fnValue, ArgsV, "idx_overload");
             if (opCalleeID->returnIsReference) {
                 bool wasDefined = true;
-                LLVMType* refType = getLLVMTypeFromString(opCalleeID->returnType, 0, this, wasDefined, pass);
+                llvm::Type* refType = getLLVMTypeFromString(opCalleeID->returnType, 0, this, wasDefined, pass);
                 if (!refType || !wasDefined)
                     return messageSystem::error("Cannot resolve ref return type: " + opCalleeID->returnType);
                 if (!asaType)
@@ -4554,8 +4830,8 @@ void* ASTNode::generateAccessOperation(int pass)
     // Determine if we need to load the pointer first
     // L is a pointer-to-pointer when it comes from a struct member (alloca of pointer)
     // L is a direct pointer when it's a function parameter
-    LLVMValue* actualPtr = L;
-    LLVMType* ptrType = PointerType::getUnqual(*llvmCompileContext);
+    llvm::Value* actualPtr = L;
+    llvm::Type* ptrType = PointerType::getUnqual(*llvmCompileContext);
 
     // Check if L is an alloca instruction or a pointer to a pointer
     // In that case, we need to load the actual pointer value
@@ -4580,7 +4856,7 @@ void* ASTNode::generateAccessOperation(int pass)
     }
 
     // Create GEP instruction
-    LLVMValue* gep = llvmIRBuilder->CreateGEP(elementType, actualPtr, R, "arrayidx");
+    llvm::Value* gep = llvmIRBuilder->CreateGEP(elementType, actualPtr, R, "arrayidx");
 
     // If this is an lvalue (for assignment), push element type so compound assignment can load it
     if (lvalue) {
@@ -4605,7 +4881,7 @@ void* ASTNode::generateAccessOperation(int pass)
     return llvmIRBuilder->CreateLoad(elementType, gep, "accessop_load");
 }
 
-// LLVMValue*
+// llvm::Value*
 void* ASTNode::generateMemberAccess(int pass)
 {
     messageSystem::startBlock(this, "Generating member access operation", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
@@ -4641,7 +4917,7 @@ void* ASTNode::generateMemberAccess(int pass)
                 if (rightNode->nodeType == Function_Call) {
                     std::string originalName = rightNode->token->tokenStr;
                     rightNode->token->tokenStr = modName + "." + originalName;
-                    LLVMValue* callValue = (LLVMValue*)(rightNode->*(rightNode->codegen))(pass);
+                    llvm::Value* callValue = (llvm::Value*)(rightNode->*(rightNode->codegen))(pass);
                     rightNode->token->tokenStr = originalName;
                     if (rightNode->asaType) {
                         asaType = new ASAType(rightNode->asaType->baseLLVMType, rightNode->asaType->isRef, rightNode->asaType->isConst, rightNode->asaType->strVal, rightNode->asaType->pointerLevel);
@@ -4652,13 +4928,13 @@ void* ASTNode::generateMemberAccess(int pass)
                 }
                 auto varIt = modNode->namedValues.find(memberName);
                 if (varIt != modNode->namedValues.end()) {
-                    valueType* vt = varIt->second;
+                    ASAValue* vt = varIt->second;
                     if (!lvalue)
                         markVariableRead(vt);
-                    LLVMValue* gv = vt->val;
-                    LLVMType* gvType = getValueStoredType(gv);
+                    llvm::Value* gv = vt->val;
+                    llvm::Type* gvType = getValueStoredType(gv);
                     asaType = new ASAType(gvType);
-                    asaType->strVal = vt->type;
+                    asaType->strVal = vt->typeString;
                     lastRetrievedElementType.push(asaType);
                     messageSystem::endBlock();
                     if (lvalue)
@@ -4670,7 +4946,7 @@ void* ASTNode::generateMemberAccess(int pass)
                 if (defineNode) {
                     std::string defTypeStr = getDefineTypeString(defineNode);
                     messageSystem::endBlock();
-                    LLVMValue* defVal = (LLVMValue*)(defineNode->*(defineNode->codegen))(pass);
+                    llvm::Value* defVal = (llvm::Value*)(defineNode->*(defineNode->codegen))(pass);
                     if (wasError) {
                         messageSystem::endBlock();
                         return nullptr;
@@ -4702,14 +4978,14 @@ void* ASTNode::generateMemberAccess(int pass)
     argumentList argList = argumentList();
 
     size_t stackDepthBefore = lastRetrievedElementType.size();
-    LLVMValue* L = (LLVMValue*)(childNodes[0]->*(childNodes[0]->codegen))(pass);
+    llvm::Value* L = (llvm::Value*)(childNodes[0]->*(childNodes[0]->codegen))(pass);
     if (wasError) {
         messageSystem::endBlock();
         return nullptr;
     }
 
     // Evaluate base pointer
-    LLVMValue* basePtr = L;
+    llvm::Value* basePtr = L;
     if (!basePtr || !basePtr->getType()->isPointerTy()) {
         // A member function returning a struct by value gives us a raw struct Value, not a pointer.
         // Store it into a temporary alloca so we have an addressable pointer for GEP/member calls.
@@ -4727,7 +5003,7 @@ void* ASTNode::generateMemberAccess(int pass)
     }
 
     if (childNodes[0]->nodeType == Identifier_Node) {
-        valueType* v = findNamedValue(this, nullptr, childNodes[0]->token->tokenStr, token);
+        ASAValue* v = findNamedValue(this, nullptr, childNodes[0]->token->tokenStr, token);
 
         if (!v && !wasError) {
             return messageSystem::error("Unknown variable name used");
@@ -4735,7 +5011,7 @@ void* ASTNode::generateMemberAccess(int pass)
         markVariableRead(v);
 
         // Resolve through pointer indirection if needed
-        std::string AsaStructName = v->type;
+        std::string AsaStructName = v->typeString;
         {
             int ptrDepth = 0;
             while (!AsaStructName.empty() && AsaStructName[0] == '*') {
@@ -4747,19 +5023,19 @@ void* ASTNode::generateMemberAccess(int pass)
                     basePtr = llvmIRBuilder->CreateLoad(PointerType::getUnqual(*llvmCompileContext), basePtr, "ptr_deref");
             }
             else {
-                AsaStructName = v->type;
+                AsaStructName = v->typeString;
             }
             AsaStructName = resolveTypeAlias(AsaStructName);
         }
 
         if (structDefinitions.find(AsaStructName) == structDefinitions.end()) {
-            return messageSystem::error("Type \"" + v->type + "\" has not been defined");
+            return messageSystem::error("Type \"" + v->typeString + "\" has not been defined");
         }
         AsaStruct* structDefinition = structDefinitions[AsaStructName];
 
         // If the struct body hasn't been generated yet, generate it
         if (structDefinition->structVal == nullptr)
-            LLVMValue* argVal = (LLVMValue*)(structDefinition->sourceNode->*(structDefinition->sourceNode->codegen))(pass);
+            llvm::Value* argVal = (llvm::Value*)(structDefinition->sourceNode->*(structDefinition->sourceNode->codegen))(pass);
         if (wasError) {
             messageSystem::endBlock();
             return nullptr;
@@ -4782,7 +5058,7 @@ void* ASTNode::generateMemberAccess(int pass)
             uint16_t memberIndex = structDefinition->memberNameIndexes[memberName];
 
             bool wasDefined = true;
-            LLVMType* elementType = getLLVMTypeFromString(structDefinition->members[memberIndex].typeString, 0, this, wasDefined, pass);
+            llvm::Type* elementType = getLLVMTypeFromString(structDefinition->members[memberIndex].typeString, 0, this, wasDefined, pass);
             // Apply the stored pointer level for this member (fixes pointer members like *char -> i8*)
             for (int _p = 0; _p < structDefinition->members[memberIndex].pointerLevel; ++_p) {
                 elementType = PointerType::get(*llvmCompileContext, 0);
@@ -4805,7 +5081,7 @@ void* ASTNode::generateMemberAccess(int pass)
                     // functions of this struct when writing to a local variable (not `this`).
                     bool allowed = false;
                     if (v && v->val && isa<AllocaInst>(v->val)) {
-                        LLVMValue* currentFn = llvmIRBuilder->GetInsertBlock()->getParent();
+                        llvm::Value* currentFn = llvmIRBuilder->GetInsertBlock()->getParent();
                         for (auto* fid : functionIDs) {
                             if (fid->fnValue == currentFn) {
                                 std::string fnName = fid->name;
@@ -4824,7 +5100,7 @@ void* ASTNode::generateMemberAccess(int pass)
 
 
             //// Create GEP to compute the address
-            //LLVMValue* gep = llvmIRBuilder->CreateGEP(elementType, basePtr, index, "arrayidx");
+            //llvm::Value* gep = llvmIRBuilder->CreateGEP(elementType, basePtr, index, "arrayidx");
 
             if (v->isReference)
                 basePtr = llvmIRBuilder->CreateLoad(PointerType::getUnqual(*llvmCompileContext), basePtr, "ref_struct_ptr");
@@ -4856,7 +5132,7 @@ void* ASTNode::generateMemberAccess(int pass)
                     args.push_back(a);
                 }
 
-            std::vector<LLVMValue*> ArgsV = std::vector<LLVMValue*>();
+            std::vector<llvm::Value*> ArgsV = std::vector<llvm::Value*>();
             argumentList argList = argumentList();
             // 'this' goes in ArgsV (LLVM call) but NOT in argList (lookup uses userArguments which excludes 'this')
             // If the base is a reference (e.g. 'this' in a member function), dereference it
@@ -4870,7 +5146,7 @@ void* ASTNode::generateMemberAccess(int pass)
             }
             // Add rest of argument values
             for (int i = 0; i < args.size(); i++) {
-                LLVMValue* argVal = (LLVMValue*)(args[i]->*(args[i]->codegen))(pass);
+                llvm::Value* argVal = (llvm::Value*)(args[i]->*(args[i]->codegen))(pass);
                 if (wasError) {
                     messageSystem::endBlock();
                     return nullptr;
@@ -4925,7 +5201,7 @@ void* ASTNode::generateMemberAccess(int pass)
             }
 
             // Rebuild ArgsV for the actual call
-            ArgsV = std::vector<LLVMValue*>();
+            ArgsV = std::vector<llvm::Value*>();
             ArgsV.push_back(basePtr);
             if (!ArgsV.back()) {
                 messageSystem::endBlock();
@@ -4942,7 +5218,7 @@ void* ASTNode::generateMemberAccess(int pass)
                         }
                         // const ref: auto-materialize the rvalue into a temporary alloca
                         messageSystem::startBlock(args[i], "Generating const ref argument (auto-materialize)", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
-                        LLVMValue* tmpVal = (LLVMValue*)(args[i]->*(args[i]->codegen))(pass);
+                        llvm::Value* tmpVal = (llvm::Value*)(args[i]->*(args[i]->codegen))(pass);
                         if (wasError) {
                             messageSystem::endBlock();
                             return nullptr;
@@ -4952,7 +5228,7 @@ void* ASTNode::generateMemberAccess(int pass)
                             return nullptr;
                         }
                         bool wasDef = true;
-                        LLVMType* formalType = getLLVMTypeFromString(fa.typeString, fa.pointerLevel, args[i], wasDef, pass);
+                        llvm::Type* formalType = getLLVMTypeFromString(fa.typeString, fa.pointerLevel, args[i], wasDef, pass);
                         if (!formalType) {
                             return messageSystem::error("Cannot determine type for const ref materialization: " + fa.typeString);
                         }
@@ -4968,11 +5244,11 @@ void* ASTNode::generateMemberAccess(int pass)
                     // Check that the argument type matches the ref parameter type
                     {
                         ASTNode* identNode = args[i]->childNodes[0];
-                        valueType* argVar = findNamedValue(parentNode, this, identNode->token->tokenStr, token);
+                        ASAValue* argVar = findNamedValue(parentNode, this, identNode->token->tokenStr, token);
                         if (argVar) {
-                            LLVMType* actualType = getValueStoredType(argVar->val);
+                            llvm::Type* actualType = getValueStoredType(argVar->val);
                             bool wasDef = true;
-                            LLVMType* formalType = getLLVMTypeFromString(fa.typeString, 0, args[i], wasDef, pass);
+                            llvm::Type* formalType = getLLVMTypeFromString(fa.typeString, 0, args[i], wasDef, pass);
                             if (formalType && actualType && !actualType->isPointerTy() && !formalType->isPointerTy() && actualType != formalType) {
                                 messageSystem::startBlock(args[i], "Generating reference argument", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
                                 return messageSystem::error("Cannot pass '" + getStringTypeFromLLVMType(actualType) +
@@ -4982,7 +5258,7 @@ void* ASTNode::generateMemberAccess(int pass)
                     }
                     args[i]->childNodes[0]->isRef = true;
                 }
-                LLVMValue* argVal = (LLVMValue*)(args[i]->*(args[i]->codegen))(pass);
+                llvm::Value* argVal = (llvm::Value*)(args[i]->*(args[i]->codegen))(pass);
                 if (wasError) {
                     messageSystem::endBlock();
                     return nullptr;
@@ -5006,17 +5282,17 @@ void* ASTNode::generateMemberAccess(int pass)
 
             // Append tracked_caller hidden parameters if the callee requires them
             if (CalleeFID->isTrackedCaller && token && token->filePath) {
-                LLVMValue* hiddenFilepath = llvmIRBuilder->CreateGlobalString(*token->filePath);
-                LLVMValue* hiddenLineNum = ConstantInt::get(Type::getInt32Ty(*llvmCompileContext), token->lineNumber);
-                LLVMValue* hiddenLineContent = llvmIRBuilder->CreateGlobalString(
+                llvm::Value* hiddenFilepath = llvmIRBuilder->CreateGlobalString(*token->filePath);
+                llvm::Value* hiddenLineNum = ConstantInt::get(Type::getInt32Ty(*llvmCompileContext), token->lineNumber);
+                llvm::Value* hiddenLineContent = llvmIRBuilder->CreateGlobalString(
                     token->lineValue ? *token->lineValue : "");
                 ArgsV.push_back(hiddenFilepath);
                 ArgsV.push_back(hiddenLineNum);
                 ArgsV.push_back(hiddenLineContent);
             }
 
-            LLVMValue* callResult = nullptr;
-            LLVMType* retType = CalleeF->getReturnType();
+            llvm::Value* callResult = nullptr;
+            llvm::Type* retType = CalleeF->getReturnType();
 
             // Create the call
             if (retType->isVoidTy())
@@ -5033,7 +5309,7 @@ void* ASTNode::generateMemberAccess(int pass)
                 if (lvalue || isRef)
                     return callResult;
                 bool wasDef = true;
-                LLVMType* refType = getLLVMTypeFromString(CalleeFID->returnType, 0, this, wasDef, pass);
+                llvm::Type* refType = getLLVMTypeFromString(CalleeFID->returnType, 0, this, wasDef, pass);
                 return llvmIRBuilder->CreateLoad(refType, callResult, "ref_load");
             }
             return callResult;
@@ -5110,7 +5386,7 @@ void* ASTNode::generateMemberAccess(int pass)
             uint16_t memberIndex = structDefinition->memberNameIndexes[memberName];
 
             bool wasDefined = true;
-            LLVMType* elementType = getLLVMTypeFromString(structDefinition->members[memberIndex].typeString, 0, this, wasDefined, pass);
+            llvm::Type* elementType = getLLVMTypeFromString(structDefinition->members[memberIndex].typeString, 0, this, wasDefined, pass);
             // Apply the stored pointer level for this member (fixes pointer members like *MaterialMap)
             for (int _p = 0; _p < structDefinition->members[memberIndex].pointerLevel; ++_p) {
                 elementType = PointerType::get(*llvmCompileContext, 0);
@@ -5124,7 +5400,7 @@ void* ASTNode::generateMemberAccess(int pass)
             }
 
             //// Create GEP to compute the address
-            //LLVMValue* gep = llvmIRBuilder->CreateGEP(elementType, basePtr, index, "arrayidx");
+            //llvm::Value* gep = llvmIRBuilder->CreateGEP(elementType, basePtr, index, "arrayidx");
 
             auto gep = llvmIRBuilder->CreateStructGEP(structDefinition->structVal, basePtr, memberIndex, "struct_member");
             std::string memberStrVal = "";
@@ -5157,7 +5433,7 @@ void* ASTNode::generateMemberAccess(int pass)
                     args.push_back(a);
                 }
 
-            std::vector<LLVMValue*> ArgsV = std::vector<LLVMValue*>();
+            std::vector<llvm::Value*> ArgsV = std::vector<llvm::Value*>();
             argumentList argList = argumentList();
             // 'this' goes in ArgsV (LLVM call) but NOT in argList (lookup uses userArguments which excludes 'this')
             ArgsV.push_back(basePtr);
@@ -5167,7 +5443,7 @@ void* ASTNode::generateMemberAccess(int pass)
             }
             // Add rest of argument values
             for (int i = 0; i < args.size(); i++) {
-                LLVMValue* argVal = (LLVMValue*)(args[i]->*(args[i]->codegen))(pass);
+                llvm::Value* argVal = (llvm::Value*)(args[i]->*(args[i]->codegen))(pass);
                 if (wasError) {
                     messageSystem::endBlock();
                     return nullptr;
@@ -5222,7 +5498,7 @@ void* ASTNode::generateMemberAccess(int pass)
             }
 
             // Rebuild ArgsV for the actual call
-            ArgsV = std::vector<LLVMValue*>();
+            ArgsV = std::vector<llvm::Value*>();
             ArgsV.push_back(basePtr);
             if (!ArgsV.back()) {
                 messageSystem::endBlock();
@@ -5239,7 +5515,7 @@ void* ASTNode::generateMemberAccess(int pass)
                         }
                         // const ref: auto-materialize the rvalue into a temporary alloca
                         messageSystem::startBlock(args[i], "Generating const ref argument (auto-materialize)", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
-                        LLVMValue* tmpVal = (LLVMValue*)(args[i]->*(args[i]->codegen))(pass);
+                        llvm::Value* tmpVal = (llvm::Value*)(args[i]->*(args[i]->codegen))(pass);
                         if (wasError) {
                             messageSystem::endBlock();
                             return nullptr;
@@ -5249,7 +5525,7 @@ void* ASTNode::generateMemberAccess(int pass)
                             return nullptr;
                         }
                         bool wasDef = true;
-                        LLVMType* formalType = getLLVMTypeFromString(fa.typeString, fa.pointerLevel, args[i], wasDef, pass);
+                        llvm::Type* formalType = getLLVMTypeFromString(fa.typeString, fa.pointerLevel, args[i], wasDef, pass);
                         if (!formalType) {
                             return messageSystem::error("Cannot determine type for const ref materialization: " + fa.typeString);
                         }
@@ -5265,11 +5541,11 @@ void* ASTNode::generateMemberAccess(int pass)
                     // Check that the argument type matches the ref parameter type
                     {
                         ASTNode* identNode = args[i]->childNodes[0];
-                        valueType* argVar = findNamedValue(parentNode, this, identNode->token->tokenStr, token);
+                        ASAValue* argVar = findNamedValue(parentNode, this, identNode->token->tokenStr, token);
                         if (argVar) {
-                            LLVMType* actualType = getValueStoredType(argVar->val);
+                            llvm::Type* actualType = getValueStoredType(argVar->val);
                             bool wasDef = true;
-                            LLVMType* formalType = getLLVMTypeFromString(fa.typeString, 0, args[i], wasDef, pass);
+                            llvm::Type* formalType = getLLVMTypeFromString(fa.typeString, 0, args[i], wasDef, pass);
                             if (formalType && actualType && !actualType->isPointerTy() && !formalType->isPointerTy() && actualType != formalType) {
                                 messageSystem::startBlock(args[i], "Generating reference argument", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
                                 return messageSystem::error("Cannot pass '" + getStringTypeFromLLVMType(actualType) +
@@ -5279,7 +5555,7 @@ void* ASTNode::generateMemberAccess(int pass)
                     }
                     args[i]->childNodes[0]->isRef = true;
                 }
-                LLVMValue* argVal = (LLVMValue*)(args[i]->*(args[i]->codegen))(pass);
+                llvm::Value* argVal = (llvm::Value*)(args[i]->*(args[i]->codegen))(pass);
                 if (wasError) {
                     messageSystem::endBlock();
                     return nullptr;
@@ -5295,9 +5571,9 @@ void* ASTNode::generateMemberAccess(int pass)
 
             // Append tracked_caller hidden parameters if the callee requires them
             if (CalleeFID->isTrackedCaller && token && token->filePath) {
-                LLVMValue* hiddenFilepath = llvmIRBuilder->CreateGlobalString(*token->filePath);
-                LLVMValue* hiddenLineNum = ConstantInt::get(Type::getInt32Ty(*llvmCompileContext), token->lineNumber);
-                LLVMValue* hiddenLineContent = llvmIRBuilder->CreateGlobalString(
+                llvm::Value* hiddenFilepath = llvmIRBuilder->CreateGlobalString(*token->filePath);
+                llvm::Value* hiddenLineNum = ConstantInt::get(Type::getInt32Ty(*llvmCompileContext), token->lineNumber);
+                llvm::Value* hiddenLineContent = llvmIRBuilder->CreateGlobalString(
                     token->lineValue ? *token->lineValue : "");
                 ArgsV.push_back(hiddenFilepath);
                 ArgsV.push_back(hiddenLineNum);
@@ -5312,8 +5588,8 @@ void* ASTNode::generateMemberAccess(int pass)
             if (CalleeFID->returnIsReference)
                 asaType->isRef = true;
 
-            LLVMValue* callResult = nullptr;
-            LLVMType* retType = CalleeF->getReturnType();
+            llvm::Value* callResult = nullptr;
+            llvm::Type* retType = CalleeF->getReturnType();
 
             // Create the call
             if (retType->isVoidTy())
@@ -5332,7 +5608,7 @@ void* ASTNode::generateMemberAccess(int pass)
                 if (lvalue || isRef)
                     return callResult;
                 bool wasDef = true;
-                LLVMType* refType = getLLVMTypeFromString(CalleeFID->returnType, 0, this, wasDef, pass);
+                llvm::Type* refType = getLLVMTypeFromString(CalleeFID->returnType, 0, this, wasDef, pass);
                 return llvmIRBuilder->CreateLoad(refType, callResult, "ref_load");
             }
             return callResult;
@@ -5347,7 +5623,7 @@ void* ASTNode::generateMemberAccess(int pass)
 }
 
 
-// LLVMValue*
+// llvm::Value*
 void* ASTNode::generateScopeBody(int pass)
 {
     messageSystem::startBlock(this, "Generating scope body", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
@@ -5373,7 +5649,7 @@ void* ASTNode::generateScopeBody(int pass)
             (c->nodeType == Expression_Statement || c->nodeType == Colon_Separator_Node))
             continue;
         if (c->codegen != nullptr) {
-            (void)(LLVMValue*)(c->*(c->codegen))(pass);
+            (void)(llvm::Value*)(c->*(c->codegen))(pass);
             if (wasError) {
                 if (isValueBlock)
                     resultContextStack.pop();
@@ -5406,7 +5682,7 @@ void* ASTNode::generateScopeBody(int pass)
             return messageSystem::error("Value block has no reachable 'result' statement");
         }
 
-        LLVMValue* resultVal = llvmIRBuilder->CreateLoad(
+        llvm::Value* resultVal = llvmIRBuilder->CreateLoad(
             ctx.resultSlot->getAllocatedType(), ctx.resultSlot, "result_val");
         messageSystem::endBlock();
         return resultVal;
@@ -5416,7 +5692,7 @@ void* ASTNode::generateScopeBody(int pass)
     return nullptr;
 }
 
-// LLVMValue*
+// llvm::Value*
 void* ASTNode::generateCast(int pass)
 {
     messageSystem::startBlock(this, "Generating cast", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
@@ -5431,21 +5707,21 @@ void* ASTNode::generateCast(int pass)
     std::string tyVal = typeNode->token->tokenStr;
     asaToken* typeToken = typeNode->token;
 
-    valueType* val = findNamedValue(parentNode, this, varName, token);
+    ASAValue* val = findNamedValue(parentNode, this, varName, token);
     if (!val && !wasError) {
         return messageSystem::error("Unknown variable name used");
     }
     markVariableRead(val);
-    LLVMValue* var = val->val;
-    LLVMValue* value = llvmIRBuilder->CreateLoad(getValueStoredType(var), var, varName + "_load");
+    llvm::Value* var = val->val;
+    llvm::Value* value = llvmIRBuilder->CreateLoad(getValueStoredType(var), var, varName + "_load");
     bool wasDefined = true;
-    LLVMType* toType = getLLVMTypeFromString(tyVal, 0, typeNode, wasDefined, pass);
+    llvm::Type* toType = getLLVMTypeFromString(tyVal, 0, typeNode, wasDefined, pass);
     // Determine source signedness from the variable's declared type
-    std::string srcTypeStr = val->type;
+    std::string srcTypeStr = val->typeString;
     while (!srcTypeStr.empty() && srcTypeStr[0] == '*')
         srcTypeStr = srcTypeStr.substr(1);
     bool isSrcSigned = typeSigns.count(srcTypeStr) ? typeSigns[srcTypeStr] : true;
-    LLVMValue* casted = castValue(value, toType, isSrcSigned, typeSigns[tyVal], this);
+    llvm::Value* casted = castValue(value, toType, isSrcSigned, typeSigns[tyVal], this);
 
     messageSystem::endBlock();
 
@@ -5454,7 +5730,7 @@ void* ASTNode::generateCast(int pass)
     return casted;
 }
 
-// LLVMValue*
+// llvm::Value*
 static std::string typeStringFromNode(ASTNode* node)
 {
     if (!node)
@@ -5469,6 +5745,10 @@ static std::string typeStringFromNode(ASTNode* node)
     return node->token->tokenStr;
 }
 
+// OPENCODE:
+// Codegen for `#bitcast(var, type)`: loads the variable, then emits a raw
+// bitcast/ptrtoint/inttoptr to reinterpret it as the target type. No safety
+// checks — the caller is responsible for validity.
 void* ASTNode::generateBitcast(int pass)
 {
     messageSystem::startBlock(this, "Generating bitcast", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
@@ -5482,16 +5762,16 @@ void* ASTNode::generateBitcast(int pass)
     std::string varName = varNode->token->tokenStr;
     std::string tyVal = typeStringFromNode(typeNode);
 
-    valueType* val = findNamedValue(parentNode, this, varName, token);
+    ASAValue* val = findNamedValue(parentNode, this, varName, token);
     if (!val && !wasError) {
         return messageSystem::error("Unknown variable name used");
     }
     markVariableRead(val);
-    LLVMValue* var = val->val;
-    LLVMValue* value = llvmIRBuilder->CreateLoad(getValueStoredType(var), var, varName + "_load");
+    llvm::Value* var = val->val;
+    llvm::Value* value = llvmIRBuilder->CreateLoad(getValueStoredType(var), var, varName + "_load");
 
     bool wasDefined = true;
-    LLVMType* toType = getLLVMTypeFromString(tyVal, 0, typeNode, wasDefined, pass);
+    llvm::Type* toType = getLLVMTypeFromString(tyVal, 0, typeNode, wasDefined, pass);
     if (!toType) {
         return messageSystem::error("Unknown type name used in #bitcast");
     }
@@ -5516,7 +5796,7 @@ void* ASTNode::generateBitcast(int pass)
     return llvmIRBuilder->CreateBitCast(value, toType, "bitcast");
 }
 
-// LLVMValue*
+// llvm::Value*
 void* ASTNode::generateTypeInstance(int pass)
 {
     messageSystem::startBlock(this, "Generating struct instance", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
@@ -5535,7 +5815,7 @@ void* ASTNode::generateTypeInstance(int pass)
 
     // If the struct body hasn't been generated yet, generate it
     if (typeVal->structVal == nullptr)
-        LLVMValue* argVal = (LLVMValue*)(typeVal->sourceNode->*(typeVal->sourceNode->codegen))(pass);
+        llvm::Value* argVal = (llvm::Value*)(typeVal->sourceNode->*(typeVal->sourceNode->codegen))(pass);
     if (wasError) {
         messageSystem::endBlock();
         return nullptr;
@@ -5543,17 +5823,17 @@ void* ASTNode::generateTypeInstance(int pass)
 
     AllocaInst* var = CreateEntryBlockAlloca(llvmIRBuilder->GetInsertBlock()->getParent(), typeVal->structVal, "struct_alloc");
 
-    LLVMValue* structSize = ConstantInt::get(LLVMType::getInt64Ty(*llvmCompileContext),
+    llvm::Value* structSize = ConstantInt::get(llvm::Type::getInt64Ty(*llvmCompileContext),
         llvmCompileModule->getDataLayout().getTypeAllocSize(typeVal->structVal));
 
     // Create memset call to zero the memory
-    Function* memsetFunc = Intrinsic::getOrInsertDeclaration(llvmCompileModule.get(), Intrinsic::memset, {var->getType(), LLVMType::getInt64Ty(*llvmCompileContext)});
+    Function* memsetFunc = Intrinsic::getOrInsertDeclaration(llvmCompileModule.get(), Intrinsic::memset, {var->getType(), llvm::Type::getInt64Ty(*llvmCompileContext)});
 
     llvmIRBuilder->CreateCall(memsetFunc, {
                                               var,                                                            // dest
-                                              ConstantInt::get(LLVMType::getInt8Ty(*llvmCompileContext), 0),  // value (zero)
+                                              ConstantInt::get(llvm::Type::getInt8Ty(*llvmCompileContext), 0),  // value (zero)
                                               structSize,                                                     // size
-                                              ConstantInt::get(LLVMType::getInt1Ty(*llvmCompileContext), 0)   // is_volatile
+                                              ConstantInt::get(llvm::Type::getInt1Ty(*llvmCompileContext), 0)   // is_volatile
                                           });
 
     // Apply non-zero default values for members that declare them
@@ -5562,20 +5842,20 @@ void* ASTNode::generateTypeInstance(int pass)
         if (idxIt == typeVal->memberNameIndexes.end())
             continue;
         uint16_t idx = idxIt->second;
-        LLVMValue* memberPtr = llvmIRBuilder->CreateStructGEP(typeVal->structVal, var, idx, memberName + "_init");
-        LLVMValue* defaultVal = nullptr;
+        llvm::Value* memberPtr = llvmIRBuilder->CreateStructGEP(typeVal->structVal, var, idx, memberName + "_init");
+        llvm::Value* defaultVal = nullptr;
         ASTNode* unwrappedDefault = unwrapSingleExpressionNode(defaultNode);
         if (unwrappedDefault && unwrappedDefault->nodeType == Undefined_Initializer_Node)
             defaultVal = UndefValue::get(typeVal->structVal->getElementType(idx));
         else if (unwrappedDefault && unwrappedDefault->nodeType == Default_Initializer_Node)
             defaultVal = generateDefaultValueForType(typeVal->structVal->getElementType(idx), typeVal->members[idx].typeString, typeVal->members[idx].pointerLevel, pass, this);
         else
-            defaultVal = (LLVMValue*)(defaultNode->*(defaultNode->codegen))(pass);
+            defaultVal = (llvm::Value*)(defaultNode->*(defaultNode->codegen))(pass);
         if (wasError)
             return nullptr;
         if (!defaultVal)
             continue;
-        LLVMType* memberType = typeVal->structVal->getElementType(idx);
+        llvm::Type* memberType = typeVal->structVal->getElementType(idx);
         bool isSigned = typeSigns.count(typeVal->members[idx].typeString) ? typeSigns[typeVal->members[idx].typeString] : false;
         defaultVal = castValue(defaultVal, memberType, true, isSigned, this);
         if (wasError) {
@@ -5589,7 +5869,7 @@ void* ASTNode::generateTypeInstance(int pass)
     return var;
 }
 
-// LLVMValue*
+// llvm::Value*
 // Deep-copy an ASTNode for template instantiation.
 // Does NOT copy parentNode (caller sets it after the call).
 // Resets currentNodeDoneGenerating so the copy generates fresh.
@@ -5633,6 +5913,10 @@ static ASTNode* deepCopyASTNodeImpl(ASTNode* src, std::map<ASTNode*, ASTNode*>& 
     return copy;
 }
 
+// OPENCODE:
+// Convenience wrapper around deepCopyASTNodeImpl: creates a fresh visited map
+// and deep-copies the entire AST subtree. Used by variant instantiation to
+// clone template AST nodes before substituting type parameters.
 static ASTNode* deepCopyASTNode(ASTNode* src)
 {
     std::map<ASTNode*, ASTNode*> visited;
@@ -5677,6 +5961,11 @@ static void substituteTypeParam(ASTNode* node, const std::string& paramName, con
         substituteTypeParam(leaf, paramName, concreteType, concreteNodeType);
 }
 
+// OPENCODE:
+// Finds the first significant value node (Identifier, Integer, Float, Bool,
+// String, Char) in a variant param subtree by searching leafNodes then
+// childNodes. Used by variant instantiation to extract the concrete value
+// from a variant type argument.
 static ASTNode* variantParamFirstValueNode(ASTNode* node)
 {
     if (!node)
@@ -5812,6 +6101,12 @@ static void instantiateVariantStruct(const std::string& baseName, const std::str
     llvmIRBuilder->SetCurrentDebugLocation(savedDbgLoc);
 }
 
+// OPENCODE:
+// The main function-call codegen: evaluates arguments, performs overload
+// resolution via getFunctionFromID, handles struct-return (sret) ABI, ref
+// parameters, member-function dispatch, default arguments, variant function
+// instantiation, extern ABI coercion, and pipe-call sugar. Emits the LLVM
+// call instruction and returns the result value.
 void* ASTNode::generateCallExpression(int pass)
 {
     messageSystem::startBlock(this, "Generating function call", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
@@ -5828,8 +6123,8 @@ void* ASTNode::generateCallExpression(int pass)
             args.push_back(a);
         }
 
-    std::vector<LLVMValue*> ArgsV = std::vector<LLVMValue*>();
-    std::vector<LLVMValue*> cachedArgVals = std::vector<LLVMValue*>();
+    std::vector<llvm::Value*> ArgsV = std::vector<llvm::Value*>();
+    std::vector<llvm::Value*> cachedArgVals = std::vector<llvm::Value*>();
     argumentList argList = argumentList();
 
     // Build argList and ArgsV WITHOUT sret initially
@@ -5837,7 +6132,7 @@ void* ASTNode::generateCallExpression(int pass)
         if (!args[i]->codegen)
             return messageSystem::error("Node `" + ASTNodeTypeAsString(args[i]->nodeType) + "` does not have a code generator");
 
-        LLVMValue* argVal = (LLVMValue*)(args[i]->*(args[i]->codegen))(pass);
+        llvm::Value* argVal = (llvm::Value*)(args[i]->*(args[i]->codegen))(pass);
         if (wasError) {
             return nullptr;
         }
@@ -5852,9 +6147,9 @@ void* ASTNode::generateCallExpression(int pass)
         // TODO: Make this better for non-high-level expressions
         // Try to get the type string from the expression
         if (identifierNode->nodeType == Identifier_Node) {
-            valueType* val = findNamedValue(parentNode, this, identifierNode->token->tokenStr, token);
+            ASAValue* val = findNamedValue(parentNode, this, identifierNode->token->tokenStr, token);
             if (val) {
-                typeStr = val->type;
+                typeStr = val->typeString;
             }
             else if (!wasError) {
                 typeStr = getStringTypeFromLLVMType(argVal->getType());
@@ -5881,9 +6176,9 @@ void* ASTNode::generateCallExpression(int pass)
                 ASTNode* inner = identifierNode->childNodes[0];
                 if (inner->nodeType == Identifier_Node) {
                     // Plain variable: look up its declared type
-                    valueType* val = findNamedValue(parentNode, this, inner->token->tokenStr, token);
-                    if (val && !val->type.empty())
-                        typeStr = "*" + val->type;
+                    ASAValue* val = findNamedValue(parentNode, this, inner->token->tokenStr, token);
+                    if (val && !val->typeString.empty())
+                        typeStr = "*" + val->typeString;
                 }
                 else if (inner->asaType && !inner->asaType->strVal.empty()) {
                     // Complex expression (member access, subscript, etc.): use the asaType set during codegen
@@ -6078,7 +6373,7 @@ void* ASTNode::generateCallExpression(int pass)
             if (!defNode) {
                 return messageSystem::error("Missing argument with no default value");
             }
-            LLVMValue* defVal = nullptr;
+            llvm::Value* defVal = nullptr;
             if (!rawToks.empty()) {
                 // Re-parse with call-site file/line info for #filepath/#linenum
                 std::vector<asaToken*> cloned;
@@ -6102,11 +6397,11 @@ void* ASTNode::generateCallExpression(int pass)
                 tempNode->codegen = &ASTNode::generateExpression;
                 resolveCompileTimeDirectives(tempNode);
                 tempNode->parentNode = parentNode;
-                defVal = (LLVMValue*)(tempNode->*(tempNode->codegen))(pass);
+                defVal = (llvm::Value*)(tempNode->*(tempNode->codegen))(pass);
             }
             else {
                 defNode->parentNode = parentNode;
-                defVal = (LLVMValue*)(defNode->*(defNode->codegen))(pass);
+                defVal = (llvm::Value*)(defNode->*(defNode->codegen))(pass);
             }
             if (wasError)
                 return nullptr;
@@ -6182,7 +6477,7 @@ void* ASTNode::generateCallExpression(int pass)
             continue;
         }
         bool isRef = CalleeFID->arguments[formalArgIdx].isReference;
-        LLVMValue* argVal = nullptr;
+        llvm::Value* argVal = nullptr;
         if (isRef) {
             messageSystem::startBlock(args[i], "Generating reference argument", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
             const argType& fa = CalleeFID->arguments[formalArgIdx];
@@ -6192,13 +6487,13 @@ void* ASTNode::generateCallExpression(int pass)
                     return messageSystem::error("Cannot pass value as reference");
                 }
                 // const ref: materialize the cached rvalue into a temporary alloca
-                LLVMValue* tmpVal = cachedArgVals[i];
+                llvm::Value* tmpVal = cachedArgVals[i];
                 if (!tmpVal) {
                     messageSystem::endBlock();
                     return nullptr;
                 }
                 bool wasDef = true;
-                LLVMType* formalType = getLLVMTypeFromString(fa.typeString, fa.pointerLevel, args[i], wasDef, pass);
+                llvm::Type* formalType = getLLVMTypeFromString(fa.typeString, fa.pointerLevel, args[i], wasDef, pass);
                 if (!formalType) {
                     return messageSystem::error("Cannot determine type for const ref materialization: " + fa.typeString);
                 }
@@ -6211,15 +6506,15 @@ void* ASTNode::generateCallExpression(int pass)
                 // Passing a value that requires an implicit cast to a ref parameter is not allowed:
                 // the cast would produce a temporary, and a reference to a temporary is meaningless.
                 {
-                    LLVMValue* actualVal = cachedArgVals[i];
+                    llvm::Value* actualVal = cachedArgVals[i];
                     bool wasDef = true;
-                    LLVMType* formalType = getLLVMTypeFromString(fa.typeString, 0, args[i], wasDef, pass);
+                    llvm::Type* formalType = getLLVMTypeFromString(fa.typeString, 0, args[i], wasDef, pass);
                     if (formalType && actualVal && !actualVal->getType()->isPointerTy() && !formalType->isPointerTy() && actualVal->getType() != formalType) {
                         return messageSystem::error("Cannot pass '" + getStringTypeFromLLVMType(actualVal->getType()) + "' as 'ref " + fa.typeString + "': implicit cast to reference is not allowed");
                     }
                 }
                 args[i]->childNodes[0]->isRef = true;
-                argVal = (LLVMValue*)(args[i]->*(args[i]->codegen))(pass);
+                argVal = (llvm::Value*)(args[i]->*(args[i]->codegen))(pass);
                 if (wasError) {
                     messageSystem::endBlock();
                     return nullptr;
@@ -6244,12 +6539,12 @@ void* ASTNode::generateCallExpression(int pass)
                  formal.pointerLevel == 0 && formal.typeString == "string" &&
                  structDefinitions.count("string") && structDefinitions["string"]->structVal) {
             // *char -> string: build string struct with strlen
-            StructType* strTy = cast<StructType>((LLVMType*)structDefinitions["string"]->structVal);
+            StructType* strTy = cast<StructType>((llvm::Type*)structDefinitions["string"]->structVal);
             FunctionCallee strlenFn = llvmCompileModule->getOrInsertFunction("strlen",
-                FunctionType::get(LLVMType::getInt64Ty(*llvmCompileContext), {PointerType::getUnqual(*llvmCompileContext)}, false));
-            LLVMValue* lenVal = llvmIRBuilder->CreateCall(strlenFn, {argVal}, "strlen");
-            LLVMValue* lenTrunc = llvmIRBuilder->CreateTrunc(lenVal, LLVMType::getInt32Ty(*llvmCompileContext), "len");
-            LLVMValue* strStruct = UndefValue::get(strTy);
+                FunctionType::get(llvm::Type::getInt64Ty(*llvmCompileContext), {PointerType::getUnqual(*llvmCompileContext)}, false));
+            llvm::Value* lenVal = llvmIRBuilder->CreateCall(strlenFn, {argVal}, "strlen");
+            llvm::Value* lenTrunc = llvmIRBuilder->CreateTrunc(lenVal, llvm::Type::getInt32Ty(*llvmCompileContext), "len");
+            llvm::Value* strStruct = UndefValue::get(strTy);
             strStruct = llvmIRBuilder->CreateInsertValue(strStruct, argVal, {0});
             strStruct = llvmIRBuilder->CreateInsertValue(strStruct, lenTrunc, {1});
             argVal = strStruct;
@@ -6258,9 +6553,9 @@ void* ASTNode::generateCallExpression(int pass)
         if (coerce > 0 && argVal && argVal->getType()->isStructTy()) {
             AllocaInst* tmp = CreateEntryBlockAlloca(llvmIRBuilder->GetInsertBlock()->getParent(), argVal->getType(), "coerce");
             llvmIRBuilder->CreateStore(argVal, tmp);
-            LLVMType* primTy = coerceIsFloat ? (LLVMType*)Type::getDoubleTy(*llvmCompileContext) : (LLVMType*)Type::getInt64Ty(*llvmCompileContext);
+            llvm::Type* primTy = coerceIsFloat ? (llvm::Type*)Type::getDoubleTy(*llvmCompileContext) : (llvm::Type*)Type::getInt64Ty(*llvmCompileContext);
             for (int k = 0; k < coerce; k++) {
-                LLVMValue* bytePtr = llvmIRBuilder->CreateConstGEP1_64(LLVMType::getInt8Ty(*llvmCompileContext), tmp, (uint64_t)(k * 8), "coerce_gep");
+                llvm::Value* bytePtr = llvmIRBuilder->CreateConstGEP1_64(llvm::Type::getInt8Ty(*llvmCompileContext), tmp, (uint64_t)(k * 8), "coerce_gep");
                 ArgsV.push_back(llvmIRBuilder->CreateLoad(primTy, bytePtr, "coerce_val"));
             }
             irArgIdx += coerce;
@@ -6268,13 +6563,13 @@ void* ASTNode::generateCallExpression(int pass)
         }
         // Pack @packed struct to integer when formal param expects an integer (extern ABI)
         if (argVal && !isRef && argVal->getType()->isStructTy()) {
-            LLVMType* formalLLVMType = nullptr;
+            llvm::Type* formalLLVMType = nullptr;
             if (irArgIdx < (int)CalleeF->getFunctionType()->getNumParams())
                 formalLLVMType = CalleeF->getFunctionType()->getParamType(irArgIdx);
             if (formalLLVMType && formalLLVMType->isIntegerTy()) {
                 AllocaInst* tmp = CreateEntryBlockAlloca(llvmIRBuilder->GetInsertBlock()->getParent(), argVal->getType(), "packed_tmp");
                 llvmIRBuilder->CreateStore(argVal, tmp);
-                LLVMValue* intPtr = llvmIRBuilder->CreateBitCast(tmp, PointerType::get(*llvmCompileContext, 0));
+                llvm::Value* intPtr = llvmIRBuilder->CreateBitCast(tmp, PointerType::get(*llvmCompileContext, 0));
                 argVal = llvmIRBuilder->CreateLoad(formalLLVMType, intPtr, "packed_int");
             }
             // Large struct passed to pointer param: copy to stack and pass pointer (byval ABI)
@@ -6289,7 +6584,7 @@ void* ASTNode::generateCallExpression(int pass)
         }
         // Implicit numeric coercion: cast arg to formal param type if they differ
         if (argVal && !isRef) {
-            LLVMType* formalLLVMType = nullptr;
+            llvm::Type* formalLLVMType = nullptr;
             if (irArgIdx < (int)CalleeF->getFunctionType()->getNumParams())
                 formalLLVMType = CalleeF->getFunctionType()->getParamType(irArgIdx);
             if (formalLLVMType && argVal->getType() != formalLLVMType &&
@@ -6316,13 +6611,13 @@ void* ASTNode::generateCallExpression(int pass)
     for (int i = (int)args.size(); i < (int)cachedArgVals.size(); i++) {
         int coerce = (i < (int)CalleeFID->userArguments.size()) ? (int)CalleeFID->userArguments[i].externCoercionCount : 0;
         bool coerceIsFloat = (i < (int)CalleeFID->userArguments.size()) && CalleeFID->userArguments[i].externCoercionIsFloat;
-        LLVMValue* defVal = cachedArgVals[i];
+        llvm::Value* defVal = cachedArgVals[i];
         if (coerce > 0 && defVal && defVal->getType()->isStructTy()) {
             AllocaInst* tmp = CreateEntryBlockAlloca(llvmIRBuilder->GetInsertBlock()->getParent(), defVal->getType(), "coerce_def");
             llvmIRBuilder->CreateStore(defVal, tmp);
-            LLVMType* primTy = coerceIsFloat ? (LLVMType*)Type::getDoubleTy(*llvmCompileContext) : (LLVMType*)Type::getInt64Ty(*llvmCompileContext);
+            llvm::Type* primTy = coerceIsFloat ? (llvm::Type*)Type::getDoubleTy(*llvmCompileContext) : (llvm::Type*)Type::getInt64Ty(*llvmCompileContext);
             for (int k = 0; k < coerce; k++) {
-                LLVMValue* bytePtr = llvmIRBuilder->CreateConstGEP1_64(LLVMType::getInt8Ty(*llvmCompileContext), tmp, (uint64_t)(k * 8), "coerce_gep");
+                llvm::Value* bytePtr = llvmIRBuilder->CreateConstGEP1_64(llvm::Type::getInt8Ty(*llvmCompileContext), tmp, (uint64_t)(k * 8), "coerce_gep");
                 ArgsV.push_back(llvmIRBuilder->CreateLoad(primTy, bytePtr, "coerce_val"));
             }
         }
@@ -6342,17 +6637,17 @@ void* ASTNode::generateCallExpression(int pass)
 
     // Append tracked_caller hidden parameters if the callee requires them
     if (CalleeFID->isTrackedCaller && token && token->filePath) {
-        LLVMValue* hiddenFilepath = llvmIRBuilder->CreateGlobalString(*token->filePath);
-        LLVMValue* hiddenLineNum = ConstantInt::get(Type::getInt32Ty(*llvmCompileContext), token->lineNumber);
-        LLVMValue* hiddenLineContent = llvmIRBuilder->CreateGlobalString(
+        llvm::Value* hiddenFilepath = llvmIRBuilder->CreateGlobalString(*token->filePath);
+        llvm::Value* hiddenLineNum = ConstantInt::get(Type::getInt32Ty(*llvmCompileContext), token->lineNumber);
+        llvm::Value* hiddenLineContent = llvmIRBuilder->CreateGlobalString(
             token->lineValue ? *token->lineValue : "");
         ArgsV.push_back(hiddenFilepath);
         ArgsV.push_back(hiddenLineNum);
         ArgsV.push_back(hiddenLineContent);
     }
 
-    LLVMValue* callResult = nullptr;
-    LLVMType* retType = CalleeF->getReturnType();
+    llvm::Value* callResult = nullptr;
+    llvm::Type* retType = CalleeF->getReturnType();
 
     // Create the call
     CallInst* callInst = nullptr;
@@ -6365,7 +6660,7 @@ void* ASTNode::generateCallExpression(int pass)
     // Propagate byval attributes from the function declaration to this call instruction
     if (callInst) {
         for (unsigned pi = 0; pi < CalleeF->getFunctionType()->getNumParams(); pi++) {
-            LLVMType* bvType = CalleeF->getParamByValType(pi);
+            llvm::Type* bvType = CalleeF->getParamByValType(pi);
             if (bvType)
                 callInst->addParamAttr(pi, Attribute::getWithByValType(*llvmCompileContext, bvType));
         }
@@ -6389,7 +6684,7 @@ void* ASTNode::generateCallExpression(int pass)
 
     if (CalleeFID->returnIsReference) {
         bool wasDefined = true;
-        LLVMType* refType = getLLVMTypeFromString(CalleeFID->returnType, 0, this, wasDefined, pass);
+        llvm::Type* refType = getLLVMTypeFromString(CalleeFID->returnType, 0, this, wasDefined, pass);
         if (!refType || !wasDefined)
             return messageSystem::error("Cannot resolve ref return type: " + CalleeFID->returnType);
         if (!asaType)
@@ -6429,7 +6724,7 @@ void* ASTNode::generateCallExpression(int pass)
         auto it = structDefinitions.find(CalleeFID->returnType);
         if (it != structDefinitions.end() && it->second->isPacked && it->second->structVal) {
             AllocaInst* tmp = CreateEntryBlockAlloca(llvmIRBuilder->GetInsertBlock()->getParent(), it->second->structVal, "packed_ret");
-            LLVMValue* intPtr = llvmIRBuilder->CreateBitCast(tmp, PointerType::get(*llvmCompileContext, 0));
+            llvm::Value* intPtr = llvmIRBuilder->CreateBitCast(tmp, PointerType::get(*llvmCompileContext, 0));
             llvmIRBuilder->CreateStore(callResult, intPtr);
             callResult = llvmIRBuilder->CreateLoad(it->second->structVal, tmp, "unpacked_ret");
         }
@@ -6447,7 +6742,7 @@ void* ASTNode::generateCallExpression(int pass)
 }
 
 
-// LLVMValue*
+// llvm::Value*
 void* ASTNode::generateIf(int pass)
 {
     messageSystem::startBlock(this, "Generating if statement", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
@@ -6466,7 +6761,7 @@ void* ASTNode::generateIf(int pass)
         return messageSystem::error("Node `" + ASTNodeTypeAsString(condExpr->nodeType) + "` does not have a code generator");
     }
 
-    LLVMValue* CondV = (LLVMValue*)(condExpr->*(condExpr->codegen))(pass);
+    llvm::Value* CondV = (llvm::Value*)(condExpr->*(condExpr->codegen))(pass);
     if (wasError) {
         messageSystem::endBlock();
         return nullptr;
@@ -6498,7 +6793,7 @@ void* ASTNode::generateIf(int pass)
         return messageSystem::error("Node `" + ASTNodeTypeAsString(scopeBody->nodeType) + "` does not have a code generator");
     }
 
-    LLVMValue* ThenV = (LLVMValue*)(scopeBody->*(scopeBody->codegen))(pass);
+    llvm::Value* ThenV = (llvm::Value*)(scopeBody->*(scopeBody->codegen))(pass);
     if (wasError) {
         messageSystem::endBlock();
         return nullptr;
@@ -6519,7 +6814,7 @@ void* ASTNode::generateIf(int pass)
         return messageSystem::error("Node `" + ASTNodeTypeAsString(elseBody->nodeType) + "` does not have a code generator");
     }
 
-    LLVMValue* ElseV = (LLVMValue*)(elseBody->*(elseBody->codegen))(pass);
+    llvm::Value* ElseV = (llvm::Value*)(elseBody->*(elseBody->codegen))(pass);
     if (wasError) {
         messageSystem::endBlock();
         return nullptr;
@@ -6538,7 +6833,7 @@ void* ASTNode::generateIf(int pass)
     return nullptr;
 }
 
-// LLVMValue*
+// llvm::Value*
 void* ASTNode::generateStruct(int pass)
 {
     messageSystem::startBlock(this, "Generating struct definition", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
@@ -6665,7 +6960,7 @@ void* ASTNode::generateStruct(int pass)
                 std::string memberName = fieldNode->token->tokenStr;
                 memberNameTypeNodes[memberName] = nameTypeNode;
 
-                LLVMType* fieldType = nullptr;
+                llvm::Type* fieldType = nullptr;
                 std::string memberType;
                 int pointerLevel = 0;
                 bool isConst = false;
@@ -6734,25 +7029,25 @@ void* ASTNode::generateStruct(int pass)
                 Function* fn = ctorFID->fnValue;
                 BasicBlock* entryBlock = BasicBlock::Create(*llvmCompileContext, "entry", fn);
                 llvmIRBuilder->SetInsertPoint(entryBlock);
-                LLVMValue* sretPtr = fn->getArg(0);
+                llvm::Value* sretPtr = fn->getArg(0);
                 StructType* sTy = (StructType*)structDefinitions[structName]->structVal;
-                LLVMValue* szVal = ConstantInt::get(LLVMType::getInt64Ty(*llvmCompileContext), llvmCompileModule->getDataLayout().getTypeAllocSize(sTy));
-                Function* memsetFn = Intrinsic::getOrInsertDeclaration(llvmCompileModule.get(), Intrinsic::memset, {sretPtr->getType(), LLVMType::getInt64Ty(*llvmCompileContext)});
-                llvmIRBuilder->CreateCall(memsetFn, {sretPtr, ConstantInt::get(LLVMType::getInt8Ty(*llvmCompileContext), 0), szVal, ConstantInt::get(LLVMType::getInt1Ty(*llvmCompileContext), 0)});
+                llvm::Value* szVal = ConstantInt::get(llvm::Type::getInt64Ty(*llvmCompileContext), llvmCompileModule->getDataLayout().getTypeAllocSize(sTy));
+                Function* memsetFn = Intrinsic::getOrInsertDeclaration(llvmCompileModule.get(), Intrinsic::memset, {sretPtr->getType(), llvm::Type::getInt64Ty(*llvmCompileContext)});
+                llvmIRBuilder->CreateCall(memsetFn, {sretPtr, ConstantInt::get(llvm::Type::getInt8Ty(*llvmCompileContext), 0), szVal, ConstantInt::get(llvm::Type::getInt1Ty(*llvmCompileContext), 0)});
                 for (auto& [memberName, defaultNode] : memberDefaultNodes) {
                     auto idxIt = memberNameIndexes.find(memberName);
                     if (idxIt == memberNameIndexes.end())
                         continue;
                     uint16_t idx = idxIt->second;
-                    LLVMValue* memberPtr = llvmIRBuilder->CreateStructGEP(sTy, sretPtr, idx, memberName + "_init");
-                    LLVMValue* defaultVal = nullptr;
+                    llvm::Value* memberPtr = llvmIRBuilder->CreateStructGEP(sTy, sretPtr, idx, memberName + "_init");
+                    llvm::Value* defaultVal = nullptr;
                     ASTNode* unwrappedDefault = unwrapSingleExpressionNode(defaultNode);
                     if (unwrappedDefault && unwrappedDefault->nodeType == Undefined_Initializer_Node)
                         defaultVal = UndefValue::get(sTy->getElementType(idx));
                     else if (unwrappedDefault && unwrappedDefault->nodeType == Default_Initializer_Node)
                         defaultVal = generateDefaultValueForType(sTy->getElementType(idx), members[idx].typeString, members[idx].pointerLevel, pass, this);
                     else
-                        defaultVal = (LLVMValue*)(defaultNode->*(defaultNode->codegen))(pass);
+                        defaultVal = (llvm::Value*)(defaultNode->*(defaultNode->codegen))(pass);
                     if (wasError) {
                         messageSystem::endBlock();
                         return nullptr;
@@ -6790,7 +7085,7 @@ void* ASTNode::generateStruct(int pass)
             argumentList emptyUserArgs;
             if (!getExactFunctionFromID(functionIDs, const_cast<std::string&>(structName), emptyUserArgs)) {
                 std::vector<Type*> ctorArgTypes = {PointerType::get(*llvmCompileContext, 0)};
-                FunctionType* FT = FunctionType::get(LLVMType::getVoidTy(*llvmCompileContext), ctorArgTypes, false);
+                FunctionType* FT = FunctionType::get(llvm::Type::getVoidTy(*llvmCompileContext), ctorArgTypes, false);
                 Function* fn = Function::Create(FT, Function::InternalLinkage, structName, llvmCompileModule.get());
                 fn->addFnAttr(llvm::Attribute::AlwaysInline);
                 fn->getArg(0)->setName("sret");
@@ -6826,7 +7121,7 @@ void* ASTNode::generateStruct(int pass)
         argumentList emptyUserArgs;
         if (!getExactFunctionFromID(functionIDs, const_cast<std::string&>(structName), emptyUserArgs)) {
             std::vector<Type*> ctorArgTypes = {PointerType::get(*llvmCompileContext, 0)};
-            FunctionType* FT = FunctionType::get(LLVMType::getVoidTy(*llvmCompileContext), ctorArgTypes, false);
+            FunctionType* FT = FunctionType::get(llvm::Type::getVoidTy(*llvmCompileContext), ctorArgTypes, false);
             Function* fn = Function::Create(FT, Function::InternalLinkage, structName, llvmCompileModule.get());
             fn->addFnAttr(llvm::Attribute::AlwaysInline);
             fn->getArg(0)->setName("sret");
@@ -6970,7 +7265,7 @@ void* ASTNode::generateEnum(int pass)
     return nullptr;
 }
 
-// LLVMValue*
+// llvm::Value*
 void* ASTNode::generateBreak(int pass)
 {
     messageSystem::startBlock(this, "Generating break statement", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
@@ -7036,7 +7331,7 @@ void* ASTNode::generateBreak(int pass)
     return nullptr;
 }
 
-// LLVMValue*
+// llvm::Value*
 void* ASTNode::generateContinue(int pass)
 {
     messageSystem::startBlock(this, "Generating continue statement", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
@@ -7103,7 +7398,7 @@ void* ASTNode::generateContinue(int pass)
 }
 
 // Add a generator for Labeled_Loop:
-// LLVMValue*
+// llvm::Value*
 void* ASTNode::generateLabeledLoop(int pass)
 {
     messageSystem::startBlock(this, "Generating labeled loop", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
@@ -7135,7 +7430,7 @@ void* ASTNode::generateLabeledLoop(int pass)
 }
 
 // Now update the generateFor function to use the label:
-// LLVMValue*
+// llvm::Value*
 void* ASTNode::generateFor(int pass)
 {
     messageSystem::startBlock(this, "Generating for loop", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
@@ -7161,7 +7456,7 @@ void* ASTNode::generateFor(int pass)
     if (rangeStart->codegen == nullptr) {
         return messageSystem::error("Node `" + ASTNodeTypeAsString(rangeStart->nodeType) + "` does not have a code generator");
     }
-    LLVMValue* StartVal = (LLVMValue*)(rangeStart->*(rangeStart->codegen))(pass);
+    llvm::Value* StartVal = (llvm::Value*)(rangeStart->*(rangeStart->codegen))(pass);
     if (wasError) {
         messageSystem::endBlock();
         return nullptr;
@@ -7175,7 +7470,7 @@ void* ASTNode::generateFor(int pass)
     if (rangeEnd->codegen == nullptr) {
         return messageSystem::error("Node `" + ASTNodeTypeAsString(rangeEnd->nodeType) + "` does not have a code generator");
     }
-    LLVMValue* EndVal = (LLVMValue*)(rangeEnd->*(rangeEnd->codegen))(pass);
+    llvm::Value* EndVal = (llvm::Value*)(rangeEnd->*(rangeEnd->codegen))(pass);
     if (wasError) {
         messageSystem::endBlock();
         return nullptr;
@@ -7186,7 +7481,7 @@ void* ASTNode::generateFor(int pass)
     }
 
     // Determine iterator type: use explicit annotation if provided, otherwise widen from range.
-    LLVMType* iterType = nullptr;
+    llvm::Type* iterType = nullptr;
     if (childNodes[0]->nodeType == Iterator && childNodes[0]->childNodes.size() >= 2) {
         // Explicit type annotation: for(i : uint16 in ...)
         ASTNode* typeNode = childNodes[0]->childNodes[1];
@@ -7201,7 +7496,7 @@ void* ASTNode::generateFor(int pass)
             iterBits = std::max(iterBits, StartVal->getType()->getIntegerBitWidth());
         if (EndVal->getType()->isIntegerTy())
             iterBits = std::max(iterBits, EndVal->getType()->getIntegerBitWidth());
-        iterType = LLVMType::getIntNTy(*llvmCompileContext, iterBits);
+        iterType = llvm::Type::getIntNTy(*llvmCompileContext, iterBits);
     }
 
     // Cast start and end to the iterator type if needed.
@@ -7231,10 +7526,10 @@ void* ASTNode::generateFor(int pass)
 
     llvmIRBuilder->SetInsertPoint(LoopCondBB);
 
-    LLVMValue* CurVar = llvmIRBuilder->CreateLoad(iterType, Alloca, varName.c_str());
+    llvm::Value* CurVar = llvmIRBuilder->CreateLoad(iterType, Alloca, varName.c_str());
 
     // Compare: exclusive (i < N)
-    LLVMValue* Cond = llvmIRBuilder->CreateICmpSLT(CurVar, EndVal, "loopcond");
+    llvm::Value* Cond = llvmIRBuilder->CreateICmpSLT(CurVar, EndVal, "loopcond");
 
     // Conditional branch
     llvmIRBuilder->CreateCondBr(Cond, LoopBB, AfterBB);
@@ -7249,7 +7544,7 @@ void* ASTNode::generateFor(int pass)
     ctx.label = label;        // Empty for unlabeled loops
     loopContextStack.push(ctx);
 
-    namedValues[varName] = new valueType(varName, getStringTypeFromLLVMType(iterType), Alloca);
+    namedValues[varName] = new ASAValue(varName, getStringTypeFromLLVMType(iterType), Alloca);
 
     // Emit the body of the loop
     ASTNode* scopeBody = childNodes[2];
@@ -7272,9 +7567,9 @@ void* ASTNode::generateFor(int pass)
 
     // Step block: increment iterator then jump back to condition
     llvmIRBuilder->SetInsertPoint(StepBB);
-    LLVMValue* StepVal = ConstantInt::get(*llvmCompileContext, APInt(iterType->getIntegerBitWidth(), 1));
-    LLVMValue* CurVar2 = llvmIRBuilder->CreateLoad(Alloca->getAllocatedType(), Alloca, varName.c_str());
-    LLVMValue* NextVar = llvmIRBuilder->CreateAdd(CurVar2, StepVal, "nextvar");
+    llvm::Value* StepVal = ConstantInt::get(*llvmCompileContext, APInt(iterType->getIntegerBitWidth(), 1));
+    llvm::Value* CurVar2 = llvmIRBuilder->CreateLoad(Alloca->getAllocatedType(), Alloca, varName.c_str());
+    llvm::Value* NextVar = llvmIRBuilder->CreateAdd(CurVar2, StepVal, "nextvar");
     llvmIRBuilder->CreateStore(NextVar, Alloca);
     llvmIRBuilder->CreateBr(LoopCondBB);
 
@@ -7286,7 +7581,7 @@ void* ASTNode::generateFor(int pass)
 }
 
 // Similarly, if you have a while loop generator, update it too:
-// LLVMValue*
+// llvm::Value*
 void* ASTNode::generateWhile(int pass)
 {
     messageSystem::startBlock(this, "Generating while loop", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
@@ -7323,7 +7618,7 @@ void* ASTNode::generateWhile(int pass)
         return messageSystem::error("Node `" + ASTNodeTypeAsString(condExpr->nodeType) + "` does not have a code generator");
     }
 
-    LLVMValue* CondV = (LLVMValue*)(condExpr->*(condExpr->codegen))(pass);
+    llvm::Value* CondV = (llvm::Value*)(condExpr->*(condExpr->codegen))(pass);
     if (wasError) {
         messageSystem::endBlock();
         return nullptr;
@@ -7420,7 +7715,7 @@ void* ASTNode::generatePrototype(int pass)
     //  fnName = fnName;
 
     // Get return type
-    LLVMType* retType = LLVMType::getVoidTy(*llvmCompileContext);
+    llvm::Type* retType = llvm::Type::getVoidTy(*llvmCompileContext);
     std::string rTypeString = "";
     ASTNode* typeNode = childNodes[1];
     bool isStructReturn = false;
@@ -7462,7 +7757,7 @@ void* ASTNode::generatePrototype(int pass)
                 auto it = structDefinitions.find(rTypeString);
                 if (it != structDefinitions.end() && it->second->isPacked) {
                     unsigned bits = llvmCompileModule->getDataLayout().getTypeAllocSizeInBits(retType);
-                    retType = LLVMType::getIntNTy(*llvmCompileContext, bits);
+                    retType = llvm::Type::getIntNTy(*llvmCompileContext, bits);
                 }
                 else {
                     // x86-64 SysV ABI: small structs (<=16 bytes) are returned in registers,
@@ -7484,7 +7779,7 @@ void* ASTNode::generatePrototype(int pass)
                         // Build coerced return type: { i64, i64 } or { double, double }
                         std::vector<Type*> chunkTypes;
                         for (int k = 0; k < numChunks; k++)
-                            chunkTypes.push_back(allFloat ? (LLVMType*)Type::getDoubleTy(*llvmCompileContext) : (LLVMType*)Type::getInt64Ty(*llvmCompileContext));
+                            chunkTypes.push_back(allFloat ? (llvm::Type*)Type::getDoubleTy(*llvmCompileContext) : (llvm::Type*)Type::getInt64Ty(*llvmCompileContext));
                         retType = StructType::get(*llvmCompileContext, chunkTypes);
                         // These will be recorded on the functionID after it is constructed (see below)
                         externReturnCoercionCount = (int8_t)numChunks;
@@ -7500,12 +7795,12 @@ void* ASTNode::generatePrototype(int pass)
 
     // Like C, main always returns i32 even when declared without a return type.
     if (fnName == "main" && retType->isVoidTy())
-        retType = LLVMType::getInt32Ty(*llvmCompileContext);
+        retType = llvm::Type::getInt32Ty(*llvmCompileContext);
 
     argumentList userArgList = argList;
 
     // Handle struct return by modifying function signature
-    LLVMType* actualRetType = retType;
+    llvm::Type* actualRetType = retType;
     if (isStructReturn) {
         // For struct returns, add sret parameter as first argument
         argTypes.push_back(PointerType::get(*llvmCompileContext, 0));  // sret parameter (pointer to struct)
@@ -7513,7 +7808,7 @@ void* ASTNode::generatePrototype(int pass)
         argList.insert(argList.begin(), argType("*" + rTypeString, getASTNodeTypeFromString(rTypeString), 1, false, true));
 
         // Change actual return type to void
-        actualRetType = LLVMType::getVoidTy(*llvmCompileContext);
+        actualRetType = llvm::Type::getVoidTy(*llvmCompileContext);
     }
 
     // Get function arguments
@@ -7523,7 +7818,7 @@ void* ASTNode::generatePrototype(int pass)
         bool isReference = true;
         int pointerLevel = 0;  // References don't count as pointer level
 
-        LLVMType* aType = nullptr;
+        llvm::Type* aType = nullptr;
         argList.push_back(argType(typeStr, Struct_Type, pointerLevel, isReference, false, false));
 
         try {
@@ -7610,7 +7905,7 @@ void* ASTNode::generatePrototype(int pass)
                 typeStr += resolveTypeAlias(typeNode->token->tokenStr);
 
 
-                LLVMType* aType = nullptr;
+                llvm::Type* aType = nullptr;
                 argType arg = argType(typeStr, getASTNodeTypeFromString(typeNode->token->tokenStr), pointerLevel, isReference, mustBeExactType, isConstant);
                 if (a->childNodes.size() > 1) {
                     arg.hasDefault = true;
@@ -7653,7 +7948,7 @@ void* ASTNode::generatePrototype(int pass)
                         if (forcePackedInt) {
                             // @packed: pack entire struct into a single integer
                             unsigned bits = llvmCompileModule->getDataLayout().getTypeAllocSizeInBits(aType);
-                            aType = LLVMType::getIntNTy(*llvmCompileContext, bits);
+                            aType = llvm::Type::getIntNTy(*llvmCompileContext, bits);
                         }
                         else if (size > 16) {
                             // MEMORY class: pass via pointer (byval)
@@ -7678,7 +7973,7 @@ void* ASTNode::generatePrototype(int pass)
                                 userArgList.back().externCoercionCount = (int8_t)numChunks;
                                 userArgList.back().externCoercionIsFloat = true;
                                 for (int k = 0; k < numChunks; k++) {
-                                    argTypes.push_back(LLVMType::getDoubleTy(*llvmCompileContext));
+                                    argTypes.push_back(llvm::Type::getDoubleTy(*llvmCompileContext));
                                     argNames.push_back(nameNode->token->tokenStr + (k == 0 ? "" : "_" + std::to_string(k)));
                                 }
                                 continue;  // skip push below
@@ -7690,7 +7985,7 @@ void* ASTNode::generatePrototype(int pass)
                                 userArgList.back().externCoercionCount = (int8_t)numChunks;
                                 userArgList.back().externCoercionIsFloat = false;
                                 for (int k = 0; k < numChunks; k++) {
-                                    argTypes.push_back(LLVMType::getInt64Ty(*llvmCompileContext));
+                                    argTypes.push_back(llvm::Type::getInt64Ty(*llvmCompileContext));
                                     argNames.push_back(nameNode->token->tokenStr + (k == 0 ? "" : "_" + std::to_string(k)));
                                 }
                                 continue;  // skip push below
@@ -7718,7 +8013,7 @@ void* ASTNode::generatePrototype(int pass)
 
     bool isTrackedCaller = hasAttribute(this, "tracked_caller");
     if (isTrackedCaller) {
-        LLVMType* i8PtrTy = PointerType::getUnqual(*llvmCompileContext);
+        llvm::Type* i8PtrTy = PointerType::getUnqual(*llvmCompileContext);
         argTypes.push_back(i8PtrTy);
         argTypes.push_back(Type::getInt32Ty(*llvmCompileContext));
         argTypes.push_back(i8PtrTy);
@@ -7810,7 +8105,7 @@ void* ASTNode::generatePrototype(int pass)
 
         if (Idx < (int)argNames.size() - numHidden && Idx < (int)argList.size()) {
             if (argList[Idx].isConstant) {
-                LLVMType* argType = arg.getType();
+                llvm::Type* argType = arg.getType();
 
                 // readonly can only be applied to pointer types
                 if (argType->isPointerTy()) {
@@ -8013,7 +8308,7 @@ void* ASTNode::generateFunction(int pass)
         if (theFunctionID->arguments[i].isConstant) {
             uint64_t typeSize = llvmCompileModule->getDataLayout().getTypeAllocSize(arg.getType());
             Function* invariantStartFn = Intrinsic::getOrInsertDeclaration(llvmCompileModule.get(), Intrinsic::invariant_start, {PointerType::getUnqual(*llvmCompileContext)});
-            llvmIRBuilder->CreateCall(invariantStartFn, {ConstantInt::get(LLVMType::getInt64Ty(*llvmCompileContext), typeSize), Alloca});
+            llvmIRBuilder->CreateCall(invariantStartFn, {ConstantInt::get(llvm::Type::getInt64Ty(*llvmCompileContext), typeSize), Alloca});
         }
 
         // Build the "actual type" string the rest of your compiler expects (pointer stars + type name)
@@ -8021,7 +8316,7 @@ void* ASTNode::generateFunction(int pass)
         for (int p = 0; p < theFunctionID->arguments[i].pointerLevel; p++)
             baseType += "*";
 
-        valueType* vt = new valueType(std::string(arg.getName()), baseType + theFunctionID->arguments[i].typeString, Alloca, true, theFunctionID->arguments[i].isReference);
+        ASAValue* vt = new ASAValue(std::string(arg.getName()), baseType + theFunctionID->arguments[i].typeString, Alloca, true, theFunctionID->arguments[i].isReference);
 
         vt->isConstant = theFunctionID->arguments[i].isConstant;
 
@@ -8175,7 +8470,7 @@ void* ASTNode::generateCompilerGetFlagDirective(int pass)
 
     auto flag = compilerDirectiveFlags.find(flagName);
     bool flagValue = flag != compilerDirectiveFlags.end() && flag->second;
-    LLVMValue* result = ConstantInt::get(LLVMType::getInt1Ty(*llvmCompileContext), flagValue ? 1 : 0);
+    llvm::Value* result = ConstantInt::get(llvm::Type::getInt1Ty(*llvmCompileContext), flagValue ? 1 : 0);
     if (!asaType)
         asaType = new ASAType(result->getType());
     else
@@ -8325,7 +8620,7 @@ void* ASTNode::generateCompilerStackLastDirective(int pass)
     if (!stackNode || !stackNode->codegen)
         return messageSystem::error("#stack_last found a node without a code generator", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
 
-    LLVMValue* value = (LLVMValue*)(stackNode->*(stackNode->codegen))(pass);
+    llvm::Value* value = (llvm::Value*)(stackNode->*(stackNode->codegen))(pass);
     if (stackNode->asaType) {
         if (!asaType)
             asaType = new ASAType(stackNode->asaType->baseLLVMType);
@@ -8338,6 +8633,10 @@ void* ASTNode::generateCompilerStackLastDirective(int pass)
     return value;
 }
 
+// OPENCODE:
+// resolveASTNode callback for #stack_last: returns the top ASTNode on the
+// named compiler stack without popping it. Used when #stack_last is used in
+// a compile-time context (e.g. #nameof, #typeof, member access).
 ASTNode* ASTNode::resolveCompilerStackLastASTNode(int pass)
 {
     std::vector<ASTNode*> args = getCompilerDirectiveArgs(this);
@@ -8360,12 +8659,20 @@ ASTNode* ASTNode::resolveCompilerStackLastASTNode(int pass)
     return compilerStacks[stackName].top();
 }
 
+// OPENCODE:
+// resolveASTNode callback for #context: returns the context ASTNode passed
+// to a custom compiler directive. Errors if used outside a custom directive
+// invocation.
 ASTNode* ASTNode::resolveCompilerContextASTNode(int pass)
 {
     messageSystem::error("#context is only available inside a custom compiler directive invocation", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
     return nullptr;
 }
 
+// OPENCODE:
+// resolveASTNode callback for #parent: returns the parentNode of the given
+// AST node argument (or the caller's own parent if no argument). Used in
+// custom compiler directives to walk the AST upward.
 ASTNode* ASTNode::resolveCompilerParentASTNode(int pass)
 {
     std::vector<ASTNode*> args = getCompilerDirectiveArgs(this);
@@ -8397,6 +8704,9 @@ ASTNode* ASTNode::resolveCompilerParentASTNode(int pass)
     return resolvedNode->parentNode;
 }
 
+// OPENCODE:
+// resolveASTNode callback for #func_ast: walks up parentNodes until it finds
+// a Compiler_Define_Function node. Errors if used outside a function definition.
 ASTNode* ASTNode::resolveCompilerFuncASTNode(int pass)
 {
     ASTNode* scope = this->parentNode;
@@ -8449,6 +8759,10 @@ void* ASTNode::generateCompilerPrintASTDirective(int pass)
     return nullptr;
 }
 
+// OPENCODE:
+// Shared implementation for #print and #printl compiler directives: prints
+// a string literal to the console during compilation (pass 2 only). The
+// appendNewline flag selects between #print and #printl behavior.
 static void* generateCompilerStringPrintDirective(ASTNode* directiveNode, int pass, bool appendNewline)
 {
     if (pass != 2)
@@ -8600,7 +8914,7 @@ void* ASTNode::generateCompilerWarningDirective(int pass)
 
 // Returns a string value (struct or *char fallback) for a compile-time string constant,
 // using the same global cache and struct-building logic as String_Constant_Node.
-static LLVMValue* makeStringConstant(const std::string& str)
+static llvm::Value* createStringConstantLiteral(const std::string& str)
 {
     GlobalVariable* globalStr = nullptr;
     if (globalStringLiteralConstants.count(str)) {
@@ -8620,20 +8934,23 @@ static LLVMValue* makeStringConstant(const std::string& str)
         globalStringLiteralConstants[str] = globalStr;
     }
 
-    Constant* zero = ConstantInt::get(LLVMType::getInt32Ty(*llvmCompileContext), 0);
+    Constant* zero = ConstantInt::get(llvm::Type::getInt32Ty(*llvmCompileContext), 0);
     std::vector<Constant*> indices = {zero, zero};
     Constant* strPtr = ConstantExpr::getGetElementPtr(globalStr->getValueType(), globalStr, indices);
 
     // Return a string struct when the string type is defined (matches String_Constant_Node behavior)
     if (!compilerDirectiveFlags["IN_STRING_MODULE"] &&
         structDefinitions.count("string") && structDefinitions["string"]->structVal) {
-        StructType* strTy = cast<StructType>((LLVMType*)structDefinitions["string"]->structVal);
-        Constant* lenConst = ConstantInt::get(LLVMType::getInt32Ty(*llvmCompileContext), (uint32_t)str.size());
+        StructType* strTy = cast<StructType>((llvm::Type*)structDefinitions["string"]->structVal);
+        Constant* lenConst = ConstantInt::get(llvm::Type::getInt32Ty(*llvmCompileContext), (uint32_t)str.size());
         return ConstantStruct::get(strTy, {strPtr, lenConst});
     }
     return strPtr;
 }
 
+// OPENCODE:
+// Traverses to the rightmost descendant with a token in an AST subtree.
+// Used by #nameof to extract the name token from expressions like `a.b.c`.
 static ASTNode* findRightmostTokenNode(ASTNode* node)
 {
     node = unwrapSingleExpressionNode(node);
@@ -8666,7 +8983,7 @@ void* ASTNode::generateNameofDirective(int pass)
     if (namedNode->nodeType == String_Node || namedNode->nodeType == String_Constant_Node)
         name = decodeQuotedStringToken(namedNode->token);
 
-    LLVMValue* result = makeStringConstant(name);
+    llvm::Value* result = createStringConstantLiteral(name);
     if (!asaType)
         asaType = new ASAType(result->getType());
     else
@@ -8696,15 +9013,15 @@ void* ASTNode::generateTypeofDirective(int pass)
 
     // Fast path: identifier - look up in namedValues, no IR emitted
     if (argExpr->nodeType == Identifier_Node) {
-        valueType* val = findNamedValue(parentNode, this, argExpr->token->tokenStr, token);
+        ASAValue* val = findNamedValue(parentNode, this, argExpr->token->tokenStr, token);
         if (val) {
-            typeStr = val->type;
+            typeStr = val->typeString;
         }
         else {
             std::string maybeTypeName = argExpr->token->tokenStr;
             bool wasDefined = true;
             int typePass = pass;
-            LLVMType* type = getLLVMTypeFromString(maybeTypeName, 0, argExpr, wasDefined, typePass);
+            llvm::Type* type = getLLVMTypeFromString(maybeTypeName, 0, argExpr, wasDefined, typePass);
             if (type && wasDefined)
                 typeStr = resolveTypeAlias(maybeTypeName);
         }
@@ -8715,7 +9032,7 @@ void* ASTNode::generateTypeofDirective(int pass)
         if (!argExpr->codegen)
             return messageSystem::error("Node `" + ASTNodeTypeAsString(argExpr->nodeType) + "` does not have a code generator");
 
-        LLVMValue* val = (LLVMValue*)(argExpr->*(argExpr->codegen))(pass);
+        llvm::Value* val = (llvm::Value*)(argExpr->*(argExpr->codegen))(pass);
         if (!val || wasError)
             return nullptr;
         if (argExpr->asaType && argExpr->asaType->baseLLVMType)
@@ -8724,7 +9041,7 @@ void* ASTNode::generateTypeofDirective(int pass)
             typeStr = getStringTypeFromLLVMType(val->getType());
     }
 
-    LLVMValue* result = makeStringConstant(typeStr);
+    llvm::Value* result = createStringConstantLiteral(typeStr);
     if (!asaType)
         asaType = new ASAType(result->getType());
     else
@@ -8749,13 +9066,13 @@ void* ASTNode::generateSizeofDirective(int pass)
     }
 
     ASTNode* argNode = unwrapSingleExpressionNode(args[0]);
-    LLVMType* llvmType = nullptr;
+    llvm::Type* llvmType = nullptr;
 
     messageSystem::startBlock(argNode, "Getting argument type", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
 
     // Walk a chain of Dereference_Operation / Pointer_Node nodes to count pointer
     // indirections, then resolve the base identifier as a type.
-    auto resolvePointerTypeNode = [&](ASTNode* n) -> LLVMType* {
+    auto resolvePointerTypeNode = [&](ASTNode* n) -> llvm::Type* {
         int stars = 0;
         while (n->nodeType == Dereference_Operation || n->nodeType == Pointer_Node) {
             stars++;
@@ -8767,7 +9084,7 @@ void* ASTNode::generateSizeofDirective(int pass)
             return nullptr;
         bool wasDefined = true;
         std::string typeName = std::string(stars, '*') + n->token->tokenStr;
-        LLVMType* t = getLLVMTypeFromString(typeName, 0, n, wasDefined, pass);
+        llvm::Type* t = getLLVMTypeFromString(typeName, 0, n, wasDefined, pass);
         return (wasDefined && t) ? t : nullptr;
     };
 
@@ -8775,10 +9092,10 @@ void* ASTNode::generateSizeofDirective(int pass)
         std::string name = argNode->token->tokenStr;
 
         // Try as a variable first, using its stored type string (which encodes pointer depth)
-        valueType* val = findNamedValue(parentNode, this, name, token);
+        ASAValue* val = findNamedValue(parentNode, this, name, token);
         if (val) {
             bool wasDefined = true;
-            llvmType = getLLVMTypeFromString(val->type, 0, argNode, wasDefined, pass);
+            llvmType = getLLVMTypeFromString(val->typeString, 0, argNode, wasDefined, pass);
             if (!wasDefined)
                 llvmType = nullptr;
         }
@@ -8797,7 +9114,7 @@ void* ASTNode::generateSizeofDirective(int pass)
 
     // Fallback: generate the expression and read the LLVM type
     if (!llvmType) {
-        LLVMValue* val = (LLVMValue*)(argNode->*(argNode->codegen))(pass);
+        llvm::Value* val = (llvm::Value*)(argNode->*(argNode->codegen))(pass);
         if (wasError) {
             messageSystem::endBlock();
             return nullptr;
@@ -8812,7 +9129,7 @@ void* ASTNode::generateSizeofDirective(int pass)
 
     const DataLayout& DL = llvmCompileModule->getDataLayout();
     uint64_t size = DL.getTypeAllocSize(llvmType);
-    LLVMValue* sizeVal = ConstantInt::get(LLVMType::getInt64Ty(*llvmCompileContext), size);
+    llvm::Value* sizeVal = ConstantInt::get(llvm::Type::getInt64Ty(*llvmCompileContext), size);
     if (!asaType)
         asaType = new ASAType(sizeVal->getType());
     else
@@ -8852,7 +9169,7 @@ void* ASTNode::generateCompilesDirective(int pass)
     };
     checkUnimplementedDirectives(argNode);
     if (hasUnimplementedDirective) {
-        LLVMValue* result = ConstantInt::get(LLVMType::getInt1Ty(*llvmCompileContext), 0);
+        llvm::Value* result = ConstantInt::get(llvm::Type::getInt1Ty(*llvmCompileContext), 0);
         if (!asaType)
             asaType = new ASAType(result->getType());
         else
@@ -8871,7 +9188,7 @@ void* ASTNode::generateCompilesDirective(int pass)
     messageSystem::MessageBlockNode* savedMessageNode = messageSystem::currentNode;
 
     // Create a temporary function and BasicBlock for speculative codegen
-    FunctionType* dummyFnType = FunctionType::get(LLVMType::getVoidTy(*llvmCompileContext), false);
+    FunctionType* dummyFnType = FunctionType::get(llvm::Type::getVoidTy(*llvmCompileContext), false);
     Function* dummyFn = Function::Create(dummyFnType, Function::PrivateLinkage, "__compiles_probe__", llvmCompileModule.get());
     BasicBlock* tempBB = BasicBlock::Create(*llvmCompileContext, "probe", dummyFn);
     llvmIRBuilder->SetInsertPoint(tempBB);
@@ -8898,7 +9215,7 @@ void* ASTNode::generateCompilesDirective(int pass)
     if (savedInsertBlock)
         llvmIRBuilder->SetInsertPoint(savedInsertBlock, savedInsertPoint);
 
-    LLVMValue* result = ConstantInt::get(LLVMType::getInt1Ty(*llvmCompileContext), compiled ? 1 : 0);
+    llvm::Value* result = ConstantInt::get(llvm::Type::getInt1Ty(*llvmCompileContext), compiled ? 1 : 0);
     if (!asaType)
         asaType = new ASAType(result->getType());
     else
@@ -8909,6 +9226,11 @@ void* ASTNode::generateCompilesDirective(int pass)
     return result;
 }
 
+// OPENCODE:
+// Emits the LLVM module to an object (.o) file. Initializes all LLVM targets,
+// looks up the host target triple, creates a TargetMachine, sets the module
+// data layout, then runs a legacy pass manager with the assembly printer to
+// emit the object file. Returns 0 on success, 1 on failure.
 int outputObjectFile(std::string& objectFilePath)
 {
 
@@ -8964,6 +9286,12 @@ int outputObjectFile(std::string& objectFilePath)
     return 0;
 }
 
+// OPENCODE:
+// Links the compiled IR into an executable. For optimized builds: runs opt
+// (LLVM optimizer) on the text IR, then llc (LLVM compiler to assembly),
+// then clang to link. For non-optimized builds: invokes clang directly on
+// the IR. Passes linked libraries and static library paths. Returns 0 on
+// success, 1 on failure.
 int generateExecutable(const std::string& irFilePath, const std::string& exeFilePath, const std::string& clangOptions)
 {
     bool doTime = (compilerFlags & Flags_Time);
@@ -9052,6 +9380,11 @@ int generateExecutable(const std::string& irFilePath, const std::string& exeFile
 }
 
 
+// OPENCODE:
+// Runs the new-pass-manager LLVM optimizer on all functions in the module.
+// Maps the optimization level string (-O0..-O3, -Os, -Oz) to an
+// OptimizationLevel enum, sets up the analysis managers, and runs the module
+// pipeline. No-op if optimization is disabled.
 void optimizeFunctions()
 {
     if (!isOptimizing())
