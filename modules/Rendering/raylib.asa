@@ -6,7 +6,7 @@
 //     To compile a program that uses this module, make sure you have the raylib libraries installed in your `lib` folder.
 //
 //     Example:
-//     ```asa
+//     ```!asa
 //     #import Rendering.Raylib;
 //
 //     main :: () {

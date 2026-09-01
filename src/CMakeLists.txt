@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.15)
 project(asa_compiler CXX C)
 set (CMAKE_CXX_STANDARD 17)
 
-# Make sure build type si set
+# Make sure build type is set
 if(NOT CMAKE_BUILD_TYPE)
 	set(CMAKE_BUILD_TYPE Debug)
 endif()
@@ -57,6 +57,10 @@ llvm_map_components_to_libnames(llvm_libs ${LLVM_TARGETS_TO_BUILD} support core 
 target_link_libraries(asa ${llvm_libs})
 
 install(TARGETS asa RUNTIME)
+
+# Clear old modules directory
+file(REMOVE_RECURSE "../build/modules")
+file(REMOVE_RECURSE "../build/bin/modules")
+# Copy new modules into build directories
 file(COPY "../modules" DESTINATION "./")
 file(COPY "../modules" DESTINATION "./bin")
-#file(COPY "fonts" DESTINATION "./")

@@ -1,8 +1,8 @@
 <div align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://github.com/sam-astro/ASA/blob/main/media/ASA-Full.png?raw=true">
-    <source media="(prefers-color-scheme: light)" srcset="https://github.com/sam-astro/ASA/blob/main/media/ASA-Full-light.png?raw=true">
-    <img class="portfolio" src="https://raw.githubusercontent.com/sam-astro/ASA/main/media/ASA-Full-light.png" width="60%" alt="Asa Programming Language" >
+    <source media="(prefers-color-scheme: dark)" srcset="https://github.com/Asa-Programming-Language/Asa/blob/main/media/ASA-Full.png?raw=true">
+    <source media="(prefers-color-scheme: light)" srcset="https://github.com/Asa-Programming-Language/Asa/blob/main/media/ASA-Full-light.png?raw=true">
+    <img class="portfolio" src="https://raw.githubusercontent.com/Asa-Programming-Language/Asa/main/media/ASA-Full-light.png" width="60%" alt="Asa Programming Language" >
   </picture>
 </div>
 
@@ -13,11 +13,12 @@
 
 <div align="center">
   
-[Website][Asa Site] | [Documentation]
+[Website][Asa Site] | [Get Started] | [Documentation]
 </div>
 
 [Asa Site]: https://asalang.com
 [Documentation]: https://asalang.com/introduction.html
+[Get Started]: https://asalang.com/setup.html
 
 ---
 
@@ -58,17 +59,17 @@ This method has only been tested on Debian Linux version 12.2, but may be applic
    sudo cmake --install .;
    ```
 
-4. **Build and run ASA**
+4. **Build and run Asa**
 
-   Enter ASA primary directory, then run the following to build:
+   Enter Asa primary directory, then run the following to build:
    
    ```bash
    ./src/build.sh
    ```
 
-   You may also run `./src/run.sh`, which will build ASA, but then also run it. this is useful for fast development testing.
+   You may also run `./src/run.sh`, which will build Asa, but then also run it. this is useful for fast development testing.
 
-   The built executable will be located at `ASA/build/asa`
+   The built executable will be located at `Asa/build/asa`
 
 <!----------------------------------------------------------------------------->
 
@@ -77,5 +78,5 @@ This method has only been tested on Debian Linux version 12.2, but may be applic
 
 <!----------------------------------[ Badges ]--------------------------------->
 
-[Badge License]: https://img.shields.io/github/license/sam-astro/ASA
+[Badge License]: https://img.shields.io/github/license/Asa-Programming-Language/Asa
 [Button Discord]: https://img.shields.io/badge/Discord_Server-573f75.svg?style=social&logo=Discord

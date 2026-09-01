@@ -2,7 +2,7 @@
 # Basic Types
 Types that are built into the Asa language, including structs from `:::asa Builtin.*` modules.
 
-```asa
+```!asa
 // Booleans
 bool
 
@@ -23,7 +23,7 @@ byte char uchar
 ## Aliases
 There are many type aliases built into the Asa compiler.
 
-```asa
+```!asa
 // Integer aliases
 i8 i16 i32 i64 i128
 u8 u16 u32 u64 u128

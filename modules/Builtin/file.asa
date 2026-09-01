@@ -5,17 +5,24 @@
 //     Wraps the C standard library file functions.
 //
 //     Example:
-//     ```asa
+//     ```!(file.asa)asa
 //     #import Builtin.File;
 //
 //     f : File = File("hello.txt", "w");
-//     writeLine(f, "Hello, world!");
+//     writeLine(f, "Hello, from the file!");
 //     close(f);
 //
 //     g : File = File();
 //     g.open("hello.txt", "r");
 //     contents : string = readAll(g);
 //     close(g);
+//     
+//     printl(contents);
+//     ```
+//     ```!shell
+//     $ asa file.asa
+//     $ ./build/file
+//     Hello, from the file!
 //     ```
 @hideast:
 @public:

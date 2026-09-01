@@ -3,7 +3,9 @@
 
 #import Builtin.List;
 
-csv :: struct{
+#import Dev.Builtin.Versioning;
+
+CSV :: struct{
     columns : list<string> = list<string>();
     rowData : list<string> = list<string>();
 
@@ -17,7 +19,7 @@ csv :: struct{
 }
 
 main :: (){
-    c : csv = csv("sample.csv");
+    c : CSV = CSV("sample.csv");
 }
 
 

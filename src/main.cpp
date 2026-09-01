@@ -16,7 +16,6 @@ int main(int argc, char** argv)
 
     executableDirectory = std::filesystem::weakly_canonical(std::filesystem::path(argv[0])).parent_path().string() + "/";
 
-    console::setColor(console::redFGColor);
     while (1) {
         int this_option_optind = optind ? optind : 1;
         int option_index = 0;
@@ -26,7 +25,7 @@ int main(int argc, char** argv)
             {"verbose", no_argument, 0, 'v'},
             {"quiet", no_argument, 0, 'q'},
             {"silent", no_argument, 0, 's'},
-            {"flags", required_argument, 0, 'f'},
+            {"flag", required_argument, 0, 'f'},
             {"output", required_argument, 0, 'o'},
             {"optimize", required_argument, 0, 'O'},
             {"compilerdebug", no_argument, 0, 'd'},
@@ -37,40 +36,63 @@ int main(int argc, char** argv)
             {"version", no_argument, 0, 'V'},
             {"printast", no_argument, 0, 'a'},
             {"time", no_argument, 0, 'T'},
-            {0, 0, 0, 0}};
+            {0, 0, 0, 0}
+        };
 
-        c = getopt_long(argc, argv, "cCvqsdDtrVaw:f:o:O:T0",
-            long_options, &option_index);
+        c = getopt_long(argc, argv, "cCvqsdDtrVaw:f:o:O:T0", long_options, &option_index);
         if (c == -1)
             break;
 
         switch (c) {
-            case 0:
+            case 0:{
                 break;
+            }
 
-            case '0':
+            case '0':{
                 break;
+            }
 
-            case 'c':
+            // Implied argument, "--compile"
+            case 'c':{
                 break;
+            }
 
-            case 'C':
+            // Pass arguments as a string directly to clang:
+            // -C,--clangoptions "<options>"
+            case 'C':{
+                // TODO: Add error handling here:
                 clangOptions = std::string(optarg);
                 break;
+            }
 
-            case 'v':
+            // Increase verbosity by a single level. Each additional instance of this option
+            // increases verbosity by another level:
+            // -v,--verbose
+            case 'v':{
                 verbosity += 1;
                 break;
+            }
 
-            case 's':
+            // Silent mode, sets verbosity to 0. Will not print anything to the console, except for catastrophic failure (unhandled exception).
+            // -s,--silent
+            case 's':{
                 verbosity = 0;
                 break;
+            }
 
-            case 'q':
+            // Quiet mode, sets verbosity to 1. Will avoid printing anything other than errors and warnings.
+            // -q,--quiet
+            case 'q':{
                 verbosity = 1;
                 break;
+            }
 
+            // Flags. Using -f or --flag followed by a flag name will enable it.
+            // Some flags may be used by the compiler, such as `compact` or `color`.
+            // You can see if a flag is enabled inside an Asa program with `#get_flag(<flagname>)`
+            // -f,--flag <flagname>
             case 'f': {
+                // TODO: Add error handling here:
                 std::string flagName = std::string(optarg);
                 commandLineCompilerDirectiveFlags[ToLower(flagName)] = true;
                 commandLineCompilerDirectiveFlags[ToUpper(flagName)] = true;
@@ -84,15 +106,31 @@ int main(int argc, char** argv)
                 break;
             }
 
-            case 'o':
+            // Set output file name. By default, this will be the same as the file name you pass to the compiler.
+            // For example, by default, running `asa main.asa` will produce a binary at `build/main`
+            // You can change that by passing `-o`: `asa main.asa -o myexecutable`. Would make: `build/myexecutable`
+            // -o,--output <name>
+            case 'o':{
+                //TODO: Add error handling here:
                 outputFileName = std::filesystem::weakly_canonical(std::filesystem::path(std::string(optarg))).string();
                 break;
+            }
 
+            // Set optimization level. Follows the same syntax as Clang `-O` option.
+            // The levels are: 0 -> no optimization
+            //                 1 -> minor optimizations
+            //                 2 -> normal optimizations
+            //                 3 -> max optimizations
+            //                 s -> optimized for binary size
+            //                 z -> TODO: What is this one?
+            //                 g -> optimize, leaving debug symbols
+            //                 fast -> max optimizations, including some that may break functionality on some platforms
+            //  -O,--optimize <level>
             case 'O': {
                 static const std::unordered_set<std::string> validLevels = {"0", "1", "2", "3", "s", "z", "g", "fast"};
                 std::string val = std::string(optarg);
                 if (!validLevels.count(val)) {
-                    fprintf(stderr, "Unknown optimization level: -O%s\n", val.c_str());
+                    console::writeLine("Unknown optimization level: -O" + val, console::redFGColor);
                     return 1;
                 }
                 optimizationLevel = val;
@@ -101,30 +139,52 @@ int main(int argc, char** argv)
                 break;
             }
 
-            case 't':
+            // DEVONLY:
+            // Run the builtin compiler AST tests.
+            // -t,--runtests
+            case 't':{
                 console::resetColors();
                 if (verbosity >= 2)
                     std::cout << COMPILER_PRINTOUT << std::endl
                               << std::endl;
                 compilerFlags |= Flags_RunTests;
                 break;
+            }
 
-            case 'd':
+            // DEVONLY:
+            // Enables the compiler debug flag. Useful for Asa compiler developers to test language functionality or the standard library
+            // -d,--compilerdebug
+            // (Alias for `-f compilerdebug` or `-f compiler_debug`)
+            case 'd':{
                 compilerFlags |= Flags_CompilerDebug;
                 commandLineCompilerDirectiveFlags["compilerdebug"] = true;
                 commandLineCompilerDirectiveFlags["COMPILERDEBUG"] = true;
                 commandLineCompilerDirectiveFlags["compiler_debug"] = true;
                 commandLineCompilerDirectiveFlags["COMPILER_DEBUG"] = true;
                 break;
+            }
 
-            case 'D':
+            // Enables debug mode for the compilation process
+            // -D,--debug
+            case 'D':{
                 compilerFlags |= Flags_Debug;
                 break;
+            }
 
-            case 'r':
+            // Rather than compile to a binary executable, run the code directly.
+            // -r,--run
+            case 'r':{
                 compilerFlags |= Flags_Run;
                 break;
+            }
 
+            // Enable or disable specific warnings.
+            // Available options:  none       -> disables all warnings
+            //                     all        -> enables all warnings
+            //                     conversion -> warn if missing explicit type cast
+            //                     attributes -> TODO:
+            //                     unused     -> warn if a symbol is defined by never used
+            // -w,--warn <name>
             case 'w': {
                 std::string flagVal = std::string(optarg);
                 if (flagVal == "none")
@@ -140,30 +200,39 @@ int main(int argc, char** argv)
                 break;
             }
 
-            case 'a':
+            // Print the AST and exit, without producing any binary.
+            // -a,--printast
+            case 'a':{
                 compilerFlags |= Flags_PrintAST;
                 break;
+            }
 
-            case 'T':
+            // Enables timing the compilation process. Useful to benchmark the compiler
+            // -T,--time
+            case 'T':{
                 compilerFlags |= Flags_Time;
                 break;
+            }
 
-            case 'V':
+            // Prints the Asa compiler name and version, then immediately exits.
+            case 'V':{
                 if (verbosity >= 2)
                     std::cout << COMPILER_PRINTOUT << std::endl
                               << std::endl;
                 console::resetColors();
                 exit(0);
+            }
 
-            case '?':
+            case '?':{
                 console::resetColors();
                 exit(1);
+            }
 
-            default:
+            default:{
                 break;
+            }
         }
     }
-    console::resetColors();
 
     for (int i = optind; i < argc; i++) {
         if (fileName == "") {
@@ -190,8 +259,6 @@ int main(int argc, char** argv)
     // Load file if provided
     if (fileName != "") {
         int e = loadFile(fileName, initialFileString);
-        //initialFileString = "#import Builtin.String;\n" + initialFileString;
-        //initialFileString = "#import Builtin.*;\n" + initialFileString;
         if (e != 0) {
             console::writeLine("Invalid file path provided");
             if (verbosity >= 3)
@@ -224,7 +291,7 @@ int main(int argc, char** argv)
         console::write("Invalid tokens met\n");
         exit(1);
     }
-    // Now change any allTokens to their subtoken type if applicable
+    // Now change any tokens to their subtoken type if applicable
     e = labelSubTokens(allTokens);
     if (e != 0) {
         console::write("Invalid tokens met\n");
@@ -250,8 +317,8 @@ int main(int argc, char** argv)
     if (verbosity >= 3)
         console::writeLine("\n\nGenerating AST...", console::greenFGColor);
     rootNode = generateAST(allTokens);
-#define A new ASTNode
 
+    #define A new ASTNode
 
     // Insert `#import Builtin.Aliases;` at beginning of AST
     rootNode->childNodes.insert(rootNode->childNodes.begin(),
@@ -293,7 +360,7 @@ int main(int argc, char** argv)
                         new asaToken(".", Dot))}),
             }));
 
-    // Handle importing nodes from other sources
+    // Process all imports and file embeds until none remain:
     for (;;) {
         bool noImports = true;
         // File includes
@@ -315,7 +382,8 @@ int main(int argc, char** argv)
         if (noImports)
             break;
     }
-    // Order AST operations
+
+    // Reorder AST operations based on precedence
     fixPrecedence(rootNode);
     //// Optimize constant AST nodes
     //optimizeASTNode(rootNode);
@@ -367,7 +435,7 @@ int main(int argc, char** argv)
         exit(1);
     }
 
-    //// Resolve dependencies
+    //// TODO: Resolve dependencies
     //resolveDependencies(rootNode);
 
     // TODO: At this point allow for compile-time execution (#run)
@@ -463,7 +531,8 @@ errorsEncountered:
 
 
     // Cleanup by deleting files only used for codegen.
-    if (compilerFlags == Flags_Debug) {
+    // In debug mode, leave them there.
+    if (compilerFlags & Flags_Debug == 0) {
         if (verbosity >= 3) {
             console::writeLine("Cleaning up files: " + irFilePath);
             console::writeLine("Cleaning up files: " + irFilePath + ".s");

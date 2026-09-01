@@ -3,6 +3,10 @@
 
 - [ ] Implement `#defined()` compiler directive
 
+- [ ] Add `breakif` and `continueif` statements
+
+- [ ] Make error "Failed to compile" more verbose. Such as what happens when the user defines a variable like C: `uint64 x = ?;`
+
 - [ ] Make enum names act as type name
 
 - [ ] Disallow constructors from modifying global state

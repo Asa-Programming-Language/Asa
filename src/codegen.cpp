@@ -40,6 +40,12 @@ struct CallerLocationParams {
 static std::stack<CallerLocationParams> callerLocationParamStack;
 std::vector<std::string> linkedStaticLibraries;
 
+ASAValue* findNamedValue(ASTNode* node, ASTNode* childNode, std::string& identifier, asaToken*& token);
+
+static llvm::Value* generateDefaultValueForType(llvm::Type* type, const std::string& typeName, int pointerLevel, int pass, ASTNode* node);
+static bool getDeclaredTypeFromColonNode(ASTNode* colonNode, llvm::Type*& outType, std::string& outTypeName, int& outPointerLevel, bool& outIsConst, int pass);
+static llvm::Value* createStringConstantLiteral(const std::string& str);
+
 
 // OPENCODE:
 // Resolves a node that has returnsASTNode set: calls its resolveASTNode
@@ -208,7 +214,7 @@ static std::vector<ASTNode*> getCompilerDirectiveArgs(ASTNode* directiveNode)
 
 // OPENCODE:
 // Returns true if node (after unwrapping Expression_Term) is an
-// Undefined_Initializer_Node — the `---` placeholder.
+// Undefined_Initializer_Node — the `?` symbol.
 static bool isUndefinedInitializer(ASTNode* node)
 {
     node = unwrapSingleExpressionNode(node);
@@ -217,14 +223,13 @@ static bool isUndefinedInitializer(ASTNode* node)
 
 // OPENCODE:
 // Returns true if node (after unwrapping Expression_Term) is a
-// Default_Initializer_Node — the `default` keyword placeholder.
+// Default_Initializer_Node — the `default` keyword.
 static bool isDefaultInitializer(ASTNode* node)
 {
     node = unwrapSingleExpressionNode(node);
     return node && node->nodeType == Default_Initializer_Node;
 }
 
-ASAValue* findNamedValue(ASTNode* node, ASTNode* childNode, std::string& identifier, asaToken*& token);
 
 // OPENCODE:
 // Returns true if val's typeString starts with '*' (i.e. it's a pointer type
@@ -255,15 +260,11 @@ static void markVariableWrite(ASAValue* val)
 // OPENCODE:
 // Sets tracksVariableUsage=true on declNode so the unused-variable checker
 // will count reads/writes for this declaration.
-static void trackVariableUsage(ASTNode* declNode)
+static void trackVariableUsage(ASTNode* declNode) // TODO: This does not need to be a function
 {
     if (declNode)
         declNode->tracksVariableUsage = true;
 }
-
-static llvm::Value* generateDefaultValueForType(llvm::Type* type, const std::string& typeName, int pointerLevel, int pass, ASTNode* node);
-static bool getDeclaredTypeFromColonNode(ASTNode* colonNode, llvm::Type*& outType, std::string& outTypeName, int& outPointerLevel, bool& outIsConst, int pass);
-static llvm::Value* createStringConstantLiteral(const std::string& str);
 
 // OPENCODE:
 // Returns the string value of a named attribute on node. If the attribute has
@@ -438,6 +439,7 @@ static std::unordered_map<std::string, int> typeEquivGroup = {
     {"uint32", 1},
     {"int8", 2},
     {"byte", 2},
+    {"char", 2},
     {"uint8", 3},
 };
 static int nextTypeEquivGroup = 4;
@@ -446,7 +448,7 @@ static int nextTypeEquivGroup = 4;
 std::unordered_map<std::string, std::string> typeAliasMap;  // TODO: Keep in scope
 
 // OPENCODE:
-// Resolves a chain of type aliases (e.g. `i32 -> int32 -> int32`) to the
+// Resolves a chain of type aliases (e.g. `i32 -> int -> int32`) to the
 // ultimate target type name. Depth-limited to 100 to prevent infinite loops.
 std::string resolveTypeAlias(const std::string& name, int depth)
 {

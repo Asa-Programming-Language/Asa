@@ -19,8 +19,12 @@ foo :: (){
 
 !!! important
     An attribute can only have literals as an argument/value.
-
 ---
+
+# Common Attributes:
+>>> beginner
+
+-----
 
 ## `@public`
 Makes a referenceable object accessible from outside the scope.
@@ -44,6 +48,12 @@ Marks an object as removed. Stronger version of `:::asa @deprecated`. If it is u
 
 ## `@inline`
 Hints that a function should be inlined wherever used.
+
+---
+
+
+# Advanced Attributes:
+>>> advanced
 
 -----
 
@@ -74,6 +84,8 @@ Tells the compiler that this object may be referenced from outside this binary.
 -----
 
 ## `@scoped`
+TODO: This attribute may not be implemented if the module scoping stays as it is.
+
 Makes a module's items only accessible if they are accessed from the module's name.
 For example:
 ```asa

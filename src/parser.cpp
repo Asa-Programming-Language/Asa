@@ -1048,7 +1048,7 @@ void printModuleLoaded(std::string& moduleName, std::string& modulePath)
 void findUnusedLeafNodes(ASTNode*& node)
 {
     for (auto& l : node->leafNodes) {
-        printTokenError(getASTTokenRange(l), "Failed to compile");
+        printTokenError(getASTTokenRange(l), "Failed to compile, parser failed");
         wasError = true;
     }
     if (wasError)
