@@ -12,7 +12,7 @@
 struct ASTNode;
 struct argType;
 typedef std::vector<argType> argumentList;
-struct functionID;
+struct AsaFunctionDefinition;
 
 
 extern std::unique_ptr<llvm::LLVMContext> llvmCompileContext;
@@ -33,8 +33,8 @@ int outputObjectFile(std::string& objectFilePath);
 int generateExecutable(const std::string& irFilePath, const std::string& exeFilePath, const std::string& clangOptions);
 void optimizeFunctions();
 void printFunctionPrototypes();
-void printFunctionDifferences(argumentList* arguments, functionID* other);
-void printFunctionCandidate(functionID* fn);
+void printFunctionDifferences(argumentList* arguments, AsaFunctionDefinition* other);
+void printFunctionCandidate(AsaFunctionDefinition* fn);
 llvm::Type* getLLVMTypeFromString(std::string typeName, int pointerLevelOffset, ASTNode* contextNode, bool& wasDefined, int& pass);
 void CreateBuiltinAsaBaseTypes();
 

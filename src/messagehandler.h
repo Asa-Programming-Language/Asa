@@ -16,7 +16,7 @@
 struct ASTNode;
 struct argType;
 //typedef std::vector<argType> argumentList;
-struct functionID;
+struct AsaFunctionDefinition;
 
 // defer macro definition
 

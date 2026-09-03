@@ -42,22 +42,24 @@ std::vector<std::string> linkedStaticLibraries;
 
 ASAValue* findNamedValue(ASTNode* node, ASTNode* childNode, std::string& identifier, asaToken*& token);
 
-static llvm::Value* generateDefaultValueForType(llvm::Type* type, const std::string& typeName, int pointerLevel, int pass, ASTNode* node);
+static llvm::Value* generateDefaultValueForType(AsaTypeInstance* asaTypeInstance, int pass, ASTNode* node);
 static bool getDeclaredTypeFromColonNode(ASTNode* colonNode, llvm::Type*& outType, std::string& outTypeName, int& outPointerLevel, bool& outIsConst, int pass);
 static llvm::Value* createStringConstantLiteral(const std::string& str);
 
 
-AsaBaseType* AsaBaseTypeFromName(std::string typeName){
-    if(asaBaseTypes.count(typeName) > 0)
+AsaBaseType* AsaBaseTypeFromName(std::string typeName)
+{
+    if (asaBaseTypes.count(typeName) > 0)
         return asaBaseTypes[typeName];
-    else{
+    else {
         bool wasDefined = false;
         int pass = 0;
         return CreateNewAsaType(typeName, getLLVMTypeFromString(typeName, 0, nullptr, wasDefined, pass), false);
     }
 }
 
-void CreateBuiltinAsaBaseTypes(){
+void CreateBuiltinAsaBaseTypes()
+{
     asaBaseTypes = std::unordered_map<std::string, AsaBaseType*>();
 
     // TODO: When the `getLLVMTypeFromString` function is cleaned up, this workaround shouldnt be necessary
@@ -69,21 +71,26 @@ void CreateBuiltinAsaBaseTypes(){
 
     CreateNewAsaType("bool", getLLVMTypeFromString("bool", 0, nullptr, wasDefined, pass), false);
 
-    CreateNewAsaType("int8",   getLLVMTypeFromString("int8", 0, nullptr, wasDefined, pass),   true);
-    CreateNewAsaType("int16",  getLLVMTypeFromString("int16", 0, nullptr, wasDefined, pass),  true);
-    CreateNewAsaType("int32",  getLLVMTypeFromString("int32", 0, nullptr, wasDefined, pass),  true);
-    CreateNewAsaType("int64",  getLLVMTypeFromString("int64", 0, nullptr, wasDefined, pass),  true);
+    CreateNewAsaType("int8", getLLVMTypeFromString("int8", 0, nullptr, wasDefined, pass), true);
+    CreateNewAsaType("int16", getLLVMTypeFromString("int16", 0, nullptr, wasDefined, pass), true);
+    CreateNewAsaType("int32", getLLVMTypeFromString("int32", 0, nullptr, wasDefined, pass), true);
+    CreateNewAsaType("int64", getLLVMTypeFromString("int64", 0, nullptr, wasDefined, pass), true);
     CreateNewAsaType("int128", getLLVMTypeFromString("int128", 0, nullptr, wasDefined, pass), true);
 
-    CreateNewAsaType("uint8",   getLLVMTypeFromString("uint8", 0, nullptr, wasDefined, pass),   false);
-    CreateNewAsaType("uint16",  getLLVMTypeFromString("uint16", 0, nullptr, wasDefined, pass),  false);
-    CreateNewAsaType("uint32",  getLLVMTypeFromString("uint32", 0, nullptr, wasDefined, pass),  false);
-    CreateNewAsaType("uint64",  getLLVMTypeFromString("uint64", 0, nullptr, wasDefined, pass),  false);
+    CreateNewAsaType("uint8", getLLVMTypeFromString("uint8", 0, nullptr, wasDefined, pass), false);
+    CreateNewAsaType("uint16", getLLVMTypeFromString("uint16", 0, nullptr, wasDefined, pass), false);
+    CreateNewAsaType("uint32", getLLVMTypeFromString("uint32", 0, nullptr, wasDefined, pass), false);
+    CreateNewAsaType("uint64", getLLVMTypeFromString("uint64", 0, nullptr, wasDefined, pass), false);
     CreateNewAsaType("uint128", getLLVMTypeFromString("uint128", 0, nullptr, wasDefined, pass), false);
 
-    CreateNewAsaType("half", getLLVMTypeFromString("half", 0, nullptr, wasDefined, pass),     false);
-    CreateNewAsaType("float", getLLVMTypeFromString("float", 0, nullptr, wasDefined, pass),   false);
+    CreateNewAsaType("half", getLLVMTypeFromString("half", 0, nullptr, wasDefined, pass), false);
+    CreateNewAsaType("float", getLLVMTypeFromString("float", 0, nullptr, wasDefined, pass), false);
     CreateNewAsaType("double", getLLVMTypeFromString("double", 0, nullptr, wasDefined, pass), false);
+
+    registerTypeAlias("int", "int32");
+    registerTypeAlias("uint", "uint32");
+    registerTypeAlias("byte", "uint8");
+    registerTypeAlias("char", "int8");
 }
 
 // OPENCODE:
@@ -299,7 +306,7 @@ static void markVariableWrite(ASAValue* val)
 // OPENCODE:
 // Sets tracksVariableUsage=true on declNode so the unused-variable checker
 // will count reads/writes for this declaration.
-static void trackVariableUsage(ASTNode* declNode) // TODO: This does not need to be a function
+static void trackVariableUsage(ASTNode* declNode)  // TODO: This does not need to be a function
 {
     if (declNode)
         declNode->tracksVariableUsage = true;
@@ -447,6 +454,7 @@ struct ResultContext {
 };
 static std::stack<ResultContext> resultContextStack;
 
+// TODO: This map is redundant with the new type system
 std::unordered_map<std::string, bool> typeSigns = {
     {"int128", true},
     {"int64", true},
@@ -471,6 +479,7 @@ std::unordered_map<std::string, bool> typeSigns = {
 };
 
 // Built-in type synonym groups (same group ID = equivalent types)
+// TODO: This map is redundant with the new type system
 static std::unordered_map<std::string, int> typeEquivGroup = {
     {"int", 0},
     {"int32", 0},
@@ -484,11 +493,13 @@ static std::unordered_map<std::string, int> typeEquivGroup = {
 static int nextTypeEquivGroup = 4;
 
 // User-defined type aliases (e.g., from `i32 :: int32;`)
+// TODO: This map is redundant in the new type system
 std::unordered_map<std::string, std::string> typeAliasMap;  // TODO: Keep in scope
 
 // OPENCODE:
 // Resolves a chain of type aliases (e.g. `i32 -> int -> int32`) to the
 // ultimate target type name. Depth-limited to 100 to prevent infinite loops.
+// TODO: In the new type system, aliases are resolved the same as regular types. This function becomes useless
 std::string resolveTypeAlias(const std::string& name, int depth)
 {
     if (depth > 100)
@@ -505,6 +516,7 @@ std::string resolveTypeAlias(const std::string& name, int depth)
 // so type-compatibility checks treat the alias as equivalent to its target.
 void registerTypeAlias(const std::string& aliasName, const std::string& targetName)
 {
+    // TODO: All of this code can be changed in the new type system to a simpler pointer copy
     typeAliasMap[aliasName] = targetName;
     std::string resolved = resolveTypeAlias(targetName);
     auto gIt = typeEquivGroup.find(resolved);
@@ -518,6 +530,13 @@ void registerTypeAlias(const std::string& aliasName, const std::string& targetNa
     auto sIt = typeSigns.find(resolved);
     if (sIt != typeSigns.end())
         typeSigns[aliasName] = sIt->second;
+    // New alias method:
+    // TODO: Add error handling
+    if (asaBaseTypes.count(targetName) > 0) {
+        if (asaBaseTypes.count(aliasName) == 0) {
+            asaBaseTypes[aliasName] = asaBaseTypes[targetName];
+        }
+    }
 }
 
 // OPENCODE:
@@ -540,6 +559,7 @@ bool areTypesEquivalent(const std::string& type1, const std::string& type2)
 }
 
 
+// TODO: replace this with a type derived from AsaTypeInstance
 struct argType {
     std::string typeString = "";
     ASTNodeType baseASTType;
@@ -568,7 +588,7 @@ struct argType {
     }
 };
 
-struct functionID {
+struct AsaFunctionDefinition {
     std::string name = "";
     std::string mangledName = "";
     std::string returnType = "";
@@ -591,8 +611,8 @@ struct functionID {
     Function* fnValue = nullptr;
     ASTNode* declNode = nullptr;
 
-    functionID() {}
-    functionID(std::string n, ASTNode* node, asaToken* t, std::string mN, std::string r, argumentList llvmArgs, argumentList userArgs, Function* f, bool vA = false, bool mF = false, bool sRet = false, bool rRef = false)
+    AsaFunctionDefinition() {}
+    AsaFunctionDefinition(std::string n, ASTNode* node, asaToken* t, std::string mN, std::string r, argumentList llvmArgs, argumentList userArgs, Function* f, bool vA = false, bool mF = false, bool sRet = false, bool rRef = false)
     {
         name = n;
         declNode = node;
@@ -607,49 +627,6 @@ struct functionID {
         isStructReturn = sRet;
         returnIsReference = rRef;
     }
-    //void print()
-    //{
-    //    if (returnType != "")
-    //        console::write(returnType + " ", console::blueFGColor);
-    //    console::write(name, console::greenFGColor);
-
-    //    console::write("(");
-    //    for (int i = 0; i < userArguments.size(); i++) {
-    //        if (userArguments[i].isReference)
-    //            console::write("ref ", console::magentaFGColor);
-    //        if (userArguments[i].isConstant)
-    //            console::write("const ", console::magentaFGColor);
-    //        console::write(userArguments[i].typeString, console::blueFGColor);
-    //        if (i < userArguments.size() - 1)
-    //            console::write(", ");
-    //    }
-    //    console::write(")");
-
-    //    console::write("(");
-    //    for (int i = 0; i < arguments.size(); i++) {
-    //        if (arguments[i].isReference)
-    //            console::write("ref ", console::magentaFGColor);
-    //        if (arguments[i].isConstant)
-    //            console::write("const ", console::magentaFGColor);
-    //        console::write(arguments[i].typeString, console::blueFGColor);
-    //        if (i < arguments.size() - 1)
-    //            console::write(", ");
-    //    }
-    //    console::write(")");
-
-    //    if (isStructReturn) {
-    //        console::write(" (");
-    //        console::write("returns struct", console::yellowFGColor);
-    //        console::write(")");
-    //    }
-
-    //    if (isMemberFunction) {
-    //        console::write(" (");
-    //        console::write("is a member function", console::yellowFGColor);
-    //        console::write(")");
-    //    }
-    //    console::writeLine();
-    //}
     // OPENCODE:
     // Compares two ASTNodeType enums for equality, with a special case for
     // sign-flipped integer types when types were inferred from LLVM IR (LLVM
@@ -677,7 +654,7 @@ struct functionID {
     }
     // OPENCODE:
     // Overload-resolution scoring: compares a call's argument list against
-    // this functionID's parameter list. Returns 0 for a perfect match, small
+    // this AsaFunctionDefinition's parameter list. Returns 0 for a perfect match, small
     // numbers for near matches (sign differences), and 1000+ for rejects
     // (wrong name, too many args, type mismatch). Lower = better.
     uint16_t compareMatch(std::string n, argumentList a, bool wereTypesInferred = false)
@@ -857,22 +834,22 @@ struct functionID {
     }
 };
 
-struct AsaStruct {
+struct AsaStructDefinition {
     std::string name = "";
     argumentList members = argumentList();
     std::unordered_map<std::string, uint16_t> memberNameIndexes;
     std::unordered_map<std::string, ASTNode*> memberDefaultNodes;  // member name -> default value AST node
     std::unordered_map<std::string, ASTNode*> memberNameTypeNodes;
     uint32_t uses = 0;
-    std::vector<functionID*> memberFunctions;
+    std::vector<AsaFunctionDefinition*> memberFunctions;
     StructType* structVal = nullptr;
     asaToken* token = nullptr;
     ASTNode* sourceNode = nullptr;
     AsaTypeInstance* asaType = nullptr;
     bool isPacked = false;     // @packed: force integer packing in extern calls
     bool isNotPacked = false;  // @notpacked: force auto-detect ABI even if @packed is set
-    AsaStruct() {}
-    AsaStruct(std::string& n, asaToken*& tP, StructType*& sT, argumentList a, std::vector<functionID*>& mF, std::unordered_map<std::string, uint16_t>& mI)
+    AsaStructDefinition() {}
+    AsaStructDefinition(std::string& n, asaToken*& tP, StructType*& sT, argumentList a, std::vector<AsaFunctionDefinition*>& mF, std::unordered_map<std::string, uint16_t>& mI)
     {
         name = n;
         token = tP;
@@ -881,7 +858,7 @@ struct AsaStruct {
         memberFunctions = mF;
         memberNameIndexes = mI;
     }
-    AsaStruct(std::string& n, asaToken*& tP, ASTNode* sN)
+    AsaStructDefinition(std::string& n, asaToken*& tP, ASTNode* sN)
     {
         name = n;
         token = tP;
@@ -889,8 +866,8 @@ struct AsaStruct {
     }
 };
 
-std::vector<functionID*> functionIDs = std::vector<functionID*>();
-std::unordered_map<std::string, AsaStruct*> structDefinitions = std::unordered_map<std::string, AsaStruct*>();
+std::vector<AsaFunctionDefinition*> AsaFunctionDefinitions = std::vector<AsaFunctionDefinition*>();
+std::unordered_map<std::string, AsaStructDefinitionDefinition*> structDefinitions = std::unordered_map<std::string, AsaStructDefinitionDefinition*>();
 std::stack<std::string> currentStructName = std::stack<std::string>();
 
 // OPENCODE:
@@ -973,9 +950,9 @@ DIType* createDIType(llvm::Type* llvmType, const std::string& typeString)
 
 // OPENCODE:
 // Reverse-looks-up a struct definition by its LLVM StructType pointer. Used
-// to recover the AsaStruct* from an llvm::Type* during codegen (e.g. member
+// to recover the AsaStructDefinition* from an llvm::Type* during codegen (e.g. member
 // access, struct return).
-AsaStruct* getStructTypeFromLLVMType(llvm::Type*& t)
+AsaStructDefinition* getStructTypeFromLLVMType(llvm::Type*& t)
 {
     for (const auto& [key, value] : structDefinitions) {
         if ((llvm::Type*)(value->structVal) == (llvm::Type*)t) {
@@ -999,7 +976,7 @@ static bool hasCastBetween(const std::string& fromType, uint8_t fromPtrLevel, co
     if (typeSigns.count(fromType) && typeSigns.count(toType))
         return true;
     // User-defined: look for a cast function with matching signature
-    for (auto* fid : functionIDs) {
+    for (auto* fid : AsaFunctionDefinitions) {
         if (fid->name != "cast" || fid->returnType != toType)
             continue;
         if (fid->userArguments.size() == 1 &&
@@ -1029,7 +1006,7 @@ std::string formatCallSignature(const std::string& name, const argumentList& arg
 // Prints a color-coded diff between the caller's argument list and the
 // candidate function's parameter list: green=exact, yellow=castable,
 // red=mismatch. Used in overload-resolution error messages.
-void printFunctionDifferences(argumentList* arguments, functionID* other)
+void printFunctionDifferences(argumentList* arguments, AsaFunctionDefinition* other)
 {
     console::write(other->name + " :: (");
     for (int i = 0; i < arguments->size(); i++) {
@@ -1053,7 +1030,7 @@ void printFunctionDifferences(argumentList* arguments, functionID* other)
 // Prints a function candidate's full signature with type annotations for
 // overload-resolution error output. Strips the `StructName.` prefix from
 // member functions for readability.
-void printFunctionCandidate(functionID* fn)
+void printFunctionCandidate(AsaFunctionDefinition* fn)
 {
     if (!fn)
         return;
@@ -1089,13 +1066,13 @@ void printFunctionCandidate(functionID* fn)
 }
 
 // OPENCODE:
-// Overload resolution: finds the best-matching functionID from fnIDs by
+// Overload resolution: finds the best-matching AsaFunctionDefinition from fnIDs by
 // scoring each candidate via compareMatch. Picks lowest score; errors if the
 // best requires exact types (score 500) or no match under 500. Optionally
 // throws with candidate listing if throwIfNotFound.
-functionID* getFunctionFromID(std::vector<functionID*>& fnIDs, std::string& name, argumentList& arguments, bool wereTypesInferred = false, bool isMemberFunction = false, bool throwIfNotFound = false)
+AsaFunctionDefinition* getFunctionFromID(std::vector<AsaFunctionDefinition*>& fnIDs, std::string& name, argumentList& arguments, bool wereTypesInferred = false, bool isMemberFunction = false, bool throwIfNotFound = false)
 {
-    functionID* best;
+    AsaFunctionDefinition* best;
     int bestScore = 1000;
     bool requiresExact = false;
     for (auto& f : fnIDs) {
@@ -1118,18 +1095,18 @@ functionID* getFunctionFromID(std::vector<functionID*>& fnIDs, std::string& name
     if (requiresExact) {
         messageSystem::addAttribute(&arguments);
         messageSystem::addAttribute(best);
-        return (functionID*)messageSystem::error("Function match not found, closest prototype requires exact types. Did you try casting?", messageSystem::Undefined_Function_Exact_Error);
+        return (AsaFunctionDefinition*)messageSystem::error("Function match not found, closest prototype requires exact types. Did you try casting?", messageSystem::Undefined_Function_Exact_Error);
     }
     if (bestScore < 1000)
         return best;
 
 undefinedFunction:
     if (throwIfNotFound) {
-        for (auto& f : functionIDs) {
+        for (auto& f : AsaFunctionDefinitions) {
             if (f->name == name)
                 messageSystem::addAttribute(f->declNode);
         }
-        return (functionID*)messageSystem::error("Undefined function '" + name + "'", messageSystem::Undefined_Function_Error);
+        return (AsaFunctionDefinition*)messageSystem::error("Undefined function '" + name + "'", messageSystem::Undefined_Function_Error);
     }
     return nullptr;
 }
@@ -1137,9 +1114,9 @@ undefinedFunction:
 // Strict overload resolution: like getFunctionFromID but only accepts a
 // perfect match (score 0). Used for exact-lookup scenarios like variant
 // instantiation dedup and operator dispatch.
-functionID* getExactFunctionFromID(std::vector<functionID*>& fnIDs, std::string& name, argumentList& arguments, bool wereTypesInferred = false, bool throwIfNotFound = false)
+AsaFunctionDefinition* getExactFunctionFromID(std::vector<AsaFunctionDefinition*>& fnIDs, std::string& name, argumentList& arguments, bool wereTypesInferred = false, bool throwIfNotFound = false)
 {
-    functionID* best;
+    AsaFunctionDefinition* best;
     int bestScore = 1000;
     bool requiresExact = false;
     for (auto& f : fnIDs) {
@@ -1171,16 +1148,16 @@ exactFnNotFound:
     if (throwIfNotFound) {
         messageSystem::addAttribute(&arguments);
         messageSystem::addAttribute(best);
-        return (functionID*)messageSystem::error("Function match not found, closest prototype requires exact types. Did you try casting?", messageSystem::Undefined_Function_Exact_Error);
+        return (AsaFunctionDefinition*)messageSystem::error("Function match not found, closest prototype requires exact types. Did you try casting?", messageSystem::Undefined_Function_Exact_Error);
     }
     return nullptr;
 }
 // OPENCODE:
 // Overload resolution variant that takes raw ASTNode argument values (pre-
 // type-resolution). Uses the ASTNode-based compareMatch overload for scoring.
-functionID* getFunctionFromID(std::vector<functionID*>& fnIDs, std::string& name, std::vector<ASTNode*>& argValues, bool throwIfNotFound = false)
+AsaFunctionDefinition* getFunctionFromID(std::vector<AsaFunctionDefinition*>& fnIDs, std::string& name, std::vector<ASTNode*>& argValues, bool throwIfNotFound = false)
 {
-    functionID* best;
+    AsaFunctionDefinition* best;
     int bestScore = 1000;
     bool requiresExact = false;
     for (auto& f : fnIDs) {
@@ -1197,27 +1174,27 @@ functionID* getFunctionFromID(std::vector<functionID*>& fnIDs, std::string& name
     // If the best function match requires exact typing (and different types are passed) throw error
     if (requiresExact) {
         messageSystem::addAttribute(best);
-        //return (functionID*)messageSystem::error("Function match not found, closest prototype requires exact types. Did you try casting?", messageSystem::Undefined_Function_Exact_Error);
+        //return (AsaFunctionDefinition*)messageSystem::error("Function match not found, closest prototype requires exact types. Did you try casting?", messageSystem::Undefined_Function_Exact_Error);
         return nullptr;  // TODO: This function doesnt have handling for exact requirement
     }
     if (bestScore < 1000)
         return best;
 undefinedFunction:
     if (throwIfNotFound) {
-        for (auto& f : functionIDs) {
+        for (auto& f : AsaFunctionDefinitions) {
             if (f->name == name)
                 messageSystem::addAttribute(f->declNode);
         }
-        return (functionID*)messageSystem::error("Undefined function '" + name + "'", messageSystem::Undefined_Function_Error);
+        return (AsaFunctionDefinition*)messageSystem::error("Undefined function '" + name + "'", messageSystem::Undefined_Function_Error);
     }
     return nullptr;
 }
 // OPENCODE:
-// Name-only overload resolution: finds any functionID with a matching name.
+// Name-only overload resolution: finds any AsaFunctionDefinition with a matching name.
 // Used for error reporting and existence checks.
-functionID* getFunctionFromID(std::vector<functionID*>& fnIDs, std::string& name, bool throwIfNotFound = false)
+AsaFunctionDefinition* getFunctionFromID(std::vector<AsaFunctionDefinition*>& fnIDs, std::string& name, bool throwIfNotFound = false)
 {
-    functionID* best;
+    AsaFunctionDefinition* best;
     int bestScore = 1000;
     bool requiresExact = false;
     for (auto& f : fnIDs) {
@@ -1234,26 +1211,26 @@ functionID* getFunctionFromID(std::vector<functionID*>& fnIDs, std::string& name
     // If the best function match requires exact typing (and different types are passed) throw error
     if (requiresExact) {
         messageSystem::addAttribute(best);
-        //return (functionID*)messageSystem::error("Function match not found, closest prototype requires exact types. Did you try casting?", messageSystem::Undefined_Function_Exact_Error);
+        //return (AsaFunctionDefinition*)messageSystem::error("Function match not found, closest prototype requires exact types. Did you try casting?", messageSystem::Undefined_Function_Exact_Error);
         return nullptr;  // TODO: Does this case ever occur?
     }
     if (bestScore < 1000)
         return best;
 undefinedFunction:
     if (throwIfNotFound) {
-        for (auto& f : functionIDs) {
+        for (auto& f : AsaFunctionDefinitions) {
             if (f->name == name)
                 messageSystem::addAttribute(f->declNode);
         }
-        return (functionID*)messageSystem::error("Undefined function '" + name + "'", messageSystem::Undefined_Function_Error);
+        return (AsaFunctionDefinition*)messageSystem::error("Undefined function '" + name + "'", messageSystem::Undefined_Function_Error);
     }
     return nullptr;
 }
 // OPENCODE:
-// Reverse-looks up a functionID from its LLVM Function* pointer. Used when
+// Reverse-looks up a AsaFunctionDefinition from its LLVM Function* pointer. Used when
 // codegen has only the Function* (e.g. from a call instruction) and needs
 // metadata like return type or argument list.
-functionID* getFunctionIDFromFunctionPointer(std::vector<functionID*>& fnIDs, Function*& fnPtr)
+AsaFunctionDefinition* getFunctionIDFromFunctionPointer(std::vector<AsaFunctionDefinition*>& fnIDs, Function*& fnPtr)
 {
     for (auto& f : fnIDs) {
         if (fnPtr == f->fnValue)
@@ -1286,36 +1263,42 @@ static AllocaInst* CreateEntryBlockAlloca(Function* TheFunction, llvm::Type* t, 
     return TmpB.CreateAlloca(t, nullptr, VarName);
 }
 
+// TODO: This should likely take as input just an `asaTypeInstance`
 // OPENCODE:
 // Generates a zero-initialized or default-valued LLVM value for a given type.
 // For structs: allocas, memsets to 0, then fills in any member default values
 // from structDef->memberDefaultNodes. For primitives: returns 0/0.0/null.
 // Recursively handles default initializers and undefined initializers.
-static llvm::Value* generateDefaultValueForType(llvm::Type* type, const std::string& typeName, int pointerLevel, int pass, ASTNode* node)
+static llvm::Value* generateDefaultValueForType(AsaTypeInstance* asaTypeInstance, int pass, ASTNode* node)
 {
-    if (!type)
+    if (!asaTypeInstance)
         return nullptr;
 
-    std::string resolvedTypeName = resolveTypeAlias(typeName);
-    if (pointerLevel == 0 && type->isStructTy() && structDefinitions.find(resolvedTypeName) != structDefinitions.end()) {
-        AsaStruct* structDef = structDefinitions[resolvedTypeName];
+    //std::string resolvedTypeName = resolveTypeAlias(typeName);
+
+    // If this is a struct and not a pointer:
+    if (asaTypeInstance->pointerLevel == 0 &&
+        asaTypeInstance->baseType->isStruct &&
+        structDefinitions.find(asaTypeInstance->baseType->typeName) != structDefinitions.end()) {
+
+        AsaStructDefinition* structDef = structDefinitions[asaTypeInstance->baseType->typeName];
+        // TODO: maybe dont force codegen for missing definitions like this:
         if (structDef->structVal == nullptr && structDef->sourceNode)
             (structDef->sourceNode->*(structDef->sourceNode->codegen))(pass);
         if (wasError)
             return nullptr;
 
         Function* fn = llvmIRBuilder->GetInsertBlock()->getParent();
-        AllocaInst* defaultPtr = CreateEntryBlockAlloca(fn, type, "default_" + resolvedTypeName);
+        AllocaInst* defaultPtr = CreateEntryBlockAlloca(fn, asaTypeInstance->llvmType, "default_" + asaTypeInstance->baseType->typeName);
 
-        llvm::Value* structSize = ConstantInt::get(llvm::Type::getInt64Ty(*llvmCompileContext),
-            llvmCompileModule->getDataLayout().getTypeAllocSize(type));
+        llvm::Value* structSize = ConstantInt::get(llvm::Type::getInt64Ty(*llvmCompileContext), llvmCompileModule->getDataLayout().getTypeAllocSize(asaTypeInstance->llvmType));
         Function* memsetFunc = Intrinsic::getOrInsertDeclaration(llvmCompileModule.get(), Intrinsic::memset, {defaultPtr->getType(), llvm::Type::getInt64Ty(*llvmCompileContext)});
         llvmIRBuilder->CreateCall(memsetFunc, {defaultPtr,
                                                   ConstantInt::get(llvm::Type::getInt8Ty(*llvmCompileContext), 0),
                                                   structSize,
                                                   ConstantInt::get(llvm::Type::getInt1Ty(*llvmCompileContext), 0)});
 
-        StructType* structType = cast<StructType>(type);
+        StructType* structType = cast<StructType>(asaTypeInstance->llvmType);
         for (auto& [memberName, defaultNode] : structDef->memberDefaultNodes) {
             auto idxIt = structDef->memberNameIndexes.find(memberName);
             if (idxIt == structDef->memberNameIndexes.end())
@@ -1346,10 +1329,10 @@ static llvm::Value* generateDefaultValueForType(llvm::Type* type, const std::str
             llvmIRBuilder->CreateStore(defaultVal, memberPtr);
         }
 
-        return llvmIRBuilder->CreateLoad(type, defaultPtr, "default_load");
+        return llvmIRBuilder->CreateLoad(asaTypeInstance->llvmType, defaultPtr, "default_load");
     }
 
-    return Constant::getNullValue(type);
+    return Constant::getNullValue(asaTypeInstance->llvmType);
 }
 
 static void instantiateVariantStruct(const std::string&, const std::string&, const std::string&, std::vector<std::pair<std::string, std::string>> = {});
@@ -1542,9 +1525,9 @@ std::string getStringTypeFromLLVMType(llvm::Type* type)
 
         // For struct types, get the name directly from LLVM
         if (baseType->isStructTy()) {
-            llvm::StructType* AsaStruct = static_cast<llvm::StructType*>(baseType);
-            if (AsaStruct->hasName()) {
-                std::string fullName = AsaStruct->getName().str();
+            llvm::StructType* AsaStructDefinitionDefinitionDefinition = static_cast<llvm::StructType*>(baseType);
+            if (AsaStructDefinitionDefinitionDefinition->hasName()) {
+                std::string fullName = AsaStructDefinitionDefinitionDefinition->getName().str();
                 // Strip "struct." prefix if present
                 if (fullName.rfind("struct.", 0) == 0) {
                     baseTypeName = SplitString(fullName, ".")[1];
@@ -1746,15 +1729,15 @@ void initializeCodeGenerator()
 }
 
 // OPENCODE:
-// Tears down all codegen state: deletes functionIDs and structDefinitions,
+// Tears down all codegen state: deletes AsaFunctionDefinitions and structDefinitions,
 // resets LLVM unique_ptrs (builder, module, context), clears all global
 // maps/stacks. Called from main.cpp after compilation completes or on error.
 void resetCodeGenerator()
 {
     // Free heap-allocated codegen objects
-    for (auto* fid : functionIDs)
+    for (auto* fid : AsaFunctionDefinitions)
         delete fid;
-    functionIDs.clear();
+    AsaFunctionDefinitions.clear();
 
     for (auto& [name, sd] : structDefinitions)
         delete sd;
@@ -1912,7 +1895,7 @@ ASAValue* findNamedValue(ASTNode* node, ASTNode* childNode, std::string& identif
     if (!currentStructName.empty()) {
         std::string structName = currentStructName.top();
         if (structDefinitions.find(structName) != structDefinitions.end()) {
-            AsaStruct* structDef = structDefinitions[structName];
+            AsaStructDefinition* structDef = structDefinitions[structName];
 
             if (structDef->memberNameIndexes.find(identifier) != structDef->memberNameIndexes.end()) {
                 messageSystem::error("Variable '" + identifier + "' not found. Did you mean 'this." + identifier + "'?", messageSystem::Undefined_Variable_Error);
@@ -2164,7 +2147,7 @@ std::string getMemberAccessTypeString(ASTNode* node, ASTNode* parentNode, asaTok
             return "";
         }
 
-        AsaStruct* structDef = structDefinitions[structName];
+        AsaStructDefinition* structDef = structDefinitions[structName];
 
         // If the struct body hasn't been generated yet, we might not have member info
         if (structDef->members.empty()) {
@@ -2410,7 +2393,7 @@ void declareModuleScopeVariable(ASTNode* exprStmtNode, ASTNode* ownerNode, bool 
     ASAValue* vt = new ASAValue(varName, actualType, gv);
     vt->isConstant = isConst;
     vt->isUndefined = rhsIsUndefined;
-    vt->declNode = exprStmtNode;       // the expression statement node that owns the attributes
+    vt->declNode = exprStmtNode;            // the expression statement node that owns the attributes
     vt->initialValueNode = rhsInitializer;  // Store the initial value node for global variables to support 'initial' keyword
 
     // For root-level vars, store in the expression stmt's own namedValues so
@@ -2873,7 +2856,7 @@ void* ASTNode::generateVariableExpression(int pass)
         // If variable does have type, it is a declaration
         else {
             ASTNode* typeNode = childNodes[0];
-            typeName = resolveTypeAlias(typeNode->token->tokenStr); // TODO:
+            typeName = resolveTypeAlias(typeNode->token->tokenStr);  // TODO:
 
             messageSystem::startBlock(typeNode, "Generating type", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
 
@@ -2883,9 +2866,9 @@ void* ASTNode::generateVariableExpression(int pass)
 
             AsaTypeInstance* asaTypeInstance = CreateAsaTypeInstanceFromASTNode(typeNode);
         getNextPointerLevel:
-            if (typeNode->token->tokenStr == "*" || 
-                typeNode->token->tokenStr == "const" || 
-                typeNode->token->tokenStr == "exact" ) {
+            if (typeNode->token->tokenStr == "*" ||
+                typeNode->token->tokenStr == "const" ||
+                typeNode->token->tokenStr == "exact") {
                 pointerLevel++;
                 typeNode = typeNode->childNodes[0];
                 goto getNextPointerLevel;
@@ -3073,7 +3056,7 @@ void* ASTNode::generateThrow(int pass)
     argumentList prefixArgList;
     prefixArgList.push_back(argType("byte", Byte_Type, 1));
     std::string printFnName = "print";
-    functionID* prefixPrintFnID = getFunctionFromID(functionIDs, printFnName, prefixArgList, true, false);
+    AsaFunctionDefinition* prefixPrintFnID = getFunctionFromID(AsaFunctionDefinitions, printFnName, prefixArgList, true, false);
 
     if (prefixPrintFnID) {
         std::vector<llvm::Value*> prefixArgs;
@@ -3112,7 +3095,7 @@ void* ASTNode::generateThrow(int pass)
 
         // Look up the print function
         std::string printFnName = "printl";
-        functionID* printFnID = getFunctionFromID(functionIDs, printFnName, argList, true, false);
+        AsaFunctionDefinition* printFnID = getFunctionFromID(AsaFunctionDefinitions, printFnName, argList, true, false);
 
         if (printFnID) {
             // Call the print function
@@ -3197,7 +3180,7 @@ void* ASTNode::generateThrowCaller(int pass)
         argList.push_back(argType(baseTypeStr, getASTNodeTypeFromString(baseTypeStr), pointerLevel));
 
         std::string printFnName = "printl";
-        functionID* printFnID = getFunctionFromID(functionIDs, printFnName, argList, true, false);
+        AsaFunctionDefinition* printFnID = getFunctionFromID(AsaFunctionDefinitions, printFnName, argList, true, false);
 
         if (printFnID) {
             std::vector<llvm::Value*> printArgs;
@@ -3235,7 +3218,7 @@ void* ASTNode::generateReturn(int pass)
         llvmIRBuilder->SetCurrentDebugLocation(DILocation::get(LexicalBlocks.back()->getContext(), token->lineNumber + 1, 0, LexicalBlocks.back()));
     ASTNode* exprNode = childNodes[0];
     Function* currentFunc = llvmIRBuilder->GetInsertBlock()->getParent();
-    functionID* fnID = getFunctionIDFromFunctionPointer(functionIDs, currentFunc);
+    AsaFunctionDefinition* fnID = getFunctionIDFromFunctionPointer(AsaFunctionDefinitions, currentFunc);
     if (fnID && fnID->returnIsReference)
         exprNode->lvalue = true;
 
@@ -3323,7 +3306,7 @@ void* ASTNode::generateReturn(int pass)
             }
             if (RetVal->getType() != retType) {
                 Function* currentFn = llvmIRBuilder->GetInsertBlock()->getParent();
-                functionID* fnID = getFunctionIDFromFunctionPointer(functionIDs, currentFn);
+                AsaFunctionDefinition* fnID = getFunctionIDFromFunctionPointer(AsaFunctionDefinitions, currentFn);
                 bool isSigned = fnID ? typeSigns.count(fnID->returnType) && typeSigns[fnID->returnType] : true;
                 RetVal = castValue(RetVal, retType, true, isSigned, this);
                 if (wasError)
@@ -3546,76 +3529,75 @@ void* ASTNode::generateExpressionStatement(int pass)
     bool rhsIsDefault = initializerNode && initializerNode->nodeType == Default_Initializer_Node;
     bool rhsIsInitial = initializerNode && initializerNode->nodeType == Initial_Initializer_Node;
 
-    // Generate RHS value
-    {
-        messageSystem::startBlock(exprNode, "Generating expression right side", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
+    // Generate RHS value {{{
 
-        // Set debug location if available
-        if (!LexicalBlocks.empty() && token && token->filePath) {
-            llvmIRBuilder->SetCurrentDebugLocation(
-                DILocation::get(LexicalBlocks.back()->getContext(),
-                    token->lineNumber + 1,  // Line (DWARF is 1-indexed)
-                    0,                      // Column
-                    LexicalBlocks.back()));
-        }
+    messageSystem::startBlock(exprNode, "Generating expression right side", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
 
-        llvm::Value* exprVal = nullptr;
-        if (!rhsIsUndefined && !rhsIsDefault && !rhsIsInitial) {
-            // Evaluate right side (rvalue)
-            exprVal = (llvm::Value*)(exprNode->*(exprNode->codegen))(pass);
-            if (wasError) {
-                return nullptr;
-            }
-            if (!exprVal) {
-                return messageSystem::error("Set expression requires right argument");
-            }
-        }
-
-        messageSystem::endBlock();
+    // Set debug location if available
+    if (!LexicalBlocks.empty() && token && token->filePath) {
+        llvmIRBuilder->SetCurrentDebugLocation(
+            DILocation::get(LexicalBlocks.back()->getContext(),
+                token->lineNumber + 1,  // Line (DWARF is 1-indexed)
+                0,                      // Column
+                LexicalBlocks.back()));
     }
 
-    // Generate LHS Operation
-    {
-        messageSystem::startBlock(leftNode, "Generating expression left side", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
-
-        llvm::Value* targetPtr = nullptr;
-        llvm::Type* targetType = nullptr;
-        bool targetIsSigned = true;
-        ASAValue* targetValue = nullptr;
-
-        // If the left side is a pointer lvalue
-        if (leftNode->nodeType != Identifier_Node && leftNode->nodeType != Colon_Separator_Node) {
-            leftNode->lvalue = true;
-            // left side is an expression, evaluate to pointer (lvalue address)
-            size_t stackDepthBefore = lastRetrievedElementType.size();
-            targetPtr = (llvm::Value*)(leftNode->*(leftNode->codegen))(pass);
-            if (wasError) {
-                return nullptr;
-            }
-            if (!targetPtr || !targetPtr->getType()->isPointerTy()) {
-                return messageSystem::error("Left side must evaluate to a pointer for assignment, is type: \"" + getStringTypeFromLLVMType(targetPtr->getType()) + "\"");
-            }
-            // Pop the element type if the lvalue codegen pushed one (member access does, array access does not)
-            if (lastRetrievedElementType.size() > stackDepthBefore) {
-                targetType = lastRetrievedElementType.top()->baseLLVMType;
-                lastRetrievedElementType.pop();
-            }
+    llvm::Value* exprVal = nullptr;
+    if (!rhsIsUndefined && !rhsIsDefault && !rhsIsInitial) {
+        // Evaluate right side (rvalue)
+        exprVal = (llvm::Value*)(exprNode->*(exprNode->codegen))(pass);
+        if (wasError) {
+            return nullptr;
         }
+        if (!exprVal) {
+            return messageSystem::error("Set expression requires right argument");
+        }
+    }
 
-        ASTNode* typeNode = nullptr;
-        llvm::Type* type = nullptr;
-        int pointerLevel = 0;
-        bool isConst = false;
-        int defaultPointerLevel = 0;
-        AsaTypeInstance* asaTypeInstance = nullptr;
-        if (!leftNode->lvalue) {
-            // If the left node has children, it is likely a typed identifier like: `x : int = ...`
-            if (leftNode->childNodes.size() > 0) {
-                // The type node is the one on the right, containing any type modifiers: `... ref const * int ...`
-                typeNode = leftNode->childNodes[1];
-                // Create Asa type instance using the type node. Modifies `typeNode` to be only the type name with no modifiers
-                asaTypeInstance = CreateAsaTypeInstanceFromASTNode(typeNode);
-                type = asaTypeInstance->llvmType;
+    messageSystem::endBlock();
+    //}}}
+
+    // Generate LHS Operation {{{
+    messageSystem::startBlock(leftNode, "Generating expression left side", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
+
+    llvm::Value* targetPtr = nullptr;
+    llvm::Type* targetType = nullptr;
+    bool targetIsSigned = true;
+    ASAValue* targetValue = nullptr;
+
+    // If the left side is a pointer lvalue
+    if (leftNode->nodeType != Identifier_Node && leftNode->nodeType != Colon_Separator_Node) {
+        leftNode->lvalue = true;
+        // left side is an expression, evaluate to pointer (lvalue address)
+        size_t stackDepthBefore = lastRetrievedElementType.size();
+        targetPtr = (llvm::Value*)(leftNode->*(leftNode->codegen))(pass);
+        if (wasError) {
+            return nullptr;
+        }
+        if (!targetPtr || !targetPtr->getType()->isPointerTy()) {
+            return messageSystem::error("Left side must evaluate to a pointer for assignment, is type: \"" + getStringTypeFromLLVMType(targetPtr->getType()) + "\"");
+        }
+        // Pop the element type if the lvalue codegen pushed one (member access does, array access does not)
+        if (lastRetrievedElementType.size() > stackDepthBefore) {
+            targetType = lastRetrievedElementType.top()->baseLLVMType;
+            lastRetrievedElementType.pop();
+        }
+    }
+
+    ASTNode* typeNode = nullptr;
+    llvm::Type* type = nullptr;
+    int pointerLevel = 0;
+    bool isConst = false;
+    int defaultPointerLevel = 0;
+    AsaTypeInstance* asaTypeInstance = nullptr;
+    if (!leftNode->lvalue) {
+        // If the left node has children, it is likely a typed identifier like: `x : int = ...`
+        if (leftNode->childNodes.size() > 0) {
+            // The type node is the one on the right, containing any type modifiers: `... ref const * int ...`
+            typeNode = leftNode->childNodes[1];
+            // Create Asa type instance using the type node. Modifies `typeNode` to be only the type name with no modifiers
+            asaTypeInstance = CreateAsaTypeInstanceFromASTNode(typeNode);
+            type = asaTypeInstance->llvmType;
             //getNextPointerLevel:
             //    if (typeNode->token->tokenStr == "const") {
             //        isConst = true;
@@ -3631,211 +3613,212 @@ void* ASTNode::generateExpressionStatement(int pass)
             //        typeNode = typeNode->childNodes[0];
             //        goto getNextPointerLevel;
             //    }
-                //bool wasDefined = true;
-                //type = getLLVMTypeFromString(typeNode->token->tokenStr, 0, typeNode, wasDefined, pass);
-                //if (wasDefined == false)
-                //  return nullptr;
-                //for (int pL = 0; pL < pointerLevel; pL++)
-                //    type = PointerType::get(*llvmCompileContext, 0);
-                defaultPointerLevel = asaTypeInstance->pointerLevel;
-            }
+            //bool wasDefined = true;
+            //type = getLLVMTypeFromString(typeNode->token->tokenStr, 0, typeNode, wasDefined, pass);
+            //if (wasDefined == false)
+            //  return nullptr;
+            //for (int pL = 0; pL < pointerLevel; pL++)
+            //    type = PointerType::get(*llvmCompileContext, 0);
+            defaultPointerLevel = asaTypeInstance->pointerLevel;
         }
-        //else
-        //      type = var->getType();
+    }
+    //else
+    //      type = var->getType();
 
-        // If the rhs is the ? symbol, like: `x : int = ?;`, then make sure the type is explicit
-        if (rhsIsUndefined) {
-            if (asaTypeInstance == nullptr)
-                return messageSystem::error("Cannot infer type from undefined value '?'. Use an explicit type annotation.");
-        }
-        // If the rhs is the `default` keyword, then generate the "default" value for the type
-        else if (rhsIsDefault) {
-            if (asaTypeInstance == nullptr)
-                return messageSystem::error("Cannot infer type from default value 'default'. Use an explicit type annotation.");
-            else {
-                exprVal = generateDefaultValueForType(type, asaTypeInstance->baseType->typeName, defaultPointerLevel, pass, this);
-                if (wasError || !exprVal)
-                    return nullptr;
-            }
-        }
-        // If the rhs is the `initial` keyword, then wait until the lhs is processed to know what to do
-        else if (rhsIsInitial) {
-            // type will be resolved from the target variable during LHS processing
-        }
-        // If the type is not explicitly set, then automatically resolve type from the expression
-        else if (type == nullptr) {
-            type = exprVal->getType();
-        }
-        // Otherwise, the type is explicit AND the rhs is a normal value: cast it (if necessary)
+    // If the rhs is the ? symbol, like: `x : int = ?;`, then make sure the type is explicit
+    if (rhsIsUndefined) {
+        if (asaTypeInstance == nullptr)
+            return messageSystem::error("Cannot infer type from undefined value '?'. Use an explicit type annotation.");
+    }
+    // If the rhs is the `default` keyword, then generate the "default" value for the type
+    else if (rhsIsDefault) {
+        if (asaTypeInstance == nullptr)
+            return messageSystem::error("Cannot infer type from default value 'default'. Use an explicit type annotation.");
         else {
-            messageSystem::startBlock(typeNode, "Generating type", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
-
-            // TODO: Use the new type system for this:
-            std::string typeName = resolveTypeAlias(typeNode->token->tokenStr);
-            if (typeSigns.find(typeName) != typeSigns.end())  // If builtin type
-                exprVal = castValue(exprVal, type, true, typeSigns[typeName], exprNode);
-            else if (structDefinitions.find(typeName) != structDefinitions.end())  // If defined struct
-                exprVal = castValue(exprVal, type, true, false, exprNode, true);
-            else {
-                return messageSystem::error("Unknown type");
-            }
-            if (wasError || exprVal == nullptr) {
-                return messageSystem::error("Unable to automatically cast");
-            }
-
-            messageSystem::endBlock();
+            exprVal = generateDefaultValueForType(asaTypeInstance, pass, this);
+            if (wasError || !exprVal)
+                return nullptr;
         }
+    }
+    // If the rhs is the `initial` keyword, then wait until the lhs is processed to know what to do
+    else if (rhsIsInitial) {
+        // type will be resolved from the target variable during LHS processing
+    }
+    // If the type is not explicitly set, then automatically resolve type from the expression
+    else if (type == nullptr) {
+        type = exprVal->getType();
+    }
+    // Otherwise, the type is explicit AND the rhs is a normal value: cast it (if necessary)
+    else {
+        messageSystem::startBlock(typeNode, "Generating type", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
 
-        // If the initializer expression is a string literal, AND the variable is not a const or a pointer,
-        // then this variable is mutable, and the string must be copied from the constant memory first:
-        if (!rhsIsUndefined && !rhsIsDefault && exprVal && initializerNode &&
-            initializerNode->nodeType == String_Constant_Node && !isConst &&
-            structDefinitions.count("string") && structDefinitions["string"]->structVal &&
-            ((typeNode && asaTypeInstance->baseType->typeName == "string" && pointerLevel == 0) ||
-                (!typeNode && exprVal->getType() == structDefinitions["string"]->structVal))) {
-            exprVal = createMutableStringCopy(initializerNode, exprVal, pass);
+        // TODO: Use the new type system for this:
+        std::string typeName = resolveTypeAlias(typeNode->token->tokenStr);
+        if (typeSigns.find(typeName) != typeSigns.end())  // If builtin type
+            exprVal = castValue(exprVal, type, true, typeSigns[typeName], exprNode);
+        else if (structDefinitions.find(typeName) != structDefinitions.end())  // If defined struct
+            exprVal = castValue(exprVal, type, true, false, exprNode, true);
+        else {
+            return messageSystem::error("Unknown type");
         }
-
-        // If the left side is a typed identifier, like: `name : int`, then set leftNode equal to just the identifier. This must be a declaration
-        bool isDeclaration = false;
-        if (leftNode->nodeType == Colon_Separator_Node) {
-            if (leftNode->childNodes.size() > 0) {
-                leftNode = leftNode->childNodes[0];
-                isDeclaration = true;
-            }
+        if (wasError || exprVal == nullptr) {
+            return messageSystem::error("Unable to automatically cast");
         }
-
-
-        // If the left side is an identifier
-        bool newConstLocal = false;
-        std::string identifierString = leftNode->token->tokenStr;
-        if (leftNode->nodeType == Identifier_Node) {
-
-            // Simple variable: find alloca and use it as targetPtr.
-            // If there is an explicit type annotation, this is always a new declaration
-            ASAValue* lookupAsaValue = typeNode ? nullptr : findNamedValue(parentNode, this, identifierString, token);
-            if (wasError) return nullptr;
-
-            // If this variable name doesnt exist in this context
-            if (!lookupAsaValue) {
-                // First check if it is a compiler definition, like `FOO :: 5;` which is improperly using `=`
-                if (!typeNode && findCompilerDefinition(parentNode, identifierString)) {
-                    return messageSystem::error(
-                        "Cannot modify compiler constant '" + identifierString +
-                        "' with '='. Use '::' to redefine it at compile time.");
-                }
-                // TODO: Is this line even reachable?
-                // Then check to see if the variable is being redeclared in the same scope
-                if (typeNode && checkSameScopeRedeclaration(parentNode, declarationNode, identifierString))
-                    return nullptr;
-
-                // TODO: Wouldn't the errors earlier always throw instead of this one?
-                if ((rhsIsUndefined || rhsIsDefault) && !typeNode)
-                    return messageSystem::error("Cannot infer type from this initializer. Use an explicit type annotation.");
-
-                // Create the variable allocation
-                targetPtr = CreateEntryBlockAlloca(theFunction, type, identifierString);
-                //// TODO: Replace `actualType` with the type instances `strVal`
-                //std::string actualType = "*int";
-                //if (!typeNode) {
-                //    actualType = getStringTypeFromLLVMType(type);
-                //    // Fall back to the declared type string if LLVM type inference fails
-                //    if (actualType.find("unknown") != std::string::npos && exprNode->asaType && !exprNode->asaType->strVal.empty())
-                //        actualType = exprNode->asaType->strVal;
-                //}
-                //else
-                //    actualType = (pointerLevel > 0 ? std::string(pointerLevel, '*') : "") + typeNode->token->tokenStr;
-                
-                // Add the variable definition to the local `namedValues` map
-                namedValues[identifierString] = new ASAValue(identifierString, asaTypeInstance, targetPtr);
-                namedValues[identifierString]->isConstant = isConst;
-                namedValues[identifierString]->isUndefined = rhsIsUndefined;
-                namedValues[identifierString]->declNode = declarationNode;
-                namedValues[identifierString]->initialValueNode = initializerNode;
-                targetValue = namedValues[identifierString];
-                trackVariableUsage(declarationNode);
-                newConstLocal = isConst;
-
-                // Add debug info ONLY if we have a valid scope and the stack is not empty
-                if (llvmDebugBuilder && !LexicalBlocks.empty() && token && token->filePath) {
-                    DIScope* Scope = LexicalBlocks.back();
-                    unsigned LineNo = token->lineNumber + 1;  // DWARF is 1-indexed
-
-                    // Create DIType
-                    DIType* DebugType = createDIType(type, asaTypeInstance->strVal);
-
-                    DIFile* VarFile = (token->filePath && !token->filePath->empty())
-                                          ? getDIFile(*token->filePath)
-                                          : llvmDebugFile;
-                    if (DebugType) {
-                        DILocalVariable* D = llvmDebugBuilder->createAutoVariable(
-                            Scope,
-                            identifierString,
-                            VarFile,
-                            LineNo,
-                            DebugType,
-                            true  // AlwaysPreserve
-                        );
-
-                        llvmDebugBuilder->insertDeclare(
-                            targetPtr,
-                            D,
-                            llvmDebugBuilder->createExpression(),
-                            DILocation::get(Scope->getContext(), LineNo, 0, Scope),
-                            llvmIRBuilder->GetInsertBlock());
-                    }
-                }
-            }
-            // Otherwise this variable does exist already, this is a set operation rather than definition
-            else {
-                // Check if trying to modify a const variable
-                if (lookupAsaValue->asaTypeInstance->isConstant) {
-                    return messageSystem::error("Cannot modify const variable '" + identifierString + "'");
-                }
-
-                targetPtr = lookupAsaValue->llvmValue;
-                targetValue = lookupAsaValue;
-                // TODO: `resolvedType` should be replaced by usage of the asaTypeInstance
-                std::string resolvedType = resolveTypeAlias(lookupAsaValue->asaTypeInstance->strVal);
-                // TODO: The signed value should be stored in the asaTypeInstance->baseType, rather than using `typeSigns`
-                targetIsSigned = lookupAsaValue->asaTypeInstance->baseType->isSigned;
-                //defaultTypeName = lookupAsaValue->typeString;
-                //defaultPointerLevel = 0;
-                //while (!defaultTypeName.empty() && defaultTypeName[0] == '*') {
-                //    defaultTypeName = defaultTypeName.substr(1);
-                //    defaultPointerLevel++;
-                //}
-
-                // If the variable is a reference, load the pointer before storing through it
-                if (lookupAsaValue->asaTypeInstance->isReference) {
-                    targetPtr = llvmIRBuilder->CreateLoad(lookupAsaValue->asaTypeInstance->llvmType, targetPtr, identifierString + "_ref_store_ptr");
-                    //// Resolve element type from the type string rather than the alloca type
-                    //std::string refTypeStr = lookupAsaValue->asaTypeInstance->strVal;
-                    //int refPtrLvl = 0;
-                    //while (!refTypeStr.empty() && refTypeStr[0] == '*') {
-                    //    refTypeStr = refTypeStr.substr(1);
-                    //    refPtrLvl++;
-                    //}
-                    //bool refWd = true;
-                    //targetType = getLLVMTypeFromString(refTypeStr, 0, this, refWd, pass);
-                    targetType = lookupAsaValue->asaTypeInstance->llvmType;
-                    // TODO: Is this necessary?
-                    if (targetType && lookupAsaValue->asaTypeInstance->pointerLevel > 0)
-                        targetType = PointerType::getUnqual(*llvmCompileContext);
-                    // TODO: This might be an error case in the new type system, actually:
-                    if (!targetType)
-                        targetType = getTypePtrFromLLVMValue(lookupAsaValue->llvmValue);
-                }
-                else {
-                    targetType = getTypePtrFromLLVMValue(targetPtr);
-                }
-            }
-        }
-        else if (targetType == nullptr)
-            targetType = type;
 
         messageSystem::endBlock();
     }
+
+    // If the initializer expression is a string literal, AND the variable is not a const or a pointer,
+    // then this variable is mutable, and the string must be copied from the constant memory first:
+    if (!rhsIsUndefined && !rhsIsDefault && exprVal && initializerNode &&
+        initializerNode->nodeType == String_Constant_Node && !isConst &&
+        structDefinitions.count("string") && structDefinitions["string"]->structVal &&
+        ((typeNode && asaTypeInstance->baseType->typeName == "string" && pointerLevel == 0) ||
+            (!typeNode && exprVal->getType() == structDefinitions["string"]->structVal))) {
+        exprVal = createMutableStringCopy(initializerNode, exprVal, pass);
+    }
+
+    // If the left side is a typed identifier, like: `name : int`, then set leftNode equal to just the identifier. This must be a declaration
+    bool isDeclaration = false;
+    if (leftNode->nodeType == Colon_Separator_Node) {
+        if (leftNode->childNodes.size() > 0) {
+            leftNode = leftNode->childNodes[0];
+            isDeclaration = true;
+        }
+    }
+
+
+    // If the left side is an identifier
+    bool newConstLocal = false;
+    std::string identifierString = leftNode->token->tokenStr;
+    if (leftNode->nodeType == Identifier_Node) {
+
+        // Simple variable: find alloca and use it as targetPtr.
+        // If there is an explicit type annotation, this is always a new declaration
+        ASAValue* lookupAsaValue = typeNode ? nullptr : findNamedValue(parentNode, this, identifierString, token);
+        if (wasError)
+            return nullptr;
+
+        // If this variable name doesnt exist in this context
+        if (!lookupAsaValue) {
+            // First check if it is a compiler definition, like `FOO :: 5;` which is improperly using `=`
+            if (!typeNode && findCompilerDefinition(parentNode, identifierString)) {
+                return messageSystem::error(
+                    "Cannot modify compiler constant '" + identifierString +
+                    "' with '='. Use '::' to redefine it at compile time.");
+            }
+            // TODO: Is this line even reachable?
+            // Then check to see if the variable is being redeclared in the same scope
+            if (typeNode && checkSameScopeRedeclaration(parentNode, declarationNode, identifierString))
+                return nullptr;
+
+            // TODO: Wouldn't the errors earlier always throw instead of this one?
+            if ((rhsIsUndefined || rhsIsDefault) && !typeNode)
+                return messageSystem::error("Cannot infer type from this initializer. Use an explicit type annotation.");
+
+            // Create the variable allocation
+            targetPtr = CreateEntryBlockAlloca(theFunction, type, identifierString);
+            //// TODO: Replace `actualType` with the type instances `strVal`
+            //std::string actualType = "*int";
+            //if (!typeNode) {
+            //    actualType = getStringTypeFromLLVMType(type);
+            //    // Fall back to the declared type string if LLVM type inference fails
+            //    if (actualType.find("unknown") != std::string::npos && exprNode->asaType && !exprNode->asaType->strVal.empty())
+            //        actualType = exprNode->asaType->strVal;
+            //}
+            //else
+            //    actualType = (pointerLevel > 0 ? std::string(pointerLevel, '*') : "") + typeNode->token->tokenStr;
+
+            // Add the variable definition to the local `namedValues` map
+            namedValues[identifierString] = new ASAValue(identifierString, asaTypeInstance, targetPtr);
+            namedValues[identifierString]->isConstant = isConst;
+            namedValues[identifierString]->isUndefined = rhsIsUndefined;
+            namedValues[identifierString]->declNode = declarationNode;
+            namedValues[identifierString]->initialValueNode = initializerNode;
+            targetValue = namedValues[identifierString];
+            trackVariableUsage(declarationNode);
+            newConstLocal = isConst;
+
+            // Add debug info ONLY if we have a valid scope and the stack is not empty
+            if (llvmDebugBuilder && !LexicalBlocks.empty() && token && token->filePath) {
+                DIScope* Scope = LexicalBlocks.back();
+                unsigned LineNo = token->lineNumber + 1;  // DWARF is 1-indexed
+
+                // Create DIType
+                DIType* DebugType = createDIType(type, asaTypeInstance->strVal);
+
+                DIFile* VarFile = (token->filePath && !token->filePath->empty())
+                                      ? getDIFile(*token->filePath)
+                                      : llvmDebugFile;
+                if (DebugType) {
+                    DILocalVariable* D = llvmDebugBuilder->createAutoVariable(
+                        Scope,
+                        identifierString,
+                        VarFile,
+                        LineNo,
+                        DebugType,
+                        true  // AlwaysPreserve
+                    );
+
+                    llvmDebugBuilder->insertDeclare(
+                        targetPtr,
+                        D,
+                        llvmDebugBuilder->createExpression(),
+                        DILocation::get(Scope->getContext(), LineNo, 0, Scope),
+                        llvmIRBuilder->GetInsertBlock());
+                }
+            }
+        }
+        // Otherwise this variable does exist already, this is a set operation rather than definition
+        else {
+            // Check if trying to modify a const variable
+            if (lookupAsaValue->asaTypeInstance->isConst) {
+                return messageSystem::error("Cannot modify const variable '" + identifierString + "'");
+            }
+
+            targetPtr = lookupAsaValue->llvmValue;
+            targetValue = lookupAsaValue;
+            // TODO: `resolvedType` should be replaced by usage of the asaTypeInstance
+            std::string resolvedType = resolveTypeAlias(lookupAsaValue->asaTypeInstance->strVal);
+            // TODO: The signed value should be stored in the asaTypeInstance->baseType, rather than using `typeSigns`
+            targetIsSigned = lookupAsaValue->asaTypeInstance->baseType->isSigned;
+            //defaultTypeName = lookupAsaValue->typeString;
+            //defaultPointerLevel = 0;
+            //while (!defaultTypeName.empty() && defaultTypeName[0] == '*') {
+            //    defaultTypeName = defaultTypeName.substr(1);
+            //    defaultPointerLevel++;
+            //}
+
+            // If the variable is a reference, load the pointer before storing through it
+            if (lookupAsaValue->asaTypeInstance->isRef) {
+                targetPtr = llvmIRBuilder->CreateLoad(lookupAsaValue->asaTypeInstance->llvmType, targetPtr, identifierString + "_ref_store_ptr");
+                //// Resolve element type from the type string rather than the alloca type
+                //std::string refTypeStr = lookupAsaValue->asaTypeInstance->strVal;
+                //int refPtrLvl = 0;
+                //while (!refTypeStr.empty() && refTypeStr[0] == '*') {
+                //    refTypeStr = refTypeStr.substr(1);
+                //    refPtrLvl++;
+                //}
+                //bool refWd = true;
+                //targetType = getLLVMTypeFromString(refTypeStr, 0, this, refWd, pass);
+                targetType = lookupAsaValue->asaTypeInstance->llvmType;
+                // TODO: Is this necessary?
+                if (targetType && lookupAsaValue->asaTypeInstance->pointerLevel > 0)
+                    targetType = PointerType::getUnqual(*llvmCompileContext);
+                // TODO: This might be an error case in the new type system, actually:
+                if (!targetType)
+                    targetType = getTypePtrFromLLVMValue(lookupAsaValue->llvmValue);
+            }
+            else {
+                targetType = getTypePtrFromLLVMValue(targetPtr);
+            }
+        }
+    }
+    else if (targetType == nullptr)
+        targetType = type;
+
+    messageSystem::endBlock();
+    // }}}
 
     // TODO: Are these checks necessary? They are essentially duplicates fromt the above ones
     // If the rhs is an undefined keyword `?`, just mark it as "isUndefined", and return
@@ -3952,7 +3935,7 @@ void* ASTNode::generateExpressionStatement(int pass)
                 argList.push_back(argType(lTypeStr, getASTNodeTypeFromString(lTypeStr), 0));
                 std::string rTypeStr = getStringTypeFromLLVMType(exprVal->getType());
                 argList.push_back(argType(rTypeStr, getASTNodeTypeFromString(rTypeStr), 0));
-                functionID* calleeID = getFunctionFromID(functionIDs, operatorName, argList, true);
+                AsaFunctionDefinition* calleeID = getFunctionFromID(AsaFunctionDefinitions, operatorName, argList, true);
                 if (!calleeID || !calleeID->fnValue) {
                     return messageSystem::error("No operator overload '" + operatorName + "' found for compound assignment");
                 }
@@ -4071,8 +4054,8 @@ void* ASTNode::generateUnaryExpression(int pass)
     switch (nodeType) {
         case Address_Of_Operation: {
             ASTNode* child = childNodes[0];
+            // Plain variable: return the alloca directly without touching asaType
             if (child->nodeType == Identifier_Node) {
-                // Plain variable: return the alloca directly without touching asaType
                 ASAValue* val = findNamedValue(parentNode, this, child->token->tokenStr, token);
                 if (!val && !wasError) {
                     return messageSystem::error("Unknown variable name for address-of");
@@ -4244,6 +4227,7 @@ ValueCategory getValueCategory(llvm::Type* type)
 
 // OPENCODE:
 // Returns true if typeStr is a signed type per the typeSigns table.
+// TODO: This does not need to exist:
 bool isSignedType(const std::string& typeStr)
 {
     return typeSigns.count(typeStr) && typeSigns[typeStr];
@@ -4293,7 +4277,7 @@ getNextPointerLevel:
 
 // OPENCODE:
 // Generates a bare default declaration for a Colon_Separator_Node without an
-// initializer: allocas space, creates an ASAValue entry in namedValues, fills
+// initializer, like `x : int;`: allocas space, creates an ASAValue entry in namedValues, fills
 // it with the type's default value (zero/undef/default-constructed), and
 // returns the default value.
 static llvm::Value* generateBareDefaultDeclaration(ASTNode* colonNode, int pass)
@@ -4302,22 +4286,24 @@ static llvm::Value* generateBareDefaultDeclaration(ASTNode* colonNode, int pass)
         return nullptr;
 
     ASTNode* nameNode = colonNode->childNodes[0];
-    llvm::Type* type = nullptr;
-    std::string typeName;
-    int pointerLevel = 0;
-    bool isConst = false;
-    if (!getDeclaredTypeFromColonNode(colonNode, type, typeName, pointerLevel, isConst, pass))
-        return nullptr;
+    ASTNode* typeNode = colonNode->childNodes[1];
+    //llvm::Type* type = nullptr;
+    //std::string typeName;
+    //int pointerLevel = 0;
+    //bool isConst = false;
+    //if (!getDeclaredTypeFromColonNode(colonNode, type, typeName, pointerLevel, isConst, pass))
+    //    return nullptr;
+    AsaTypeInstance* asaTypeInstance = CreateAsaTypeInstanceFromASTNode(typeNode);
 
     Function* theFunction = llvmIRBuilder->GetInsertBlock()->getParent();
-    AllocaInst* targetPtr = CreateEntryBlockAlloca(theFunction, type, nameNode->token->tokenStr);
-    std::string actualType = (pointerLevel > 0 ? std::string(pointerLevel, '*') : "") + typeName;
-    colonNode->namedValues[nameNode->token->tokenStr] = new ASAValue(nameNode->token->tokenStr, actualType, targetPtr);
-    colonNode->namedValues[nameNode->token->tokenStr]->isConstant = isConst;
-    colonNode->namedValues[nameNode->token->tokenStr]->isUndefined = false;
+    AllocaInst* targetPtr = CreateEntryBlockAlloca(theFunction, asaTypeInstance->llvmType, nameNode->token->tokenStr);
+    //std::string actualType = (pointerLevel > 0 ? std::string(pointerLevel, '*') : "") + typeName;
+    colonNode->namedValues[nameNode->token->tokenStr] = new ASAValue(nameNode->token->tokenStr, asaTypeInstance, targetPtr);
+    //colonNode->namedValues[nameNode->token->tokenStr]->isConstant = isConst;
+    //colonNode->namedValues[nameNode->token->tokenStr]->isUndefined = false;
     colonNode->namedValues[nameNode->token->tokenStr]->declNode = colonNode;
-    trackVariableUsage(colonNode);
-    markVariableWrite(colonNode->namedValues[nameNode->token->tokenStr]);
+    colonNode->tracksVariableUsage = true;
+    //markVariableWrite(colonNode->namedValues[nameNode->token->tokenStr]);
 
     llvm::Value* defaultValue = generateDefaultValueForType(type, typeName, pointerLevel, pass, colonNode);
     if (wasError || !defaultValue)
@@ -4645,7 +4631,7 @@ bool ASTNode::checkForOperatorOverload(llvm::Value* L, llvm::Value* R)
 
     //printFunctionPrototypes();
 
-    functionID* calleeID = getFunctionFromID(functionIDs, operatorName, argList, true);
+    AsaFunctionDefinition* calleeID = getFunctionFromID(AsaFunctionDefinitions, operatorName, argList, true);
     if (calleeID != nullptr && calleeID->fnValue != nullptr)
         return true;
     else {
@@ -4690,7 +4676,7 @@ llvm::Value* ASTNode::generateOperatorOverloadCall(llvm::Value* L, llvm::Value* 
     }
     argList.push_back(argType(rBaseTypeStr, getASTNodeTypeFromString(rBaseTypeStr), rPointerLevel));
 
-    functionID* calleeID = getFunctionFromID(functionIDs, operatorName, argList, true);
+    AsaFunctionDefinition* calleeID = getFunctionFromID(AsaFunctionDefinitions, operatorName, argList, true);
 
     if (!calleeID || !calleeID->fnValue) {
         return (llvm::Value*)messageSystem::error("Expected operator overload for undefined operator `" + tokenAsString(token->tokenType) + "`, but none were not found");
@@ -4862,7 +4848,7 @@ void* ASTNode::generateAccessOperation(int pass)
         }
         opArgList.push_back(argType(rBaseTypeStr, getASTNodeTypeFromString(rBaseTypeStr), rPointerLevel));
 
-        functionID* opCalleeID = getFunctionFromID(functionIDs, opName, opArgList, true);
+        AsaFunctionDefinition* opCalleeID = getFunctionFromID(AsaFunctionDefinitions, opName, opArgList, true);
         if (opCalleeID && opCalleeID->fnValue) {
             opCalleeID->uses++;
             // Pass struct by value or by pointer depending on the formal parameter type
@@ -5107,27 +5093,27 @@ void* ASTNode::generateMemberAccess(int pass)
         markVariableRead(v);
 
         // Resolve through pointer indirection if needed
-        std::string AsaStructName = v->asaTypeInstance->strVal;
+        std::string AsaStructDefinitionDefinitionDefinitionDefinitionDefinitionDefinitionDefinitionDefinitionDefinitionName = v->asaTypeInstance->strVal;
         {
             int ptrDepth = 0;
-            while (!AsaStructName.empty() && AsaStructName[0] == '*') {
-                AsaStructName = AsaStructName.substr(1);
+            while (!AsaStructDefinitionDefinitionDefinitionDefinitionDefinitionDefinitionDefinitionDefinitionDefinitionName.empty() && AsaStructDefinitionDefinitionDefinitionDefinitionDefinitionDefinitionDefinitionDefinitionDefinitionName[0] == '*') {
+                AsaStructDefinitionDefinitionDefinitionDefinitionDefinitionDefinitionDefinitionDefinitionDefinitionName = AsaStructDefinitionDefinitionDefinitionDefinitionDefinitionDefinitionDefinitionDefinitionDefinitionName.substr(1);
                 ptrDepth++;
             }
-            if (ptrDepth > 0 && structDefinitions.count(resolveTypeAlias(AsaStructName))) {
+            if (ptrDepth > 0 && structDefinitions.count(resolveTypeAlias(AsaStructDefinitionDefinitionDefinitionDefinitionDefinitionDefinitionDefinitionDefinitionDefinitionName))) {
                 for (int i = 0; i < ptrDepth; i++)
                     basePtr = llvmIRBuilder->CreateLoad(PointerType::getUnqual(*llvmCompileContext), basePtr, "ptr_deref");
             }
             else {
-                AsaStructName = v->asaTypeInstance->strVal;
+                AsaStructDefinitionDefinitionDefinitionDefinitionDefinitionDefinitionDefinitionDefinitionDefinitionName = v->asaTypeInstance->strVal;
             }
-            AsaStructName = resolveTypeAlias(AsaStructName);
+            AsaStructDefinitionDefinitionDefinitionDefinitionDefinitionDefinitionDefinitionDefinitionDefinitionName = resolveTypeAlias(AsaStructDefinitionDefinitionDefinitionDefinitionDefinitionDefinitionDefinitionDefinitionDefinitionName);
         }
 
-        if (structDefinitions.find(AsaStructName) == structDefinitions.end()) {
+        if (structDefinitions.find(AsaStructDefinitionName) == structDefinitions.end()) {
             return messageSystem::error("Type \"" + v->asaTypeInstance->strVal + "\" has not been defined");
         }
-        AsaStruct* structDefinition = structDefinitions[AsaStructName];
+        AsaStructDefinitionDefinition* structDefinition = structDefinitions[AsaStructDefinitionDefinitionName];
 
         // If the struct body hasn't been generated yet, generate it
         if (structDefinition->structVal == nullptr)
@@ -5145,9 +5131,9 @@ void* ASTNode::generateMemberAccess(int pass)
                 for (auto& m : structDefinition->memberNameTypeNodes)
                     messageSystem::addAttribute(m.second);
 
-                return messageSystem::error("Struct definition \"" + AsaStructName + "\" does not contain member \"" + memberName + "\"", messageSystem::Undefined_Member_Error);
+                return messageSystem::error("Struct definition \"" + AsaStructDefinitionName + "\" does not contain member \"" + memberName + "\"", messageSystem::Undefined_Member_Error);
 
-                //printTokenError(getASTTokenRange(childNodes[1]), "Struct definition \"" + AsaStructName + "\" does not contain member \"" + memberName + "\"");
+                //printTokenError(getASTTokenRange(childNodes[1]), "Struct definition \"" + AsaStructDefinitionName + "\" does not contain member \"" + memberName + "\"");
             }
 
 
@@ -5178,11 +5164,11 @@ void* ASTNode::generateMemberAccess(int pass)
                     bool allowed = false;
                     if (v && v->llvmValue && isa<AllocaInst>(v->llvmValue)) {
                         llvm::Value* currentFn = llvmIRBuilder->GetInsertBlock()->getParent();
-                        for (auto* fid : functionIDs) {
+                        for (auto* fid : AsaFunctionDefinitions) {
                             if (fid->fnValue == currentFn) {
                                 std::string fnName = fid->name;
-                                std::string prefix = AsaStructName + ".";
-                                if (fnName == AsaStructName ||
+                                std::string prefix = AsaStructDefinitionDefinitionName + ".";
+                                if (fnName == AsaStructDefinitionDefinitionName ||
                                     fnName.substr(0, prefix.size()) == prefix)
                                     allowed = true;
                                 break;
@@ -5256,7 +5242,7 @@ void* ASTNode::generateMemberAccess(int pass)
             }
 
             // Look up the id in the struct function (against userArguments, which excludes 'this').
-            functionID* CalleeFID = getFunctionFromID(structDefinition->memberFunctions, memberName, argList, true, true);
+            AsaFunctionDefinition* CalleeFID = getFunctionFromID(structDefinition->memberFunctions, memberName, argList, true, true);
             if (!CalleeFID) {
                 for (auto& f : structDefinition->memberFunctions) {
                     messageSystem::addAttribute(f);
@@ -5274,7 +5260,7 @@ void* ASTNode::generateMemberAccess(int pass)
             bool memberIsStructReturn = CalleeFID->isStructReturn;
             AllocaInst* memberSretAlloc = nullptr;
             if (memberIsStructReturn) {
-                AsaStruct* retStruct = structDefinitions[CalleeFID->returnType];
+                AsaStructDefinitionDefinition* retStruct = structDefinitions[CalleeFID->returnType];
                 if (!retStruct || retStruct->structVal == nullptr) {
                     return messageSystem::error("Struct return type not fully defined");
                 }
@@ -5398,7 +5384,7 @@ void* ASTNode::generateMemberAccess(int pass)
 
             messageSystem::endBlock();
             if (memberIsStructReturn) {
-                AsaStruct* retStruct = structDefinitions[CalleeFID->returnType];
+                AsaStructDefinitionDefinition* retStruct = structDefinitions[CalleeFID->returnType];
                 return llvmIRBuilder->CreateLoad(retStruct->structVal, memberSretAlloc, "member_sret_load");
             }
             if (CalleeFID->returnIsReference) {
@@ -5413,7 +5399,7 @@ void* ASTNode::generateMemberAccess(int pass)
     }
     // If left is not pointer, assume another member access or index operator
     else {
-        AsaStruct* structDefinition = nullptr;
+        AsaStructDefinitionDefinitionDefinition* structDefinition = nullptr;
 
         if (lastRetrievedElementType.size() > stackDepthBefore) {
             // Left child pushed a type (e.g. chained member access) -- use the most recent one
@@ -5553,7 +5539,7 @@ void* ASTNode::generateMemberAccess(int pass)
             }
 
             // Look up the id in the struct function (against userArguments, which excludes 'this').
-            functionID* CalleeFID = getFunctionFromID(structDefinition->memberFunctions, memberName, argList, true, true);
+            AsaFunctionDefinition* CalleeFID = getFunctionFromID(structDefinition->memberFunctions, memberName, argList, true, true);
             if (!CalleeFID) {
                 messageSystem::startBlock(childNodes[1], "Generating struct function call", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
                 for (auto& f : structDefinition->memberFunctions) {
@@ -5571,7 +5557,7 @@ void* ASTNode::generateMemberAccess(int pass)
             bool memberIsStructReturn = CalleeFID->isStructReturn;
             AllocaInst* memberSretAlloc = nullptr;
             if (memberIsStructReturn) {
-                AsaStruct* retStruct = structDefinitions[CalleeFID->returnType];
+                AsaStructDefinitionDefinitionDefinition* retStruct = structDefinitions[CalleeFID->returnType];
                 if (!retStruct || retStruct->structVal == nullptr) {
                     return messageSystem::error("Struct return type not fully defined");
                 }
@@ -5697,7 +5683,7 @@ void* ASTNode::generateMemberAccess(int pass)
             messageSystem::endBlock();
 
             if (memberIsStructReturn) {
-                AsaStruct* retStruct = structDefinitions[CalleeFID->returnType];
+                AsaStructDefinitionDefinitionDefinition* retStruct = structDefinitions[CalleeFID->returnType];
                 return llvmIRBuilder->CreateLoad(retStruct->structVal, memberSretAlloc, "member_sret_load");
             }
             if (CalleeFID->returnIsReference) {
@@ -5893,7 +5879,7 @@ void* ASTNode::generateBitcast(int pass)
 }
 
 // llvm::Value*
-void* ASTNode::generateTypeInstance(int pass)
+void* ASTNode::generateStructInstance(int pass)
 {
     messageSystem::startBlock(this, "Generating struct instance", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
 
@@ -5907,8 +5893,9 @@ void* ASTNode::generateTypeInstance(int pass)
         return messageSystem::error("Unknown type name used");
     }
 
-    AsaStruct* typeVal = structDefinitions[typeName];
+    AsaStructDefinition* typeVal = structDefinitions[typeName];
 
+    // TODO: This should use the dependency generator system:
     // If the struct body hasn't been generated yet, generate it
     if (typeVal->structVal == nullptr)
         llvm::Value* argVal = (llvm::Value*)(typeVal->sourceNode->*(typeVal->sourceNode->codegen))(pass);
@@ -5926,9 +5913,9 @@ void* ASTNode::generateTypeInstance(int pass)
     Function* memsetFunc = Intrinsic::getOrInsertDeclaration(llvmCompileModule.get(), Intrinsic::memset, {var->getType(), llvm::Type::getInt64Ty(*llvmCompileContext)});
 
     llvmIRBuilder->CreateCall(memsetFunc, {
-                                              var,                                                            // dest
+                                              var,                                                              // dest
                                               ConstantInt::get(llvm::Type::getInt8Ty(*llvmCompileContext), 0),  // value (zero)
-                                              structSize,                                                     // size
+                                              structSize,                                                       // size
                                               ConstantInt::get(llvm::Type::getInt1Ty(*llvmCompileContext), 0)   // is_volatile
                                           });
 
@@ -6285,9 +6272,9 @@ void* ASTNode::generateCallExpression(int pass)
                 typeStr = getStringTypeFromLLVMType(argVal->getType());
         }
         else if (identifierNode->nodeType == Function_Call) {
-            // Look up callee return type from functionIDs to avoid *unknown for pointer returns
+            // Look up callee return type from AsaFunctionDefinitions to avoid *unknown for pointer returns
             std::string calleeName = identifierNode->token->tokenStr;
-            for (auto* fid : functionIDs) {
+            for (auto* fid : AsaFunctionDefinitions) {
                 if (fid->name == calleeName && !fid->returnType.empty()) {
                     typeStr = fid->returnType;
                     break;
@@ -6378,7 +6365,7 @@ void* ASTNode::generateCallExpression(int pass)
 
                 // Set the variant-mangled base name. generatePrototype will further
                 // mangle with return and argument types (e.g. identity.int -> identity.int.int.int),
-                // but the fnName stored in functionIDs remains mangledFnName for lookup.
+                // but the fnName stored in AsaFunctionDefinitions remains mangledFnName for lookup.
                 inst->token->tokenStr = mangledFnName;
 
                 // Clear variant params so the instantiation generates as a normal function.
@@ -6443,11 +6430,11 @@ void* ASTNode::generateCallExpression(int pass)
 
     // Try alias-resolved name first, then fall back to the original token name
     // (cast functions like `char(x)` use the original name, not the alias target)
-    functionID* CalleeFID = nullptr;
+    AsaFunctionDefinition* CalleeFID = nullptr;
     if (resolvedFnName != token->tokenStr)
-        CalleeFID = getFunctionFromID(functionIDs, resolvedFnName, argList, true, shouldBeMemberFunction, false);
+        CalleeFID = getFunctionFromID(AsaFunctionDefinitions, resolvedFnName, argList, true, shouldBeMemberFunction, false);
     if (!CalleeFID)
-        CalleeFID = getFunctionFromID(functionIDs, token->tokenStr, argList, true, shouldBeMemberFunction, true);
+        CalleeFID = getFunctionFromID(AsaFunctionDefinitions, token->tokenStr, argList, true, shouldBeMemberFunction, true);
     if (!CalleeFID) {
         return nullptr;
     }
@@ -6517,7 +6504,7 @@ void* ASTNode::generateCallExpression(int pass)
     AllocaInst* sretAlloc = nullptr;
     if (isStructReturn) {
         // Get the struct type from definitions
-        AsaStruct* retStruct = structDefinitions[CalleeFID->returnType];
+        AsaStructDefinitionDefinition* retStruct = structDefinitions[CalleeFID->returnType];
         if (retStruct->structVal == nullptr) {
             return messageSystem::error("Struct return type not fully defined");
         }
@@ -6529,7 +6516,7 @@ void* ASTNode::generateCallExpression(int pass)
         ArgsV.insert(ArgsV.begin(), sretAlloc);
 
         // For argList matching: Temporarily add sret to argList for validation
-        // (This matches how it's stored in functionID)
+        // (This matches how it's stored in AsaFunctionDefinition)
         argType sretArg("*" + CalleeFID->returnType, Struct_Type, 1, false, true);
         argList.insert(argList.begin(), sretArg);
     }
@@ -6772,7 +6759,7 @@ void* ASTNode::generateCallExpression(int pass)
             return sretAlloc;  // Return pointer for lvalue contexts (e.g., assignment)
         }
         else {
-            AsaStruct* retStruct = structDefinitions[CalleeFID->returnType];
+            AsaStructDefinitionDefinition* retStruct = structDefinitions[CalleeFID->returnType];
             asaType->baseLLVMType = retStruct->structVal;
             return llvmIRBuilder->CreateLoad(retStruct->structVal, sretAlloc, "sret_load");
         }
@@ -6929,6 +6916,7 @@ void* ASTNode::generateIf(int pass)
     return nullptr;
 }
 
+// TODO: Rewrite struct codegen to not rely on specific passes, but just generate as needed
 // llvm::Value*
 void* ASTNode::generateStruct(int pass)
 {
@@ -6957,7 +6945,7 @@ void* ASTNode::generateStruct(int pass)
     argumentList members = argumentList();
     std::vector<Type*> fieldTypes = std::vector<Type*>();
     std::vector<std::string> fieldNames = std::vector<std::string>();
-    std::vector<functionID*> memberFunctions = std::vector<functionID*>();
+    std::vector<AsaFunctionDefinition*> memberFunctions = std::vector<AsaFunctionDefinition*>();
     std::unordered_map<std::string, uint16_t> memberNameIndexes = std::unordered_map<std::string, uint16_t>();
     std::unordered_map<std::string, ASTNode*> memberDefaultNodes = std::unordered_map<std::string, ASTNode*>();
     std::unordered_map<std::string, ASTNode*> memberNameTypeNodes = std::unordered_map<std::string, ASTNode*>();
@@ -6975,11 +6963,11 @@ void* ASTNode::generateStruct(int pass)
         }
     }
     for (; generatingType < 2; generatingType++) {
-        // Pre-populate memberFunctions from the global functionIDs list so that
+        // Pre-populate memberFunctions from the global AsaFunctionDefinitions list so that
         // member functions can reference each other during codegen.
         if (generatingType == 1 && pass > 1) {
             // Generate prototypes for all member functions first (if not already done
-            // in pass 1), so they exist in functionIDs for cross-referencing during
+            // in pass 1), so they exist in AsaFunctionDefinitions for cross-referencing during
             // body generation.
             for (auto fieldNode : structBodyNodes) {
                 if (fieldNode->nodeType == Compiler_Define_Function) {
@@ -6997,7 +6985,7 @@ void* ASTNode::generateStruct(int pass)
                         continue;
                     std::string qualifiedName = structName + "." + fieldNode->token->tokenStr;
                     bool found = false;
-                    for (auto& fid : functionIDs) {
+                    for (auto& fid : AsaFunctionDefinitions) {
                         if (fid->name == qualifiedName) {
                             found = true;
                             break;
@@ -7019,7 +7007,7 @@ void* ASTNode::generateStruct(int pass)
                     if (isCreate)
                         continue;
                     std::string qualifiedName = structName + "." + fieldNode->token->tokenStr;
-                    for (auto& fid : functionIDs) {
+                    for (auto& fid : AsaFunctionDefinitions) {
                         if (fid->name == qualifiedName) {
                             memberFunctions.push_back(fid);
                             break;
@@ -7115,8 +7103,8 @@ void* ASTNode::generateStruct(int pass)
 
         // Generate default constructor body if still empty (not replaced by user)
         {
-            functionID* ctorFID = nullptr;
-            for (auto& fid : functionIDs)
+            AsaFunctionDefinition* ctorFID = nullptr;
+            for (auto& fid : AsaFunctionDefinitions)
                 if (fid->name == structName && fid->userArguments.empty() && fid->isStructReturn) {
                     ctorFID = fid;
                     break;
@@ -7179,15 +7167,15 @@ void* ASTNode::generateStruct(int pass)
         // Auto-generate a default constructor if no constructor for this struct exists yet
         auto addDefaultCtorProto = [&](StructType* ty) {
             argumentList emptyUserArgs;
-            if (!getExactFunctionFromID(functionIDs, const_cast<std::string&>(structName), emptyUserArgs)) {
+            if (!getExactFunctionFromID(AsaFunctionDefinitions, const_cast<std::string&>(structName), emptyUserArgs)) {
                 std::vector<Type*> ctorArgTypes = {PointerType::get(*llvmCompileContext, 0)};
                 FunctionType* FT = FunctionType::get(llvm::Type::getVoidTy(*llvmCompileContext), ctorArgTypes, false);
                 Function* fn = Function::Create(FT, Function::InternalLinkage, structName, llvmCompileModule.get());
                 fn->addFnAttr(llvm::Attribute::AlwaysInline);
                 fn->getArg(0)->setName("sret");
                 argumentList llvmArgs = {argType("*" + structName, Struct_Type, 1, false, true)};
-                functionIDs.push_back(new functionID(structName, this, token, structName, structName, llvmArgs, emptyUserArgs, fn, false, false, true));
-                functionIDs.back()->isReplaceable = true;
+                AsaFunctionDefinitions.push_back(new AsaFunctionDefinition(structName, this, token, structName, structName, llvmArgs, emptyUserArgs, fn, false, false, true));
+                AsaFunctionDefinitions.back()->isReplaceable = true;
             }
         };
         addDefaultCtorProto(existingTy);
@@ -7198,7 +7186,7 @@ void* ASTNode::generateStruct(int pass)
     StructType* structTy = StructType::create(*llvmCompileContext, fieldTypes, "struct." + structName);
 
     currentStructName.pop();
-    auto newStructDef = new AsaStruct(structName, token, structTy, members, memberFunctions, memberNameIndexes);
+    auto newStructDef = new AsaStructDefinition(structName, token, structTy, members, memberFunctions, memberNameIndexes);
     newStructDef->sourceNode = this;
     newStructDef->memberDefaultNodes = memberDefaultNodes;
     newStructDef->memberNameTypeNodes = memberNameTypeNodes;
@@ -7215,15 +7203,15 @@ void* ASTNode::generateStruct(int pass)
     // Auto-generate a default constructor if no constructor for this struct exists yet
     auto addDefaultCtorProto = [&](StructType* ty) {
         argumentList emptyUserArgs;
-        if (!getExactFunctionFromID(functionIDs, const_cast<std::string&>(structName), emptyUserArgs)) {
+        if (!getExactFunctionFromID(AsaFunctionDefinitions, const_cast<std::string&>(structName), emptyUserArgs)) {
             std::vector<Type*> ctorArgTypes = {PointerType::get(*llvmCompileContext, 0)};
             FunctionType* FT = FunctionType::get(llvm::Type::getVoidTy(*llvmCompileContext), ctorArgTypes, false);
             Function* fn = Function::Create(FT, Function::InternalLinkage, structName, llvmCompileModule.get());
             fn->addFnAttr(llvm::Attribute::AlwaysInline);
             fn->getArg(0)->setName("sret");
             argumentList llvmArgs = {argType("*" + structName, Struct_Type, 1, false, true)};
-            functionIDs.push_back(new functionID(structName, this, token, structName, structName, llvmArgs, emptyUserArgs, fn, false, false, true));
-            functionIDs.back()->isReplaceable = true;
+            AsaFunctionDefinitions.push_back(new AsaFunctionDefinition(structName, this, token, structName, structName, llvmArgs, emptyUserArgs, fn, false, false, true));
+            AsaFunctionDefinitions.back()->isReplaceable = true;
         }
     };
     addDefaultCtorProto(structTy);
@@ -7531,8 +7519,11 @@ void* ASTNode::generateFor(int pass)
 {
     messageSystem::startBlock(this, "Generating for loop", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
 
+    // Debug info:
     if (!LexicalBlocks.empty() && token && token->filePath)
         llvmIRBuilder->SetCurrentDebugLocation(DILocation::get(LexicalBlocks.back()->getContext(), token->lineNumber + 1, 0, LexicalBlocks.back()));
+
+    // Placeholder iterator name, for if one is not provided, like: `for(0..5)`
     std::string varName = "_iterator";
     std::string label = "";  // Optional label for the loop
 
@@ -7541,37 +7532,29 @@ void* ASTNode::generateFor(int pass)
         label = this->label;
     }
 
+    // If an iterator is provided, use it
     if (childNodes[0]->nodeType == Iterator) {
         varName = childNodes[0]->childNodes[0]->token->tokenStr;
     }
 
+    // TODO: Make this use the `range` struct type instead
+    // Get the start and end range values
     ASTNode* rangeStart = childNodes[1]->childNodes[0];
     ASTNode* rangeEnd = childNodes[1]->childNodes[1];
 
     // Compute start value.
-    if (rangeStart->codegen == nullptr) {
-        return messageSystem::error("Node `" + ASTNodeTypeAsString(rangeStart->nodeType) + "` does not have a code generator");
-    }
+    //if (rangeStart->codegen == nullptr) {
+    //    return messageSystem::error("Node `" + ASTNodeTypeAsString(rangeStart->nodeType) + "` does not have a code generator");
+    //}
     llvm::Value* StartVal = (llvm::Value*)(rangeStart->*(rangeStart->codegen))(pass);
-    if (wasError) {
-        messageSystem::endBlock();
-        return nullptr;
-    }
-    if (!StartVal) {
+    if (wasError || !StartVal) {
         messageSystem::endBlock();
         return nullptr;
     }
 
     // Compute end value in the preheader so we can determine the iterator type.
-    if (rangeEnd->codegen == nullptr) {
-        return messageSystem::error("Node `" + ASTNodeTypeAsString(rangeEnd->nodeType) + "` does not have a code generator");
-    }
     llvm::Value* EndVal = (llvm::Value*)(rangeEnd->*(rangeEnd->codegen))(pass);
-    if (wasError) {
-        messageSystem::endBlock();
-        return nullptr;
-    }
-    if (!EndVal) {
+    if (wasError || !EndVal) {
         messageSystem::endBlock();
         return nullptr;
     }
@@ -7586,8 +7569,8 @@ void* ASTNode::generateFor(int pass)
         iterType = getLLVMTypeFromString(typeNode->token->tokenStr, 0, typeNode, wasDefined, resolvePass);
     }
     if (!iterType) {
-        // Auto-determine: widest integer type among start and end, minimum i32.
-        unsigned iterBits = 32;
+        // Auto-determine: widest integer type among start and end, minimum i8.
+        uint8_t iterBits = 8;
         if (StartVal->getType()->isIntegerTy())
             iterBits = std::max(iterBits, StartVal->getType()->getIntegerBitWidth());
         if (EndVal->getType()->isIntegerTy())
@@ -7640,14 +7623,12 @@ void* ASTNode::generateFor(int pass)
     ctx.label = label;        // Empty for unlabeled loops
     loopContextStack.push(ctx);
 
+    // Put the iterator variable into the named values
     namedValues[varName] = new ASAValue(varName, getStringTypeFromLLVMType(iterType), Alloca);
 
     // Emit the body of the loop
     ASTNode* scopeBody = childNodes[2];
 
-    if (scopeBody->codegen == nullptr) {
-        return messageSystem::error("Node `" + ASTNodeTypeAsString(scopeBody->nodeType) + "` does not have a code generator");
-    }
     (scopeBody->*(scopeBody->codegen))(pass);
     if (wasError) {
         loopContextStack.pop();  // Clean up context
@@ -7661,6 +7642,7 @@ void* ASTNode::generateFor(int pass)
     // Fall through from body to step block
     llvmIRBuilder->CreateBr(StepBB);
 
+    // TODO: Allow for custom step code
     // Step block: increment iterator then jump back to condition
     llvmIRBuilder->SetInsertPoint(StepBB);
     llvm::Value* StepVal = ConstantInt::get(*llvmCompileContext, APInt(iterType->getIntegerBitWidth(), 1));
@@ -7877,7 +7859,7 @@ void* ASTNode::generatePrototype(int pass)
                         for (int k = 0; k < numChunks; k++)
                             chunkTypes.push_back(allFloat ? (llvm::Type*)Type::getDoubleTy(*llvmCompileContext) : (llvm::Type*)Type::getInt64Ty(*llvmCompileContext));
                         retType = StructType::get(*llvmCompileContext, chunkTypes);
-                        // These will be recorded on the functionID after it is constructed (see below)
+                        // These will be recorded on the AsaFunctionDefinition after it is constructed (see below)
                         externReturnCoercionCount = (int8_t)numChunks;
                         externReturnCoercionIsFloat = allFloat;
                     }
@@ -8138,9 +8120,9 @@ void* ASTNode::generatePrototype(int pass)
 
     // Don't add another prototype if the exact same one is already defined
     //Function* theFunction = llvmCompileModule->getFunction(token->tokenStr);
-    functionID* theFunctionID = getExactFunctionFromID(functionIDs, fnName, userArgList);
+    AsaFunctionDefinition* theFunctionID = getExactFunctionFromID(AsaFunctionDefinitions, fnName, userArgList);
     if (theFunctionID) {
-        // If the existing functionID was created by a different definition node,
+        // If the existing AsaFunctionDefinition was created by a different definition node,
         // treat this as a redefinition error. Auto-generated defaults are exempt
         // (isReplaceable) so user-defined functions can legitimately override them.
         if (theFunctionID->declNode && theFunctionID->declNode != this && !theFunctionID->isReplaceable) {
@@ -8212,14 +8194,14 @@ void* ASTNode::generatePrototype(int pass)
         Idx++;
     }
 
-    functionIDs.push_back(new functionID(fnName, this, token, mangledName, rTypeString, argList, userArgList, fn, variableNumArguments, isStruct, isStructReturn, returnIsReference));
-    functionIDs.back()->externReturnCoercionCount = externReturnCoercionCount;
-    functionIDs.back()->externReturnCoercionIsFloat = externReturnCoercionIsFloat;
-    functionIDs.back()->isTrackedCaller = isTrackedCaller;
-    //functionIDs.back()->declNode = this;
+    AsaFunctionDefinitions.push_back(new AsaFunctionDefinition(fnName, this, token, mangledName, rTypeString, argList, userArgList, fn, variableNumArguments, isStruct, isStructReturn, returnIsReference));
+    AsaFunctionDefinitions.back()->externReturnCoercionCount = externReturnCoercionCount;
+    AsaFunctionDefinitions.back()->externReturnCoercionIsFloat = externReturnCoercionIsFloat;
+    AsaFunctionDefinitions.back()->isTrackedCaller = isTrackedCaller;
+    //AsaFunctionDefinitions.back()->declNode = this;
     if (verbosity >= 5) {
         console::printIndent(depth + 2);
-        console::writeLine("-- Added function \"" + fnName + "\" to functionIDs");
+        console::writeLine("-- Added function \"" + fnName + "\" to AsaFunctionDefinitions");
     }
 
     messageSystem::endBlock();
@@ -8242,7 +8224,7 @@ void* ASTNode::generateFunction(int pass)
 
     // First, check for an existing function from a previous declaration.
     //Function* theFunction = llvmCompileModule->getFunction(token->tokenStr);
-    functionID* theFunctionID = nullptr;
+    AsaFunctionDefinition* theFunctionID = nullptr;
     Function* theFunction = nullptr;
     std::string functionName = token->tokenStr;
     bool isStruct = false;
@@ -8289,7 +8271,7 @@ void* ASTNode::generateFunction(int pass)
     }
 
     if (!theFunction->empty()) {
-        theFunctionID = getFunctionIDFromFunctionPointer(functionIDs, theFunction);
+        theFunctionID = getFunctionIDFromFunctionPointer(AsaFunctionDefinitions, theFunction);
         bool existingIsReplaceable = theFunctionID && theFunctionID->isReplaceable;
         if (!definitionIsReplaceable && !existingIsReplaceable) {
             if (theFunctionID)
@@ -8300,7 +8282,7 @@ void* ASTNode::generateFunction(int pass)
         // Either this function is marked @replaceable, or the existing one is auto-generated
         // (isReplaceable). Either way, clear the old body and redefine.
         theFunction->deleteBody();
-        // Keep the functionID in the list (its LLVM fn pointer and signature are still correct).
+        // Keep the AsaFunctionDefinition in the list (its LLVM fn pointer and signature are still correct).
         // Just mark it as no longer replaceable and update its declaration node.
         if (theFunctionID) {
             theFunctionID->isReplaceable = false;
@@ -8313,7 +8295,7 @@ void* ASTNode::generateFunction(int pass)
         return theFunction;
     }
 
-    theFunctionID = getFunctionIDFromFunctionPointer(functionIDs, theFunction);
+    theFunctionID = getFunctionIDFromFunctionPointer(AsaFunctionDefinitions, theFunction);
     if (!theFunctionID) {
         return messageSystem::error("There was a failure to create a function");
     }
@@ -8490,7 +8472,8 @@ void* ASTNode::generateFunction(int pass)
 // Nothing
 void* ASTNode::generateNothing(int pass)
 {
-    return nullptr;
+    messageSystem::startBlock(this, "Generating node", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
+    return messageSystem::error("Node is missing a codegen function");
 }
 
 // #setflag NAME VALUE;
@@ -9089,7 +9072,7 @@ void* ASTNode::generateNameofDirective(int pass)
     return result;
 }
 
-// #typeof(expr) - returns the ASA type name of expr as a string.
+// #typeof(expr) - returns the Asa type name of expr as a string.
 // For identifiers, looks up namedValues to avoid emitting any IR.
 // For other expressions, generates the expression and reads the LLVM type.
 void* ASTNode::generateTypeofDirective(int pass)
@@ -9125,9 +9108,6 @@ void* ASTNode::generateTypeofDirective(int pass)
 
     // Fallback: generate the expression and read the LLVM type
     if (typeStr.empty()) {
-        if (!argExpr->codegen)
-            return messageSystem::error("Node `" + ASTNodeTypeAsString(argExpr->nodeType) + "` does not have a code generator");
-
         llvm::Value* val = (llvm::Value*)(argExpr->*(argExpr->codegen))(pass);
         if (!val || wasError)
             return nullptr;
@@ -9149,6 +9129,7 @@ void* ASTNode::generateTypeofDirective(int pass)
 
 // #sizeof(T) - returns the alloc size in bytes of T as an int64 constant.
 // T can be a variable name, a plain type name, or a pointer-modified type (e.g. *int, * *Wall).
+// TODO: Make this get the type from the new type system, rather than resolving it itself
 void* ASTNode::generateSizeofDirective(int pass)
 {
     if (pass == 0)
@@ -9163,6 +9144,7 @@ void* ASTNode::generateSizeofDirective(int pass)
 
     ASTNode* argNode = unwrapSingleExpressionNode(args[0]);
     llvm::Type* llvmType = nullptr;
+    AsaTypeInstance* asaTypeInstance = nullptr;
 
     messageSystem::startBlock(argNode, "Getting argument type", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
 
@@ -9184,6 +9166,7 @@ void* ASTNode::generateSizeofDirective(int pass)
         return (wasDefined && t) ? t : nullptr;
     };
 
+    // If the argument is just an identifier:
     if (argNode->nodeType == Identifier_Node) {
         std::string name = argNode->token->tokenStr;
 
@@ -9191,9 +9174,10 @@ void* ASTNode::generateSizeofDirective(int pass)
         ASAValue* val = findNamedValue(parentNode, this, name, token);
         if (val) {
             bool wasDefined = true;
-            llvmType = getLLVMTypeFromString(val->asaTypeInstance->strVal, 0, argNode, wasDefined, pass);
-            if (!wasDefined)
-                llvmType = nullptr;
+            asaTypeInstance = val->asaTypeInstance;
+            //llvmType = getLLVMTypeFromString(val->asaTypeInstance->strVal, 0, argNode, wasDefined, pass);
+            //if (!wasDefined)
+            //    llvmType = nullptr;
         }
 
         // Fall back to treating the identifier as a plain type name
@@ -9204,6 +9188,7 @@ void* ASTNode::generateSizeofDirective(int pass)
                 llvmType = nullptr;
         }
     }
+    // Else, if the argument has modifiers, like `* const int` or `*var`
     else if (argNode->nodeType == Dereference_Operation || argNode->nodeType == Pointer_Node) {
         llvmType = resolvePointerTypeNode(argNode);
     }
@@ -9292,10 +9277,7 @@ void* ASTNode::generateCompilesDirective(int pass)
     // Suppress errors and attempt codegen
     wasError = false;
     messageSystem::suppressErrors = true;
-    if (argNode->codegen)
-        (argNode->*(argNode->codegen))(pass);
-    else
-        wasError = true;
+    (argNode->*(argNode->codegen))(pass);
     while (messageSystem::currentNode && messageSystem::currentNode != savedMessageNode)
         messageSystem::endBlock();
     messageSystem::suppressErrors = savedSuppressErrors;

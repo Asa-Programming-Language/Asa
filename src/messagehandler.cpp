@@ -176,7 +176,7 @@ namespace messageSystem {
                     console::write("Candidates:\n", NEUTRAL_HIGHLIGHT_COLOR);
                     console::indentation = 1;
                     for (int i = 0; i < (int)currentNode->attributeNodes.size(); i++)
-                        printFunctionCandidate((functionID*)currentNode->attributeNodes[i].first);
+                        printFunctionCandidate((AsaFunctionDefinition*)currentNode->attributeNodes[i].first);
                     console::indentation = 0;
                 }
                 break;
@@ -211,7 +211,7 @@ namespace messageSystem {
                 if (currentNode->attributeNodes.size() == 2) {
                     console::indentation = 1;
                     argumentList* argList = (argumentList*)currentNode->attributeNodes[0].first;
-                    printFunctionDifferences(argList, (functionID*)currentNode->attributeNodes[1].first);
+                    printFunctionDifferences(argList, (AsaFunctionDefinition*)currentNode->attributeNodes[1].first);
                     //printNode((ASTNode*)currentNode->attributeNodes[0].first);
                     console::indentation = 0;
                 }

@@ -317,12 +317,17 @@ struct AsaBaseType {
     Type* baseLLVMType = nullptr;
     bool isDefined = false;
     bool isSigned = false;
+    bool isStruct = false;
 
-    AsaBaseType(std::string name, llvm::Type* baseLLVMType, bool isSigned = false) : 
-        typeName(name), baseLLVMType(baseLLVMType), isSigned(isSigned), isDefined(true) {};
-    AsaBaseType(std::string name, bool isSigned = false) : 
-        typeName(name), isSigned(isSigned), isDefined(false) {};
+    AsaBaseType(std::string name, llvm::Type* baseLLVMType, bool isSigned = false, bool isStruct = false)
+        : typeName(name), baseLLVMType(baseLLVMType), isSigned(isSigned), isStruct(isStruct), isDefined(true) {};
+    AsaBaseType(std::string name, bool isSigned = false, bool isStruct = false)
+        : typeName(name), isSigned(isSigned), isStruct(isStruct), isDefined(false) {};
 };
+//struct AsaBaseStruct : AsaBaseType {
+//    std::vector<AsaTypeInstance*> memberTypes = {};
+//    std::vector<std::string> memberNames = {};
+//};
 // TODO: Is this the best way to do it? two maps with 2 keys?
 extern std::unordered_map<std::string, AsaBaseType*> asaBaseTypes;
 extern std::unordered_map<llvm::Type*, AsaBaseType*> asaBaseTypesFromLLVM;
@@ -363,7 +368,7 @@ struct AsaTypeInstance {
     //    : baseType(baseType) {};
     //AsaTypeInstance(llvm::Type* llvmType){
     //};
-    AsaTypeInstance(){};
+    AsaTypeInstance() {};
 };
 
 struct ASTNode {
@@ -438,7 +443,7 @@ struct ASTNode {
     void* generateBitcast(int pass = 0);
     void* generateThrow(int pass = 0);
     void* generateThrowCaller(int pass = 0);
-    void* generateTypeInstance(int pass = 0);
+    void* generateStructInstance(int pass = 0);
     void* generateCallerFilepathDirective(int pass = 0);
     void* generateCallerLineNumDirective(int pass = 0);
     void* generateCallerLineDirective(int pass = 0);
@@ -469,7 +474,7 @@ struct ASTNode {
     ASTNode* resolveCompilerParentASTNode(int pass = 0);
     ASTNode* resolveCompilerFuncASTNode(int pass = 0);
 
-    void* (ASTNode::*codegen)(int pass) = nullptr;
+    void* (ASTNode::*codegen)(int pass) = &ASTNode::generateNothing;
 
     // Helper functions:
 

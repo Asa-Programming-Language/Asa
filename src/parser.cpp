@@ -1157,40 +1157,44 @@ std::unordered_set<std::string> importedFileNames = std::unordered_set<std::stri
 std::unordered_map<std::string, AsaBaseType*> asaBaseTypes;
 //std::unordered_map<llvm::Type*, AsaBaseType*> asaBaseTypesFromLLVM;
 
-AsaBaseType* CreateNewAsaType(std::string name, llvm::Type* (*baseLLVMTypeFn)(), bool isSigned){
+AsaBaseType* CreateNewAsaType(std::string name, llvm::Type* (*baseLLVMTypeFn)(), bool isSigned)
+{
     AsaBaseType* asaType = new AsaBaseType(name, baseLLVMTypeFn(), isSigned);
 
     return (asaBaseTypes[name] = std::move(asaType));
 }
-AsaBaseType* CreateNewAsaType(std::string name, llvm::Type* baseLLVMType, bool isSigned){
+AsaBaseType* CreateNewAsaType(std::string name, llvm::Type* baseLLVMType, bool isSigned)
+{
     AsaBaseType* asaType = new AsaBaseType(name, baseLLVMType, isSigned);
 
     return (asaBaseTypes[name] = std::move(asaType));
 }
-AsaBaseType* CreateNewAsaType(std::string name){
+AsaBaseType* CreateNewAsaType(std::string name)
+{
     AsaBaseType* asaType = new AsaBaseType(name);
 
     return (asaBaseTypes[name] = std::move(asaType));
 }
 
-AsaTypeInstance* CreateAsaTypeInstanceFromASTNode(ASTNode*& node){
+AsaTypeInstance* CreateAsaTypeInstanceFromASTNode(ASTNode*& node)
+{
     AsaTypeInstance* asaTypeInstance = new AsaTypeInstance;
 
     node = ExtractTypeModifiersFromType(node, asaTypeInstance->typeModifiers);
     std::string typeName = node->token->tokenStr;
 
     // If the base type already exists, use it:
-    if(asaBaseTypes.count(typeName) > 0){
+    if (asaBaseTypes.count(typeName) > 0) {
         asaTypeInstance->baseType = asaBaseTypes[typeName];
     }
     // Otherwise, create it as a struct, and mark it as not yet defined:
-    else{
+    else {
         asaTypeInstance->baseType = CreateNewAsaType(typeName);
     }
 
     // Then, calculate the llvmType by applying the modifiers to the base type:
-    for(const auto& mod : asaTypeInstance->typeModifiers){
-        if(mod == Pointer_Node){
+    for (const auto& mod : asaTypeInstance->typeModifiers) {
+        if (mod == Pointer_Node) {
             asaTypeInstance->llvmType = PointerType::get(*llvmCompileContext, 0);
             asaTypeInstance->pointerLevel++;
         }
@@ -1199,31 +1203,31 @@ AsaTypeInstance* CreateAsaTypeInstanceFromASTNode(ASTNode*& node){
     return std::move(asaTypeInstance);
 }
 
-ASTNode* ExtractTypeModifiersFromType(ASTNode* node, std::vector<ASTNodeType>& modifiers){
+ASTNode* ExtractTypeModifiersFromType(ASTNode* node, std::vector<ASTNodeType>& modifiers)
+{
     messageSystem::startBlock(node, "Extracting type modifiers", __func__, __LINE__, __FILE__, messageSystem::Parser_Block);
-    while (true) 
-    {
-        if (node->token->tokenStr == "*"){
+    while (true) {
+        if (node->token->tokenStr == "*") {
             modifiers.push_back(Pointer_Node);
             goto cont;
         }
-        else if (node->token->tokenStr == "const"){
+        else if (node->token->tokenStr == "const") {
             modifiers.push_back(Const_Keyword);
             goto cont;
         }
-        else if (node->token->tokenStr == "ref"){
+        else if (node->token->tokenStr == "ref") {
             modifiers.push_back(Reference_Operation);
             goto cont;
-        } 
-        else if (node->token->tokenStr == "exact"){
+        }
+        else if (node->token->tokenStr == "exact") {
             modifiers.push_back(Exact_Type_Node);
             goto cont;
-        } 
+        }
         break;
-cont:
-        if(node->childNodes.size() > 0)
+    cont:
+        if (node->childNodes.size() > 0)
             node = node->childNodes[0];
-        else{
+        else {
             messageSystem::error("Expected type name after type modifiers");
         }
     }
@@ -2403,7 +2407,7 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
                     }
                 }
                 if (identifier->token->tokenStr == "new") {
-                    node->codegen = &ASTNode::generateTypeInstance;
+                    node->codegen = &ASTNode::generateStructInstance;
                 }
                 if (identifier->token->tokenStr == "setflag") {
                     node->codegen = &ASTNode::generateCompilerFlagDirective;
