@@ -428,7 +428,6 @@ int main(int argc, char** argv)
         exit(0);
     }
 
-
     // Force run main function
     if (compilerFlags == Flags_Run) {
         startTreeWalkExecution(rootNode);
@@ -446,6 +445,10 @@ int main(int argc, char** argv)
 
     // Generate the IR LLVM Code:
     initializeCodeGenerator();
+
+    // Create all of the builtin types, like int, int16, float, etc.
+    CreateBuiltinAsaBaseTypes();
+
     if (verbosity >= 4)
         console::writeLine("\n\nCompiling:", console::greenFGColor);
     // Pass 0: First pass, type/struct definitions

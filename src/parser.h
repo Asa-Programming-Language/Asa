@@ -290,34 +290,80 @@ const std::string ASTNodeTypeStrings[] = {
 };
 
 struct ASTNode;
+struct AsaBaseType;
+struct AsaTypeInstance;
 
 struct ASAValue {
     std::string name;
-    std::string typeString;
+    // TODO: Replace `typeString` usage with `asaTypeInstance->strVal`
+    //std::string typeString;
+    AsaTypeInstance* asaTypeInstance = nullptr;
     bool isFunctionArgument = false;
+    // TODO: Replace the following usages with their `asaTypeInstance` equivalents
     bool isConstant = false;
     bool isReference = false;
     bool isUndefined = false;
-    llvm::Value* val;
+
+    llvm::Value* llvmValue;
     ASTNode* declNode = nullptr;
     ASTNode* initialValueNode = nullptr;  // compile-time constant initializer, for `initial`
-    ASAValue(std::string n, std::string t, llvm::Value* v, bool arg = false, bool ref = false)
-        : name(n), typeString(t), val(v), isFunctionArgument(arg), isReference(ref) {};
+    ASAValue(std::string n, AsaTypeInstance* asaTypeInstance, llvm::Value* llvmValue, bool arg = false, bool ref = false)
+        : name(n), asaTypeInstance(asaTypeInstance), llvmValue(llvmValue), isFunctionArgument(arg), isReference(ref) {};
 };
 
-struct ASAType {
-    Type* llvmType = nullptr;
+// Struct defining a data type in Asa
+struct AsaBaseType {
+    std::string typeName = "";
     Type* baseLLVMType = nullptr;
+    bool isDefined = false;
+    bool isSigned = false;
+
+    AsaBaseType(std::string name, llvm::Type* baseLLVMType, bool isSigned = false) : 
+        typeName(name), baseLLVMType(baseLLVMType), isSigned(isSigned), isDefined(true) {};
+    AsaBaseType(std::string name, bool isSigned = false) : 
+        typeName(name), isSigned(isSigned), isDefined(false) {};
+};
+// TODO: Is this the best way to do it? two maps with 2 keys?
+extern std::unordered_map<std::string, AsaBaseType*> asaBaseTypes;
+extern std::unordered_map<llvm::Type*, AsaBaseType*> asaBaseTypesFromLLVM;
+AsaBaseType* CreateNewAsaType(std::string name, llvm::Type* (*baseLLVMTypeFn)(), bool isSigned);
+AsaBaseType* CreateNewAsaType(std::string name, llvm::Type* baseLLVMType, bool isSigned);
+AsaBaseType* CreateNewAsaType(std::string name);
+AsaTypeInstance* CreateAsaTypeInstanceFromASTNode(ASTNode*& node);
+
+ASTNode* ExtractTypeModifiersFromType(ASTNode* node, std::vector<ASTNodeType>& modifiers);
+
+
+// Struct defining an instance of a type in Asa. For example, `x : int;` is borrowing from the `AsaBaseType` `"int"`
+struct AsaTypeInstance {
+    // A pointer to the base Asa type
+    AsaBaseType* baseType = nullptr;
+    // The LLVM Type object, after type modifiers are applied
+    llvm::Type* llvmType = nullptr;
+    // Unused:
+    Type* baseLLVMType = nullptr;
+
     bool inferredType = false;
-    bool isRef = false;
-    bool isConst = false;
     std::string strVal = "";
+    std::vector<ASTNodeType> typeModifiers = std::vector<ASTNodeType>();
     uint8_t pointerLevel = 0;
 
-    ASAType(Type* baseLLVMType, bool isRef, bool isConst, std::string strVal, uint8_t pointerLevel)
-        : baseLLVMType(baseLLVMType), isRef(isRef), isConst(isConst), strVal(strVal), pointerLevel(pointerLevel) {};
-    ASAType(Type* baseLLVMType)
-        : baseLLVMType(baseLLVMType) {};
+    // TODO: Make all of the below values use the above vector
+    bool isRef = false;
+    bool isConst = false;
+
+    AsaTypeInstance(Type* baseType, bool isRef, bool isConst, std::string strVal, uint8_t pointerLevel)
+        : baseLLVMType(baseType), isRef(isRef), isConst(isConst), strVal(strVal), pointerLevel(pointerLevel) {};
+    AsaTypeInstance(Type* baseType)
+        : baseLLVMType(baseType) {};
+
+    //AsaTypeInstance(AsaBaseType* baseType, bool isRef, bool isConst, std::string strVal, uint8_t pointerLevel)
+    //    : baseType(baseType), isRef(isRef), isConst(isConst), strVal(strVal), pointerLevel(pointerLevel) {};
+    //AsaTypeInstance(AsaBaseType* baseType)
+    //    : baseType(baseType) {};
+    //AsaTypeInstance(llvm::Type* llvmType){
+    //};
+    AsaTypeInstance(){};
 };
 
 struct ASTNode {
@@ -331,6 +377,7 @@ struct ASTNode {
     bool isConst = false;
     bool isExtern = false;
     bool lvalue = false;
+    // TODO: Many of the following variables should not be node-level
     bool isPostfix = false;
     std::string label = "";
     std::string externSymbolName = "";       // when non-empty, the actual C symbol to link (overrides fnName for LLVM)
@@ -347,7 +394,7 @@ struct ASTNode {
     asaToken* closingToken = nullptr;  // closing delimiter token (e.g. }) stored for token range tracking
     //Type* llvmType;
     //Type* baseType = nullptr;
-    ASAType* asaType = nullptr;
+    AsaTypeInstance* asaType = nullptr;
     // Add leaf nodes here as they are still yet to be used.
     std::vector<ASTNode*> leafNodes = std::vector<ASTNode*>();
     std::vector<ASTNode*> attributes = std::vector<ASTNode*>();  // TODO: Maybe make this an ordered map
@@ -525,4 +572,3 @@ void printTokenWarning(tokenRange tokRange, std::string errorString = "", int so
 void findUnusedLeafNodes(ASTNode*& node);
 void printModuleLoaded(std::string& moduleName, std::string& modulePath);
 int generateOutputCode(ASTNode*& node, int depth = 0, int pass = 0);
-//std::vector<asaToken> GATHER_SCOPE_BODY(int brLevel, int& i);
