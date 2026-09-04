@@ -335,20 +335,9 @@ struct AsaBaseType {
         : typeName(name), astNodeType(astNodeType), baseLLVMType(baseLLVMType), isSigned(isSigned), isStruct(isStruct), isDefined(true) {};
     AsaBaseType(std::string name, ASTNodeType astNodeType, bool isSigned = false, bool isStruct = false)
         : typeName(name), astNodeType(astNodeType), isSigned(isSigned), isStruct(isStruct), isDefined(false) {};
+    AsaBaseType() {};
 
-    // For base types that are signed, return the unsigned version.
-    AsaBaseType* getUnsigned()
-    {
-        // If it is signed, ensure the unsignedVersion variable is set
-        if (this->isSigned) {
-            if (!unsignedVersion)
-                return messageSystem::error("Signed variable was expected to have an unsigned version, none found.");
-            return unsignedVersion;
-        }
-        // If it isnt signed to begin with, just return this
-        else
-            return this;
-    }
+    AsaBaseType* getUnsigned();
 };
 //struct AsaBaseStruct : AsaBaseType {
 //    std::vector<AsaTypeInstance*> memberTypes = {};
@@ -357,9 +346,9 @@ struct AsaBaseType {
 // TODO: Is this the best way to do it? two maps with 2 keys?
 extern std::unordered_map<std::string, AsaBaseType*> asaBaseTypes;
 extern std::unordered_map<llvm::Type*, AsaBaseType*> asaBaseTypesFromLLVM;
-AsaBaseType* CreateNewAsaType(std::string name, llvm::Type* (*baseLLVMTypeFn)(), bool isSigned);
-AsaBaseType* CreateNewAsaType(std::string name, llvm::Type* baseLLVMType, bool isSigned);
-AsaBaseType* CreateNewAsaType(std::string name);
+AsaBaseType* CreateNewAsaType(std::string name, ASTNodeType astType, llvm::Type* (*baseLLVMTypeFn)(), bool isSigned);
+AsaBaseType* CreateNewAsaType(std::string name, ASTNodeType astType, llvm::Type* baseLLVMType, bool isSigned);
+AsaBaseType* CreateNewAsaType(std::string name, ASTNodeType astType);
 AsaTypeInstance* CreateAsaTypeInstanceFromASTNode(ASTNode*& node);
 AsaTypeInstance* CreateVoidAsaTypeInstance();
 
@@ -533,7 +522,7 @@ struct AsaTypeInstance {
 
 // Compare two AsaBaseTypes for equivalency. If one or both of them were inferred from an LLVM type,
 // then one or both of them may be signed, and in that case signs should be ignored
-bool baseTypesEqual(const AsaBaseType*& l, const AsaBaseType*& r, bool inferredType = false)
+bool baseTypesEqual(AsaBaseType*& l, AsaBaseType*& r, bool inferredType = false)
 {
     // AsaBaseTypes are unique, so we can just compare their pointers directly, rather than their values:
 
@@ -547,8 +536,9 @@ bool baseTypesEqual(const AsaBaseType*& l, const AsaBaseType*& r, bool inferredT
     }
 }
 
-// comparision operator to compare if two type instances have an exactly equivalent value
-bool operator==(const AsaTypeInstance& l, const AsaTypeInstance& r)
+// Comparision operator to compare if two type instances have an exactly equivalent value
+// Handles the case where one or both are inferred
+bool operator==(AsaTypeInstance& l, AsaTypeInstance& r)
 {
     // TODO: Update this to only compare the components of the struct that matter
 

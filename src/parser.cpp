@@ -6,6 +6,20 @@ static bool canInheritAttribute(ASTNode* node, ASTNode* attr);
 static void inheritAttributeIfCompatible(ASTNode* node, ASTNode* attr);
 static bool tryConsumeVariantParams(const std::vector<asaToken*>& tokens, int& i, std::vector<std::vector<asaToken*>>& groups);
 
+// For base types that are signed, return the unsigned version.
+AsaBaseType* AsaBaseType::getUnsigned()
+{
+    // If it is signed, ensure the unsignedVersion variable is set
+    if (this->isSigned) {
+        if (!unsignedVersion)
+            return (AsaBaseType*)messageSystem::error("Signed variable was expected to have an unsigned version, none found.");
+        return unsignedVersion;
+    }
+    // If it isnt signed to begin with, just return this
+    else
+        return this;
+}
+
 // Returns the AsaTypeInstance that this type would be if it were dereferenced explicitly,
 // like:
 //     ```asa
@@ -1223,21 +1237,21 @@ std::unordered_set<std::string> importedFileNames = std::unordered_set<std::stri
 std::unordered_map<std::string, AsaBaseType*> asaBaseTypes;
 //std::unordered_map<llvm::Type*, AsaBaseType*> asaBaseTypesFromLLVM;
 
-AsaBaseType* CreateNewAsaType(std::string name, llvm::Type* (*baseLLVMTypeFn)(), bool isSigned)
+AsaBaseType* CreateNewAsaType(std::string name, ASTNodeType astType, llvm::Type* (*baseLLVMTypeFn)(), bool isSigned)
 {
-    AsaBaseType* asaType = new AsaBaseType(name, baseLLVMTypeFn(), isSigned);
+    AsaBaseType* asaType = new AsaBaseType(name, astType, baseLLVMTypeFn(), isSigned);
 
     return (asaBaseTypes[name] = std::move(asaType));
 }
-AsaBaseType* CreateNewAsaType(std::string name, llvm::Type* baseLLVMType, bool isSigned)
+AsaBaseType* CreateNewAsaType(std::string name, ASTNodeType astType, llvm::Type* baseLLVMType, bool isSigned)
 {
-    AsaBaseType* asaType = new AsaBaseType(name, baseLLVMType, isSigned);
+    AsaBaseType* asaType = new AsaBaseType(name, astType, baseLLVMType, isSigned);
 
     return (asaBaseTypes[name] = std::move(asaType));
 }
-AsaBaseType* CreateNewAsaType(std::string name)
+AsaBaseType* CreateNewAsaType(std::string name, ASTNodeType astType)
 {
-    AsaBaseType* asaType = new AsaBaseType(name);
+    AsaBaseType* asaType = new AsaBaseType(name, astType);
 
     return (asaBaseTypes[name] = std::move(asaType));
 }
@@ -1255,7 +1269,7 @@ AsaTypeInstance* CreateAsaTypeInstanceFromASTNode(ASTNode*& node)
     }
     // Otherwise, create it as a struct, and mark it as not yet defined:
     else {
-        asaTypeInstance->baseType = CreateNewAsaType(typeName);
+        asaTypeInstance->baseType = CreateNewAsaType(typeName, Struct_Type);
     }
 
     // Then, calculate the llvmType by applying the modifiers to the base type:

@@ -47,14 +47,16 @@ static bool getDeclaredTypeFromColonNode(ASTNode* colonNode, llvm::Type*& outTyp
 static llvm::Value* createStringConstantLiteral(const std::string& str);
 
 
-AsaBaseType* AsaBaseTypeFromName(std::string typeName)
+// Lookup an AsaBaseType by its name, like: `int`
+// If it does not exist, creates a new one
+AsaBaseType* getAsaBaseTypeFromName(std::string typeName)
 {
     if (asaBaseTypes.count(typeName) > 0)
         return asaBaseTypes[typeName];
     else {
         bool wasDefined = false;
         int pass = 0;
-        return CreateNewAsaType(typeName, getLLVMTypeFromString(typeName, 0, nullptr, wasDefined, pass), false);
+        return CreateNewAsaType(typeName, Struct_Type, getLLVMTypeFromString(typeName, 0, nullptr, wasDefined, pass), false);
     }
 }
 
@@ -575,34 +577,34 @@ bool areTypesEquivalent(const std::string& type1, const std::string& type2)
 }
 
 
-// TODO: replace this with a type derived from AsaTypeInstance
-struct argType {
-    std::string typeString = "";
-    ASTNodeType baseASTType;
-    uint8_t pointerLevel = 0;
-    bool isReference = false;
-    bool isConstant = false;
-    bool mustBeExactType = false;
-    bool hasDefault = false;
-    ASTNode* defaultNode = nullptr;           // Expression_Term node (already resolved at definition site)
-    std::vector<asaToken*> defaultRawTokens;  // raw tokens for re-parsing at call site
-
-    // TODO: Update this to allow for many ABI formats
-    // Extern ABI coercion: how to split this struct arg for the x86-64 SysV ABI
-    int8_t externCoercionCount = 0;      // 0=none, N=split into N primitives (doubles or i64s)
-    bool externCoercionIsFloat = false;  // true=doubles (SSE/XMM), false=i64s (INTEGER)
-
-
-    argType(std::string ts, ASTNodeType bT, uint8_t pL = 0, bool r = false, bool ex = false, bool c = false)
-    {
-        typeString = ts;
-        baseASTType = bT;
-        pointerLevel = pL;
-        isReference = r;
-        isConstant = c;
-        mustBeExactType = ex;
-    }
-};
+//// TODO: replace this with a type derived from AsaTypeInstance
+//struct argType {
+//    std::string typeString = "";
+//    ASTNodeType baseASTType;
+//    uint8_t pointerLevel = 0;
+//    bool isReference = false;
+//    bool isConstant = false;
+//    bool mustBeExactType = false;
+//    bool hasDefault = false;
+//    ASTNode* defaultNode = nullptr;           // Expression_Term node (already resolved at definition site)
+//    std::vector<asaToken*> defaultRawTokens;  // raw tokens for re-parsing at call site
+//
+//    // TODO: Update this to allow for many ABI formats
+//    // Extern ABI coercion: how to split this struct arg for the x86-64 SysV ABI
+//    int8_t externCoercionCount = 0;      // 0=none, N=split into N primitives (doubles or i64s)
+//    bool externCoercionIsFloat = false;  // true=doubles (SSE/XMM), false=i64s (INTEGER)
+//
+//
+//    argType(std::string ts, ASTNodeType bT, uint8_t pL = 0, bool r = false, bool ex = false, bool c = false)
+//    {
+//        typeString = ts;
+//        baseASTType = bT;
+//        pointerLevel = pL;
+//        isReference = r;
+//        isConstant = c;
+//        mustBeExactType = ex;
+//    }
+//};
 
 struct AsaFunctionDefinition {
     std::string name = "";
@@ -834,56 +836,58 @@ struct AsaFunctionDefinition {
     // Overload-resolution variant that compares against raw ASTNode argument
     // nodes (pre-type-resolution). Used during candidate filtering before
     // argument values are fully evaluated.
+    //
     // TODO: I think this version of `compareMatch` should be deprecated completely with the new type system
-    uint16_t compareMatch(std::string n, std::vector<ASTNode*> a)
-    {
-        uint16_t differences = 0;
-        if (n != name)
-            return 1000;
-        if (a.size() > userArguments.size())
-            return 1000 - 1;
-        if (a.size() < userArguments.size()) {
-            for (size_t i = a.size(); i < userArguments.size(); i++)
-                if (!userArguments[i]->hasDefaultValue)
-                    return 1000 - 1;
-        }
-        for (int i = 0; i < (int)a.size(); i++) {
-            ASTNodeType asaType1 = userArguments[i].baseType->astNodeType;
-            ASTNodeType asaType2 = a[i]->nodeType;
-            bool mustBeExactType = userArguments[i].mustBeExactType;
-            // If asaType1 is an integer type, make sure asaType2 is also
-            // Difference points are given the further the types are
+    //uint16_t compareMatch(std::string n, std::vector<ASTNode*> a)
+    //{
+    //    uint16_t differences = 0;
+    //    if (n != name)
+    //        return 1000;
+    //    if (a.size() > userArguments.size())
+    //        return 1000 - 1;
+    //    if (a.size() < userArguments.size()) {
+    //        for (size_t i = a.size(); i < userArguments.size(); i++)
+    //            if (!userArguments[i]->hasDefaultValue)
+    //                return 1000 - 1;
+    //    }
+    //    for (int i = 0; i < (int)a.size(); i++) {
+    //        ASTNodeType asaType1 = userArguments[i].baseType->astNodeType;
+    //        ASTNodeType asaType2 = a[i]->nodeType;
+    //        bool mustBeExactType = userArguments[i].mustBeExactType;
+    //        // If asaType1 is an integer type, make sure asaType2 is also
+    //        // Difference points are given the further the types are
 
-            // If they are the same, return no diff
-            if (compareASTNodeTypes(asaType1, asaType2))
-                differences += 0;
-            // Else if they are both integer types
-            else if (asaType1 >= Integer_Node && asaType1 <= Boolean_Node) {
-                if (mustBeExactType)  // If the argument type must be exact
-                    return 500;
-                if (asaType2 >= Integer_Node && asaType2 <= Boolean_Node)  // If similar type
-                    differences += abs(asaType1 - asaType2);
-                else
-                    differences += Boolean_Node - Integer_Node;
-                // TODO: also give points if there exists a cast function
-            }
-            // Else if they are both float types
-            else if (asaType1 >= Double_Type && asaType1 <= Half_Type) {
-                if (mustBeExactType)  // If the argument type must be exact
-                    return 500;
-                if (asaType2 >= Double_Type && asaType2 <= Half_Type)  // If similar type
-                    differences += abs(asaType1 - asaType2);
-                else
-                    differences += Half_Type - Double_Type;
-                // TODO: also give points if there exists a cast function
-            }
-        }
-        return differences;
-    }
+    //        // If they are the same, return no diff
+    //        if (compareASTNodeTypes(asaType1, asaType2))
+    //            differences += 0;
+    //        // Else if they are both integer types
+    //        else if (asaType1 >= Integer_Node && asaType1 <= Boolean_Node) {
+    //            if (mustBeExactType)  // If the argument type must be exact
+    //                return 500;
+    //            if (asaType2 >= Integer_Node && asaType2 <= Boolean_Node)  // If similar type
+    //                differences += abs(asaType1 - asaType2);
+    //            else
+    //                differences += Boolean_Node - Integer_Node;
+    //            // TODO: also give points if there exists a cast function
+    //        }
+    //        // Else if they are both float types
+    //        else if (asaType1 >= Double_Type && asaType1 <= Half_Type) {
+    //            if (mustBeExactType)  // If the argument type must be exact
+    //                return 500;
+    //            if (asaType2 >= Double_Type && asaType2 <= Half_Type)  // If similar type
+    //                differences += abs(asaType1 - asaType2);
+    //            else
+    //                differences += Half_Type - Double_Type;
+    //            // TODO: also give points if there exists a cast function
+    //        }
+    //    }
+    //    return differences;
+    //}
     // OPENCODE:
     // Name-only overload check: returns 1000-1 if name matches (so the caller
     // knows a function with this name exists) but doesn't attempt argument
     // matching. Used for error messages.
+    // TODO: I think this version of compareMatch should not exist
     uint16_t compareMatch(std::string n)
     {
         uint16_t differences = 0;
@@ -1022,8 +1026,9 @@ AsaStructDefinition* getStructTypeFromLLVMType(llvm::Type*& t)
 }
 
 // OPENCODE:
-// Checks whether a #cast is valid between two types. Always true between two
-// numeric types. For user-defined types, looks for a `cast` function with a
+// Checks whether one type can be casted into another. Always true between two
+// numeric types.
+// For user-defined types, looks for a `cast` function with a
 // matching single-parameter signature. Returns false if either side is a
 // pointer.
 static bool hasCastBetween(const std::string& fromType, uint8_t fromPtrLevel, const std::string& toType, uint8_t toPtrLevel)
@@ -1035,12 +1040,13 @@ static bool hasCastBetween(const std::string& fromType, uint8_t fromPtrLevel, co
     if (typeSigns.count(fromType) && typeSigns.count(toType))
         return true;
     // User-defined: look for a cast function with matching signature
-    for (auto* fid : AsaFunctionDefinitions) {
-        if (fid->name != "cast" || fid->returnType != toType)
+    // TODO: Change this lookup to use the standard function lookup path
+    for (auto& functionDefinition : AsaFunctionDefinitions) {
+        if (functionDefinition->name != "cast" || functionDefinition->returnType != toType)
             continue;
-        if (fid->userArguments.size() == 1 &&
-            fid->userArguments[0].typeString == fromType &&
-            fid->userArguments[0].pointerLevel == 0)
+        if (functionDefinition->userArguments.size() == 1 &&
+            functionDefinition->userArguments[0]->asaTypeInstance->baseType->typeName == fromType &&
+            functionDefinition->userArguments[0]->asaTypeInstance->pointerLevel == 0)
             return true;
     }
     return false;
@@ -1049,11 +1055,13 @@ static bool hasCastBetween(const std::string& fromType, uint8_t fromPtrLevel, co
 // OPENCODE:
 // Formats a function call signature string like `name(<*type>, <*type>)` for
 // error messages and diagnostics.
+//
+// TODO: This needs to use a properly generated string from the Asa type instances
 std::string formatCallSignature(const std::string& name, const argumentList& args)
 {
     std::string s = name + "(";
     for (size_t i = 0; i < args.size(); i++) {
-        s += "<" + std::string(args[i].pointerLevel, '*') + args[i].typeString + ">";
+        s += "<" + std::string(args[i]->asaTypeInstance->pointerLevel, '*') + args[i]->asaTypeInstance->baseType->typeName + ">";
         if (i + 1 < args.size())
             s += ", ";
     }
@@ -1065,20 +1073,28 @@ std::string formatCallSignature(const std::string& name, const argumentList& arg
 // Prints a color-coded diff between the caller's argument list and the
 // candidate function's parameter list: green=exact, yellow=castable,
 // red=mismatch. Used in overload-resolution error messages.
+//
+// TODO: make this function also use the proper type strings generated by Asa type instances
 void printFunctionDifferences(argumentList* arguments, AsaFunctionDefinition* other)
 {
     console::write(other->name + " :: (");
     for (int i = 0; i < arguments->size(); i++) {
-        argType a = (*arguments)[i];
-        argType b = other->userArguments[i];
-        std::string aStr = std::string(a.pointerLevel, '*') + a.typeString;
-        std::string bStr = std::string(b.pointerLevel, '*') + b.typeString;
-        if ((a.typeString == b.typeString || areTypesEquivalent(a.typeString, b.typeString)) && a.pointerLevel == b.pointerLevel)
+        AsaTypeInstance* a = (*arguments)[i]->asaTypeInstance;
+        AsaTypeInstance* b = other->userArguments[i]->asaTypeInstance;
+        // TODO: NO vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+        std::string aStr = std::string(a->pointerLevel, '*') + a->baseType->typeName;
+        std::string bStr = std::string(b->pointerLevel, '*') + b->baseType->typeName;
+        // If the types are equivalent, then mark it as green
+        if (*a == *b)
             console::write(aStr, console::greenFGColor);
-        else if (hasCastBetween(a.typeString, a.pointerLevel, b.typeString, b.pointerLevel))
+        // If the types are not equivalent, BUT a cast function between them exists, mark it as yellow
+        else if (hasCastBetween(a->baseType->typeName, a->pointerLevel, b->baseType->typeName, b->pointerLevel))
             console::write(aStr + " ~= " + bStr, console::yellowFGColor);
+        // Otherwise, they are different types without a know cast method. Mark it as red
         else
             console::write(aStr + " != " + bStr, console::redFGColor);
+
+        // Add a comma after this arg unless it is the last one
         if (i < arguments->size() - 1)
             console::write(", ");
     }
@@ -1110,7 +1126,7 @@ void printFunctionCandidate(AsaFunctionDefinition* fn)
         console::write(fn->returnType, console::blueFGColor);
     console::write("(");
     for (int i = 0; i < (int)fn->userArguments.size(); i++) {
-        const argType& arg = fn->userArguments[i];
+        const AsaArgumentVariableValue& arg = fn->userArguments[i];
         if (arg.isConstant)
             console::write("const ", console::magentaFGColor);
         if (arg.isReference)
@@ -3113,7 +3129,7 @@ void* ASTNode::generateThrow(int pass)
 
     // Look up print function for the prefix (char* type)
     argumentList prefixArgList;
-    prefixArgList.push_back(argType("byte", Byte_Type, 1));
+    prefixArgList.push_back(AsaArgumentVariableValue("byte", Byte_Type, 1));
     std::string printFnName = "print";
     AsaFunctionDefinition* prefixPrintFnID = getFunctionFromID(AsaFunctionDefinitions, printFnName, prefixArgList, true, false);
 
@@ -3150,7 +3166,7 @@ void* ASTNode::generateThrow(int pass)
             baseTypeStr = baseTypeStr.substr(1);
         }
 
-        argList.push_back(argType(baseTypeStr, getASTNodeTypeFromString(baseTypeStr), pointerLevel));
+        argList.push_back(AsaArgumentVariableValue(baseTypeStr, getASTNodeTypeFromString(baseTypeStr), pointerLevel));
 
         // Look up the print function
         std::string printFnName = "printl";
@@ -3236,7 +3252,7 @@ void* ASTNode::generateThrowCaller(int pass)
             baseTypeStr = baseTypeStr.substr(1);
         }
 
-        argList.push_back(argType(baseTypeStr, getASTNodeTypeFromString(baseTypeStr), pointerLevel));
+        argList.push_back(AsaArgumentVariableValue(baseTypeStr, getASTNodeTypeFromString(baseTypeStr), pointerLevel));
 
         std::string printFnName = "printl";
         AsaFunctionDefinition* printFnID = getFunctionFromID(AsaFunctionDefinitions, printFnName, argList, true, false);
@@ -3991,9 +4007,9 @@ void* ASTNode::generateExpressionStatement(int pass)
                 std::string operatorName = compoundOpName.at(token->tokenType);
                 argumentList argList;
                 std::string lTypeStr = getStringTypeFromLLVMType(currentVal->getType());
-                argList.push_back(argType(lTypeStr, getASTNodeTypeFromString(lTypeStr), 0));
+                argList.push_back(AsaArgumentVariableValue(lTypeStr, getASTNodeTypeFromString(lTypeStr), 0));
                 std::string rTypeStr = getStringTypeFromLLVMType(exprVal->getType());
-                argList.push_back(argType(rTypeStr, getASTNodeTypeFromString(rTypeStr), 0));
+                argList.push_back(AsaArgumentVariableValue(rTypeStr, getASTNodeTypeFromString(rTypeStr), 0));
                 AsaFunctionDefinition* calleeID = getFunctionFromID(AsaFunctionDefinitions, operatorName, argList, true);
                 if (!calleeID || !calleeID->fnValue) {
                     return messageSystem::error("No operator overload '" + operatorName + "' found for compound assignment");
@@ -4679,7 +4695,7 @@ bool ASTNode::checkForOperatorOverload(llvm::Value* L, llvm::Value* R)
         lPointerLevel++;
         lBaseTypeStr = lBaseTypeStr.substr(1);
     }
-    argList.push_back(argType(lBaseTypeStr, getASTNodeTypeFromString(lBaseTypeStr), lPointerLevel));
+    argList.push_back(AsaArgumentVariableValue(lBaseTypeStr, getASTNodeTypeFromString(lBaseTypeStr), lPointerLevel));
 
     std::string rTypeStr = getOperandTypeString(this, 1, R);
     uint8_t rPointerLevel = 0;
@@ -4688,7 +4704,7 @@ bool ASTNode::checkForOperatorOverload(llvm::Value* L, llvm::Value* R)
         rPointerLevel++;
         rBaseTypeStr = rBaseTypeStr.substr(1);
     }
-    argList.push_back(argType(rBaseTypeStr, getASTNodeTypeFromString(rBaseTypeStr), rPointerLevel));
+    argList.push_back(AsaArgumentVariableValue(rBaseTypeStr, getASTNodeTypeFromString(rBaseTypeStr), rPointerLevel));
 
     //printFunctionPrototypes();
 
@@ -4726,7 +4742,7 @@ llvm::Value* ASTNode::generateOperatorOverloadCall(llvm::Value* L, llvm::Value* 
         lPointerLevel++;
         lBaseTypeStr = lBaseTypeStr.substr(1);
     }
-    argList.push_back(argType(lBaseTypeStr, getASTNodeTypeFromString(lBaseTypeStr), lPointerLevel));
+    argList.push_back(AsaArgumentVariableValue(lBaseTypeStr, getASTNodeTypeFromString(lBaseTypeStr), lPointerLevel));
 
     std::string rTypeStr = getOperandTypeString(this, 1, R);
     uint8_t rPointerLevel = 0;
@@ -4735,7 +4751,7 @@ llvm::Value* ASTNode::generateOperatorOverloadCall(llvm::Value* L, llvm::Value* 
         rPointerLevel++;
         rBaseTypeStr = rBaseTypeStr.substr(1);
     }
-    argList.push_back(argType(rBaseTypeStr, getASTNodeTypeFromString(rBaseTypeStr), rPointerLevel));
+    argList.push_back(AsaArgumentVariableValue(rBaseTypeStr, getASTNodeTypeFromString(rBaseTypeStr), rPointerLevel));
 
     AsaFunctionDefinition* calleeID = getFunctionFromID(AsaFunctionDefinitions, operatorName, argList, true);
 
@@ -4899,7 +4915,7 @@ void* ASTNode::generateAccessOperation(int pass)
         std::string opName = "operator." + tokenTypeAsString(Both_Brackets);
         argumentList opArgList;
         std::string lTypeStr = asaType->strVal;
-        opArgList.push_back(argType(lTypeStr, getASTNodeTypeFromString(lTypeStr), 0));
+        opArgList.push_back(AsaArgumentVariableValue(lTypeStr, getASTNodeTypeFromString(lTypeStr), 0));
         std::string rTypeStr = getOperandTypeString(this, 1, R);
         uint8_t rPointerLevel = 0;
         std::string rBaseTypeStr = rTypeStr;
@@ -4907,7 +4923,7 @@ void* ASTNode::generateAccessOperation(int pass)
             rPointerLevel++;
             rBaseTypeStr = rBaseTypeStr.substr(1);
         }
-        opArgList.push_back(argType(rBaseTypeStr, getASTNodeTypeFromString(rBaseTypeStr), rPointerLevel));
+        opArgList.push_back(AsaArgumentVariableValue(rBaseTypeStr, getASTNodeTypeFromString(rBaseTypeStr), rPointerLevel));
 
         AsaFunctionDefinition* opCalleeID = getFunctionFromID(AsaFunctionDefinitions, opName, opArgList, true);
         if (opCalleeID && opCalleeID->fnValue) {
@@ -5295,7 +5311,7 @@ void* ASTNode::generateMemberAccess(int pass)
                     return nullptr;
                 }
                 ArgsV.push_back(argVal);
-                argList.push_back(argType(getStringTypeFromLLVMType(argVal->getType()), getASTNodeTypeFromString(getStringTypeFromLLVMType(argVal->getType())), 0));
+                argList.push_back(AsaArgumentVariableValue(getStringTypeFromLLVMType(argVal->getType()), getASTNodeTypeFromString(getStringTypeFromLLVMType(argVal->getType())), 0));
                 if (!ArgsV.back()) {
                     messageSystem::endBlock();
                     return nullptr;
@@ -5353,7 +5369,7 @@ void* ASTNode::generateMemberAccess(int pass)
             // Add rest of argument values
             for (int i = 0; i < args.size(); i++) {
                 if (CalleeFID->userArguments[i].isReference) {
-                    const argType& fa = CalleeFID->userArguments[i];
+                    const AsaArgumentVariableValue& fa = CalleeFID->userArguments[i];
                     if (args[i]->childNodes.size() != 1 || args[i]->childNodes[0]->nodeType != Identifier_Node) {
                         if (!fa.isConstant) {
                             messageSystem::startBlock(args[i], "Generating reference argument", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
@@ -5592,7 +5608,7 @@ void* ASTNode::generateMemberAccess(int pass)
                     return nullptr;
                 }
                 ArgsV.push_back(argVal);
-                argList.push_back(argType(getStringTypeFromLLVMType(argVal->getType()), getASTNodeTypeFromString(getStringTypeFromLLVMType(argVal->getType())), 0));
+                argList.push_back(AsaArgumentVariableValue(getStringTypeFromLLVMType(argVal->getType()), getASTNodeTypeFromString(getStringTypeFromLLVMType(argVal->getType())), 0));
                 if (!ArgsV.back()) {
                     messageSystem::endBlock();
                     return nullptr;
@@ -5650,7 +5666,7 @@ void* ASTNode::generateMemberAccess(int pass)
             // Add rest of argument values
             for (int i = 0; i < args.size(); i++) {
                 if (CalleeFID->userArguments[i].isReference) {
-                    const argType& fa = CalleeFID->userArguments[i];
+                    const AsaArgumentVariableValue& fa = CalleeFID->userArguments[i];
                     if (args[i]->childNodes.size() != 1 || args[i]->childNodes[0]->nodeType != Identifier_Node) {
                         if (!fa.isConstant) {
                             messageSystem::startBlock(args[i], "Generating reference argument", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
@@ -6356,7 +6372,7 @@ void* ASTNode::generateCallExpression(int pass)
             baseTypeStr = baseTypeStr.substr(1);
         }
 
-        argList.push_back(argType(baseTypeStr, getASTNodeTypeFromString(baseTypeStr), pointerLevel));
+        argList.push_back(AsaArgumentVariableValue(baseTypeStr, getASTNodeTypeFromString(baseTypeStr), pointerLevel));
 
         if (!ArgsV.back())
             return nullptr;
@@ -6557,7 +6573,7 @@ void* ASTNode::generateCallExpression(int pass)
                 pL++;
                 typeStr = typeStr.substr(1);
             }
-            argList.push_back(argType(typeStr, getASTNodeTypeFromString(typeStr), pL));
+            argList.push_back(AsaArgumentVariableValue(typeStr, getASTNodeTypeFromString(typeStr), pL));
         }
     }
 
@@ -6578,7 +6594,7 @@ void* ASTNode::generateCallExpression(int pass)
 
         // For argList matching: Temporarily add sret to argList for validation
         // (This matches how it's stored in AsaFunctionDefinition)
-        argType sretArg("*" + CalleeFID->returnType, Struct_Type, 1, false, true);
+        AsaArgumentVariableValue sretArg("*" + CalleeFID->returnType, Struct_Type, 1, false, true);
         argList.insert(argList.begin(), sretArg);
     }
 
@@ -6624,7 +6640,7 @@ void* ASTNode::generateCallExpression(int pass)
         llvm::Value* argVal = nullptr;
         if (isRef) {
             messageSystem::startBlock(args[i], "Generating reference argument", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
-            const argType& fa = CalleeFID->arguments[formalArgIdx];
+            const AsaArgumentVariableValue& fa = CalleeFID->arguments[formalArgIdx];
 
             if (args[i]->childNodes.size() != 1 || args[i]->childNodes[0]->nodeType != Identifier_Node) {
                 if (!fa.isConstant) {
@@ -6672,7 +6688,7 @@ void* ASTNode::generateCallExpression(int pass)
             argVal = cachedArgVals[i];
         }
         // Implicit string <-> *char conversions at call sites
-        const argType& formal = CalleeFID->arguments[formalArgIdx];
+        const AsaArgumentVariableValue& formal = CalleeFID->arguments[formalArgIdx];
         if (argVal && argVal->getType()->isStructTy() &&
             formal.pointerLevel == 1 &&
             (formal.typeString == "byte" || formal.typeString == "int8")) {
@@ -7122,7 +7138,7 @@ void* ASTNode::generateStruct(int pass)
                 if (defaultValNode != nullptr)
                     memberDefaultNodes[memberName] = defaultValNode;
 
-                members.push_back(argType(memberType, getASTNodeTypeFromString(memberType), pointerLevel, false, false, isConst));
+                members.push_back(AsaArgumentVariableValue(memberType, getASTNodeTypeFromString(memberType), pointerLevel, false, false, isConst));
                 i++;
             }
             // Else it is a member function definition
@@ -7234,7 +7250,7 @@ void* ASTNode::generateStruct(int pass)
                 Function* fn = Function::Create(FT, Function::InternalLinkage, structName, llvmCompileModule.get());
                 fn->addFnAttr(llvm::Attribute::AlwaysInline);
                 fn->getArg(0)->setName("sret");
-                argumentList llvmArgs = {argType("*" + structName, Struct_Type, 1, false, true)};
+                argumentList llvmArgs = {AsaArgumentVariableValue("*" + structName, Struct_Type, 1, false, true)};
                 AsaFunctionDefinitions.push_back(new AsaFunctionDefinition(structName, this, token, structName, structName, llvmArgs, emptyUserArgs, fn, false, false, true));
                 AsaFunctionDefinitions.back()->isReplaceable = true;
             }
@@ -7270,7 +7286,7 @@ void* ASTNode::generateStruct(int pass)
             Function* fn = Function::Create(FT, Function::InternalLinkage, structName, llvmCompileModule.get());
             fn->addFnAttr(llvm::Attribute::AlwaysInline);
             fn->getArg(0)->setName("sret");
-            argumentList llvmArgs = {argType("*" + structName, Struct_Type, 1, false, true)};
+            argumentList llvmArgs = {AsaArgumentVariableValue("*" + structName, Struct_Type, 1, false, true)};
             AsaFunctionDefinitions.push_back(new AsaFunctionDefinition(structName, this, token, structName, structName, llvmArgs, emptyUserArgs, fn, false, false, true));
             AsaFunctionDefinitions.back()->isReplaceable = true;
         }
@@ -8005,7 +8021,7 @@ void* ASTNode::generatePrototype(int pass)
         // For struct returns, add sret parameter as first argument
         argTypes.push_back(PointerType::get(*llvmCompileContext, 0));  // sret parameter (pointer to struct)
         argNames.push_back("sret");
-        //argList.insert(argList.begin(), argType("*" + rTypeString, getASTNodeTypeFromString(rTypeString), 1, false, true));
+        //argList.insert(argList.begin(), AsaArgumentVariableValue("*" + rTypeString, getASTNodeTypeFromString(rTypeString), 1, false, true));
 
         AsaArgumentVariableValue* argTypeInstance = asaReturnTypeInstance->getPointerTo();
         argList.insert(argList.begin(), argTypeInstance);
@@ -8022,7 +8038,7 @@ void* ASTNode::generatePrototype(int pass)
         int pointerLevel = 0;  // References don't count as pointer level
 
         llvm::Type* aType = nullptr;
-        argList.push_back(argType(typeStr, Struct_Type, pointerLevel, isReference, false, false));
+        argList.push_back(AsaArgumentVariableValue(typeStr, Struct_Type, pointerLevel, isReference, false, false));
 
         try {
             bool wasDefined = true;
@@ -8109,7 +8125,7 @@ void* ASTNode::generatePrototype(int pass)
 
 
                 llvm::Type* aType = nullptr;
-                argType arg = argType(typeStr, getASTNodeTypeFromString(typeNode->token->tokenStr), pointerLevel, isReference, mustBeExactType, isConstant);
+                AsaArgumentVariableValue arg = AsaArgumentVariableValue(typeStr, getASTNodeTypeFromString(typeNode->token->tokenStr), pointerLevel, isReference, mustBeExactType, isConstant);
                 if (a->childNodes.size() > 1) {
                     arg.hasDefault = true;
                     arg.defaultNode = a->childNodes[1];
@@ -8308,7 +8324,7 @@ void* ASTNode::generatePrototype(int pass)
 
         if (Idx < (int)argNames.size() - numHidden && Idx < (int)argList.size()) {
             if (argList[Idx].isConstant) {
-                llvm::Type* argType = arg.getType();
+                llvm::Type* AsaArgumentVariableValue = arg.getType();
 
                 // readonly can only be applied to pointer types
                 if (argType->isPointerTy()) {
@@ -8527,7 +8543,7 @@ void* ASTNode::generateFunction(int pass)
 
         // Emit debug info for this parameter so GDB can show argument values
         if (llvmDebugBuilder && !LexicalBlocks.empty()) {
-            std::string argTypeStr = baseType + theFunctionID->arguments[i].typeString;
+            std::string argTypeStr = baseType + theFunctionID->arguments[i]->strVal;
             DIType* DebugType = createDIType(arg.getType(), argTypeStr);
             if (DebugType) {
                 DILocalVariable* D = llvmDebugBuilder->createParameterVariable(
@@ -8654,6 +8670,7 @@ void* ASTNode::generateCompilerGetFlagDirective(int pass)
     if (args.empty())
         return messageSystem::error("#getflag requires a flag name argument", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
 
+    // Get name of the flag
     ASTNode* nameNode = unwrapSingleExpressionNode(args[0]);
     if (!nameNode)
         return messageSystem::error("#getflag requires a flag name argument", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
@@ -8664,6 +8681,7 @@ void* ASTNode::generateCompilerGetFlagDirective(int pass)
     while (nameNode && nameNode->nodeType == Expression_Term && nameNode->childNodes.size() == 1)
         nameNode = nameNode->childNodes[0];
 
+    // Ensure the flag name is properly formed
     if (!nameNode || !nameNode->token ||
         (nameNode->nodeType != Identifier_Node && nameNode->nodeType != String_Node && nameNode->nodeType != String_Constant_Node))
         return messageSystem::error("#getflag flag name must be an identifier or string literal", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
@@ -8672,13 +8690,16 @@ void* ASTNode::generateCompilerGetFlagDirective(int pass)
     if (nameNode->nodeType == String_Node || nameNode->nodeType == String_Constant_Node)
         flagName = decodeQuotedStringToken(nameNode->token);
 
+    // Get the value of the flag
     auto flag = compilerDirectiveFlags.find(flagName);
     bool flagValue = flag != compilerDirectiveFlags.end() && flag->second;
     llvm::Value* result = ConstantInt::get(llvm::Type::getInt1Ty(*llvmCompileContext), flagValue ? 1 : 0);
-    if (!asaType)
-        asaType = new AsaTypeInstance(result->getType());
-    else
-        asaType->baseLLVMType = result->getType();
+
+    asaType = new AsaTypeInstance(getAsaBaseTypeFromName("bool"), false, true, "bool", 0);
+    //if (!asaType)
+    //    asaType = new AsaTypeInstance(result->getType());
+    //else
+    //    asaType->baseLLVMType = result->getType();
 
     messageSystem::endBlock();
     pushCompilerDirectiveCall("getflag", this);
@@ -8806,30 +8827,34 @@ void* ASTNode::generateCompilerStackLastDirective(int pass)
 {
     messageSystem::startBlock(this, "Generating `#stack_last` directive", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
 
-    if (childNodes.size() < 2)
-        return messageSystem::error("#stack_last requires stack name argument", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
+    //if (childNodes.size() < 2)
+    //    return messageSystem::error("#stack_last requires stack name argument", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
 
     std::vector<ASTNode*> args = getCompilerDirectiveArgs(this);
     if (args.empty())
         return messageSystem::error("#stack_last requires stack name argument", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
 
+    // Get the name of the stack
     ASTNode* nameNode = unwrapSingleExpressionNode(args[0]);
     std::string stackName = nameNode->token->tokenStr;
     if (nameNode->nodeType == String_Node || nameNode->nodeType == String_Constant_Node)
         stackName = decodeQuotedStringToken(nameNode->token);
+    // Make sure the stack with that name actually exists and is not empty
     if (!compilerStacks.count(stackName) || compilerStacks[stackName].empty())
         return messageSystem::error("#stack_last used with an empty stack", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
 
+    // Get the node at the top of the specified stack
     ASTNode* stackNode = compilerStacks[stackName].top();
     if (!stackNode || !stackNode->codegen)
         return messageSystem::error("#stack_last found a node without a code generator", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
 
+    // Then perform codegen on that node
     llvm::Value* value = (llvm::Value*)(stackNode->*(stackNode->codegen))(pass);
     if (stackNode->asaType) {
         if (!asaType)
-            asaType = new AsaTypeInstance(stackNode->asaType->baseLLVMType);
-        asaType->baseLLVMType = stackNode->asaType->baseLLVMType;
-        asaType->strVal = stackNode->asaType->strVal;
+            asaType = stackNode->asaType;
+        //asaType->baseLLVMType = stackNode->asaType->baseLLVMType;
+        //asaType->strVal = stackNode->asaType->strVal;
     }
 
     messageSystem::endBlock();
@@ -9188,10 +9213,11 @@ void* ASTNode::generateNameofDirective(int pass)
         name = decodeQuotedStringToken(namedNode->token);
 
     llvm::Value* result = createStringConstantLiteral(name);
-    if (!asaType)
-        asaType = new AsaTypeInstance(result->getType());
-    else
-        asaType->baseLLVMType = result->getType();
+    this->asaType = new AsaTypeInstance(getAsaBaseTypeFromName("string"), false, true, "string", 0);
+    //if (!asaType)
+    //    asaType = new AsaTypeInstance(result->getType());
+    //else
+    //    asaType->baseLLVMType = result->getType();
 
     pushCompilerDirectiveCall("nameof", this);
     return result;
@@ -9200,6 +9226,9 @@ void* ASTNode::generateNameofDirective(int pass)
 // #typeof(expr) - returns the Asa type name of expr as a string.
 // For identifiers, looks up namedValues to avoid emitting any IR.
 // For other expressions, generates the expression and reads the LLVM type.
+//
+// TODO: In the future, I may make `#typeof` return an actual type descriptor or similar, and
+//       use `#typename` to do what this currently does
 void* ASTNode::generateTypeofDirective(int pass)
 {
     if (pass == 0)
@@ -9212,15 +9241,17 @@ void* ASTNode::generateTypeofDirective(int pass)
     if (args.empty())
         return messageSystem::error("#typeof requires a type or variable argument", messageSystem::Invalid_Compiler_Directive_Arguments_Error);
 
+    // Get the expression that we are getting the type of: `#sizeof(<this>)`
     ASTNode* argExpr = unwrapSingleExpressionNode(args[0]);
     std::string typeStr;
 
-    // Fast path: identifier - look up in namedValues, no IR emitted
+    // If this is an identifier, check if it is a variable name
     if (argExpr->nodeType == Identifier_Node) {
         AsaVariableValue* val = findNamedValue(parentNode, this, argExpr->token->tokenStr, token);
         if (val) {
             typeStr = val->asaTypeInstance->strVal;
         }
+        // If it is not a variable name, then check if it is a type name:
         else {
             std::string maybeTypeName = argExpr->token->tokenStr;
             bool wasDefined = true;
@@ -9236,17 +9267,21 @@ void* ASTNode::generateTypeofDirective(int pass)
         llvm::Value* val = (llvm::Value*)(argExpr->*(argExpr->codegen))(pass);
         if (!val || wasError)
             return nullptr;
-        if (argExpr->asaType && argExpr->asaType->baseLLVMType)
-            typeStr = getStringTypeFromLLVMType(argExpr->asaType->baseLLVMType);
-        else
-            typeStr = getStringTypeFromLLVMType(val->getType());
+        // TODO: implement
+
+        //typeStr = argExpr->strVal;
+        //if (argExpr->asaType && argExpr->asaType->baseLLVMType)
+        //    typeStr = getStringTypeFromLLVMType(argExpr->asaType->baseLLVMType);
+        //else
+        //    typeStr = getStringTypeFromLLVMType(val->getType());
     }
 
     llvm::Value* result = createStringConstantLiteral(typeStr);
-    if (!asaType)
-        asaType = new AsaTypeInstance(result->getType());
-    else
-        asaType->baseLLVMType = result->getType();
+    //if (!asaType)
+    asaType = new AsaTypeInstance(getAsaBaseTypeFromName("string"), false, true, "string", 0);
+    ////asaType = new AsaTypeInstance(result->getType());
+    //else
+    //    asaType->baseLLVMType = result->getType();
 
     pushCompilerDirectiveCall("typeof", this);
     return result;
@@ -9336,10 +9371,11 @@ void* ASTNode::generateSizeofDirective(int pass)
     const DataLayout& DL = llvmCompileModule->getDataLayout();
     uint64_t size = DL.getTypeAllocSize(llvmType);
     llvm::Value* sizeVal = ConstantInt::get(llvm::Type::getInt64Ty(*llvmCompileContext), size);
-    if (!asaType)
-        asaType = new AsaTypeInstance(sizeVal->getType());
-    else
-        asaType->baseLLVMType = sizeVal->getType();
+    asaType = new AsaTypeInstance(getAsaBaseTypeFromName("int64"), false, true, "int64", 0);
+    //if (!asaType)
+    //    asaType = new AsaTypeInstance(sizeVal->getType());
+    //else
+    //    asaType->baseLLVMType = sizeVal->getType();
 
     messageSystem::endBlock();
     messageSystem::endBlock();
@@ -9376,10 +9412,11 @@ void* ASTNode::generateCompilesDirective(int pass)
     checkUnimplementedDirectives(argNode);
     if (hasUnimplementedDirective) {
         llvm::Value* result = ConstantInt::get(llvm::Type::getInt1Ty(*llvmCompileContext), 0);
-        if (!asaType)
-            asaType = new AsaTypeInstance(result->getType());
-        else
-            asaType->baseLLVMType = result->getType();
+        asaType = new AsaTypeInstance(getAsaBaseTypeFromName("bool"), false, true, "bool", 0);
+        //if (!asaType)
+        //    asaType = new AsaTypeInstance(result->getType());
+        //else
+        //    asaType->baseLLVMType = result->getType();
         messageSystem::endBlock();
         pushCompilerDirectiveCall("compiles", this);
         return result;
@@ -9419,10 +9456,11 @@ void* ASTNode::generateCompilesDirective(int pass)
         llvmIRBuilder->SetInsertPoint(savedInsertBlock, savedInsertPoint);
 
     llvm::Value* result = ConstantInt::get(llvm::Type::getInt1Ty(*llvmCompileContext), compiled ? 1 : 0);
-    if (!asaType)
-        asaType = new AsaTypeInstance(result->getType());
-    else
-        asaType->baseLLVMType = result->getType();
+    asaType = new AsaTypeInstance(getAsaBaseTypeFromName("bool"), false, true, "bool", 0);
+    //if (!asaType)
+    //    asaType = new AsaTypeInstance(result->getType());
+    //else
+    //    asaType->baseLLVMType = result->getType();
 
     messageSystem::endBlock();
     pushCompilerDirectiveCall("compiles", this);

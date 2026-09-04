@@ -41,6 +41,7 @@ void CreateBuiltinAsaBaseTypes();
 extern std::unordered_map<std::string, std::string> typeAliasMap;
 std::string resolveTypeAlias(const std::string& name, int depth = 0);
 void registerTypeAlias(const std::string& aliasName, const std::string& targetName);
+void setSignedTypeUnsignedVersion(std::string s, std::string u);
 bool areTypesEquivalent(const std::string& type1, const std::string& type2);
 extern std::vector<std::string> linkedLibraries;
 extern std::vector<std::string> linkedStaticLibraries;
