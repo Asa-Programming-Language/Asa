@@ -11,7 +11,7 @@
 
 struct ASTNode;
 struct argType;
-typedef std::vector<argType> argumentList;
+typedef std::vector<AsaArgumentVariableValue*> argumentList;
 struct AsaFunctionDefinition;
 
 

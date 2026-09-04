@@ -780,9 +780,9 @@ void runErrorTests()
                     if (allTokens[j]->tokenType != EndOfLine) {
                         console::write(std::to_string(j) + "T:" + std::to_string(allTokens[j]->lineNumber) + "L: ", console::yellowFGColor);
                         if (allTokens[j]->lineValue != nullptr)
-                            printf("[%s]\t[%s]\t[%s]\n", allTokens[j]->tokenStr.c_str(), tokenAsString(allTokens[j]->tokenType).c_str(), allTokens[j]->lineValue->c_str());
+                            printf("[%s]\t[%s]\t[%s]\n", allTokens[j]->tokenStr.c_str(), tokenTypeAsString(allTokens[j]->tokenType).c_str(), allTokens[j]->lineValue->c_str());
                         else
-                            printf("[%s]\t[%s]\t[nullptr]\n", allTokens[j]->tokenStr.c_str(), tokenAsString(allTokens[j]->tokenType).c_str());
+                            printf("[%s]\t[%s]\t[nullptr]\n", allTokens[j]->tokenStr.c_str(), tokenTypeAsString(allTokens[j]->tokenType).c_str());
                     }
                 }
             }

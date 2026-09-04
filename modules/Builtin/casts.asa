@@ -9,6 +9,8 @@ Casts :: module {
         #set_attribute(Casts, "hideast", false);
     });
 
+    // TODO: In the future, this should probably be a meta-programmming implementing using a `#for` loop. But it will likely never change, so maybe not...
+
     @public:
     @inline:
     {

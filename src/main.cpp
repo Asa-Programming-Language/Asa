@@ -36,30 +36,29 @@ int main(int argc, char** argv)
             {"version", no_argument, 0, 'V'},
             {"printast", no_argument, 0, 'a'},
             {"time", no_argument, 0, 'T'},
-            {0, 0, 0, 0}
-        };
+            {0, 0, 0, 0}};
 
         c = getopt_long(argc, argv, "cCvqsdDtrVaw:f:o:O:T0", long_options, &option_index);
         if (c == -1)
             break;
 
         switch (c) {
-            case 0:{
+            case 0: {
                 break;
             }
 
-            case '0':{
+            case '0': {
                 break;
             }
 
             // Implied argument, "--compile"
-            case 'c':{
+            case 'c': {
                 break;
             }
 
             // Pass arguments as a string directly to clang:
             // -C,--clangoptions "<options>"
-            case 'C':{
+            case 'C': {
                 // TODO: Add error handling here:
                 clangOptions = std::string(optarg);
                 break;
@@ -68,21 +67,21 @@ int main(int argc, char** argv)
             // Increase verbosity by a single level. Each additional instance of this option
             // increases verbosity by another level:
             // -v,--verbose
-            case 'v':{
+            case 'v': {
                 verbosity += 1;
                 break;
             }
 
             // Silent mode, sets verbosity to 0. Will not print anything to the console, except for catastrophic failure (unhandled exception).
             // -s,--silent
-            case 's':{
+            case 's': {
                 verbosity = 0;
                 break;
             }
 
             // Quiet mode, sets verbosity to 1. Will avoid printing anything other than errors and warnings.
             // -q,--quiet
-            case 'q':{
+            case 'q': {
                 verbosity = 1;
                 break;
             }
@@ -110,7 +109,7 @@ int main(int argc, char** argv)
             // For example, by default, running `asa main.asa` will produce a binary at `build/main`
             // You can change that by passing `-o`: `asa main.asa -o myexecutable`. Would make: `build/myexecutable`
             // -o,--output <name>
-            case 'o':{
+            case 'o': {
                 //TODO: Add error handling here:
                 outputFileName = std::filesystem::weakly_canonical(std::filesystem::path(std::string(optarg))).string();
                 break;
@@ -142,7 +141,7 @@ int main(int argc, char** argv)
             // DEVONLY:
             // Run the builtin compiler AST tests.
             // -t,--runtests
-            case 't':{
+            case 't': {
                 console::resetColors();
                 if (verbosity >= 2)
                     std::cout << COMPILER_PRINTOUT << std::endl
@@ -155,7 +154,7 @@ int main(int argc, char** argv)
             // Enables the compiler debug flag. Useful for Asa compiler developers to test language functionality or the standard library
             // -d,--compilerdebug
             // (Alias for `-f compilerdebug` or `-f compiler_debug`)
-            case 'd':{
+            case 'd': {
                 compilerFlags |= Flags_CompilerDebug;
                 commandLineCompilerDirectiveFlags["compilerdebug"] = true;
                 commandLineCompilerDirectiveFlags["COMPILERDEBUG"] = true;
@@ -166,14 +165,14 @@ int main(int argc, char** argv)
 
             // Enables debug mode for the compilation process
             // -D,--debug
-            case 'D':{
+            case 'D': {
                 compilerFlags |= Flags_Debug;
                 break;
             }
 
             // Rather than compile to a binary executable, run the code directly.
             // -r,--run
-            case 'r':{
+            case 'r': {
                 compilerFlags |= Flags_Run;
                 break;
             }
@@ -202,20 +201,20 @@ int main(int argc, char** argv)
 
             // Print the AST and exit, without producing any binary.
             // -a,--printast
-            case 'a':{
+            case 'a': {
                 compilerFlags |= Flags_PrintAST;
                 break;
             }
 
             // Enables timing the compilation process. Useful to benchmark the compiler
             // -T,--time
-            case 'T':{
+            case 'T': {
                 compilerFlags |= Flags_Time;
                 break;
             }
 
             // Prints the Asa compiler name and version, then immediately exits.
-            case 'V':{
+            case 'V': {
                 if (verbosity >= 2)
                     std::cout << COMPILER_PRINTOUT << std::endl
                               << std::endl;
@@ -223,12 +222,12 @@ int main(int argc, char** argv)
                 exit(0);
             }
 
-            case '?':{
+            case '?': {
                 console::resetColors();
                 exit(1);
             }
 
-            default:{
+            default: {
                 break;
             }
         }
@@ -308,7 +307,7 @@ int main(int argc, char** argv)
             if (allTokens[i]->tokenType != EndOfLine) {
                 console::write(std::to_string(i) + "T:" + std::to_string(allTokens[i]->lineNumber) + "L: ", console::yellowFGColor);
                 if (allTokens[i]->lineValue != nullptr)
-                    printf("[%s]\t[%s]\t[%s]\n", allTokens[i]->tokenStr.c_str(), tokenAsString(allTokens[i]->tokenType).c_str(), allTokens[i]->lineValue->c_str());
+                    printf("[%s]\t[%s]\t[%s]\n", allTokens[i]->tokenStr.c_str(), tokenTypeAsString(allTokens[i]->tokenType).c_str(), allTokens[i]->lineValue->c_str());
             }
         }
     }
@@ -318,7 +317,7 @@ int main(int argc, char** argv)
         console::writeLine("\n\nGenerating AST...", console::greenFGColor);
     rootNode = generateAST(allTokens);
 
-    #define A new ASTNode
+#define A new ASTNode
 
     // Insert `#import Builtin.Aliases;` at beginning of AST
     rootNode->childNodes.insert(rootNode->childNodes.begin(),

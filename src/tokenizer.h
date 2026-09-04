@@ -315,5 +315,5 @@ int tokenize(std::string& rawFile, std::vector<asaToken*>& tokens, std::string& 
 int labelSubTokens(std::vector<asaToken*>& tokens);
 int joinCommentTokens(std::vector<asaToken*>& tokens);
 int removeCommentTokens(std::vector<asaToken*>& tokens);
-const std::string tokenAsString(TokenType t);
+const std::string tokenTypeAsString(TokenType t);
 std::string decodeQuotedStringToken(asaToken* token);

@@ -1,25 +1,30 @@
-
-#import Builtin.*;
-
-#import Builtin.List;
-
-#import Dev.Builtin.Versioning;
-
+//#import Builtin.Casts;
+//#import Builtin.*;
+//
+//#import Builtin.List;
+//
+////#import Dev.Builtin.Versioning;
+//
 CSV :: struct{
-    columns : list<string> = list<string>();
-    rowData : list<string> = list<string>();
+    //columns : list<string> = list<string>();
+    //rowData : list<string> = list<string>();
 
-    load :: bool(path : const string){
-        f : File = File(path, "r");
+    //load :: bool(path : const string){
+    //    f : File = File(path, "r");
 
-        if(f.isOpen){
-            printl(f"File path: {f.path}");
-        }
-    }
+    //    if(f.isOpen){
+    //        printl(f"File path: {f.path}");
+    //    }
+    //}
+}
+cast:: bool(x : const bool)   { return #cast(x, bool); }
+
+operator(+) :: int(l : int, c : CSV){
+    return 0;
 }
 
 main :: (){
-    c : CSV = CSV("sample.csv");
+    //c : CSV = CSV("sample.csv");
 }
 
 

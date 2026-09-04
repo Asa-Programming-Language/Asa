@@ -6,6 +6,72 @@ static bool canInheritAttribute(ASTNode* node, ASTNode* attr);
 static void inheritAttributeIfCompatible(ASTNode* node, ASTNode* attr);
 static bool tryConsumeVariantParams(const std::vector<asaToken*>& tokens, int& i, std::vector<std::vector<asaToken*>>& groups);
 
+// Returns the AsaTypeInstance that this type would be if it were dereferenced explicitly,
+// like:
+//     ```asa
+//     x : *int = <...>;  // Has type `*int`
+//     *x;                // Has type `int`
+//     ```
+AsaTypeInstance* AsaTypeInstance::dereference(ASTNode*& dereferenceNode)
+{
+    messageSystem::startBlock(dereferenceNode, "Dereferencing type", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
+
+    // New type should be a copy of this one
+    AsaTypeInstance* newType = new AsaTypeInstance(this);
+
+    if (typeModifiers.empty()) {
+        return (AsaTypeInstance*)messageSystem::error("Attempting to dereference a value which is not a pointer");
+    }
+
+    // Remove the first available pointer modifier
+    for (int i = 0; i < newType->typeModifiers.size(); i++) {
+        // If this is the first pointer modifier:
+        if (newType->typeModifiers[i] == Pointer_Node) {
+            // Remove it from the modifiers vector:
+            newType->typeModifiers.erase(newType->typeModifiers.begin() + i);
+
+            // Then decrement the pointerLevel:
+            newType->pointerLevel--;
+
+            // TODO:
+            // Then recalculate the llvmType
+
+            // Finally, return the new type:
+            messageSystem::endBlock();
+            return std::move(newType);
+        }
+    }
+
+    // If no pointer modifier existed on the type, then error
+    return (AsaTypeInstance*)messageSystem::error("Expected pointer modifier on type, but none were found.");
+}
+// Returns the AsaTypeInstance that this type would be if it had the address-of operation applied explicitly,
+// like:
+//     ```asa
+//     x : *int = <...>;  // Has type `*int`
+//     &x;                // Has type `**int`
+//     ```
+AsaTypeInstance* AsaTypeInstance::getPointerTo(ASTNode*& addressOfNode)
+{
+    messageSystem::startBlock(addressOfNode, "Getting pointer to type", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
+
+    // New type should be a copy of this one
+    AsaTypeInstance* newType = new AsaTypeInstance(this);
+
+    // Insert the pointer modifier at the beginning, then re-sort
+    newType->typeModifiers.insert(newType->typeModifiers.begin(), Pointer_Node);
+    newType->normalizeModifiers();
+
+    // Then increment the pointerLevel:
+    newType->pointerLevel++;
+
+    // TODO:
+    // Then recalculate the llvmType:
+
+    messageSystem::endBlock();
+    return newType;
+}
+
 // Returns true if an expression is allowed to continue past a newline, based
 // on the last collected token (trailing operator) or the next token (leading
 // operator on the next line).
@@ -650,7 +716,7 @@ bool GATHER_TO_A_OR_B(const std::vector<asaToken*>& tokens, std::vector<asaToken
     i--;
     for (;;) {
         if (i >= tokens.size() - 1) {
-            printTokenError(tokenRange {firstToken, firstToken}, "End of file reached before expected " + tokenAsString(a) + " or " + tokenAsString(b));
+            printTokenError(tokenRange {firstToken, firstToken}, "End of file reached before expected " + tokenTypeAsString(a) + " or " + tokenTypeAsString(b));
             exit(1);
             break;
         }
@@ -688,7 +754,7 @@ bool GATHER_TO_TOKEN(const std::vector<asaToken*>& tokens, std::vector<asaToken*
     for (;;) {
         if (i >= tokens.size() - 1) {
             if (!allowRunOut) {
-                printTokenError(tokenRange {firstToken, firstToken}, "End of file reached before expected " + tokenAsString(a));
+                printTokenError(tokenRange {firstToken, firstToken}, "End of file reached before expected " + tokenTypeAsString(a));
                 exit(1);
             }
             break;
@@ -1199,6 +1265,16 @@ AsaTypeInstance* CreateAsaTypeInstanceFromASTNode(ASTNode*& node)
             asaTypeInstance->pointerLevel++;
         }
     }
+
+    return std::move(asaTypeInstance);
+}
+AsaTypeInstance* CreateVoidAsaTypeInstance()
+{
+    AsaTypeInstance* asaTypeInstance = new AsaTypeInstance;
+
+    std::string typeName = "void";
+
+    asaTypeInstance->baseType = asaBaseTypes[typeName];
 
     return std::move(asaTypeInstance);
 }
@@ -2918,7 +2994,7 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
 
                 if (t->tokenType == Left_Bracket && i + 1 < (int)tokens.size() && tokens[i + 1]->tokenType == Right_Bracket) {
                     asaToken* syntheticBothBrackets = new asaToken(*t);
-                    syntheticBothBrackets->tokenStr = tokenAsString(Both_Brackets);
+                    syntheticBothBrackets->tokenStr = tokenTypeAsString(Both_Brackets);
                     syntheticBothBrackets->tokenType = Both_Brackets;
                     t = syntheticBothBrackets;
                     i++;
@@ -3269,7 +3345,7 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
             }
 
             default: {
-                printTokenError(tokenRange {token, token}, "No parser handling for token type: \"" + tokenAsString(tokenType) + "\"");
+                printTokenError(tokenRange {token, token}, "No parser handling for token type: \"" + tokenTypeAsString(tokenType) + "\"");
                 wasError = true;
                 return nullptr;
             }

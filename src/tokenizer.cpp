@@ -1,4 +1,5 @@
 #include "tokenizer.h"
+
 #include "strops.h"
 
 std::vector<asaToken*> allTokens = std::vector<asaToken*>();
@@ -185,7 +186,7 @@ std::map<const std::string, const TokenType> subTokenTypes = {
     {"false", False_Literal},
 };
 
-const std::string tokenAsString(TokenType t)
+const std::string tokenTypeAsString(TokenType t)
 {
     if (t < LastTokenType)
         return tokenTypeStrings[t];

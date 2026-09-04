@@ -1,6 +1,8 @@
 
 # Todo:
 
+- [ ] ***`Rebuild the type system from the ground up`***
+
 - [ ] Implement `#defined()` compiler directive
 
 - [ ] Add `breakif` and `continueif` statements

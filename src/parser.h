@@ -2,6 +2,7 @@
 
 #include "codegen.h"
 #include "filemanager.h"
+#include "messagehandler.h"
 #include "pch.h"
 #include "settings.h"
 #include "strops.h"
@@ -293,7 +294,7 @@ struct ASTNode;
 struct AsaBaseType;
 struct AsaTypeInstance;
 
-struct ASAValue {
+struct AsaVariableValue {
     std::string name;
     // TODO: Replace `typeString` usage with `asaTypeInstance->strVal`
     //std::string typeString;
@@ -307,8 +308,13 @@ struct ASAValue {
     llvm::Value* llvmValue;
     ASTNode* declNode = nullptr;
     ASTNode* initialValueNode = nullptr;  // compile-time constant initializer, for `initial`
-    ASAValue(std::string n, AsaTypeInstance* asaTypeInstance, llvm::Value* llvmValue, bool arg = false, bool ref = false)
+    AsaVariableValue(std::string n, AsaTypeInstance* asaTypeInstance, llvm::Value* llvmValue, bool arg = false, bool ref = false)
         : name(n), asaTypeInstance(asaTypeInstance), llvmValue(llvmValue), isFunctionArgument(arg), isReference(ref) {};
+};
+// An Asa value for function arguments
+struct AsaArgumentVariableValue : AsaVariableValue {
+    // True if the function arg has a default value, like: `foo :: (x : int = 5){}`
+    bool hasDefaultValue = false;
 };
 
 // Struct defining a data type in Asa
@@ -316,13 +322,33 @@ struct AsaBaseType {
     std::string typeName = "";
     Type* baseLLVMType = nullptr;
     bool isDefined = false;
+
     bool isSigned = false;
+    // If this is a signed type, then also store a pointer to the unsigned version
+    AsaBaseType* unsignedVersion = nullptr;
+
     bool isStruct = false;
 
-    AsaBaseType(std::string name, llvm::Type* baseLLVMType, bool isSigned = false, bool isStruct = false)
-        : typeName(name), baseLLVMType(baseLLVMType), isSigned(isSigned), isStruct(isStruct), isDefined(true) {};
-    AsaBaseType(std::string name, bool isSigned = false, bool isStruct = false)
-        : typeName(name), isSigned(isSigned), isStruct(isStruct), isDefined(false) {};
+    ASTNodeType astNodeType = Struct_Type;
+
+    AsaBaseType(std::string name, ASTNodeType astNodeType, llvm::Type* baseLLVMType, bool isSigned = false, bool isStruct = false)
+        : typeName(name), astNodeType(astNodeType), baseLLVMType(baseLLVMType), isSigned(isSigned), isStruct(isStruct), isDefined(true) {};
+    AsaBaseType(std::string name, ASTNodeType astNodeType, bool isSigned = false, bool isStruct = false)
+        : typeName(name), astNodeType(astNodeType), isSigned(isSigned), isStruct(isStruct), isDefined(false) {};
+
+    // For base types that are signed, return the unsigned version.
+    AsaBaseType* getUnsigned()
+    {
+        // If it is signed, ensure the unsignedVersion variable is set
+        if (this->isSigned) {
+            if (!unsignedVersion)
+                return messageSystem::error("Signed variable was expected to have an unsigned version, none found.");
+            return unsignedVersion;
+        }
+        // If it isnt signed to begin with, just return this
+        else
+            return this;
+    }
 };
 //struct AsaBaseStruct : AsaBaseType {
 //    std::vector<AsaTypeInstance*> memberTypes = {};
@@ -335,6 +361,7 @@ AsaBaseType* CreateNewAsaType(std::string name, llvm::Type* (*baseLLVMTypeFn)(),
 AsaBaseType* CreateNewAsaType(std::string name, llvm::Type* baseLLVMType, bool isSigned);
 AsaBaseType* CreateNewAsaType(std::string name);
 AsaTypeInstance* CreateAsaTypeInstanceFromASTNode(ASTNode*& node);
+AsaTypeInstance* CreateVoidAsaTypeInstance();
 
 ASTNode* ExtractTypeModifiersFromType(ASTNode* node, std::vector<ASTNodeType>& modifiers);
 
@@ -345,8 +372,6 @@ struct AsaTypeInstance {
     AsaBaseType* baseType = nullptr;
     // The LLVM Type object, after type modifiers are applied
     llvm::Type* llvmType = nullptr;
-    // Unused:
-    Type* baseLLVMType = nullptr;
 
     bool inferredType = false;
     std::string strVal = "";
@@ -357,19 +382,185 @@ struct AsaTypeInstance {
     bool isRef = false;
     bool isConst = false;
 
-    AsaTypeInstance(Type* baseType, bool isRef, bool isConst, std::string strVal, uint8_t pointerLevel)
-        : baseLLVMType(baseType), isRef(isRef), isConst(isConst), strVal(strVal), pointerLevel(pointerLevel) {};
-    AsaTypeInstance(Type* baseType)
-        : baseLLVMType(baseType) {};
+    //AsaTypeInstance(Type* baseType, bool isRef, bool isConst, std::string strVal, uint8_t pointerLevel)
+    //    : baseLLVMType(baseType), isRef(isRef), isConst(isConst), strVal(strVal), pointerLevel(pointerLevel) {};
+    //AsaTypeInstance(Type* baseType)
+    //    : baseLLVMType(baseType) {};
 
-    //AsaTypeInstance(AsaBaseType* baseType, bool isRef, bool isConst, std::string strVal, uint8_t pointerLevel)
-    //    : baseType(baseType), isRef(isRef), isConst(isConst), strVal(strVal), pointerLevel(pointerLevel) {};
+    AsaTypeInstance(AsaBaseType* baseType, bool isRef, bool isConst, std::string strVal, uint8_t pointerLevel)
+        : baseType(baseType), isRef(isRef), isConst(isConst), strVal(strVal), pointerLevel(pointerLevel) {};
     //AsaTypeInstance(AsaBaseType* baseType)
     //    : baseType(baseType) {};
     //AsaTypeInstance(llvm::Type* llvmType){
     //};
     AsaTypeInstance() {};
+
+    // Constructor to copy the values from one AsaTypeInstance to another
+    AsaTypeInstance(AsaTypeInstance* other)
+        : baseType(other->baseType),
+          llvmType(other->llvmType),
+          inferredType(other->inferredType),
+          strVal(other->strVal),
+          typeModifiers(other->typeModifiers),
+          pointerLevel(other->pointerLevel),
+          isRef(other->isRef),
+          isConst(other->isConst) {};
+
+    AsaTypeInstance* dereference(ASTNode*& dereferenceNode);
+    AsaTypeInstance* getPointerTo(ASTNode*& addressOfNode);
+
+    bool hasModifier(ASTNodeType modifierType)
+    {
+        for (int i = 0; i < this->typeModifiers.size(); i++) {
+            ASTNodeType m = this->typeModifiers[i];
+            // If this modifier is the one we are checking:
+            if (m == modifierType) {
+                switch (m) {
+                    // `exact` applies to the entire type, regardless of order
+                    case Exact_Type_Node:
+                        return true;
+                    // `const` only applies to everything after it. So for it to
+                    // be `true`, it must be at index 0
+                    case Const_Keyword:
+                        return i == 0;
+                    // `ref` applies to the entire type, regardless of order  TODO: Should this be liek this?
+                    case Reference_Operation:
+                        return true;
+                    // `*` pointer applies to everything after it. But it can be
+                    // true even if another modifier precedes it
+                    case Pointer_Node:
+                        return true;
+
+                    default:
+                        break;
+                }
+            }
+        }
+        return false;
+    }
+
+    // Reorders type modifiers to be in the same order as equivalent modifier patterns and respect effects.
+    // For example, the type: `* const * int` is not the same thing as `const **int`.
+    // But, the type `* ref int` is the same thing as `ref * int`
+    // So this function pushes all of the global modifiers to the front, and leaves the ordering of the others the same.
+    //
+    // TODO: This function does not verify that multiple global modifiers are not applied, like `ref * const ref int`
+    //       That makes it so that until a check is implemented, `ref ref * const int` is the same as `ref * const int`
+    void normalizeModifiers()
+    {
+        std::vector<ASTNodeType> normalized = this->typeModifiers;
+        int globalModifierCount = 0;
+
+        for (int i = 0; i < this->typeModifiers.size(); i++) {
+            ASTNodeType m = this->typeModifiers[i];
+            switch (m) {
+                // `exact` is global
+                case Exact_Type_Node:
+                // `ref` is global
+                case Reference_Operation: {
+                    // Remove the modifer from the normalized vector:
+                    normalized.erase(normalized.begin() + i);
+                    // Add it back at the beginning
+                    normalized.insert(normalized.begin(), m);
+                    // Increment global modifier count to know how many to sort
+                    globalModifierCount++;
+                }
+                // All other type modifiers, like `const` and `*` depend on ordering
+                default:
+                    break;
+            }
+        }
+
+        // Now sort the beginning of the `normalized` vector, but only the global modifiers
+        std::partial_sort(normalized.begin(), normalized.begin() + globalModifierCount, normalized.begin() + globalModifierCount);
+
+        // Now swap old `typeModifiers` with the normalized one
+        this->typeModifiers = normalized;
+    }
+
+    // Function to get the mangled string name of the AsaTypeInstance.
+    // For example, the type: `* const ref * exact int`
+    //     First, the modifiers get sorted: `ref exact * const * int`
+    //     Then, it gets converted into a string: `ref.exact.ptr.const.ptr.int`
+    std::string getMangledName()
+    {
+        std::string mangledString = "";
+
+        // First normalize the modifier order
+        // TODO: Maybe put this in the constructor so it is only called once
+        this->normalizeModifiers();
+
+        // Next, add type modifiers to the mangled string, like: `ref.ptr.const.ptr.`
+        for (int i = 0; i < this->typeModifiers.size(); i++) {
+            ASTNodeType m = this->typeModifiers[i];
+            switch (m) {
+                case Exact_Type_Node:
+                    mangledString += "exact.";  // TODO: Should this be included in the mangled type name?
+                    break;
+
+                case Const_Keyword:
+                    mangledString += "const.";
+                    break;
+
+                case Reference_Operation:
+                    mangledString += "ref.";
+                    break;
+
+                case Pointer_Node:
+                    mangledString += "ptr.";
+                    break;
+
+                default:
+                    break;
+            }
+        }
+
+        // Then add the base type name, like: `ref.ptr.const.ptr.int`
+        mangledString += this->baseType->typeName;
+
+        return mangledString;
+    }
 };
+
+//// Compare if two Asa base types are equivalent by value
+//bool operator==(const AsaBaseType& l, const AsaBaseType& r)
+//{
+//    // TODO: Not sure if just comparing the llvm type is enough to know equivalence
+//    if (l.baseLLVMType != r.baseLLVMType)
+//        return false;
+//    return true;
+//}
+
+// Compare two AsaBaseTypes for equivalency. If one or both of them were inferred from an LLVM type,
+// then one or both of them may be signed, and in that case signs should be ignored
+bool baseTypesEqual(const AsaBaseType*& l, const AsaBaseType*& r, bool inferredType = false)
+{
+    // AsaBaseTypes are unique, so we can just compare their pointers directly, rather than their values:
+
+    // If not inferred, just check for equivalency normally:
+    if (!inferredType) {
+        return l == r;
+    }
+    // Otherwise, compare them without signs:
+    else {
+        return l->getUnsigned() == r->getUnsigned();
+    }
+}
+
+// comparision operator to compare if two type instances have an exactly equivalent value
+bool operator==(const AsaTypeInstance& l, const AsaTypeInstance& r)
+{
+    // TODO: Update this to only compare the components of the struct that matter
+
+    if (!baseTypesEqual(l.baseType, r.baseType, l.inferredType || r.inferredType))
+        return false;
+    if (l.typeModifiers != r.typeModifiers)
+        return false;
+    if (l.pointerLevel != r.pointerLevel)
+        return false;
+
+    return true;
+}
 
 struct ASTNode {
     ASTNode* parentNode = nullptr;
@@ -408,7 +599,7 @@ struct ASTNode {
 
     std::unordered_map<std::string, ASTNode*> interpreterScopeValues = std::unordered_map<std::string, ASTNode*>();
 
-    std::map<std::string, ASAValue*> namedValues = std::map<std::string, ASAValue*>();
+    std::map<std::string, AsaVariableValue*> namedValues = std::map<std::string, AsaVariableValue*>();
     std::map<std::string, ASTNode*> compilerDefinitions = std::map<std::string, ASTNode*>();
 
     bool compareTokens = false;
