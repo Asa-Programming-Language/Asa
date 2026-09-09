@@ -201,7 +201,7 @@ static ASTNode* cloneDirectiveBodyNode(ASTNode* src, ASTNode* parentNode = nullp
     copy->externSymbolName = src->externSymbolName;
 
     if (src->asaType)
-        copy->asaType = std::move(src->asaType);
+        copy->asaType = src->asaType;
     //copy->asaType = new AsaTypeInstance(src->asaType->baseLLVMType, src->asaType->isRef, src->asaType->isConst, src->asaType->strVal, src->asaType->pointerLevel);
 
     copy->docComment = cloneDirectiveBodyNode(src->docComment, copy);

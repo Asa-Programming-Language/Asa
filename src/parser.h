@@ -308,18 +308,33 @@ struct AsaVariableValue {
     llvm::Value* llvmValue;
     ASTNode* declNode = nullptr;
     ASTNode* initialValueNode = nullptr;  // compile-time constant initializer, for `initial`
-    AsaVariableValue(std::string n, AsaTypeInstance* asaTypeInstance, llvm::Value* llvmValue, bool arg = false, bool ref = false)
-        : name(n), asaTypeInstance(asaTypeInstance), llvmValue(llvmValue), isFunctionArgument(arg), isReference(ref) {};
+    AsaVariableValue(std::string name, AsaTypeInstance* asaTypeInstance, llvm::Value* llvmValue, bool isFunctionArgument = false, bool isReference = false)
+        : name(name),
+          asaTypeInstance(asaTypeInstance),
+          llvmValue(llvmValue),
+          isFunctionArgument(isFunctionArgument),
+          isReference(isReference) {};
 };
 // An Asa value for function arguments
 struct AsaArgumentVariableValue : AsaVariableValue {
-    // True if the function arg has a default value, like: `foo :: (x : int = 5){}`
-    bool hasDefaultValue = false;
+    // Value for if the function arg has a default value, like: `foo :: (x : int = 5){}`
+    // The default value stored as an ASTNode:
+    ASTNode* defaultValueNode = nullptr;  // Expression_Term node (already resolved at definition site)
+    // TODO: Is this the best way to do it?
+    std::vector<asaToken*> defaultRawTokens;  // raw tokens for re-parsing at call site
+
+    // TODO: Update this to allow for many ABI formats
+    // Extern ABI coercion: how to split this struct arg for the x86-64 SysV ABI
+    int8_t externCoercionCount = 0;      // 0=none, N=split into N primitives (doubles or i64s)
+    bool externCoercionIsFloat = false;  // true=doubles (SSE/XMM), false=i64s (INTEGER)
+
+    // Inherit the constructor
+    using AsaVariableValue::AsaVariableValue;
 };
 
 // Struct defining a data type in Asa
 struct AsaBaseType {
-    std::string typeName = "";
+    const std::string typeName;
     Type* baseLLVMType = nullptr;
     bool isDefined = false;
 
@@ -350,6 +365,7 @@ AsaBaseType* CreateNewAsaType(std::string name, ASTNodeType astType, llvm::Type*
 AsaBaseType* CreateNewAsaType(std::string name, ASTNodeType astType, llvm::Type* baseLLVMType, bool isSigned);
 AsaBaseType* CreateNewAsaType(std::string name, ASTNodeType astType);
 AsaTypeInstance* CreateAsaTypeInstanceFromASTNode(ASTNode*& node);
+AsaTypeInstance* CreateAsaTypeInstanceFromString(std::string typeStr);
 AsaTypeInstance* CreateVoidAsaTypeInstance();
 
 ASTNode* ExtractTypeModifiersFromType(ASTNode* node, std::vector<ASTNodeType>& modifiers);
@@ -395,8 +411,8 @@ struct AsaTypeInstance {
           isRef(other->isRef),
           isConst(other->isConst) {};
 
-    AsaTypeInstance* dereference(ASTNode*& dereferenceNode);
-    AsaTypeInstance* getPointerTo(ASTNode*& addressOfNode);
+    AsaTypeInstance* dereference(ASTNode* dereferenceNode);
+    AsaTypeInstance* getPointerTo(ASTNode* addressOfNode);
 
     bool hasModifier(ASTNodeType modifierType)
     {

@@ -26,7 +26,7 @@ AsaBaseType* AsaBaseType::getUnsigned()
 //     x : *int = <...>;  // Has type `*int`
 //     *x;                // Has type `int`
 //     ```
-AsaTypeInstance* AsaTypeInstance::dereference(ASTNode*& dereferenceNode)
+AsaTypeInstance* AsaTypeInstance::dereference(ASTNode* dereferenceNode)
 {
     messageSystem::startBlock(dereferenceNode, "Dereferencing type", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
 
@@ -65,7 +65,7 @@ AsaTypeInstance* AsaTypeInstance::dereference(ASTNode*& dereferenceNode)
 //     x : *int = <...>;  // Has type `*int`
 //     &x;                // Has type `**int`
 //     ```
-AsaTypeInstance* AsaTypeInstance::getPointerTo(ASTNode*& addressOfNode)
+AsaTypeInstance* AsaTypeInstance::getPointerTo(ASTNode* addressOfNode)
 {
     messageSystem::startBlock(addressOfNode, "Getting pointer to type", __func__, __LINE__, __FILE__, messageSystem::Codegen_Block);
 
@@ -1256,6 +1256,7 @@ AsaBaseType* CreateNewAsaType(std::string name, ASTNodeType astType)
     return (asaBaseTypes[name] = std::move(asaType));
 }
 
+// Function to create a new AsaTypeInstance from an input AST type node
 AsaTypeInstance* CreateAsaTypeInstanceFromASTNode(ASTNode*& node)
 {
     AsaTypeInstance* asaTypeInstance = new AsaTypeInstance;
@@ -1282,6 +1283,54 @@ AsaTypeInstance* CreateAsaTypeInstanceFromASTNode(ASTNode*& node)
 
     return std::move(asaTypeInstance);
 }
+
+// Function to parse a type from a string and return a new AsaTypeInstance
+// !!! note:
+//     This function should primarily only be used for synthetic type creation, as in, not for getting the type from any real code, but just creating one internally
+AsaTypeInstance* CreateAsaTypeInstanceFromString(std::string typeStr)
+{
+    AsaTypeInstance* asaTypeInstance = new AsaTypeInstance;
+    ASTNode* localRoot = nullptr;
+
+    // Do the normal tokenizing and compilation process on the typeStr
+    {
+        std::vector<asaToken*> localTokens = std::vector<asaToken*>();
+        std::vector<std::string*> localLines;
+        std::vector<std::string*> localFileNames;
+
+        // Begin tokenizing file
+        std::string fileName = "";
+        int e = tokenize(typeStr, localTokens, fileName, localLines, localFileNames);
+        if (e != 0) {
+            console::printError("Invalid tokens met", __LINE__, __FILE__);
+            return nullptr;
+        }
+        // Now change any tokens to their subtoken type if applicable
+        e = labelSubTokens(localTokens);
+        if (e != 0) {
+            console::printError("Invalid tokens met", __LINE__, __FILE__);
+            return nullptr;
+        }
+        e = joinCommentTokens(localTokens);
+        if (e != 0) {
+            console::printError("Invalid tokens met", __LINE__, __FILE__);
+            return nullptr;
+        }
+
+        // Generate AST
+        localRoot = generateAST(localTokens);
+        // TODO: Create better error handling
+        if (wasError || !localRoot)
+            exit(1);
+    }
+
+    // Now, we can just use the returned ASTNode to attempt type extraction like normal
+
+    asaTypeInstance = CreateAsaTypeInstanceFromASTNode(localRoot);
+
+    return std::move(asaTypeInstance);
+}
+// Create an AsaTypeInstance representing a `void`, or empty type
 AsaTypeInstance* CreateVoidAsaTypeInstance()
 {
     AsaTypeInstance* asaTypeInstance = new AsaTypeInstance;

@@ -27,7 +27,22 @@ bar :: struct #copy(foo) {
 }
 
 // Or:
+bar :: struct #derivefrom(foo) {
+    b : int = 2;
+}
+
+// Or:
 @copyfrom(foo):
 bar :: struct{
+    b : int = 2;
+}
+
+// Or probably best like:
+bar :: struct : foo {
+    b : int = 2;
+}
+
+// Unless reversing the ordering makes more sense:
+bar : foo :: struct {
     b : int = 2;
 }

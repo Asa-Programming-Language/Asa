@@ -83,6 +83,23 @@ Tells the compiler that this object may be referenced from outside this binary.
 
 -----
 
+## `@tracked_caller`
+Applicable to functions, allows the function definition to access certain information about each call to that function. 
+For example, throwing an error in the function definition, which points to where the function is called instead:
+```asa
+@tracked_caller:
+foo :: (x : int){
+    if(x == 0)
+        throw_caller "x should not be zero!";
+}
+
+foo(5);  // is fine
+
+foo(0);  // <-- throws error, which points here rather than inside the function definition
+```
+
+-----
+
 ## `@scoped`
 TODO: This attribute may not be implemented if the module scoping stays as it is.
 
