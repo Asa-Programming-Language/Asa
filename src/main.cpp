@@ -323,7 +323,7 @@ int main(int argc, char** argv)
     rootNode->childNodes.insert(rootNode->childNodes.begin(),
         A(Compile_Time_Directive,
             {
-                A(Identifier_Node, {}, new asaToken("#import", Identifier)),
+                A(Identifier_Node, {}, new asaToken("import", Identifier)),
                 A(Scope_Body,
                     {A(Member_Access,
                         {
@@ -336,7 +336,7 @@ int main(int argc, char** argv)
     rootNode->childNodes.insert(rootNode->childNodes.begin(),
         A(Compile_Time_Directive,
             {
-                A(Identifier_Node, {}, new asaToken("#import", Identifier)),
+                A(Identifier_Node, {}, new asaToken("import", Identifier)),
                 A(Scope_Body,
                     {A(Member_Access,
                         {
@@ -349,7 +349,7 @@ int main(int argc, char** argv)
     rootNode->childNodes.insert(rootNode->childNodes.begin(),
         A(Compile_Time_Directive,
             {
-                A(Identifier_Node, {}, new asaToken("#import", Identifier)),
+                A(Identifier_Node, {}, new asaToken("import", Identifier)),
                 A(Scope_Body,
                     {A(Member_Access,
                         {

@@ -538,7 +538,7 @@ struct AsaTypeInstance {
 
 // Compare two AsaBaseTypes for equivalency. If one or both of them were inferred from an LLVM type,
 // then one or both of them may be signed, and in that case signs should be ignored
-bool baseTypesEqual(AsaBaseType*& l, AsaBaseType*& r, bool inferredType = false)
+inline bool baseTypesEqual(AsaBaseType*& l, AsaBaseType*& r, bool inferredType = false)
 {
     // AsaBaseTypes are unique, so we can just compare their pointers directly, rather than their values:
 
@@ -554,7 +554,7 @@ bool baseTypesEqual(AsaBaseType*& l, AsaBaseType*& r, bool inferredType = false)
 
 // Comparision operator to compare if two type instances have an exactly equivalent value
 // Handles the case where one or both are inferred
-bool operator==(AsaTypeInstance& l, AsaTypeInstance& r)
+inline bool operator==(AsaTypeInstance& l, AsaTypeInstance& r)
 {
     // TODO: Update this to only compare the components of the struct that matter
 
@@ -647,6 +647,7 @@ struct ASTNode {
     void* generateCallExpression(int pass = 0);
     void* generateIncDecrement(int pass = 0);
     void* generateNothing(int pass = 0);
+    void* generateNoOp(int pass = 0);
     void* generateCompilerFlagDirective(int pass = 0);
     void* generateCompilerGetFlagDirective(int pass = 0);
     void* generateCompilerStackPushDirective(int pass = 0);

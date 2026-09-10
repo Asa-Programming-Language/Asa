@@ -1263,6 +1263,7 @@ AsaTypeInstance* CreateAsaTypeInstanceFromASTNode(ASTNode*& node)
 
     node = ExtractTypeModifiersFromType(node, asaTypeInstance->typeModifiers);
     std::string typeName = node->token->tokenStr;
+    asaTypeInstance->strVal = typeName;
 
     // If the base type already exists, use it:
     if (asaBaseTypes.count(typeName) > 0) {
@@ -1274,6 +1275,7 @@ AsaTypeInstance* CreateAsaTypeInstanceFromASTNode(ASTNode*& node)
     }
 
     // Then, calculate the llvmType by applying the modifiers to the base type:
+    asaTypeInstance->llvmType = asaTypeInstance->baseType->baseLLVMType;
     for (const auto& mod : asaTypeInstance->typeModifiers) {
         if (mod == Pointer_Node) {
             asaTypeInstance->llvmType = PointerType::get(*llvmCompileContext, 0);
@@ -1326,7 +1328,11 @@ AsaTypeInstance* CreateAsaTypeInstanceFromString(std::string typeStr)
 
     // Now, we can just use the returned ASTNode to attempt type extraction like normal
 
-    asaTypeInstance = CreateAsaTypeInstanceFromASTNode(localRoot);
+    // The generated AST has a synthetic `global` root node; the actual type is its first child.
+    if (localRoot->childNodes.empty())
+        return nullptr;
+    ASTNode* typeNode = localRoot->childNodes[0];
+    asaTypeInstance = CreateAsaTypeInstanceFromASTNode(typeNode);
 
     return std::move(asaTypeInstance);
 }
@@ -2474,7 +2480,7 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
                     else if (identifier->token->tokenStr == "make_directive" ||
                              identifier->token->tokenStr == "return" ||
                              identifier->token->tokenStr == "context")
-                        node->codegen = &ASTNode::generateNothing;
+                        node->codegen = &ASTNode::generateNoOp;
                     goto addNodeAsLeaf;
                 }
 
@@ -2528,6 +2534,9 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
 
                 bodyNode = makeScopeBodyNode(subTokens, depth);
 
+                if (identifier->token->tokenStr == "import" || identifier->token->tokenStr == "import_qualified") {
+                    node->codegen = &ASTNode::generateNoOp;
+                }
                 if (identifier->token->tokenStr == "cast") {
                     node->codegen = &ASTNode::generateCast;
                 }
@@ -2537,7 +2546,7 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
                 if (identifier->token->tokenStr == "extern") {
                     setChildrenAsExtern(bodyNode);
                     node->isExtern = true;
-                    identifier->codegen = &ASTNode::generateNothing;
+                    identifier->codegen = &ASTNode::generateNoOp;
                     node->codegen = &ASTNode::generateScopeBody;
                     // Propagate the C symbol name to function declaration nodes
                     if (!externSymbolOverride.empty()) {
@@ -2570,7 +2579,7 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
                     bodyNode->leafNodes.clear();
                 }
                 if (identifier->token->tokenStr == "make_directive" || identifier->token->tokenStr == "return") {
-                    node->codegen = &ASTNode::generateNothing;
+                    node->codegen = &ASTNode::generateNoOp;
                     for (auto& l : bodyNode->leafNodes)
                         bodyNode->childNodes.push_back(l);
                     bodyNode->leafNodes.clear();
@@ -2781,7 +2790,7 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
 
                         node->token = identifier->token;
                         node->nodeType = Compiler_Define;
-                        node->codegen = &ASTNode::generateNothing;
+                        node->codegen = &ASTNode::generateNoOp;
                         node->childNodes.push_back(bodyNode);
                         if (!qualifiedNameMarker)
                             parentNode->compilerDefinitions[identifier->token->tokenStr] = bodyNode;
@@ -2881,7 +2890,7 @@ ASTNode* generateAST(const std::vector<asaToken*>& tokens, int depth, ASTNode* p
                                 // General block macro: register in the enclosing scope
                                 if (!qualifiedNameMarker)
                                     parentNode->compilerDefinitions[identifier->token->tokenStr] = bodyNode;
-                                node->codegen = &ASTNode::generateNothing;
+                                node->codegen = &ASTNode::generateNoOp;
                             }
                         }
                     }

@@ -711,7 +711,7 @@ static bool processCustomMessageDirective(ASTNode* directiveNode, CompilerDirect
 static void makeDirectiveNodeEmpty(ASTNode*& node)
 {
     node->nodeType = Nothing_Node;
-    node->codegen = &ASTNode::generateNothing;
+    node->codegen = &ASTNode::generateNoOp;
     node->childNodes.clear();
     node->leafNodes.clear();
 }
