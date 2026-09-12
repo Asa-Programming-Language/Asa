@@ -1,7 +1,7 @@
 
 #import Rendering.Raylib;
 
-#recommend_options("-Ofast");
+//#recommend_options("-Ofast");
 
 @version(1):
 gameObject :: struct{

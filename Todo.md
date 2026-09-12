@@ -3,6 +3,8 @@
 
 - [ ] ***`Rebuild the type system from the ground up`***
 
+- [ ] Make all compiler directives have fallback codegen
+
 - [ ] Implement `#defined()` compiler directive
 
 - [ ] Add `breakif` and `continueif` statements
